@@ -62,6 +62,8 @@ class CameraState(BaseModel):
     source: str = 'demo'
     latest_frame_label: str = 'No frame'
     latest_frame_url: str | None = None
+    frame_width: int = 1280
+    frame_height: int = 720
     april_tag_detections: list[AprilTagDetection] = Field(default_factory=list)
     canvas_border: CanvasBorder = Field(default_factory=CanvasBorder)
 

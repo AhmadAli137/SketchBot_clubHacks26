@@ -114,6 +114,19 @@ class AprilTagService:
         if state.camera.april_tag_detections:
             return
 
+    def _order_canvas_corners(self, corners: list[Point2D]) -> list[Point2D]:
+        pts = np.array([[corner.x, corner.y] for corner in corners], dtype=np.float32)
+        sums = pts.sum(axis=1)
+        diffs = pts[:, 0] - pts[:, 1]
+
+        top_left = pts[np.argmin(sums)]
+        bottom_right = pts[np.argmax(sums)]
+        top_right = pts[np.argmax(diffs)]
+        bottom_left = pts[np.argmin(diffs)]
+
+        ordered = [top_left, top_right, bottom_right, bottom_left]
+        return [Point2D(x=float(x), y=float(y)) for x, y in ordered]
+
     def _convert_detections(self, corners, ids, width: int, height: int) -> list[AprilTagDetection]:
         if ids is None or len(ids) == 0:
             return []
@@ -143,12 +156,22 @@ class AprilTagService:
         if any(tag_id not in by_id for tag_id in required):
             return CanvasBorder(detected=False)
 
-        border_corners = [
-            by_id[0].center,
-            by_id[1].center,
-            by_id[2].center,
-            by_id[3].center,
-        ]
+        # OpenCV ArUco corner order is top-left, top-right, bottom-right, bottom-left
+        # in the marker's own upright orientation. Using tag centers shrinks/skews the
+        # inferred canvas. We want the OUTER canvas corners from the corresponding tag corners.
+        tag0 = by_id[0]
+        tag1 = by_id[1]
+        tag2 = by_id[2]
+        tag3 = by_id[3]
+        if min(len(tag0.corners), len(tag1.corners), len(tag2.corners), len(tag3.corners)) < 4:
+            return CanvasBorder(detected=False)
+
+        border_corners = self._order_canvas_corners([
+            tag0.corners[0],
+            tag1.corners[1],
+            tag3.corners[2],
+            tag2.corners[3],
+        ])
         return CanvasBorder(corners=border_corners, source_tag_ids=required, detected=True)
 
 

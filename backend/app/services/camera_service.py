@@ -25,12 +25,16 @@ class CameraService:
         self._latest_frame: bytes | None = None
         self._frame_seq = 0
 
-    def _refresh_state(self, online: bool, source: str, label: str, frame_url: str | None) -> None:
+    def _refresh_state(self, online: bool, source: str, label: str, frame_url: str | None, frame_width: int | None = None, frame_height: int | None = None) -> None:
         state = state_manager.state
         state.camera.online = online
         state.camera.source = source
         state.camera.latest_frame_label = label
         state.camera.latest_frame_url = frame_url
+        if frame_width is not None:
+            state.camera.frame_width = frame_width
+        if frame_height is not None:
+            state.camera.frame_height = frame_height
         state.operator.connection_mode = 'live' if online else state.operator.connection_mode
         state.operator.mock_mode = False if online else state.operator.mock_mode
         state_manager._normalize_state()
@@ -65,7 +69,17 @@ class CameraService:
         except Exception:
             pass
 
-        self._refresh_state(True, 'pi-camera', f'Live frame {time.strftime("%H:%M:%S")}', '/api/camera/stream')
+        width = height = None
+        try:
+            import numpy as np
+            import cv2
+            frame = cv2.imdecode(np.frombuffer(payload, dtype=np.uint8), cv2.IMREAD_COLOR)
+            if frame is not None:
+                height, width = frame.shape[:2]
+        except Exception:
+            pass
+
+        self._refresh_state(True, 'pi-camera', f'Live frame {time.strftime("%H:%M:%S")}', '/api/camera/stream', width, height)
         apriltag_service.update_from_frame(payload)
 
     def _clear_frame(self, label: str = 'Camera capture failed') -> None:
@@ -214,7 +228,7 @@ class CameraService:
                 yield b'--frame\r\nContent-Type: image/jpeg\r\nCache-Control: no-cache\r\n\r\n' + payload + b'\r\n'
 
     def set_demo_frame(self, label: str) -> None:
-        self._refresh_state(True, 'demo', label, '/api/camera/frame')
+        self._refresh_state(True, 'demo', label, '/api/camera/frame', 1280, 720)
         apriltag_service.update_mock_detections()
 
 

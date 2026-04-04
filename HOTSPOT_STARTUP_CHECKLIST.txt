@@ -1,0 +1,122 @@
+SketchBot hotspot startup checklist
+=================================
+
+1. Confirm host IP
+------------------
+Run:
+hostname -I
+
+Current IP:
+10.114.142.131
+
+Use that unless it changes.
+
+
+2. Start backend
+----------------
+Terminal 1:
+cd /home/ahmad/projects/sketchbot/backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+Backend test:
+http://10.114.142.131:8000/
+
+
+3. Start frontend
+-----------------
+Terminal 2:
+cd /home/ahmad/projects/sketchbot/webapp
+cat > .env.local <<'EOF'
+NEXT_PUBLIC_BACKEND_HOST=10.114.142.131:8000
+NEXT_PUBLIC_BACKEND_URL=http://10.114.142.131:8000
+NEXT_PUBLIC_BACKEND_WS=ws://10.114.142.131:8000/ws/state
+EOF
+npm install
+npm run dev -- --hostname 0.0.0.0 --port 3000
+
+Frontend live link:
+http://10.114.142.131:3000
+
+
+4. Set ESP32 firmware config
+----------------------------
+Edit:
+/home/ahmad/projects/sketchbot/firmware/include/secrets.h
+
+Use:
+#pragma once
+
+#define WIFI_SSID "YOUR_HOTSPOT_NAME"
+#define WIFI_PASS "YOUR_HOTSPOT_PASSWORD"
+#define WS_URL "ws://10.114.142.131:8000/ws/robot"
+#define AUTH_TOKEN ""
+
+
+5. Build firmware
+-----------------
+Terminal 3:
+cd /home/ahmad/projects/sketchbot/firmware
+source ~/.espressif/v6.0/esp-idf/export.sh
+idf.py build
+
+
+6. Flash firmware
+-----------------
+If your board is on /dev/ttyACM0:
+idf.py -p /dev/ttyACM0 flash monitor
+
+If not, check port first:
+ls /dev/ttyACM* /dev/ttyUSB*
+
+
+7. What should connect to what
+------------------------------
+Frontend:
+http://10.114.142.131:3000
+
+Backend API:
+http://10.114.142.131:8000
+
+Frontend WS:
+ws://10.114.142.131:8000/ws/state
+
+ESP32 robot WS:
+ws://10.114.142.131:8000/ws/robot
+
+
+8. Expected first result
+------------------------
+After backend + frontend are running:
+- dashboard loads at http://10.114.142.131:3000
+- backend should show as reachable
+
+After ESP32 connects:
+- robot should stop showing disconnected
+- backend should receive hello
+- heartbeat/telemetry should start flowing
+
+
+9. If hotspot IP changes
+------------------------
+Repeat:
+hostname -I
+
+Then update:
+- webapp/.env.local
+- firmware/include/secrets.h
+
+And restart:
+- frontend
+- firmware build/flash if needed
+
+
+Important links
+---------------
+Live UI:
+http://10.114.142.131:3000
+
+Backend root:
+http://10.114.142.131:8000/

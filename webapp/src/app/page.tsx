@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { mockState } from '@/lib/mock-state';
@@ -7,9 +8,15 @@ import type { AppState, TaskRecord } from '@/lib/types';
 
 const browserHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
 const browserProtocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
+
+function svgToDataUrl(svg: string | null | undefined) {
+  if (!svg) return null;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
 const wsProtocol = browserProtocol === 'https:' ? 'wss:' : 'ws:';
 const isLocalBrowserHost = browserHost === 'localhost' || browserHost === '127.0.0.1';
-const backendHost = process.env.NEXT_PUBLIC_BACKEND_HOST ?? (isLocalBrowserHost ? `${browserHost}:8000` : browserHost);
+const NGROK_BACKEND_HOST = 'f0eb-2605-b100-349-ca99-f680-a190-6b8f-c510.ngrok-free.app';
+const backendHost = process.env.NEXT_PUBLIC_BACKEND_HOST ?? (isLocalBrowserHost ? `${browserHost}:8000` : NGROK_BACKEND_HOST);
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? `${browserProtocol}//${backendHost}`;
 const WS_BASE = process.env.NEXT_PUBLIC_BACKEND_WS ?? `${wsProtocol}//${backendHost}/ws/state`;
 
@@ -141,6 +148,18 @@ export default function HomePage() {
     }
   };
 
+  const refreshState = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/state`, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Failed to fetch state');
+      const nextState = (await response.json()) as AppState;
+      setState(nextState);
+      setBackendReachable(true);
+    } catch {
+      setBackendReachable(false);
+    }
+  };
+
   const submitPrompt = async (event: FormEvent) => {
     event.preventDefault();
     setComposing(true);
@@ -150,7 +169,7 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       });
-      await refreshTasks();
+      await Promise.all([refreshTasks(), refreshState()]);
       setPrompt('');
       setActiveTab('dashboard');
     } finally {
@@ -169,7 +188,7 @@ export default function HomePage() {
         method: 'POST',
         body: formData,
       });
-      await refreshTasks();
+      await Promise.all([refreshTasks(), refreshState()]);
       setActiveTab('dashboard');
     } finally {
       setUploading(false);
@@ -184,6 +203,7 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: task.prompt }),
       });
+      await Promise.all([refreshTasks(), refreshState()]);
       setActiveTab('dashboard');
       return;
     }
@@ -220,6 +240,8 @@ export default function HomePage() {
   const aprilTagDetections = camera.april_tag_detections ?? [];
   const canvasBorder = camera.canvas_border ?? { corners: [], source_tag_ids: [], detected: false };
   const robotTag = aprilTagDetections.find((tag) => tag.tag_id === 4) ?? null;
+  const activeTaskRecord = tasks.find((task) => task.id === activeJob.id) ?? null;
+  const activePreviewUrl = overlay.image_data_url ?? svgToDataUrl(activeTaskRecord?.svg_content ?? null);
 
   const topStatus = useMemo(() => {
     return [
@@ -396,6 +418,31 @@ export default function HomePage() {
             </div>
 
             <div className="panel">
+              <h3>Current Overlay Preview</h3>
+              {activePreviewUrl ? (
+                <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(120,140,255,0.16)', background: 'white' }}>
+                  <Image
+                    src={activePreviewUrl}
+                    alt={overlay.source_name ?? activeJob.name ?? 'Overlay preview'}
+                    width={512}
+                    height={512}
+                    unoptimized
+                    style={{ width: '100%', height: 'auto', display: 'block' }}
+                  />
+                </div>
+              ) : (
+                <div className="compact-list">
+                  <li>No generated/uploaded overlay asset loaded yet.</li>
+                </div>
+              )}
+              <ul className="compact-list" style={{ marginTop: 12 }}>
+                <li>Source: {overlay.source_name ?? 'none'}</li>
+                <li>Kind: {overlay.source_kind ?? 'none'}</li>
+                <li>Status: {activeJob.status}</li>
+              </ul>
+            </div>
+
+            <div className="panel">
               <h3>Recent Activity</h3>
               <ul className="compact-list">
                 {recentEvents.slice(0, 5).map((event, index) => (
@@ -432,14 +479,29 @@ export default function HomePage() {
             <div className="panel">
               <h3>Saved items</h3>
               <ul className="compact-list">
-                {tasks.length === 0 ? <li>No saved items yet.</li> : tasks.slice(0, 8).map((task) => (
-                  <li key={task.id} style={{ display: 'grid', gap: 6 }}>
-                    <strong>{task.name}</strong>
-                    <span>{task.source_type}</span>
-                    {task.prompt ? <span>{task.prompt}</span> : null}
-                    <button className="tab" onClick={() => loadTask(task)}>Load into dashboard</button>
-                  </li>
-                ))}
+                {tasks.length === 0 ? <li>No saved items yet.</li> : tasks.slice(0, 8).map((task) => {
+                  const previewUrl = task.image_data_url ?? svgToDataUrl(task.svg_content ?? null);
+                  return (
+                    <li key={task.id} style={{ display: 'grid', gap: 8 }}>
+                      {previewUrl ? (
+                        <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(120,140,255,0.16)', background: 'white', maxWidth: 180 }}>
+                          <Image
+                            src={previewUrl}
+                            alt={task.name}
+                            width={256}
+                            height={256}
+                            unoptimized
+                            style={{ width: '100%', height: 'auto', display: 'block' }}
+                          />
+                        </div>
+                      ) : null}
+                      <strong>{task.name}</strong>
+                      <span>{task.source_type}</span>
+                      {task.prompt ? <span>{task.prompt}</span> : null}
+                      <button className="tab" onClick={() => loadTask(task)}>Load into dashboard</button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </aside>

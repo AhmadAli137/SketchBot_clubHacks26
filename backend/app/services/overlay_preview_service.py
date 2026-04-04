@@ -56,57 +56,20 @@ class OverlayPreviewService:
         return None
 
     def _warp_to_canvas(self, source_rgba: np.ndarray, corners) -> bytes | None:
-        frame_w = 1280
-        frame_h = 720
+        frame_w = max(1, state_manager.state.camera.frame_width)
+        frame_h = max(1, state_manager.state.camera.frame_height)
         src_h, src_w = source_rgba.shape[:2]
 
-        top_w = math.dist((corners[0].x, corners[0].y), (corners[1].x, corners[1].y))
-        bottom_w = math.dist((corners[3].x, corners[3].y), (corners[2].x, corners[2].y))
-        left_h = math.dist((corners[0].x, corners[0].y), (corners[3].x, corners[3].y))
-        right_h = math.dist((corners[1].x, corners[1].y), (corners[2].x, corners[2].y))
-
-        quad_w = max(1e-6, (top_w + bottom_w) / 2.0)
-        quad_h = max(1e-6, (left_h + right_h) / 2.0)
-        quad_aspect = quad_w / quad_h
-        src_aspect = src_w / max(1, src_h)
-
-        if src_aspect > quad_aspect:
-            fit_w = 1.0
-            fit_h = quad_aspect / src_aspect
-        else:
-            fit_h = 1.0
-            fit_w = src_aspect / quad_aspect
-
-        inset_x = (1.0 - fit_w) / 2.0
-        inset_y = (1.0 - fit_h) / 2.0
-
         dst_quad = np.array([[corner.x * frame_w, corner.y * frame_h] for corner in corners], dtype=np.float32)
+        # Map the full source image directly to the full detected page quad.
         src_rect = np.array([[0, 0], [src_w - 1, 0], [src_w - 1, src_h - 1], [0, src_h - 1]], dtype=np.float32)
-
-        norm_fit = np.array([
-            [inset_x, inset_y],
-            [inset_x + fit_w, inset_y],
-            [inset_x + fit_w, inset_y + fit_h],
-            [inset_x, inset_y + fit_h],
-        ], dtype=np.float32)
-
-        fit_quad = self._map_normalized_quad_to_quad(norm_fit, dst_quad)
-        matrix = cv2.getPerspectiveTransform(src_rect, fit_quad)
+        matrix = cv2.getPerspectiveTransform(src_rect, dst_quad)
         warped = cv2.warpPerspective(source_rgba, matrix, (frame_w, frame_h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_TRANSPARENT)
         success, encoded = cv2.imencode('.png', warped)
         if not success:
             return None
         return encoded.tobytes()
 
-    def _map_normalized_quad_to_quad(self, norm_quad: np.ndarray, dst_quad: np.ndarray) -> np.ndarray:
-        top_left, top_right, bottom_right, bottom_left = dst_quad
-        result = []
-        for u, v in norm_quad:
-            top = top_left + (top_right - top_left) * u
-            bottom = bottom_left + (bottom_right - bottom_left) * u
-            point = top + (bottom - top) * v
-            result.append(point)
-        return np.array(result, dtype=np.float32)
 
 
 overlay_preview_service = OverlayPreviewService()

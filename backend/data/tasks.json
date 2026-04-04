@@ -118,5 +118,145 @@
     "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"#fff\"/>\n  <g fill=\"none\" stroke=\"#000\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n    <path d=\"M140 220 L110 120 L200 180\"/>\n    <path d=\"M372 220 L402 120 L312 180\"/>\n    <path d=\"M150 210 Q256 120 362 210 Q372 320 256 380 Q140 320 150 210 Z\"/>\n    <path d=\"M210 240 Q225 225 240 240\"/>\n    <path d=\"M272 240 Q287 225 302 240\"/>\n    <path d=\"M256 255 L238 282 L274 282 Z\" fill=\"#000\"/>\n    <path d=\"M238 300 Q256 318 274 300\"/>\n    <path d=\"M180 280 L230 285\"/>\n    <path d=\"M175 305 L225 305\"/>\n    <path d=\"M282 285 L332 280\"/>\n    <path d=\"M287 305 L337 305\"/>\n  </g>\n</svg>",
     "image_data_url": null,
     "path_count": 10
+  },
+  {
+    "id": "e89ab98e-a7d3-4992-b450-feef025308e7",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "e43c88fa-0932-470c-ab57-2b082a2165d5",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "2a2f99f4-2212-4bfc-8005-bf35cb166585",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "810ce688-701e-4d33-8f60-c6d6cf1f57cb",
+    "name": "simple house outline",
+    "source_type": "prompt",
+    "prompt": "simple house outline",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE HOUSE OUTLINE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "74f4e8c4-1b31-4c25-882e-d862c33ff097",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "29fe0cf4-591f-444d-9f35-8bf739b96baf",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "115b0875-99d9-4636-abe8-957930d4bde0",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "1efb5d7c-e1ac-4317-81a9-fa57c5288e92",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "ed0d3c32-6629-4f29-b5f3-232202bd6c42",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "cef83137-b518-4fc7-b9cf-1d49e1d424e8",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "e673198b-2c20-4094-8ecc-313c691e25df",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE SMILEY FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "c61244ba-b180-4f30-a2fa-dcbe7fdc0404",
+    "name": "simple cat face",
+    "source_type": "prompt",
+    "prompt": "simple cat face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"white\"/>\n  <rect x=\"32\" y=\"32\" width=\"448\" height=\"448\" fill=\"none\" stroke=\"black\" stroke-width=\"16\"/>\n  <text x=\"256\" y=\"256\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"Arial, sans-serif\" font-size=\"54\" fill=\"black\">SIMPLE CAT FACE</text>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "aa654304-7208-4fe9-a8ea-9de9ef37bb75",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "18520913-06ba-4491-834f-ee24a1184b7e",
+    "name": "simple cat face",
+    "source_type": "prompt",
+    "prompt": "simple cat face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <path d=\"M50 80 L70 40 L95 70 Q100 75 105 70 L130 40 L150 80 Q150 130 100 150 Q50 130 50 80 Z\" fill=\"none\" stroke=\"black\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <circle cx=\"78\" cy=\"95\" r=\"5\" fill=\"black\"/>\n  <circle cx=\"122\" cy=\"95\" r=\"5\" fill=\"black\"/>\n  <path d=\"M100 108 L94 118 L106 118 Z\" fill=\"black\"/>\n  <path d=\"M100 118 Q92 126 84 124\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M100 118 Q108 126 116 124\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M92 116 L58 110 M92 120 L58 120 M92 124 L58 130\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M108 116 L142 110 M108 120 L142 120 M108 124 L142 130\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
   }
 ]

@@ -93,11 +93,17 @@ void NetworkHal::websocketEventHandler(void *handler_args, esp_event_base_t base
         ESP_LOGI(TAG, "WebSocket connected");
         if (self) {
             self->websocketJustConnected_ = true;
+            if (self->robot_) {
+                self->robot_->setStatusConnected(true);
+            }
         }
     } else if (event_id == WEBSOCKET_EVENT_DISCONNECTED) {
         ESP_LOGW(TAG, "WebSocket disconnected");
+        if (self && self->robot_) {
+            self->robot_->setStatusConnected(false);
+        }
     } else if (event_id == WEBSOCKET_EVENT_DATA) {
-        ESP_LOGI(TAG, "WebSocket data len=%d", data->data_len);
+        ESP_LOGI(TAG, "WebSocket data len=%d payload=%.*s", data->data_len, data->data_len, data->data_ptr ? data->data_ptr : "");
         if (self && self->protocol_ && self->robot_ && data && data->data_ptr && data->data_len > 0) {
             self->protocol_->handleInbound(data->data_ptr, data->data_len, self->wsClient_, *self->robot_);
         }

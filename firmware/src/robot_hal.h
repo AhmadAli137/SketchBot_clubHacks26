@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "led_strip.h"
+
 struct RobotTelemetry {
     float x_mm = 0.0f;
     float y_mm = 0.0f;
@@ -20,4 +22,11 @@ public:
     bool penDown();
     bool stop();
     RobotTelemetry telemetry() const;
+    void setStatusConnected(bool connected);
+
+private:
+    void setStatusLed(bool red, bool green, bool blue) const;
+    bool connected_ = false;
+    bool initialized_ = false;
+    led_strip_handle_t statusLed_ = nullptr;
 };
