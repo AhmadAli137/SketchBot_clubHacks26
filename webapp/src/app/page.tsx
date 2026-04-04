@@ -6,9 +6,12 @@ import { mockState } from '@/lib/mock-state';
 import type { AppState, TaskRecord } from '@/lib/types';
 
 const browserHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const backendHost = process.env.NEXT_PUBLIC_BACKEND_HOST ?? `${browserHost}:8000`;
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? `http://${backendHost}`;
-const WS_BASE = process.env.NEXT_PUBLIC_BACKEND_WS ?? `ws://${backendHost}/ws/state`;
+const browserProtocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
+const wsProtocol = browserProtocol === 'https:' ? 'wss:' : 'ws:';
+const isLocalBrowserHost = browserHost === 'localhost' || browserHost === '127.0.0.1';
+const backendHost = process.env.NEXT_PUBLIC_BACKEND_HOST ?? (isLocalBrowserHost ? `${browserHost}:8000` : browserHost);
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? `${browserProtocol}//${backendHost}`;
+const WS_BASE = process.env.NEXT_PUBLIC_BACKEND_WS ?? `${wsProtocol}//${backendHost}/ws/state`;
 
 export default function HomePage() {
   const [state, setState] = useState<AppState>(mockState);
@@ -186,12 +189,36 @@ export default function HomePage() {
     }
   };
 
-  const taskReady = state.active_job.status === 'draft' || state.active_job.status === 'planned' || state.active_job.status === 'ready';
+  const activeJob = state.active_job ?? { id: null, name: null, status: 'idle', source_type: null, path_count: 0, prompt: null };
+  const camera = state.camera ?? {
+    online: false,
+    source: 'unavailable',
+    latest_frame_label: 'No camera frame',
+    latest_frame_url: null,
+    april_tag_detections: [],
+    canvas_border: { corners: [], source_tag_ids: [], detected: false },
+  };
+  const canvas = state.canvas ?? { detected: false, width_mm: 297, height_mm: 210, tag_ids: [0, 1, 2, 3], confidence: 0 };
+  const overlay = state.overlay ?? {
+    enabled: true,
+    show_tags: true,
+    show_path: true,
+    show_robot: true,
+    path_label: 'No task loaded',
+    svg_path: null,
+    image_data_url: null,
+    source_name: null,
+    source_kind: null,
+  };
+  const robotPose = state.robot_pose ?? { x_mm: 0, y_mm: 0, heading_deg: 0, pen_down: false };
+  const operator = state.operator ?? { status_text: 'Connecting to backend', last_action: 'Waiting for operator', mock_mode: false, connection_mode: 'live' };
+  const recentEvents = state.recent_events ?? [];
+  const taskReady = activeJob.status === 'draft' || activeJob.status === 'planned' || activeJob.status === 'ready';
   const cameraFrameUrl = `${API_BASE}/api/camera/stream`;
-  const robotLeft = `${Math.max(10, Math.min(90, (state.robot_pose.x_mm / Math.max(state.canvas.width_mm || 1, 1)) * 100))}%`;
-  const robotTop = `${Math.max(10, Math.min(90, (state.robot_pose.y_mm / Math.max(state.canvas.height_mm || 1, 1)) * 100))}%`;
-  const aprilTagDetections = state.camera?.april_tag_detections ?? [];
-  const canvasBorder = state.camera?.canvas_border ?? { corners: [], source_tag_ids: [], detected: false };
+  const robotLeft = `${Math.max(10, Math.min(90, (robotPose.x_mm / Math.max(canvas.width_mm || 1, 1)) * 100))}%`;
+  const robotTop = `${Math.max(10, Math.min(90, (robotPose.y_mm / Math.max(canvas.height_mm || 1, 1)) * 100))}%`;
+  const aprilTagDetections = camera.april_tag_detections ?? [];
+  const canvasBorder = camera.canvas_border ?? { corners: [], source_tag_ids: [], detected: false };
   const robotTag = aprilTagDetections.find((tag) => tag.tag_id === 4) ?? null;
 
   const topStatus = useMemo(() => {
@@ -200,7 +227,7 @@ export default function HomePage() {
       { label: 'Camera', value: state.camera.online ? 'Live' : 'Offline' },
       { label: 'Robot', value: state.robot_connected ? state.robot_status : 'Disconnected' },
     ];
-  }, [backendReachable, state.camera.online, state.robot_connected, state.robot_status]);
+  }, [backendReachable, camera.online, state.robot_connected, state.robot_status]);
 
   return (
     <main className="app-shell">
@@ -214,7 +241,7 @@ export default function HomePage() {
           {topStatus.map((item) => (
             <span key={item.label} className="status-pill">{item.label}: {item.value}</span>
           ))}
-          <span className="mode-pill">{state.operator.mock_mode ? 'Mock' : 'Live'}</span>
+          <span className="mode-pill">{operator.mock_mode ? 'Mock' : 'Live'}</span>
         </div>
       </div>
 
@@ -233,9 +260,9 @@ export default function HomePage() {
                   <div className="panel-title" style={{ fontSize: '1.2rem' }}>Robot workspace</div>
                 </div>
                 <div className="status-pills">
-                  <span className="section-badge">Source: {state.camera.source}</span>
-                  <span className="section-badge">{state.camera.latest_frame_label}</span>
-                  {robotTag ? <span className="section-badge">Heading: {state.robot_pose.heading_deg.toFixed(1)}°</span> : null}
+                  <span className="section-badge">Source: {camera.source}</span>
+                  <span className="section-badge">{camera.latest_frame_label}</span>
+                  {robotTag ? <span className="section-badge">Heading: {robotPose.heading_deg.toFixed(1)}°</span> : null}
                 </div>
               </div>
 
@@ -253,7 +280,7 @@ export default function HomePage() {
                     ) : cameraFrameUrl && !webrtcFailed ? (
                       <img
                         src={cameraFrameUrl}
-                        alt={state.camera?.latest_frame_label ?? 'Camera stream'}
+                        alt={camera.latest_frame_label ?? 'Camera stream'}
                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#050b16' }}
                       />
                     ) : (
@@ -262,10 +289,10 @@ export default function HomePage() {
                       </div>
                     )}
 
-                    {canvasBorder.detected && (state.overlay?.svg_path || state.overlay?.image_data_url) ? (
+                    {canvasBorder.detected && (overlay.svg_path || overlay.image_data_url) ? (
                       <img
                         src={`${API_BASE}/api/camera/overlay-preview`}
-                        alt={state.overlay.source_name ?? 'Overlay asset'}
+                        alt={overlay.source_name ?? 'Overlay asset'}
                         style={{
                           position: 'absolute',
                           inset: 0,
@@ -295,7 +322,7 @@ export default function HomePage() {
                             <>
                               <div style={{ position: 'absolute', left, top, width: 12, height: 12, borderRadius: '999px', background: '#ff3b30', boxShadow: '0 0 18px rgba(255,59,48,0.85)', transform: 'translate(-50%, -50%)' }} />
                               <div style={{ position: 'absolute', left: `calc(${left} + 12px)`, top: `calc(${top} - 22px)`, color: '#ffd2d0', fontSize: 12, fontWeight: 700, textShadow: '0 0 12px rgba(0,0,0,0.75)' }}>
-                                {state.robot_pose.heading_deg.toFixed(1)}°
+                                {robotPose.heading_deg.toFixed(1)}°
                               </div>
                             </>
                           ) : null}
@@ -313,7 +340,7 @@ export default function HomePage() {
                             strokeWidth="0.7"
                           />
                         ) : null}
-                        {taskReady && !state.overlay?.svg_path && !state.overlay?.image_data_url ? (
+                        {taskReady && !overlay.svg_path && !overlay.image_data_url ? (
                           <>
                             <polyline fill="none" stroke="rgba(255,79,216,0.65)" strokeWidth="0.55" strokeDasharray="2 2" points="14,30 20,30 20,18 31,18 31,44 44,44 44,22 56,22" />
                             <polyline fill="none" stroke="rgba(93,228,255,0.95)" strokeWidth="0.9" points="18,25 28,25 28,40 40,40 40,28 52,28 52,45 64,45 64,32 78,32" />
@@ -324,7 +351,7 @@ export default function HomePage() {
 
                     {taskReady ? (
                       <div className="robot-dot" style={{ left: robotLeft, top: robotTop }}>
-                        <div className="robot-heading" style={{ transform: `translate(-50%, -92%) rotate(${state.robot_pose.heading_deg}deg)` }} />
+                        <div className="robot-heading" style={{ transform: `translate(-50%, -92%) rotate(${robotPose.heading_deg}deg)` }} />
                         <div className="pen-dot" />
                       </div>
                     ) : null}
@@ -337,19 +364,19 @@ export default function HomePage() {
               <div className="panel">
                 <h3>Active Task</h3>
                 <ul className="compact-list">
-                  <li>Name: {state.active_job.name ?? 'No active task'}</li>
-                  <li>State: {state.active_job.status}</li>
-                  <li>Source: {state.active_job.source_type ?? '—'}</li>
-                  <li>Paths: {state.active_job.path_count}</li>
-                  <li>Overlay: {state.overlay?.source_name ?? 'None'}</li>
+                  <li>Name: {activeJob.name ?? 'No active task'}</li>
+                  <li>State: {activeJob.status}</li>
+                  <li>Source: {activeJob.source_type ?? '—'}</li>
+                  <li>Paths: {activeJob.path_count}</li>
+                  <li>Overlay: {overlay.source_name ?? 'None'}</li>
                 </ul>
               </div>
               <div className="panel">
                 <h3>Robot Status</h3>
                 <ul className="compact-list">
-                  <li>Heading: {state.robot_pose.heading_deg.toFixed(1)}°</li>
-                  <li>Position: {state.robot_pose.x_mm.toFixed(1)}, {state.robot_pose.y_mm.toFixed(1)} mm</li>
-                  <li>Pen: {state.robot_pose.pen_down ? 'down' : 'up'}</li>
+                  <li>Heading: {robotPose.heading_deg.toFixed(1)}°</li>
+                  <li>Position: {robotPose.x_mm.toFixed(1)}, {robotPose.y_mm.toFixed(1)} mm</li>
+                  <li>Pen: {robotPose.pen_down ? 'down' : 'up'}</li>
                   <li>Robot: {state.robot_connected ? state.robot_status : 'disconnected'}</li>
                 </ul>
               </div>
@@ -361,17 +388,17 @@ export default function HomePage() {
               <h3>Live View</h3>
               <ul className="compact-list">
                 <li>Backend: {backendReachable ? 'reachable' : 'unreachable'}</li>
-                <li>Camera: {state.camera.source} · {state.camera.latest_frame_label}</li>
-                <li>Canvas detected: {state.canvas.detected ? 'yes' : 'no'}</li>
+                <li>Camera: {camera.source} · {camera.latest_frame_label}</li>
+                <li>Canvas detected: {canvas.detected ? 'yes' : 'no'}</li>
                 <li>Localization: {Math.round(state.localization_confidence * 100)}%</li>
-                <li>Mode: {state.operator.mock_mode ? 'mock' : 'live'}</li>
+                <li>Mode: {operator.mock_mode ? 'mock' : 'live'}</li>
               </ul>
             </div>
 
             <div className="panel">
               <h3>Recent Activity</h3>
               <ul className="compact-list">
-                {state.recent_events.slice(0, 5).map((event, index) => (
+                {recentEvents.slice(0, 5).map((event, index) => (
                   <li key={`${index}-${event}`}>{event}</li>
                 ))}
               </ul>
