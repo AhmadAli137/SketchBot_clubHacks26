@@ -1,0 +1,40 @@
+{
+  "family": "tag36h11",
+  "version": 1,
+  "tags": [
+    {
+      "id": 0,
+      "name": "canvas_top_left",
+      "role": "canvas_corner",
+      "cornerIndex": 0,
+      "physicalSizeMm": 80
+    },
+    {
+      "id": 1,
+      "name": "canvas_top_right",
+      "role": "canvas_corner",
+      "cornerIndex": 1,
+      "physicalSizeMm": 80
+    },
+    {
+      "id": 2,
+      "name": "canvas_bottom_right",
+      "role": "canvas_corner",
+      "cornerIndex": 2,
+      "physicalSizeMm": 80
+    },
+    {
+      "id": 3,
+      "name": "canvas_bottom_left",
+      "role": "canvas_corner",
+      "cornerIndex": 3,
+      "physicalSizeMm": 80
+    },
+    {
+      "id": 4,
+      "name": "robot_body",
+      "role": "robot_marker",
+      "physicalSizeMm": 80
+    }
+  ]
+}

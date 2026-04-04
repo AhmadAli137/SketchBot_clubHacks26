@@ -1,0 +1,9 @@
+#pragma once
+
+#define SKETCHBOT_FW_VERSION "0.1.0"
+#define SKETCHBOT_BOARD_NAME "esp32c5"
+#define SKETCHBOT_DEVICE_ID "sketchbot-esp32c5"
+
+#define HEARTBEAT_INTERVAL_MS 3000
+#define TELEMETRY_INTERVAL_MS 1000
+#define WS_RECONNECT_DELAY_MS 2000

@@ -1,0 +1,48 @@
+# Local secrets
+.env.apriltag-email
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.tools-venv/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+.tmp/
+tmp/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Firmware / ESP-IDF generated
+firmware/build/
+firmware/managed_components/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/dependencies.lock
+firmware/include/secrets.h
+
+# Python backend data/runtime
+backend/.venv/
+
+# Misc
+coverage/

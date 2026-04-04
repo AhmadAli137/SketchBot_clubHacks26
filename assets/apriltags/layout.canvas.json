@@ -1,0 +1,34 @@
+{
+  "coordinateFrame": "canvas",
+  "units": "mm",
+  "corners": {
+    "canvas_top_left": {
+      "tagId": 0,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "canvas_top_right": {
+      "tagId": 1,
+      "x": null,
+      "y": 0,
+      "z": 0
+    },
+    "canvas_bottom_right": {
+      "tagId": 2,
+      "x": null,
+      "y": null,
+      "z": 0
+    },
+    "canvas_bottom_left": {
+      "tagId": 3,
+      "x": 0,
+      "y": null,
+      "z": 0
+    }
+  },
+  "robot": {
+    "tagId": 4,
+    "frame": "robot"
+  }
+}

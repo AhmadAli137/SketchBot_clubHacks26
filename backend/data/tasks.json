@@ -1,0 +1,122 @@
+[
+  {
+    "id": "2af7efcb-1d08-4ac1-abfc-599197e712cb",
+    "name": "simple black and white cat face line",
+    "source_type": "prompt",
+    "prompt": "simple black and white cat face line art",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"100%\" height=\"100%\" fill=\"#fff\"/>\n  <path d=\"M45 85 L65 45 L92 72 Q100 68 108 72 L135 45 L155 85 Q155 120 128 138 Q100 155 72 138 Q45 120 45 85 Z\" fill=\"none\" stroke=\"#000\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <path d=\"M78 92 L78 92\" fill=\"none\" stroke=\"#000\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M122 92 L122 92\" fill=\"none\" stroke=\"#000\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M94 108 L100 114 L106 108\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <path d=\"M100 114 L100 122\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M100 122 Q92 130 84 126\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M100 122 Q108 130 116 126\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M35 104 L72 108\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M35 118 L70 118\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M128 108 L165 104\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M130 118 L165 118\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 10
+  },
+  {
+    "id": "bfe9ddc6-0252-406b-99f9-3ea1902e890f",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"#fff\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"#000\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"8\" fill=\"#000\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"8\" fill=\"#000\"/>\n  <path d=\"M65 115 Q100 145 135 115\" fill=\"none\" stroke=\"#000\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "0cbbccae-890e-4dbe-9999-eec20307972f",
+    "name": "simple black and white cat face line",
+    "source_type": "prompt",
+    "prompt": "simple black and white cat face line art",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"100%\" height=\"100%\" fill=\"#fff\"/>\n  <path d=\"M55 78 L35 45 L78 62 M145 78 L165 45 L122 62\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <circle cx=\"100\" cy=\"105\" r=\"55\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\"/>\n  <circle cx=\"80\" cy=\"98\" r=\"4\" fill=\"#000\"/>\n  <circle cx=\"120\" cy=\"98\" r=\"4\" fill=\"#000\"/>\n  <path d=\"M100 108 L94 116 L106 116 Z\" fill=\"#000\"/>\n  <path d=\"M100 116 Q92 124 84 126 M100 116 Q108 124 116 126\" fill=\"none\" stroke=\"#000\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <path d=\"M68 114 L38 108 M68 122 L36 122 M68 130 L40 136 M132 114 L162 108 M132 122 L164 122 M132 130 L160 136\" fill=\"none\" stroke=\"#000\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 10
+  },
+  {
+    "id": "7ec56a26-9f3d-4d2c-9e98-5406e42054c6",
+    "name": "simple black and white cat face line",
+    "source_type": "prompt",
+    "prompt": "simple black and white cat face line art",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"100%\" height=\"100%\" fill=\"#fff\"/>\n  <path d=\"M55 70 L35 35 L75 55 M145 70 L165 35 L125 55 M60 85 Q100 55 140 85 Q150 95 145 120 Q130 150 100 155 Q70 150 55 120 Q50 95 60 85\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <circle cx=\"78\" cy=\"105\" r=\"4\" fill=\"#000\"/>\n  <circle cx=\"122\" cy=\"105\" r=\"4\" fill=\"#000\"/>\n  <path d=\"M100 116 L94 124 L106 124 Z\" fill=\"#000\"/>\n  <path d=\"M100 124 Q92 132 84 132 M100 124 Q108 132 116 132\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M30 112 L72 118 M28 126 L70 126 M30 140 L72 134 M128 118 L170 112 M130 126 L172 126 M128 134 L170 140\" fill=\"none\" stroke=\"#000\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 10
+  },
+  {
+    "id": "e14db9c1-576b-4ebb-8be0-9eeafc1fd07c",
+    "name": "simple black and white cat face line",
+    "source_type": "prompt",
+    "prompt": "simple black and white cat face line",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <path d=\"M50 80 L75 45 L90 78 M150 80 L125 45 L110 78\" fill=\"none\" stroke=\"black\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <circle cx=\"78\" cy=\"95\" r=\"6\" fill=\"black\"/>\n  <circle cx=\"122\" cy=\"95\" r=\"6\" fill=\"black\"/>\n  <path d=\"M100 108 L94 116 L106 116 Z\" fill=\"black\"/>\n  <path d=\"M100 116 Q88 128 76 126 M100 116 Q112 128 124 126\" fill=\"none\" stroke=\"black\" stroke-width=\"5\" stroke-linecap=\"round\"/>\n  <path d=\"M88 112 L48 106 M88 118 L48 118 M112 112 L152 106 M112 118 L152 118\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M55 80 Q100 135 145 80\" fill=\"none\" stroke=\"black\" stroke-width=\"6\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 9
+  },
+  {
+    "id": "1a139cc7-7fe3-432f-aa29-5d3cf7f88d21",
+    "name": "simple black and white cat face line",
+    "source_type": "prompt",
+    "prompt": "simple black and white cat face line art",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"#fff\"/>\n  <g fill=\"none\" stroke=\"#000\" stroke-width=\"16\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n    <path d=\"M136 210 L176 120 L236 192\"/>\n    <path d=\"M376 210 L336 120 L276 192\"/>\n    <circle cx=\"256\" cy=\"280\" r=\"120\"/>\n    <path d=\"M216 270 L216 270\"/>\n    <path d=\"M296 270 L296 270\"/>\n    <path d=\"M236 320 Q256 338 276 320\"/>\n    <path d=\"M256 300 L248 314\"/>\n    <path d=\"M196 320 L132 308\"/>\n    <path d=\"M196 340 L128 340\"/>\n    <path d=\"M196 360 L132 372\"/>\n    <path d=\"M316 320 L380 308\"/>\n    <path d=\"M316 340 L384 340\"/>\n    <path d=\"M316 360 L380 372\"/>\n  </g>\n</svg>",
+    "image_data_url": null,
+    "path_count": 10
+  },
+  {
+    "id": "dde6508a-8b18-4ee6-b45b-ed77e274e348",
+    "name": "simple black and white cat face line",
+    "source_type": "prompt",
+    "prompt": "simple black and white cat face line art",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"#fff\"/>\n  <path d=\"M50 80 L70 40 L95 70 Q100 75 105 70 L130 40 L150 80 Q150 130 100 150 Q50 130 50 80 Z\" fill=\"none\" stroke=\"#000\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <circle cx=\"78\" cy=\"95\" r=\"5\" fill=\"#000\"/>\n  <circle cx=\"122\" cy=\"95\" r=\"5\" fill=\"#000\"/>\n  <path d=\"M100 108 L94 118 L106 118 Z\" fill=\"#000\"/>\n  <path d=\"M100 118 Q92 126 84 124\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M100 118 Q108 126 116 124\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M92 116 L58 110 M92 120 L58 120 M92 124 L58 130\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M108 116 L142 110 M108 120 L142 120 M108 124 L142 130\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 10
+  },
+  {
+    "id": "5f0eff3e-25ed-4ca3-8622-9ca511fc5a7f",
+    "name": "simple black and white cat face line",
+    "source_type": "prompt",
+    "prompt": "simple black and white cat face line art",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"#fff\"/>\n  <g fill=\"none\" stroke=\"#000\" stroke-width=\"16\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n    <path d=\"M160 216 L112 128 L208 176\"/>\n    <path d=\"M352 216 L400 128 L304 176\"/>\n    <circle cx=\"256\" cy=\"280\" r=\"120\"/>\n    <path d=\"M220 268 L220 272\"/>\n    <path d=\"M292 268 L292 272\"/>\n    <path d=\"M256 292 L240 308 L256 320 L272 308 Z\" fill=\"#000\"/>\n    <path d=\"M256 320 L256 344\"/>\n    <path d=\"M256 332 L208 324\"/>\n    <path d=\"M256 340 L208 348\"/>\n    <path d=\"M256 332 L304 324\"/>\n    <path d=\"M256 340 L304 348\"/>\n  </g>\n</svg>",
+    "image_data_url": null,
+    "path_count": 10
+  },
+  {
+    "id": "aa44db6b-e68c-4750-ac30-220311f5ee6a",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "e7a11cdd-90ee-4169-bceb-0e7b307e37ad",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"8\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"8\" fill=\"black\"/>\n  <path d=\"M65 115 Q100 145 135 115\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "2f28a3da-01c7-495b-998a-5cb05b031cdc",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" width=\"100\" height=\"100\">\n  <rect width=\"100\" height=\"100\" fill=\"#fff\"/>\n  <circle cx=\"50\" cy=\"50\" r=\"35\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\"/>\n  <circle cx=\"38\" cy=\"40\" r=\"4\" fill=\"#000\"/>\n  <circle cx=\"62\" cy=\"40\" r=\"4\" fill=\"#000\"/>\n  <path d=\"M35 58 Q50 72 65 58\" fill=\"none\" stroke=\"#000\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "5f3d55c5-3d98-4577-9080-c4a1884244d1",
+    "name": "simple black and white cat face line",
+    "source_type": "prompt",
+    "prompt": "simple black and white cat face line art",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"#fff\"/>\n  <g fill=\"none\" stroke=\"#000\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n    <path d=\"M140 220 L110 120 L200 180\"/>\n    <path d=\"M372 220 L402 120 L312 180\"/>\n    <path d=\"M150 210 Q256 120 362 210 Q372 320 256 380 Q140 320 150 210 Z\"/>\n    <path d=\"M210 240 Q225 225 240 240\"/>\n    <path d=\"M272 240 Q287 225 302 240\"/>\n    <path d=\"M256 255 L238 282 L274 282 Z\" fill=\"#000\"/>\n    <path d=\"M238 300 Q256 318 274 300\"/>\n    <path d=\"M180 280 L230 285\"/>\n    <path d=\"M175 305 L225 305\"/>\n    <path d=\"M282 285 L332 280\"/>\n    <path d=\"M287 305 L337 305\"/>\n  </g>\n</svg>",
+    "image_data_url": null,
+    "path_count": 10
+  }
+]

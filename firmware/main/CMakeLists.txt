@@ -1,0 +1,19 @@
+idf_component_register(
+    SRCS
+        "../src/main.cpp"
+        "../src/network_hal.cpp"
+        "../src/robot_hal.cpp"
+        "../src/ws_protocol.cpp"
+        "../src/sketchbot_controller.cpp"
+    INCLUDE_DIRS
+        "."
+        "../include"
+        "../src"
+    REQUIRES
+        esp_event
+        esp_netif
+        esp_wifi
+        esp_timer
+        nvs_flash
+        esp_common
+)

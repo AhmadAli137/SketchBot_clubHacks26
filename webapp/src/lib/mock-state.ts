@@ -1,0 +1,64 @@
+import { AppState } from '@/lib/types';
+
+export const mockState: AppState = {
+  robot_connected: false,
+  robot_status: 'disconnected',
+  workflow_state: 'disconnected',
+  localization_confidence: 0,
+  camera_online: false,
+  canvas: {
+    detected: false,
+    width_mm: 297,
+    height_mm: 210,
+    tag_ids: [0, 1, 2, 3],
+    confidence: 0,
+  },
+  camera: {
+    online: false,
+    source: 'unavailable',
+    latest_frame_label: 'No camera frame',
+    latest_frame_url: null,
+    april_tag_detections: [],
+    canvas_border: {
+      corners: [],
+      source_tag_ids: [],
+      detected: false,
+    },
+  },
+  overlay: {
+    enabled: true,
+    show_tags: true,
+    show_path: true,
+    show_robot: true,
+    path_label: 'No task loaded',
+    svg_path: null,
+    image_data_url: null,
+    source_name: null,
+    source_kind: null,
+  },
+  robot_pose: {
+    x_mm: 0,
+    y_mm: 0,
+    heading_deg: 0,
+    pen_down: false,
+  },
+  active_job: {
+    id: null,
+    name: null,
+    status: 'idle',
+    source_type: null,
+    path_count: 0,
+    prompt: null,
+  },
+  operator: {
+    status_text: 'Connecting to backend',
+    last_action: 'Waiting for operator',
+    mock_mode: false,
+    connection_mode: 'live',
+  },
+  recent_events: [
+    'Waiting for backend state',
+    'Waiting for camera status',
+    'Waiting for robot connection',
+  ],
+};
