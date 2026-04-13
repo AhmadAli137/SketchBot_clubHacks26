@@ -32,11 +32,34 @@ export type CanvasState = {
   confidence: number;
 };
 
+export type RTCIceServerConfig = {
+  urls: string | string[];
+  username?: string | null;
+  credential?: string | null;
+};
+
+export type MediaSessionSummary = {
+  session_id?: string | null;
+  ingest_protocol?: string | null;
+  viewer_protocol?: string | null;
+  publisher_status: string;
+  viewer_status: string;
+  analysis_mode: string;
+  whip_url?: string | null;
+  viewer_path?: string | null;
+  device_label?: string | null;
+  ice_servers?: RTCIceServerConfig[];
+};
+
 export type CameraState = {
   online: boolean;
   source: string;
+  source_status: string;
   latest_frame_label: string;
   latest_frame_url: string | null;
+  external_url?: string | null;
+  supports_webrtc?: boolean;
+  media_session?: MediaSessionSummary;
   april_tag_detections: AprilTagDetection[];
   canvas_border: CanvasBorder;
 };
@@ -78,6 +101,27 @@ export type TaskRecord = {
   svg_content?: string | null;
   image_data_url?: string | null;
   path_count: number;
+};
+
+export type PhoneWebRTCSessionResponse = {
+  accepted: boolean;
+  source: string;
+  source_status: string;
+  session_id: string;
+  ingest_protocol: string;
+  viewer_protocol: string;
+  publisher_status: string;
+  viewer_status: string;
+  analysis_mode: string;
+  whip_url?: string | null;
+  viewer_path?: string | null;
+  device_label?: string | null;
+  ice_servers: RTCIceServerConfig[];
+  message: string;
+};
+
+export type WebRTCConfigResponse = {
+  ice_servers: RTCIceServerConfig[];
 };
 
 export type AppState = {

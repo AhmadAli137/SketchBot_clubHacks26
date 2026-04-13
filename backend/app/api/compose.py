@@ -37,7 +37,8 @@ def compose_prompt(payload: PromptComposeRequest) -> PromptComposeResponse:
     state.active_job.path_count = suggested_paths
     state.active_job.prompt = payload.prompt
     state.workflow_state = 'draft_ready'
-    camera_service.set_demo_frame('Prompt draft preview ready')
+    if camera_service.active_source() == 'demo':
+        camera_service.set_demo_frame('Prompt draft preview ready')
     overlay_service.set_path_label(job_name)
     overlay_service.set_overlay_asset(svg_path=svg_content, image_data_url=None, source_name=job_name, source_kind='prompt')
     state_manager.add_event(f'Prompt drafted into job: {job_name}')

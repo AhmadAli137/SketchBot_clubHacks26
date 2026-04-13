@@ -57,13 +57,36 @@ class CanvasState(BaseModel):
     confidence: float = 0.0
 
 
+class RTCIceServerSummary(BaseModel):
+    urls: str | list[str]
+    username: str | None = None
+    credential: str | None = None
+
+
+class MediaSessionSummary(BaseModel):
+    session_id: str | None = None
+    ingest_protocol: str | None = None
+    viewer_protocol: str | None = None
+    publisher_status: str = 'idle'
+    viewer_status: str = 'idle'
+    analysis_mode: str = 'direct-frame'
+    whip_url: str | None = None
+    viewer_path: str | None = None
+    device_label: str | None = None
+    ice_servers: list[RTCIceServerSummary] = Field(default_factory=list)
+
+
 class CameraState(BaseModel):
     online: bool = False
-    source: str = 'demo'
+    source: str = 'pi-camera'
+    source_status: str = 'idle'
     latest_frame_label: str = 'No frame'
     latest_frame_url: str | None = None
+    external_url: str | None = None
+    supports_webrtc: bool = True
     frame_width: int = 1280
     frame_height: int = 720
+    media_session: MediaSessionSummary = Field(default_factory=MediaSessionSummary)
     april_tag_detections: list[AprilTagDetection] = Field(default_factory=list)
     canvas_border: CanvasBorder = Field(default_factory=CanvasBorder)
 

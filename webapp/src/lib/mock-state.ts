@@ -16,8 +16,17 @@ export const mockState: AppState = {
   camera: {
     online: false,
     source: 'unavailable',
+    source_status: 'offline',
     latest_frame_label: 'No camera frame',
     latest_frame_url: null,
+    external_url: null,
+    supports_webrtc: false,
+    media_session: {
+      publisher_status: 'idle',
+      viewer_status: 'idle',
+      analysis_mode: 'direct-frame',
+      ice_servers: [],
+    },
     april_tag_detections: [],
     canvas_border: {
       corners: [],

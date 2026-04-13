@@ -50,8 +50,26 @@ class StateManager:
             status = 'Mock mode'
         elif mock_mode and state.robot_connected:
             status = 'Mock bot connected'
+        elif state.camera.source == 'phone-webrtc' and state.camera.source_status == 'awaiting-session':
+            status = 'Phone WebRTC session needed'
+        elif state.camera.source == 'phone-webrtc' and state.camera.source_status == 'awaiting-publisher':
+            status = 'Waiting for phone publisher'
+        elif state.camera.source == 'phone-webrtc' and state.camera.source_status == 'awaiting-viewer':
+            status = 'Waiting for dashboard viewer'
+        elif state.camera.source == 'phone-webrtc' and state.camera.source_status == 'negotiating':
+            status = 'Negotiating phone stream'
+        elif state.camera.source == 'phone-webrtc' and state.camera.source_status == 'live':
+            status = 'Phone stream live'
+        elif state.camera.source == 'phone-webrtc' and not state.camera.online:
+            status = 'Phone stream offline'
+        elif state.camera.source == 'browser-camera' and not state.camera.online:
+            status = 'Waiting for phone camera'
+        elif state.camera.source == 'external-camera' and not state.camera.external_url:
+            status = 'External camera URL needed'
+        elif state.camera.source == 'external-camera':
+            status = 'External camera preview'
         elif not state.camera.online:
-            status = 'Camera offline'
+            status = 'Pi camera offline'
         elif not state.canvas.detected:
             status = 'Waiting for localization'
         elif state.workflow.task_state in {'draft', 'planned', 'ready'}:
