@@ -126,6 +126,11 @@ export default function HomePage() {
     void refreshState();
     void refreshTasks();
     void refreshWebRTCConfig();
+    const statePoll = window.setInterval(() => {
+      if (!cancelled) {
+        void refreshState();
+      }
+    }, 5000);
 
     const ws = new WebSocket(WS_BASE);
     ws.onmessage = (event) => {
@@ -140,13 +145,15 @@ export default function HomePage() {
       }
     };
     ws.onerror = () => {
-      if (!cancelled) {
-        setBackendReachable(false);
-      }
+      // Keep polling state even if WebSocket transport is flaky in hosted environments.
+    };
+    ws.onclose = () => {
+      // HTTP polling remains the source of truth for basic reachability.
     };
 
     return () => {
       cancelled = true;
+      window.clearInterval(statePoll);
       ws.close();
     };
   }, []);

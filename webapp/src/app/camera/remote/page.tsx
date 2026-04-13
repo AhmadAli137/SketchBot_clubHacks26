@@ -123,6 +123,7 @@ export default function RemoteCameraPage() {
       const payload = await response.json() as PhoneWebRTCSessionResponse;
       setSession(payload);
       setStatus(payload.message);
+      setError(null);
     } catch {
       // Ignore missing or unreachable session here.
     }
@@ -170,19 +171,33 @@ export default function RemoteCameraPage() {
   };
 
   const startPublishing = async () => {
-    if (!session?.session_id) {
-      setError('Provision a phone WebRTC session first.');
-      setStatus('Phone WebRTC session required.');
-      return;
-    }
-
     setPublishLoading(true);
     try {
+      let activeSession = session;
+      if (!activeSession?.session_id) {
+        await loadExistingSession();
+        activeSession = session;
+      }
+
+      if (!activeSession?.session_id) {
+        const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, { cache: 'no-store' });
+        if (response.ok) {
+          const payload = await response.json() as PhoneWebRTCSessionResponse;
+          setSession(payload);
+          activeSession = payload;
+          setStatus(payload.message);
+        }
+      }
+
+      if (!activeSession?.session_id) {
+        throw new Error('Provision a phone WebRTC session first.');
+      }
+
       setError(null);
       const mediaStream = await ensurePreview();
       await stopPublishing();
 
-      const pc = new RTCPeerConnection(rtcConfiguration(session.ice_servers));
+      const pc = new RTCPeerConnection(rtcConfiguration(activeSession.ice_servers));
       pcRef.current = pc;
 
       mediaStream.getTracks().forEach((track) => pc.addTrack(track, mediaStream));
@@ -191,7 +206,7 @@ export default function RemoteCameraPage() {
         if (pc.connectionState === 'connected') {
           setPublishing(true);
           setStatus('Phone WebRTC publishing.');
-          void fetch(`${API_BASE}/api/camera/phone-webrtc/publisher-live/${session.session_id}`, { method: 'POST' });
+          void fetch(`${API_BASE}/api/camera/phone-webrtc/publisher-live/${activeSession.session_id}`, { method: 'POST' });
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
           setPublishing(false);
         }
@@ -210,7 +225,7 @@ export default function RemoteCameraPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session_id: session.session_id,
+          session_id: activeSession.session_id,
           sdp: localDescription.sdp,
           type: localDescription.type,
         }),
@@ -223,7 +238,7 @@ export default function RemoteCameraPage() {
 
       let remoteAnswer: { sdp: string; type: RTCSdpType } | null = null;
       for (let attempt = 0; attempt < 60; attempt += 1) {
-        const answerResponse = await fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-answer/${session.session_id}`, {
+        const answerResponse = await fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-answer/${activeSession.session_id}`, {
           cache: 'no-store',
         });
         if (answerResponse.ok) {
@@ -268,7 +283,11 @@ export default function RemoteCameraPage() {
 
   useEffect(() => {
     void loadExistingSession();
+    const sessionPoll = window.setInterval(() => {
+      void loadExistingSession();
+    }, 4000);
     return () => {
+      window.clearInterval(sessionPoll);
       void stopPublishing();
       stopPreview();
     };
