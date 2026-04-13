@@ -333,6 +333,7 @@ export default function HomePage() {
     }
 
     let cancelled = false;
+    let viewerStarted = false;
 
     const startPhoneViewer = async () => {
       try {
@@ -360,7 +361,8 @@ export default function HomePage() {
           return;
         }
 
-        const pc = new RTCPeerConnection(rtcConfiguration(state.camera?.media_session?.ice_servers ?? webrtcIceServers));
+        viewerStarted = true;
+        const pc = new RTCPeerConnection(rtcConfiguration(phoneViewerIceServers));
         phonePcRef.current = pc;
 
         pc.ontrack = (event) => {
@@ -425,9 +427,11 @@ export default function HomePage() {
         phonePcRef.current = null;
       }
       setPhoneViewerReady(false);
-      void fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
+      if (viewerStarted) {
+        void fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
+      }
     };
-  }, [shouldUsePiWebrtc, state.camera?.media_session?.ice_servers, state.camera?.media_session?.session_id, state.camera?.source, webrtcIceServers]);
+  }, [phoneViewerIceKey, shouldUsePiWebrtc, state.camera?.media_session?.session_id, state.camera?.source]);
 
   useEffect(() => {
     const sessionId = state.camera?.media_session?.session_id;
@@ -641,6 +645,8 @@ export default function HomePage() {
     !camera.latest_frame_url;
   const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url) ?? (shouldShowFallbackCameraStream ? `${API_BASE}/api/camera/stream` : null);
   const remoteCameraUrl = '/camera/remote';
+  const phoneViewerIceServers = state.camera?.media_session?.ice_servers ?? webrtcIceServers;
+  const phoneViewerIceKey = JSON.stringify(phoneViewerIceServers ?? []);
   const robotLeft = `${Math.max(10, Math.min(90, (robotPose.x_mm / Math.max(canvas.width_mm || 1, 1)) * 100))}%`;
   const robotTop = `${Math.max(10, Math.min(90, (robotPose.y_mm / Math.max(canvas.height_mm || 1, 1)) * 100))}%`;
   const aprilTagDetections = camera.april_tag_detections ?? [];

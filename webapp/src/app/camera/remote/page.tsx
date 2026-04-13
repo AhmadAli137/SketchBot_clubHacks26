@@ -101,9 +101,9 @@ export default function RemoteCameraPage() {
     const mediaStream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: { ideal: facingMode },
-        width: { ideal: 960 },
-        height: { ideal: 540 },
-        frameRate: { ideal: 24, max: 30 },
+        width: { ideal: 640 },
+        height: { ideal: 360 },
+        frameRate: { ideal: 20, max: 24 },
       },
       audio: false,
     });
