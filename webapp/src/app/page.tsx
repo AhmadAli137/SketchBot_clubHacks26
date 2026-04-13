@@ -362,7 +362,7 @@ export default function HomePage() {
         }
 
         viewerStarted = true;
-        const pc = new RTCPeerConnection(rtcConfiguration(phoneViewerIceServers));
+        const pc = new RTCPeerConnection(rtcConfiguration(state.camera?.media_session?.ice_servers ?? webrtcIceServers));
         phonePcRef.current = pc;
 
         pc.ontrack = (event) => {
@@ -431,7 +431,7 @@ export default function HomePage() {
         void fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
       }
     };
-  }, [phoneViewerIceKey, shouldUsePiWebrtc, state.camera?.media_session?.session_id, state.camera?.source]);
+  }, [shouldUsePiWebrtc, state.camera?.media_session?.session_id, state.camera?.source, JSON.stringify(state.camera?.media_session?.ice_servers ?? webrtcIceServers)]);
 
   useEffect(() => {
     const sessionId = state.camera?.media_session?.session_id;
@@ -645,8 +645,6 @@ export default function HomePage() {
     !camera.latest_frame_url;
   const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url) ?? (shouldShowFallbackCameraStream ? `${API_BASE}/api/camera/stream` : null);
   const remoteCameraUrl = '/camera/remote';
-  const phoneViewerIceServers = state.camera?.media_session?.ice_servers ?? webrtcIceServers;
-  const phoneViewerIceKey = JSON.stringify(phoneViewerIceServers ?? []);
   const robotLeft = `${Math.max(10, Math.min(90, (robotPose.x_mm / Math.max(canvas.width_mm || 1, 1)) * 100))}%`;
   const robotTop = `${Math.max(10, Math.min(90, (robotPose.y_mm / Math.max(canvas.height_mm || 1, 1)) * 100))}%`;
   const aprilTagDetections = camera.april_tag_detections ?? [];
