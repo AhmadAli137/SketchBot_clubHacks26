@@ -551,7 +551,12 @@ export default function HomePage() {
   const operator = state.operator ?? { status_text: 'Connecting to backend', last_action: 'Waiting for operator', mock_mode: false, connection_mode: 'live' };
   const recentEvents = state.recent_events ?? [];
   const taskReady = activeJob.status === 'draft' || activeJob.status === 'planned' || activeJob.status === 'ready';
-  const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url) ?? (camera.source === 'phone-webrtc' ? null : `${API_BASE}/api/camera/stream`);
+  const shouldShowFallbackCameraStream =
+    camera.online &&
+    camera.source !== 'phone-webrtc' &&
+    camera.source !== 'external-camera' &&
+    !camera.latest_frame_url;
+  const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url) ?? (shouldShowFallbackCameraStream ? `${API_BASE}/api/camera/stream` : null);
   const remoteCameraUrl = '/camera/remote';
   const robotLeft = `${Math.max(10, Math.min(90, (robotPose.x_mm / Math.max(canvas.width_mm || 1, 1)) * 100))}%`;
   const robotTop = `${Math.max(10, Math.min(90, (robotPose.y_mm / Math.max(canvas.height_mm || 1, 1)) * 100))}%`;
