@@ -78,6 +78,7 @@ export default function HomePage() {
   const [externalCameraUrl, setExternalCameraUrl] = useState('');
   const [sourceSaving, setSourceSaving] = useState(false);
   const [phoneSessionLoading, setPhoneSessionLoading] = useState(false);
+  const [sourceTransitionTarget, setSourceTransitionTarget] = useState<CameraSource | null>(null);
   const [phoneQrDataUrl, setPhoneQrDataUrl] = useState<string | null>(null);
   const [phoneCameraUrl, setPhoneCameraUrl] = useState('');
   const [phoneLinkCopied, setPhoneLinkCopied] = useState(false);
@@ -233,8 +234,18 @@ export default function HomePage() {
   }, [shouldUsePiWebrtc, webrtcIceServers]);
 
   useEffect(() => {
+    if (sourceTransitionTarget && state.camera?.source === sourceTransitionTarget) {
+      setSourceTransitionTarget(null);
+    }
+  }, [sourceTransitionTarget, state.camera?.source]);
+
+  useEffect(() => {
     const source = state.camera?.source;
     if (!source) {
+      return;
+    }
+
+    if (sourceTransitionTarget && source !== sourceTransitionTarget) {
       return;
     }
 
@@ -257,7 +268,7 @@ export default function HomePage() {
     if (source === 'pi-camera' || source === 'demo') {
       setCameraSource(source);
     }
-  }, [state.camera]);
+  }, [sourceTransitionTarget, state.camera]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -470,6 +481,7 @@ export default function HomePage() {
 
   const applyCameraSource = async (source: CameraSource, externalUrl?: string) => {
     setCameraSource(source);
+    setSourceTransitionTarget(source);
     setSourceSaving(true);
     try {
       await fetch(`${API_BASE}/api/camera/source`, {
@@ -482,6 +494,7 @@ export default function HomePage() {
       });
       await refreshState();
     } finally {
+      setSourceTransitionTarget(null);
       setSourceSaving(false);
     }
   };
@@ -489,6 +502,7 @@ export default function HomePage() {
   const provisionPhoneSession = async (forceNew = false) => {
     setPhoneSessionLoading(true);
     try {
+      setSourceTransitionTarget('phone-webrtc');
       await fetch(`${API_BASE}/api/camera/source`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -506,6 +520,7 @@ export default function HomePage() {
       await response.json() as PhoneWebRTCSessionResponse;
       await refreshState();
     } finally {
+      setSourceTransitionTarget(null);
       setPhoneSessionLoading(false);
     }
   };
@@ -836,7 +851,7 @@ export default function HomePage() {
                   <button className={camera.source === 'pi-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void applyCameraSource('pi-camera')}>
                     Raspberry Pi
                   </button>
-                  <button className={camera.source === 'phone-webrtc' || cameraSource === 'phone-webrtc' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving || phoneSessionLoading} onClick={() => setCameraSource('phone-webrtc')}>
+                  <button className={camera.source === 'phone-webrtc' || cameraSource === 'phone-webrtc' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving || phoneSessionLoading} onClick={() => void connectPhoneCamera()}>
                     Phone Camera
                   </button>
                   <button className={cameraSource === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
