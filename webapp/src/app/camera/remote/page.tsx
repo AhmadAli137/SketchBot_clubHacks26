@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ThemeToggle } from '@/components/theme-toggle';
 import { API_BASE } from '@/lib/config';
 import type { PhoneWebRTCSessionResponse, RTCIceServerConfig } from '@/lib/types';
 
@@ -138,11 +139,14 @@ export default function RemoteCameraPage() {
     setSessionLoading(true);
     try {
       setError(null);
-      await fetch(`${API_BASE}/api/camera/source`, {
+      const sourceResponse = await fetch(`${API_BASE}/api/camera/source`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: 'phone-webrtc' }),
       });
+      if (!sourceResponse.ok) {
+        throw new Error('Unable to switch the backend to phone camera mode.');
+      }
 
       const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, {
         method: 'POST',
@@ -150,7 +154,7 @@ export default function RemoteCameraPage() {
         body: JSON.stringify({ device_label: deviceLabel.trim() || 'Phone publisher', force_new: forceNew }),
       });
       if (!response.ok) {
-        throw new Error('Failed to provision phone WebRTC session.');
+        throw new Error(`Failed to provision phone WebRTC session (${response.status}).`);
       }
 
       const payload = await response.json() as PhoneWebRTCSessionResponse;
@@ -191,7 +195,7 @@ export default function RemoteCameraPage() {
       }
 
       if (!activeSession?.session_id) {
-        throw new Error('Provision a phone WebRTC session first.');
+        throw new Error('The backend did not return a usable phone WebRTC session.');
       }
 
       setError(null);
@@ -232,7 +236,7 @@ export default function RemoteCameraPage() {
         }),
       });
       if (!publishResponse.ok) {
-        throw new Error('Failed to publish WebRTC offer.');
+        throw new Error(`Failed to publish WebRTC offer (${publishResponse.status}).`);
       }
 
       setStatus('Publisher offer sent. Waiting for dashboard viewer answer...');
@@ -372,6 +376,7 @@ export default function RemoteCameraPage() {
         </div>
         <div className="status-pills">
           <span className="status-pill">{connectionLabel}</span>
+          <ThemeToggle />
           <Link className="tab" href="/">
             Dashboard
           </Link>

@@ -30,6 +30,38 @@ MOCK_SVG = '''<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" 
 </svg>'''
 
 
+def _serialize_ice_servers(ice_servers):
+    return [
+        {
+            'urls': server.urls,
+            'username': server.username,
+            'credential': server.credential,
+        }
+        for server in (ice_servers or [])
+    ]
+
+
+def _phone_webrtc_session_response() -> PhoneWebRTCSessionResponse:
+    state = state_manager.state
+    session = state.camera.media_session
+    return PhoneWebRTCSessionResponse(
+        accepted=True,
+        source=state.camera.source,
+        source_status=state.camera.source_status,
+        session_id=session.session_id or '',
+        ingest_protocol=session.ingest_protocol or 'whip',
+        viewer_protocol=session.viewer_protocol or 'webrtc',
+        publisher_status=session.publisher_status,
+        viewer_status=session.viewer_status,
+        analysis_mode=session.analysis_mode,
+        whip_url=session.whip_url,
+        viewer_path=session.viewer_path,
+        device_label=session.device_label,
+        ice_servers=_serialize_ice_servers(session.ice_servers),
+        message=state.camera.latest_frame_label,
+    )
+
+
 @router.get('/feed', response_model=CameraFeedInfo)
 def get_camera_feed() -> CameraFeedInfo:
     camera_service.capture_frame()
@@ -81,45 +113,14 @@ def get_phone_webrtc_session() -> PhoneWebRTCSessionResponse:
     session = state.camera.media_session
     if not session.session_id or state.camera.source != 'phone-webrtc':
         raise HTTPException(status_code=404, detail='No phone WebRTC session is currently provisioned')
-    return PhoneWebRTCSessionResponse(
-        accepted=True,
-        source=state.camera.source,
-        source_status=state.camera.source_status,
-        session_id=session.session_id,
-        ingest_protocol=session.ingest_protocol or 'whip',
-        viewer_protocol=session.viewer_protocol or 'webrtc',
-        publisher_status=session.publisher_status,
-        viewer_status=session.viewer_status,
-        analysis_mode=session.analysis_mode,
-        whip_url=session.whip_url,
-        viewer_path=session.viewer_path,
-        device_label=session.device_label,
-        ice_servers=session.ice_servers,
-        message=state.camera.latest_frame_label,
-    )
+    return _phone_webrtc_session_response()
 
 
 @router.post('/phone-webrtc/session', response_model=PhoneWebRTCSessionResponse)
 def provision_phone_webrtc_session(payload: PhoneWebRTCSessionRequest) -> PhoneWebRTCSessionResponse:
-    session = media_session_service.provision_phone_webrtc_session(payload.device_label, payload.force_new)
-    state = state_manager.state
+    media_session_service.provision_phone_webrtc_session(payload.device_label, payload.force_new)
     state_manager.add_event('Phone WebRTC session provisioned')
-    return PhoneWebRTCSessionResponse(
-        accepted=True,
-        source=state.camera.source,
-        source_status=state.camera.source_status,
-        session_id=session.session_id or '',
-        ingest_protocol=session.ingest_protocol or 'whip',
-        viewer_protocol=session.viewer_protocol or 'webrtc',
-        publisher_status=session.publisher_status,
-        viewer_status=session.viewer_status,
-        analysis_mode=session.analysis_mode,
-        whip_url=session.whip_url,
-        viewer_path=session.viewer_path,
-        device_label=session.device_label,
-        ice_servers=session.ice_servers,
-        message=state.camera.latest_frame_label,
-    )
+    return _phone_webrtc_session_response()
 
 
 @router.post('/phone-webrtc/publisher-offer', response_model=RTCSignalStatusResponse)

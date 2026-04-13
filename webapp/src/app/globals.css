@@ -17,6 +17,25 @@
   --stage-backdrop: #dfe9f8;
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #050816;
+  --bg-2: #090d20;
+  --panel: rgba(10, 14, 31, 0.82);
+  --panel-strong: rgba(12, 16, 34, 0.94);
+  --border: rgba(110, 129, 255, 0.18);
+  --text: #eef4ff;
+  --muted: #95a6c7;
+  --cyan: #5de4ff;
+  --blue: #6b7cff;
+  --violet: #a855f7;
+  --pink: #ff4fd8;
+  --green: #4dffb8;
+  --amber: #ffc96b;
+  --danger: #ff6f91;
+  --stage-backdrop: #050b16;
+}
+
 * { box-sizing: border-box; }
 
 html,
@@ -30,6 +49,14 @@ body {
     linear-gradient(180deg, #f7fbff 0%, #edf3fb 100%);
   color: var(--text);
   font-family: 'Segoe UI', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+:root[data-theme='dark'] body {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(93, 228, 255, 0.16), transparent 24%),
+    radial-gradient(circle at 80% 0%, rgba(168, 85, 247, 0.18), transparent 28%),
+    radial-gradient(circle at 75% 80%, rgba(107, 124, 255, 0.16), transparent 24%),
+    linear-gradient(180deg, #060816 0%, #04060f 100%);
 }
 
 body::before {
@@ -61,6 +88,13 @@ select {
   color: var(--text);
   padding: 0.85rem 0.95rem;
   outline: none;
+}
+
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] textarea,
+:root[data-theme='dark'] select {
+  background: rgba(5, 8, 22, 0.82);
+  color: var(--text);
 }
 
 textarea { resize: vertical; }
@@ -690,4 +724,56 @@ textarea { resize: vertical; }
   .dashboard-grid[style*='1fr 1fr'] {
     grid-template-columns: 1fr !important;
   }
+}
+
+:root[data-theme='dark'] .topbar-shell,
+:root[data-theme='dark'] .top-bar,
+:root[data-theme='dark'] .panel,
+:root[data-theme='dark'] .panel-card,
+:root[data-theme='dark'] .compose-panel {
+  background: linear-gradient(180deg, rgba(11, 16, 34, 0.94), rgba(7, 10, 24, 0.88));
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme='dark'] .workspace-card {
+  background: linear-gradient(180deg, rgba(4, 7, 18, 0.96), rgba(2, 5, 14, 0.98));
+}
+
+:root[data-theme='dark'] .workspace-stage {
+  background:
+    radial-gradient(circle at top, rgba(93, 228, 255, 0.12), transparent 30%),
+    radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(7, 10, 24, 0.98), rgba(2, 6, 20, 0.98));
+}
+
+:root[data-theme='dark'] .mini-pill,
+:root[data-theme='dark'] .status-pill,
+:root[data-theme='dark'] .mode-pill,
+:root[data-theme='dark'] .tab,
+:root[data-theme='dark'] .tab-link,
+:root[data-theme='dark'] .btn,
+:root[data-theme='dark'] .status-card,
+:root[data-theme='dark'] .details-card,
+:root[data-theme='dark'] .guide-card,
+:root[data-theme='dark'] .compact-list li {
+  background: rgba(8, 12, 24, 0.88);
+  color: #dfe8fb;
+}
+
+:root[data-theme='dark'] .tab.active,
+:root[data-theme='dark'] .btn-primary {
+  color: white;
+}
+
+:root[data-theme='dark'] .qr-shell {
+  background: rgba(10, 14, 31, 0.96);
+}
+
+:root[data-theme='dark'] .qr-placeholder {
+  background: linear-gradient(180deg, rgba(18, 24, 46, 1), rgba(9, 14, 31, 1));
+}
+
+:root[data-theme='dark'] .section-badge,
+:root[data-theme='dark'] .mode-pill {
+  color: #d8f9ff;
 }

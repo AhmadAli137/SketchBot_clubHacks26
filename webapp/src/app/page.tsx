@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { API_BASE, WS_BASE } from '@/lib/config';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { mockState } from '@/lib/mock-state';
 import type {
   AppState,
@@ -661,6 +662,7 @@ export default function HomePage() {
               {item.label}: {item.value}
             </span>
           ))}
+          <ThemeToggle />
           <span className="mode-pill">{operator.mock_mode ? 'Mock' : 'Live'}</span>
         </div>
       </div>
