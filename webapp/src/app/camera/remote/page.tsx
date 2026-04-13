@@ -53,6 +53,7 @@ export default function RemoteCameraPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   const uploadBusyRef = useRef(false);
   const isSecureCameraContext =
     typeof window !== 'undefined' &&
@@ -72,7 +73,7 @@ export default function RemoteCameraPage() {
   }, []);
 
   const stopPublishing = useCallback(async () => {
-    const sessionId = session?.session_id;
+    const sessionId = sessionIdRef.current;
     const pc = pcRef.current;
     if (pc) {
       pc.close();
@@ -86,7 +87,7 @@ export default function RemoteCameraPage() {
         // Ignore shutdown cleanup failures.
       }
     }
-  }, [session?.session_id]);
+  }, []);
 
   const ensurePreview = async () => {
     if (streamRef.current) {
@@ -99,8 +100,9 @@ export default function RemoteCameraPage() {
     const mediaStream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: { ideal: facingMode },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
+        width: { ideal: 960 },
+        height: { ideal: 540 },
+        frameRate: { ideal: 24, max: 30 },
       },
       audio: false,
     });
@@ -114,22 +116,25 @@ export default function RemoteCameraPage() {
     return mediaStream;
   };
 
-  const loadExistingSession = async () => {
+  const loadExistingSession = async (): Promise<PhoneWebRTCSessionResponse | null> => {
     try {
       const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, { cache: 'no-store' });
       if (!response.ok) {
-        return;
+        return null;
       }
       const payload = await response.json() as PhoneWebRTCSessionResponse;
       setSession(payload);
+      sessionIdRef.current = payload.session_id;
       setStatus(payload.message);
       setError(null);
+      return payload;
     } catch {
       // Ignore missing or unreachable session here.
+      return null;
     }
   };
 
-  const provisionSession = async (forceNew = false) => {
+  const provisionSession = async (forceNew = false): Promise<PhoneWebRTCSessionResponse | null> => {
     setSessionLoading(true);
     try {
       setError(null);
@@ -150,10 +155,13 @@ export default function RemoteCameraPage() {
 
       const payload = await response.json() as PhoneWebRTCSessionResponse;
       setSession(payload);
+      sessionIdRef.current = payload.session_id;
       setStatus(payload.message);
+      return payload;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to provision phone WebRTC session.');
       setStatus('Phone WebRTC session setup failed.');
+      return null;
     } finally {
       setSessionLoading(false);
     }
@@ -175,18 +183,11 @@ export default function RemoteCameraPage() {
     try {
       let activeSession = session;
       if (!activeSession?.session_id) {
-        await loadExistingSession();
-        activeSession = session;
+        activeSession = await loadExistingSession();
       }
 
       if (!activeSession?.session_id) {
-        const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, { cache: 'no-store' });
-        if (response.ok) {
-          const payload = await response.json() as PhoneWebRTCSessionResponse;
-          setSession(payload);
-          activeSession = payload;
-          setStatus(payload.message);
-        }
+        activeSession = await provisionSession(false);
       }
 
       if (!activeSession?.session_id) {
@@ -280,6 +281,10 @@ export default function RemoteCameraPage() {
       setStatus('Legacy upload failed.');
     }
   };
+
+  useEffect(() => {
+    sessionIdRef.current = session?.session_id ?? null;
+  }, [session?.session_id]);
 
   useEffect(() => {
     void loadExistingSession();
