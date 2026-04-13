@@ -116,7 +116,7 @@ export default function RemoteCameraPage() {
     return mediaStream;
   };
 
-  const loadExistingSession = async (): Promise<PhoneWebRTCSessionResponse | null> => {
+  const loadExistingSession = useCallback(async (): Promise<PhoneWebRTCSessionResponse | null> => {
     try {
       const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, { cache: 'no-store' });
       if (!response.ok) {
@@ -125,14 +125,14 @@ export default function RemoteCameraPage() {
       const payload = await response.json() as PhoneWebRTCSessionResponse;
       setSession(payload);
       sessionIdRef.current = payload.session_id;
-      setStatus(payload.message);
+      setStatus((current) => (publishing ? current : payload.message));
       setError(null);
       return payload;
     } catch {
       // Ignore missing or unreachable session here.
       return null;
     }
-  };
+  }, [publishing]);
 
   const provisionSession = async (forceNew = false): Promise<PhoneWebRTCSessionResponse | null> => {
     setSessionLoading(true);
@@ -296,7 +296,7 @@ export default function RemoteCameraPage() {
       void stopPublishing();
       stopPreview();
     };
-  }, [stopPreview, stopPublishing]);
+  }, [loadExistingSession, stopPreview, stopPublishing]);
 
   useEffect(() => {
     if (!legacyUploading) {
@@ -346,16 +346,32 @@ export default function RemoteCameraPage() {
     };
   }, [legacyUploading]);
 
+  const startPhoneCamera = async () => {
+    setStatus('Starting phone camera...');
+    await startPublishing();
+  };
+
+  const stopPhoneCamera = async () => {
+    await stopPublishing();
+    stopPreview();
+    setStatus('Phone camera stopped.');
+  };
+
+  const connectionLabel = publishing ? 'Live' : publishLoading ? 'Connecting' : session?.publisher_status ?? 'idle';
+  const sessionLabel = session?.session_id ?? 'Will sync automatically from the dashboard';
+  const viewerLabel = session?.viewer_status ?? 'idle';
+  const canStopPhoneCamera = previewing || publishing || publishLoading || legacyUploading;
+
   return (
     <main className="app-shell" style={{ maxWidth: 920 }}>
       <div className="top-bar compact-top-bar">
         <div>
           <p className="eyebrow">SketchBot remote camera</p>
-          <h1>Phone WebRTC Publisher</h1>
-          <p className="subdued-text">This page can now provision a phone WebRTC session and publish a live browser-to-browser stream to the dashboard through backend signaling. The legacy JPEG uploader remains only as a fallback.</p>
+          <h1>Phone Camera</h1>
+          <p className="subdued-text">This page is the camera companion for the dashboard. One tap starts preview, syncs the session, and begins publishing the live phone stream.</p>
         </div>
         <div className="status-pills">
-          <span className="status-pill">{publishing ? 'Publishing' : session?.publisher_status ?? 'idle'}</span>
+          <span className="status-pill">{connectionLabel}</span>
           <Link className="tab" href="/">
             Dashboard
           </Link>
@@ -364,9 +380,9 @@ export default function RemoteCameraPage() {
 
       <section className="panel" style={{ display: 'grid', gap: 14 }}>
         <div className="panel-header">
-          <p className="panel-eyebrow">Session setup</p>
-          <div className="panel-title">Provision phone-webrtc session metadata</div>
-          <p className="panel-subtitle">The backend coordinates the session and signaling state. Provision or refresh the session before you start publishing.</p>
+          <p className="panel-eyebrow">Guided Flow</p>
+          <div className="panel-title">Use this phone as the live camera</div>
+          <p className="panel-subtitle">Tap the main button below. The app will reuse the dashboard session when available, start the local preview, and publish the stream automatically.</p>
         </div>
 
         <div className="grid-2">
@@ -383,46 +399,71 @@ export default function RemoteCameraPage() {
           </label>
         </div>
 
-        <p className="panel-subtitle">If you change the lens selection, tap `Start preview` again before publishing.</p>
-
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="tab active" type="button" disabled={sessionLoading} onClick={() => void provisionSession(false)}>
-            {sessionLoading ? 'Provisioning...' : 'Provision session'}
+        <div className="inline-actions">
+          <button className="btn btn-primary" type="button" disabled={publishLoading || publishing} onClick={() => void startPhoneCamera()}>
+            {publishLoading ? 'Starting phone camera...' : publishing ? 'Phone camera live' : 'Start Phone Camera'}
           </button>
-          <button className="tab" type="button" disabled={sessionLoading} onClick={() => void provisionSession(true)}>
-            Refresh session
-          </button>
-          <button className="tab" type="button" onClick={() => void startPreview()}>
-            Start preview
-          </button>
-          <button className="tab active" type="button" disabled={publishLoading || !session?.session_id} onClick={() => void startPublishing()}>
-            {publishLoading ? 'Publishing...' : 'Start WebRTC publish'}
-          </button>
-          <button className="tab" type="button" onClick={() => void stopPublishing()} disabled={!publishing && !publishLoading}>
-            Stop publish
-          </button>
-          <button className="tab" type="button" onClick={stopPreview} disabled={!previewing && !legacyUploading}>
-            Stop preview
+          <button className="btn" type="button" onClick={() => void stopPhoneCamera()} disabled={!canStopPhoneCamera}>
+            Stop Camera
           </button>
         </div>
 
-        {session ? (
-          <ul className="compact-list">
-            <li>Session: {session.session_id}</li>
-            <li>Source: {session.source}</li>
-            <li>Source status: {session.source_status}</li>
-            <li>Publisher status: {session.publisher_status}</li>
-            <li>Viewer status: {session.viewer_status}</li>
-            <li>Ingest protocol: {session.ingest_protocol}</li>
-            <li>Viewer protocol: {session.viewer_protocol}</li>
-            <li>Analysis mode: {session.analysis_mode}</li>
-            <li>ICE servers: {session.ice_servers.length}</li>
-          </ul>
-        ) : (
-          <ul className="compact-list">
-            <li>No phone WebRTC session provisioned yet.</li>
-          </ul>
-        )}
+        <div className="phone-guidance">
+          <div className="status-card">
+            <strong>Status</strong>
+            <span>{status}</span>
+          </div>
+          <div className="status-card">
+            <strong>Session</strong>
+            <span>{sessionLabel}</span>
+          </div>
+          <div className="badge-line">
+            <span className="mini-pill">Preview: {previewing ? 'ready' : 'idle'}</span>
+            <span className="mini-pill">Publisher: {connectionLabel}</span>
+            <span className="mini-pill">Viewer: {viewerLabel}</span>
+          </div>
+        </div>
+
+        <details className="details-card">
+          <summary>Advanced controls</summary>
+          <div className="details-body">
+            <p className="muted-note">These controls are still available for debugging, but the normal path should just be the main start button.</p>
+            <div className="inline-actions">
+              <button className="tab active" type="button" disabled={sessionLoading} onClick={() => void provisionSession(false)}>
+                {sessionLoading ? 'Provisioning...' : 'Provision session'}
+              </button>
+              <button className="tab" type="button" disabled={sessionLoading} onClick={() => void provisionSession(true)}>
+                Refresh session
+              </button>
+              <button className="tab" type="button" onClick={() => void startPreview()}>
+                Start preview only
+              </button>
+              <button className="tab" type="button" onClick={() => void stopPublishing()} disabled={!publishing && !publishLoading}>
+                Stop publish only
+              </button>
+              <button className="tab" type="button" onClick={stopPreview} disabled={!previewing && !legacyUploading}>
+                Stop preview only
+              </button>
+            </div>
+            {session ? (
+              <ul className="compact-list">
+                <li>Session: {session.session_id}</li>
+                <li>Source: {session.source}</li>
+                <li>Source status: {session.source_status}</li>
+                <li>Publisher status: {session.publisher_status}</li>
+                <li>Viewer status: {session.viewer_status}</li>
+                <li>Ingest protocol: {session.ingest_protocol}</li>
+                <li>Viewer protocol: {session.viewer_protocol}</li>
+                <li>Analysis mode: {session.analysis_mode}</li>
+                <li>ICE servers: {session.ice_servers.length}</li>
+              </ul>
+            ) : (
+              <ul className="compact-list">
+                <li>Waiting for the dashboard to prepare a phone session.</li>
+              </ul>
+            )}
+          </div>
+        </details>
       </section>
 
       <section className="panel" style={{ display: 'grid', gap: 14 }}>
@@ -438,36 +479,34 @@ export default function RemoteCameraPage() {
         </div>
 
         <div className="workspace-card">
-          <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#050b16', minHeight: 320 }}>
+          <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: 'var(--stage-backdrop)', minHeight: 320 }}>
             <video
               ref={videoRef}
               autoPlay
               muted
               playsInline
-              style={{ width: '100%', display: 'block', minHeight: 320, objectFit: 'cover', background: '#050b16' }}
+              style={{ width: '100%', display: 'block', minHeight: 320, objectFit: 'cover', background: 'var(--stage-backdrop)' }}
             />
           </div>
         </div>
       </section>
 
-      <section className="panel" style={{ display: 'grid', gap: 14 }}>
-        <div className="panel-header">
-          <p className="panel-eyebrow">Fallback</p>
-          <div className="panel-title">Legacy JPEG upload fallback</div>
-          <p className="panel-subtitle">This keeps the older browser-frame upload path available for debugging while the WebRTC path stabilizes. It is not the target architecture.</p>
+      <details className="details-card">
+        <summary>Legacy JPEG fallback</summary>
+        <div className="details-body">
+          <p className="muted-note">Keep this only for debugging while the WebRTC path stabilizes. It is not the main user path anymore.</p>
+          <div className="inline-actions">
+            <button className="tab" type="button" onClick={() => void startLegacyUpload()} disabled={legacyUploading}>
+              {legacyUploading ? 'Uploading fallback...' : 'Start legacy fallback'}
+            </button>
+            <button className="tab" type="button" onClick={() => setLegacyUploading(false)} disabled={!legacyUploading}>
+              Stop fallback
+            </button>
+          </div>
         </div>
+      </details>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="tab" type="button" onClick={() => void startLegacyUpload()} disabled={legacyUploading}>
-            {legacyUploading ? 'Uploading fallback...' : 'Start legacy fallback'}
-          </button>
-          <button className="tab" type="button" onClick={() => setLegacyUploading(false)} disabled={!legacyUploading}>
-            Stop fallback
-          </button>
-        </div>
-      </section>
-
-      <ul className="compact-list">
+      <ul className="compact-list compact-status-list">
         <li>Status: {status}</li>
         <li>Backend: {API_BASE}</li>
         <li>Tip: mount the phone above the canvas and keep AprilTags fully visible.</li>

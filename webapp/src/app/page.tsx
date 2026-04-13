@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import QRCode from 'qrcode';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { API_BASE, WS_BASE } from '@/lib/config';
@@ -76,6 +77,9 @@ export default function HomePage() {
   const [externalCameraUrl, setExternalCameraUrl] = useState('');
   const [sourceSaving, setSourceSaving] = useState(false);
   const [phoneSessionLoading, setPhoneSessionLoading] = useState(false);
+  const [phoneQrDataUrl, setPhoneQrDataUrl] = useState<string | null>(null);
+  const [phoneCameraUrl, setPhoneCameraUrl] = useState('');
+  const [phoneLinkCopied, setPhoneLinkCopied] = useState(false);
   const [webrtcIceServers, setWebrtcIceServers] = useState<RTCIceServerConfig[]>([]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const analysisCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -253,6 +257,50 @@ export default function HomePage() {
       setCameraSource(source);
     }
   }, [state.camera]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    setPhoneCameraUrl(`${window.location.origin}/camera/remote`);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const buildQrCode = async () => {
+      if (!phoneCameraUrl) {
+        setPhoneQrDataUrl(null);
+        return;
+      }
+
+      try {
+        const dataUrl = await QRCode.toDataURL(phoneCameraUrl, {
+          margin: 1,
+          width: 220,
+          color: {
+            dark: '#19324d',
+            light: '#f8fbff',
+          },
+        });
+
+        if (!cancelled) {
+          setPhoneQrDataUrl(dataUrl);
+        }
+      } catch {
+        if (!cancelled) {
+          setPhoneQrDataUrl(null);
+        }
+      }
+    };
+
+    void buildQrCode();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phoneCameraUrl]);
 
   useEffect(() => {
     const sessionId = state.camera?.media_session?.session_id;
@@ -461,6 +509,25 @@ export default function HomePage() {
     }
   };
 
+  const connectPhoneCamera = async () => {
+    setCameraSource('phone-webrtc');
+    await provisionPhoneSession(false);
+  };
+
+  const copyPhoneCameraLink = async () => {
+    if (!phoneCameraUrl || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(phoneCameraUrl);
+      setPhoneLinkCopied(true);
+      window.setTimeout(() => setPhoneLinkCopied(false), 1800);
+    } catch {
+      setPhoneLinkCopied(false);
+    }
+  };
+
   const submitPrompt = async (event: FormEvent) => {
     event.preventDefault();
     setComposing(true);
@@ -574,13 +641,19 @@ export default function HomePage() {
     ];
   }, [backendReachable, camera.online, camera.source_status, state.robot_connected, state.robot_status]);
 
+  const phoneConnectionStatus = phoneViewerReady
+    ? 'Live on dashboard'
+    : phoneViewerError
+      ? phoneViewerError
+      : camera.latest_frame_label ?? 'Waiting for phone connection';
+
   return (
     <main className="app-shell">
       <div className="top-bar compact-top-bar">
         <div>
           <p className="eyebrow">SketchBot operator UI</p>
           <h1>Operator Dashboard</h1>
-          <p className="subdued-text">Switch between the Pi camera, the phone WebRTC flow, the legacy browser upload fallback, or an external preview URL without changing the rest of the robot workflow.</p>
+          <p className="subdued-text">Choose a camera source, bring a phone online with one guided flow, and keep the fallback/debug tools tucked away until you actually need them.</p>
         </div>
         <div className="status-pills">
           {topStatus.map((item) => (
@@ -638,7 +711,7 @@ export default function HomePage() {
                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#050b16' }}
                       />
                     ) : camera.source === 'phone-webrtc' ? (
-                      <div style={{ position: 'absolute', inset: 0, background: '#050b16', display: 'grid', placeItems: 'center', color: 'rgba(223,246,255,0.88)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
+                      <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
                         <div>
                           <div style={{ fontWeight: 700, marginBottom: 8 }}>Phone WebRTC viewer waiting</div>
                           <div>Session: {mediaSession.session_id ?? 'not provisioned'}</div>
@@ -651,10 +724,10 @@ export default function HomePage() {
                       <img
                         src={cameraFrameUrl}
                         alt={camera.latest_frame_label ?? 'Camera stream'}
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#050b16' }}
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: 'var(--stage-backdrop)' }}
                       />
                     ) : (
-                      <div style={{ position: 'absolute', inset: 0, background: '#050b16', display: 'grid', placeItems: 'center', color: 'rgba(223,246,255,0.8)', fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--muted)', fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                         No camera frame available
                       </div>
                     )}
@@ -756,24 +829,85 @@ export default function HomePage() {
           <aside className="side-stack">
             <div className="panel">
               <h3>Camera Source</h3>
-              <div style={{ display: 'grid', gap: 10 }}>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div className="source-row">
                   <button className={camera.source === 'pi-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void applyCameraSource('pi-camera')}>
                     Raspberry Pi
                   </button>
-                  <button className={camera.source === 'phone-webrtc' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving || phoneSessionLoading} onClick={() => void applyCameraSource('phone-webrtc')}>
-                    Phone WebRTC
+                  <button className={camera.source === 'phone-webrtc' || cameraSource === 'phone-webrtc' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving || phoneSessionLoading} onClick={() => setCameraSource('phone-webrtc')}>
+                    Phone Camera
                   </button>
-                  <button className={camera.source === 'browser-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void applyCameraSource('browser-camera')}>
-                    Legacy Upload
-                  </button>
-                  <button className={camera.source === 'external-camera' || cameraSource === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
-                    External URL
+                  <button className={cameraSource === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
+                    More Sources
                   </button>
                 </div>
 
+                {camera.source === 'phone-webrtc' || cameraSource === 'phone-webrtc' ? (
+                  <div className="guide-card">
+                    <div className="panel-header" style={{ marginBottom: 0 }}>
+                      <p className="panel-eyebrow">Guided Phone Flow</p>
+                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Connect phone camera</div>
+                      <p className="panel-subtitle">Start the phone flow here, then open the remote camera page from the QR code. The phone page will handle preview and publishing automatically.</p>
+                    </div>
+
+                    <div className="inline-actions">
+                      <button className="btn btn-primary" type="button" disabled={phoneSessionLoading} onClick={() => void connectPhoneCamera()}>
+                        {phoneSessionLoading ? 'Preparing phone session...' : 'Connect Phone Camera'}
+                      </button>
+                      <button className="btn" type="button" disabled={!phoneCameraUrl} onClick={() => void copyPhoneCameraLink()}>
+                        {phoneLinkCopied ? 'Link copied' : 'Copy phone link'}
+                      </button>
+                    </div>
+
+                    <div className="phone-guidance">
+                      <div className="qr-shell">
+                        {phoneQrDataUrl ? (
+                          <img src={phoneQrDataUrl} alt="QR code to open the phone camera page" width={180} height={180} />
+                        ) : (
+                          <div className="qr-placeholder">QR loading</div>
+                        )}
+                      </div>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        <div className="status-card">
+                          <strong>Status</strong>
+                          <span>{phoneConnectionStatus}</span>
+                        </div>
+                        <div className="status-card">
+                          <strong>Open on phone</strong>
+                          <span>{phoneCameraUrl || remoteCameraUrl}</span>
+                        </div>
+                        <div className="badge-line">
+                          <span className="mini-pill">Session: {mediaSession.session_id ?? 'pending'}</span>
+                          <span className="mini-pill">Publisher: {mediaSession.publisher_status}</span>
+                          <span className="mini-pill">Viewer: {mediaSession.viewer_status}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <details className="details-card">
+                      <summary>Advanced phone controls</summary>
+                      <div className="details-body">
+                        <ul className="compact-list">
+                          <li>Phone page: <Link href="/camera/remote">{remoteCameraUrl}</Link></li>
+                          <li>Analysis mode: {mediaSession.analysis_mode}</li>
+                          <li>ICE servers: {mediaSession.ice_servers?.length ?? webrtcIceServers.length}</li>
+                        </ul>
+                        <div className="inline-actions">
+                          <button className="tab active" type="button" disabled={phoneSessionLoading} onClick={() => void provisionPhoneSession(false)}>
+                            {phoneSessionLoading ? 'Provisioning...' : 'Provision session'}
+                          </button>
+                          <button className="tab" type="button" disabled={phoneSessionLoading} onClick={() => void provisionPhoneSession(true)}>
+                            Refresh session
+                          </button>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                ) : null}
+
                 {camera.source === 'external-camera' || cameraSource === 'external-camera' ? (
                   <div style={{ display: 'grid', gap: 10 }}>
+                    <p className="muted-note">Preview a public MJPEG or image URL without changing the rest of the workflow.</p>
                     <input
                       value={externalCameraUrl}
                       onChange={(event) => setExternalCameraUrl(event.target.value)}
@@ -785,34 +919,23 @@ export default function HomePage() {
                   </div>
                 ) : null}
 
-                {camera.source === 'phone-webrtc' || cameraSource === 'phone-webrtc' ? (
-                  <>
-                    <ul className="compact-list">
-                      <li>Open <Link href="/camera/remote">{remoteCameraUrl}</Link> on the phone that should act as the WebRTC publisher.</li>
-                      <li>Current status: {camera.latest_frame_label}</li>
-                       <li>Session: {mediaSession.session_id ?? 'not provisioned yet'}</li>
-                       <li>Publisher: {mediaSession.publisher_status}</li>
-                       <li>Viewer: {mediaSession.viewer_status}</li>
-                       <li>Analysis mode: {mediaSession.analysis_mode}</li>
-                       <li>ICE servers: {mediaSession.ice_servers?.length ?? webrtcIceServers.length}</li>
-                     </ul>
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      <button className="tab active" type="button" disabled={phoneSessionLoading} onClick={() => void provisionPhoneSession(false)}>
-                        {phoneSessionLoading ? 'Provisioning...' : 'Provision session'}
+                <details className="details-card">
+                  <summary>More sources and debugging</summary>
+                  <div className="details-body" style={{ display: 'grid', gap: 12 }}>
+                    <div className="source-row">
+                      <button className={camera.source === 'browser-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void applyCameraSource('browser-camera')}>
+                        Legacy Upload
                       </button>
-                      <button className="tab" type="button" disabled={phoneSessionLoading} onClick={() => void provisionPhoneSession(true)}>
-                        Refresh session
+                      <button className={camera.source === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
+                        External URL
                       </button>
                     </div>
-                  </>
-                ) : null}
-
-                {cameraSource === 'browser-camera' ? (
-                  <ul className="compact-list">
-                    <li>Legacy fallback only. This keeps the older JPEG upload path available for debugging.</li>
-                    <li>Open <Link href="/camera/remote">{remoteCameraUrl}</Link> and use the fallback uploader section there.</li>
-                  </ul>
-                ) : null}
+                    <ul className="compact-list">
+                      <li>Legacy upload keeps the older JPEG path available while WebRTC stabilizes.</li>
+                      <li>External URL is best for preview-only camera feeds that already expose an image or MJPEG stream.</li>
+                    </ul>
+                  </div>
+                </details>
               </div>
             </div>
 
