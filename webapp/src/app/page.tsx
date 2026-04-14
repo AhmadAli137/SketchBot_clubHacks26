@@ -1,8 +1,6 @@
 ﻿'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
-import QRCode from 'qrcode';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { API_BASE, WS_BASE } from '@/lib/config';
@@ -17,7 +15,7 @@ import type {
   WebRTCConfigResponse,
 } from '@/lib/types';
 
-type CameraSource = 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
+type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 
 function svgToDataUrl(svg: string | null | undefined) {
   if (!svg) return null;
@@ -72,18 +70,21 @@ export default function HomePage() {
   const [prompt, setPrompt] = useState('simple smiley face');
   const [uploading, setUploading] = useState(false);
   const [composing, setComposing] = useState(false);
-  const [cameraSource, setCameraSource] = useState<CameraSource>('phone-webrtc');
+  const [cameraSource, setCameraSource] = useState<CameraSource>('companion-camera');
   const [externalCameraUrl, setExternalCameraUrl] = useState('');
   const [sourceSaving, setSourceSaving] = useState(false);
   const [phoneSessionLoading, setPhoneSessionLoading] = useState(false);
   const [sourceTransitionTarget, setSourceTransitionTarget] = useState<CameraSource | null>(null);
-  const [phoneQrDataUrl, setPhoneQrDataUrl] = useState<string | null>(null);
-  const [phoneCameraUrl, setPhoneCameraUrl] = useState('');
-  const [phoneLinkCopied, setPhoneLinkCopied] = useState(false);
+  const [backendLinkCopied, setBackendLinkCopied] = useState(false);
   const [webrtcIceServers, setWebrtcIceServers] = useState<RTCIceServerConfig[]>([]);
+  const [browserCameraReady, setBrowserCameraReady] = useState(false);
+  const [browserCameraError, setBrowserCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const analysisCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const browserUploadCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const analysisUploadBusyRef = useRef(false);
+  const browserUploadBusyRef = useRef(false);
+  const browserStreamRef = useRef<MediaStream | null>(null);
   const phonePcRef = useRef<RTCPeerConnection | null>(null);
   const viewerIceServers = useMemo(
     () => state.camera?.media_session?.ice_servers ?? webrtcIceServers,
@@ -188,6 +189,11 @@ export default function HomePage() {
       return;
     }
 
+    if (source === 'companion-camera') {
+      setCameraSource('companion-camera');
+      return;
+    }
+
     if (source === 'phone-webrtc') {
       setCameraSource('phone-webrtc');
       return;
@@ -207,50 +213,6 @@ export default function HomePage() {
       setCameraSource(source);
     }
   }, [sourceTransitionTarget, state.camera]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    setPhoneCameraUrl(`${window.location.origin}/camera/remote`);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const buildQrCode = async () => {
-      if (!phoneCameraUrl) {
-        setPhoneQrDataUrl(null);
-        return;
-      }
-
-      try {
-        const dataUrl = await QRCode.toDataURL(phoneCameraUrl, {
-          margin: 1,
-          width: 220,
-          color: {
-            dark: '#19324d',
-            light: '#f8fbff',
-          },
-        });
-
-        if (!cancelled) {
-          setPhoneQrDataUrl(dataUrl);
-        }
-      } catch {
-        if (!cancelled) {
-          setPhoneQrDataUrl(null);
-        }
-      }
-    };
-
-    void buildQrCode();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [phoneCameraUrl]);
 
   useEffect(() => {
     const sessionId = state.camera?.media_session?.session_id;
@@ -372,6 +334,110 @@ export default function HomePage() {
   }, [state.camera?.media_session?.session_id, state.camera?.source, viewerIceKey, viewerRtcConfig]);
 
   useEffect(() => {
+    const shouldUseBrowserCamera = state.camera?.source === 'browser-camera';
+
+    if (!shouldUseBrowserCamera) {
+      setBrowserCameraReady(false);
+      setBrowserCameraError(null);
+      browserStreamRef.current?.getTracks().forEach((track) => track.stop());
+      browserStreamRef.current = null;
+      if (videoRef.current && state.camera?.source !== 'phone-webrtc') {
+        videoRef.current.srcObject = null;
+      }
+      return;
+    }
+
+    let cancelled = false;
+
+    const startBrowserCamera = async () => {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 960 },
+            height: { ideal: 540 },
+            frameRate: { ideal: 20, max: 24 },
+          },
+          audio: false,
+        });
+
+        if (cancelled) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        browserStreamRef.current = mediaStream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          void videoRef.current.play().catch(() => {});
+        }
+        setBrowserCameraReady(true);
+        setBrowserCameraError(null);
+      } catch (error) {
+        if (!cancelled) {
+          setBrowserCameraReady(false);
+          setBrowserCameraError(error instanceof Error ? error.message : 'Unable to access this device camera.');
+        }
+      }
+    };
+
+    void startBrowserCamera();
+
+    return () => {
+      cancelled = true;
+      browserStreamRef.current?.getTracks().forEach((track) => track.stop());
+      browserStreamRef.current = null;
+      setBrowserCameraReady(false);
+    };
+  }, [state.camera?.source]);
+
+  useEffect(() => {
+    if (state.camera?.source !== 'browser-camera' || !browserCameraReady) {
+      return;
+    }
+
+    const timer = window.setInterval(async () => {
+      const video = videoRef.current;
+      if (!video || browserUploadBusyRef.current || video.videoWidth === 0 || video.videoHeight === 0) {
+        return;
+      }
+
+      browserUploadBusyRef.current = true;
+      try {
+        const canvas = browserUploadCanvasRef.current ?? document.createElement('canvas');
+        browserUploadCanvasRef.current = canvas;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext('2d');
+        if (!context) {
+          throw new Error('Camera canvas unavailable.');
+        }
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.7));
+        if (!blob) {
+          throw new Error('Unable to encode camera frame.');
+        }
+
+        const response = await fetch(`${API_BASE}/api/camera/browser-frame`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'image/jpeg' },
+          body: blob,
+        });
+        if (!response.ok) {
+          throw new Error('USB camera upload failed.');
+        }
+      } catch (error) {
+        setBrowserCameraError(error instanceof Error ? error.message : 'USB camera upload failed.');
+      } finally {
+        browserUploadBusyRef.current = false;
+      }
+    }, 350);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [browserCameraReady, state.camera?.source]);
+
+  useEffect(() => {
     const sessionId = state.camera?.media_session?.session_id;
     if (state.camera?.source !== 'phone-webrtc' || !phoneViewerReady || !sessionId) {
       return;
@@ -467,22 +533,25 @@ export default function HomePage() {
     }
   };
 
-  const connectPhoneCamera = async () => {
-    setCameraSource('phone-webrtc');
-    await provisionPhoneSession(false);
+  const activateCompanionCamera = async () => {
+    await applyCameraSource('companion-camera');
   };
 
-  const copyPhoneCameraLink = async () => {
-    if (!phoneCameraUrl || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+  const activateBrowserCamera = async () => {
+    await applyCameraSource('browser-camera');
+  };
+
+  const copyBackendUrl = async () => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(phoneCameraUrl);
-      setPhoneLinkCopied(true);
-      window.setTimeout(() => setPhoneLinkCopied(false), 1800);
+      await navigator.clipboard.writeText(API_BASE);
+      setBackendLinkCopied(true);
+      window.setTimeout(() => setBackendLinkCopied(false), 1800);
     } catch {
-      setPhoneLinkCopied(false);
+      setBackendLinkCopied(false);
     }
   };
 
@@ -578,10 +647,9 @@ export default function HomePage() {
   const taskReady = activeJob.status === 'draft' || activeJob.status === 'planned' || activeJob.status === 'ready';
   const shouldShowFallbackCameraStream =
     camera.online &&
-    camera.source === 'browser-camera' &&
+    (camera.source === 'browser-camera' || camera.source === 'companion-camera') &&
     !camera.latest_frame_url;
   const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url) ?? (shouldShowFallbackCameraStream ? `${API_BASE}/api/camera/stream` : null);
-  const remoteCameraUrl = '/camera/remote';
   const robotLeft = `${Math.max(10, Math.min(90, (robotPose.x_mm / Math.max(canvas.width_mm || 1, 1)) * 100))}%`;
   const robotTop = `${Math.max(10, Math.min(90, (robotPose.y_mm / Math.max(canvas.height_mm || 1, 1)) * 100))}%`;
   const aprilTagDetections = camera.april_tag_detections ?? [];
@@ -603,6 +671,14 @@ export default function HomePage() {
     : phoneViewerError
       ? phoneViewerError
       : camera.latest_frame_label ?? 'Waiting for phone connection';
+  const companionConnectionStatus =
+    camera.source === 'companion-camera'
+      ? (camera.online ? `${camera.latest_frame_label}${mediaSession.device_label ? ` (${mediaSession.device_label})` : ''}` : 'Waiting for the Expo companion app to connect on the same network.')
+      : 'Select Companion App on the dashboard to begin.';
+  const browserCameraStatus =
+    camera.source === 'browser-camera'
+      ? (browserCameraReady ? 'This device camera is live and uploading.' : browserCameraError ?? 'Waiting for camera permission on this device.')
+      : 'Select This Device / USB Camera to use a webcam or capture card attached to this computer.';
 
   return (
     <main className="app-shell">
@@ -610,7 +686,7 @@ export default function HomePage() {
         <div>
           <p className="eyebrow">SketchBot operator UI</p>
           <h1>Operator Dashboard</h1>
-          <p className="subdued-text">Choose between a companion phone, this device or USB camera, an external feed, or a future certified-kit WebRTC source without carrying a board-specific camera setup.</p>
+          <p className="subdued-text">Choose between an Expo companion app, this device or USB camera, an external feed, or a future certified-kit WebRTC source for the higher-end hardware path.</p>
         </div>
         <div className="status-pills">
           {topStatus.map((item) => (
@@ -660,6 +736,14 @@ export default function HomePage() {
                         muted
                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#050b16' }}
                       />
+                    ) : camera.source === 'browser-camera' && browserCameraReady ? (
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#050b16' }}
+                      />
                     ) : camera.source === 'phone-webrtc' ? (
                       <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
                         <div>
@@ -668,6 +752,21 @@ export default function HomePage() {
                           <div>Publisher: {mediaSession.publisher_status}</div>
                           <div>Viewer: {mediaSession.viewer_status}</div>
                           <div>{phoneViewerError ?? 'Waiting for phone publisher offer or viewer negotiation.'}</div>
+                        </div>
+                      </div>
+                    ) : camera.source === 'companion-camera' && !cameraFrameUrl ? (
+                      <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
+                        <div>
+                          <div style={{ fontWeight: 700, marginBottom: 8 }}>Companion app waiting</div>
+                          <div>Backend URL: {API_BASE}</div>
+                          <div>{companionConnectionStatus}</div>
+                        </div>
+                      </div>
+                    ) : camera.source === 'browser-camera' && !browserCameraReady ? (
+                      <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
+                        <div>
+                          <div style={{ fontWeight: 700, marginBottom: 8 }}>This device / USB camera waiting</div>
+                          <div>{browserCameraStatus}</div>
                         </div>
                       </div>
                     ) : cameraFrameUrl ? (
@@ -781,74 +880,83 @@ export default function HomePage() {
               <h3>Camera Source</h3>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div className="source-row">
-                  <button className={camera.source === 'phone-webrtc' || cameraSource === 'phone-webrtc' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving || phoneSessionLoading} onClick={() => void connectPhoneCamera()}>
-                    Companion Camera
+                  <button className={camera.source === 'companion-camera' || cameraSource === 'companion-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void activateCompanionCamera()}>
+                    Companion App
+                  </button>
+                  <button className={camera.source === 'browser-camera' || cameraSource === 'browser-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void activateBrowserCamera()}>
+                    This Device / USB
                   </button>
                   <button className={cameraSource === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
                     External Feed
                   </button>
                 </div>
 
-                {camera.source === 'phone-webrtc' || cameraSource === 'phone-webrtc' ? (
+                {camera.source === 'companion-camera' || cameraSource === 'companion-camera' ? (
                   <div className="guide-card">
                     <div className="panel-header" style={{ marginBottom: 0 }}>
-                      <p className="panel-eyebrow">Guided Phone Flow</p>
-                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Connect companion camera</div>
-                      <p className="panel-subtitle">Start the companion flow here, then open the remote camera page from the QR code on a phone, tablet, or laptop with a camera. The companion page handles preview and publishing automatically.</p>
+                      <p className="panel-eyebrow">Expo Companion</p>
+                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Connect companion app</div>
+                      <p className="panel-subtitle">Open the Expo companion app on a phone or tablet on the same Wi-Fi, paste the backend URL below, and tap Start Streaming. The dashboard will begin rendering uploaded frames automatically.</p>
                     </div>
 
                     <div className="inline-actions">
-                      <button className="btn btn-primary" type="button" disabled={phoneSessionLoading} onClick={() => void connectPhoneCamera()}>
-                        {phoneSessionLoading ? 'Preparing companion session...' : 'Connect Companion Camera'}
+                      <button className="btn btn-primary" type="button" disabled={sourceSaving} onClick={() => void activateCompanionCamera()}>
+                        {sourceSaving ? 'Selecting source...' : 'Use Companion App'}
                       </button>
-                      <button className="btn" type="button" disabled={!phoneCameraUrl} onClick={() => void copyPhoneCameraLink()}>
-                        {phoneLinkCopied ? 'Link copied' : 'Copy companion link'}
+                      <button className="btn" type="button" onClick={() => void copyBackendUrl()}>
+                        {backendLinkCopied ? 'Backend copied' : 'Copy backend URL'}
                       </button>
                     </div>
 
                     <div className="phone-guidance">
-                      <div className="qr-shell">
-                        {phoneQrDataUrl ? (
-                          <img src={phoneQrDataUrl} alt="QR code to open the phone camera page" width={180} height={180} />
-                        ) : (
-                          <div className="qr-placeholder">QR loading</div>
-                        )}
-                      </div>
                       <div style={{ display: 'grid', gap: 10 }}>
                         <div className="status-card">
                           <strong>Status</strong>
-                          <span>{phoneConnectionStatus}</span>
+                          <span>{companionConnectionStatus}</span>
                         </div>
                         <div className="status-card">
-                          <strong>Open on companion device</strong>
-                          <span>{phoneCameraUrl || remoteCameraUrl}</span>
+                          <strong>Backend URL for the app</strong>
+                          <span>{API_BASE}</span>
                         </div>
                         <div className="badge-line">
-                          <span className="mini-pill">Session: {mediaSession.session_id ?? 'pending'}</span>
-                          <span className="mini-pill">Publisher: {mediaSession.publisher_status}</span>
-                          <span className="mini-pill">Viewer: {mediaSession.viewer_status}</span>
+                          <span className="mini-pill">Same network required</span>
+                          <span className="mini-pill">Frames: {camera.online ? 'live' : 'waiting'}</span>
+                          <span className="mini-pill">Device: {mediaSession.device_label ?? 'not connected yet'}</span>
                         </div>
                       </div>
                     </div>
 
                     <details className="details-card">
-                      <summary>Advanced phone controls</summary>
+                      <summary>Companion setup notes</summary>
                       <div className="details-body">
                         <ul className="compact-list">
-                          <li>Phone page: <Link href="/camera/remote">{remoteCameraUrl}</Link></li>
-                          <li>Analysis mode: {mediaSession.analysis_mode}</li>
-                          <li>ICE servers: {mediaSession.ice_servers?.length ?? webrtcIceServers.length}</li>
+                          <li>Use the new Expo app in the `companion-app` folder for the primary mobile experience.</li>
+                          <li>The app should point at this backend URL over the same LAN.</li>
+                          <li>This path uses reliable frame uploads instead of browser WebRTC.</li>
                         </ul>
-                        <div className="inline-actions">
-                          <button className="tab active" type="button" disabled={phoneSessionLoading} onClick={() => void provisionPhoneSession(false)}>
-                            {phoneSessionLoading ? 'Provisioning...' : 'Provision session'}
-                          </button>
-                          <button className="tab" type="button" disabled={phoneSessionLoading} onClick={() => void provisionPhoneSession(true)}>
-                            Refresh session
-                          </button>
-                        </div>
                       </div>
                     </details>
+                  </div>
+                ) : null}
+
+                {camera.source === 'browser-camera' || cameraSource === 'browser-camera' ? (
+                  <div className="guide-card">
+                    <div className="panel-header" style={{ marginBottom: 0 }}>
+                      <p className="panel-eyebrow">Local Camera</p>
+                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Use this device or a USB camera</div>
+                      <p className="panel-subtitle">Best for laptops, tablets, webcams, or HDMI capture cards connected directly to the operator machine. When selected, the dashboard requests camera access and streams frames back into the backend automatically.</p>
+                    </div>
+
+                    <div className="inline-actions">
+                      <button className="btn btn-primary" type="button" disabled={sourceSaving} onClick={() => void activateBrowserCamera()}>
+                        {sourceSaving ? 'Selecting source...' : 'Use This Device Camera'}
+                      </button>
+                    </div>
+
+                    <div className="status-card">
+                      <strong>Status</strong>
+                      <span>{browserCameraStatus}</span>
+                    </div>
                   </div>
                 ) : null}
 
@@ -870,18 +978,25 @@ export default function HomePage() {
                   <summary>Future kit support and debugging</summary>
                   <div className="details-body" style={{ display: 'grid', gap: 12 }}>
                     <div className="source-row">
-                      <button className={camera.source === 'browser-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void applyCameraSource('browser-camera')}>
-                        Browser Upload
-                      </button>
                       <button className={camera.source === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
                         External URL
+                      </button>
+                      <button className={camera.source === 'phone-webrtc' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving || phoneSessionLoading} onClick={() => void provisionPhoneSession(false)}>
+                        Legacy WebRTC
                       </button>
                     </div>
                     <ul className="compact-list">
                       <li>This device or USB keeps the browser-camera path available for tablets, laptops, webcams, and capture cards.</li>
+                      <li>The older browser-to-browser WebRTC flow is still available here for experimentation.</li>
                       <li>Certified kit WebRTC support remains reserved in the backend for future hardware bundles.</li>
                       <li>External URL is best for preview-only camera feeds that already expose an image or MJPEG stream.</li>
                     </ul>
+                    {camera.source === 'phone-webrtc' ? (
+                      <div className="status-card">
+                        <strong>Legacy WebRTC status</strong>
+                        <span>{phoneConnectionStatus}</span>
+                      </div>
+                    ) : null}
                   </div>
                 </details>
               </div>

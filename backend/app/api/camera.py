@@ -1,3 +1,5 @@
+import base64
+
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import Response, StreamingResponse
 
@@ -5,6 +7,7 @@ from app.models.media import (
     CameraFeedInfo,
     CameraSourceRequest,
     CameraSourceResponse,
+    CompanionFrameUpload,
     PhoneWebRTCSessionRequest,
     PhoneWebRTCSessionResponse,
     RTCSignalDescription,
@@ -66,7 +69,7 @@ def _phone_webrtc_session_response() -> PhoneWebRTCSessionResponse:
 def get_camera_feed() -> CameraFeedInfo:
     camera_service.capture_frame()
     state = state_manager.state
-    default_frame_url = '/api/camera/stream' if state.camera.source == 'browser-camera' else None
+    default_frame_url = '/api/camera/stream' if state.camera.source in {'companion-camera', 'browser-camera'} else None
     return CameraFeedInfo(
         online=state.camera.online,
         source=state.camera.source,
@@ -104,6 +107,24 @@ def upload_browser_frame(payload: bytes = Body(..., media_type='image/jpeg')):
         'source': state.camera.source,
         'source_status': state.camera.source_status,
         'frame_label': state.camera.latest_frame_label,
+    }
+
+
+@router.post('/companion-frame')
+def upload_companion_frame(payload: CompanionFrameUpload):
+    try:
+        image_bytes = base64.b64decode(payload.image_base64, validate=True)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail='Invalid base64 image payload') from exc
+
+    accepted = camera_service.publish_companion_frame(image_bytes, payload.device_label)
+    state = state_manager.state
+    return {
+        'accepted': accepted,
+        'source': state.camera.source,
+        'source_status': state.camera.source_status,
+        'frame_label': state.camera.latest_frame_label,
+        'device_label': state.camera.media_session.device_label,
     }
 
 

@@ -18,15 +18,15 @@ class CameraService:
         self._latest_frame: bytes | None = None
         self._frame_seq = 0
         self._last_ok_at: float | None = None
-        self._source = 'phone-webrtc'
+        self._source = 'companion-camera'
         self._external_url: str | None = None
         self._refresh_state(
             online=False,
-            source='phone-webrtc',
-            source_status='awaiting-session',
-            label='Phone or certified kit camera session required',
+            source='companion-camera',
+            source_status='waiting',
+            label='Waiting for companion app frames',
             frame_url=None,
-            supports_webrtc=True,
+            supports_webrtc=False,
         )
 
     def _refresh_state(
@@ -110,6 +110,14 @@ class CameraService:
         apriltag_service.update_from_frame(payload)
         return True
 
+    def set_companion_device_label(self, label: str | None) -> None:
+        normalized = (label or '').strip()
+        if not normalized:
+            return
+        state_manager.state.camera.media_session.device_label = normalized
+        state_manager._normalize_state()
+        state_manager._refresh_operator_summary()
+
     def active_source(self) -> str:
         with self._lock:
             return self._source
@@ -123,6 +131,17 @@ class CameraService:
 
         self._reset_latest_frame()
         apriltag_service.update_from_frame(None)
+
+        if source == 'companion-camera':
+            self._refresh_state(
+                False,
+                'companion-camera',
+                'waiting',
+                'Waiting for companion app frames',
+                '/api/camera/stream',
+                supports_webrtc=False,
+            )
+            return
 
         if source == 'browser-camera':
             self._refresh_state(
@@ -176,6 +195,13 @@ class CameraService:
             self._source = 'browser-camera'
             self._external_url = None
         return self._publish_frame(payload, source='browser-camera', label=f'Device camera frame {time.strftime("%H:%M:%S")}')
+
+    def publish_companion_frame(self, payload: bytes, device_label: str | None = None) -> bool:
+        with self._lock:
+            self._source = 'companion-camera'
+            self._external_url = None
+        self.set_companion_device_label(device_label)
+        return self._publish_frame(payload, source='companion-camera', label=f'Companion frame {time.strftime("%H:%M:%S")}')
 
     def publish_phone_webrtc_analysis_frame(self, payload: bytes) -> bool:
         with self._lock:

@@ -50,6 +50,12 @@ class StateManager:
             status = 'Mock mode'
         elif mock_mode and state.robot_connected:
             status = 'Mock bot connected'
+        elif state.camera.source == 'companion-camera' and state.camera.source_status == 'waiting':
+            status = 'Waiting for companion app'
+        elif state.camera.source == 'companion-camera' and state.camera.source_status == 'live':
+            status = 'Companion app live'
+        elif state.camera.source == 'companion-camera' and not state.camera.online:
+            status = 'Companion app offline'
         elif state.camera.source == 'phone-webrtc' and state.camera.source_status == 'awaiting-session':
             status = 'Phone WebRTC session needed'
         elif state.camera.source == 'phone-webrtc' and state.camera.source_status == 'awaiting-publisher':

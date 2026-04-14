@@ -78,9 +78,9 @@ class MediaSessionSummary(BaseModel):
 
 class CameraState(BaseModel):
     online: bool = False
-    source: str = 'phone-webrtc'
-    source_status: str = 'awaiting-session'
-    latest_frame_label: str = 'Phone or certified kit camera session required'
+    source: str = 'companion-camera'
+    source_status: str = 'waiting'
+    latest_frame_label: str = 'Waiting for companion app frames'
     latest_frame_url: str | None = None
     external_url: str | None = None
     supports_webrtc: bool = True

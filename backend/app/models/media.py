@@ -21,7 +21,7 @@ class CameraFeedInfo(BaseModel):
 
 
 class CameraSourceRequest(BaseModel):
-    source: Literal['browser-camera', 'phone-webrtc', 'external-camera', 'kit-webrtc', 'demo']
+    source: Literal['companion-camera', 'browser-camera', 'phone-webrtc', 'external-camera', 'kit-webrtc', 'demo']
     external_url: str | None = None
 
 
@@ -84,3 +84,8 @@ class UploadResponse(BaseModel):
     stored: bool
     task_id: str | None = None
     overlay_ready: bool = False
+
+
+class CompanionFrameUpload(BaseModel):
+    image_base64: str
+    device_label: str | None = None

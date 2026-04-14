@@ -7,6 +7,7 @@ Monorepo for the ESP32-based drawing robot system.
 - `firmware/` - ESP-IDF project for the ESP32-C5 robot controller
 - `backend/` - FastAPI backend for supervision, vision, localization, planning, and robot coordination
 - `webapp/` - Next.js operator UI for visualization, approval, and control
+- `companion-app/` - Expo mobile app for same-network camera streaming from a phone or tablet
 
 ## Deployment model
 
@@ -26,8 +27,16 @@ Deployment guide:
 - Firmware: ESP-IDF on ESP32-C5
 - Backend: Python + FastAPI
 - Frontend: React + Next.js
+- Companion capture: Expo + React Native
 - Robot transport: WebSocket
 - Vision/localization: OpenCV + AprilTags
+
+## Camera modes
+
+- `Companion App` for same-network phone/tablet streaming without TURN or VPS relay infrastructure
+- `This Device / USB` for webcams, tablets, or capture cards attached directly to the operator machine
+- `External Feed` for MJPEG/image URLs that already exist elsewhere
+- `Certified Kit WebRTC` reserved for future higher-end hardware bundles
 
 ## Responsibilities
 
