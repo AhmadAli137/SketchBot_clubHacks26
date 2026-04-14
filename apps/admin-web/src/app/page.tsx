@@ -9,15 +9,14 @@ export default function HomePage() {
       <SiteHeader />
       <section className="hero">
         <p className="eyebrow">SketchBot Platform</p>
-        <h1>Desktop robotics for classrooms, with cloud tools for teachers and teams.</h1>
+        <h1>Set up your classroom and keep SketchBot running smoothly.</h1>
         <p>
-          SketchBot now ships as a desktop-first robotics experience. The desktop app handles camera vision,
-          teleoperation, and robot control locally, while this hosted site manages accounts, saved projects,
-          classroom setup, and release information.
+          Students use SketchBot Desktop and Camera Buddy in the classroom. Teachers and organizers use this site for
+          sign-in, downloads, updates, and support.
         </p>
         <div className="cta-row">
           <Link className="btn primary" href="/portal">
-            Open admin portal
+            Open teacher portal
           </Link>
           <Link className="btn" href="/sign-in">
             Sign in
@@ -28,50 +27,50 @@ export default function HomePage() {
         </div>
         <div className="pill-row">
           <div className="pill">
-            <strong>Desktop operator app</strong>
-            Vision, teleoperation, and robot runtime stay local on the operator machine.
+            <strong>Desktop app</strong>
+            Runs the robot, camera, and drawing session on the classroom computer.
           </div>
           <div className="pill">
-            <strong>Camera Buddy companion</strong>
-            Same-network phone or tablet pairing for flexible classroom camera placement.
+            <strong>Camera Buddy</strong>
+            Lets a phone or tablet join the same room on the same Wi-Fi.
           </div>
           <div className="pill">
-            <strong>Hosted admin tools</strong>
-            Accounts, updates, classroom management, saved projects, and support workflows.
+            <strong>This website</strong>
+            Handles sign-in, downloads, release notes, and classroom management.
           </div>
         </div>
       </section>
 
       <section className="grid">
         <div className="panel">
-          <p className="eyebrow">Why this split</p>
-          <h2>Local where latency matters. Cloud where management matters.</h2>
+          <p className="eyebrow">Start here</p>
+          <h2>Three things most teachers need</h2>
           <p>
-            The desktop app avoids browser camera limitations and internet frame latency. The cloud backend stays
-            focused on administrative workflows, synced assets, and product operations.
+            SketchBot keeps the live robot session on the classroom computer so drawing stays fast. This site stays focused
+            on setup, accounts, and updates.
           </p>
           <ul>
-            <li>Lower latency and more reliable teleoperation in the classroom.</li>
-            <li>Better support for USB cameras, document cameras, and capture devices.</li>
-            <li>Cleaner security model: local runtime for robotics, hosted backend for accounts and admin.</li>
+            <li>Download the latest desktop app.</li>
+            <li>Help students sign in and join the right classroom.</li>
+            <li>Check release notes and support status before class starts.</li>
           </ul>
         </div>
         <div className="panel">
-          <p className="eyebrow">Cloud backend</p>
-          <h3>Current service endpoint</h3>
+          <p className="eyebrow">Cloud status</p>
+          <h3>Service endpoint</h3>
           <p>{CLOUD_BACKEND_URL}</p>
           <div className="stat-grid">
             <div className="stat">
-              <strong>Auth</strong>
-              Clerk-backed accounts for teachers, teams, and classroom admins.
+              <strong>Accounts</strong>
+              Teacher and student sign-in.
             </div>
             <div className="stat">
-              <strong>Sync</strong>
-              Store and retrieve saved tasks, device metadata, and release channels.
+              <strong>Downloads</strong>
+              Desktop and companion release channels.
             </div>
             <div className="stat">
               <strong>Support</strong>
-              Hosted status, release health, and classroom administration live here instead of inside the operator session.
+              Health, updates, and classroom help live here.
             </div>
           </div>
         </div>

@@ -1,17 +1,14 @@
-﻿'use client';
+'use client';
 
-import Image from 'next/image';
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { DesktopRuntimeBanner } from '@/components/desktop-runtime-banner';
+import { StudentDashboard } from '@/components/student-dashboard';
 import { useRuntimeConfig } from '@/lib/config';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { useDesktopShell } from '@/lib/desktop-shell';
 import { mockState } from '@/lib/mock-state';
 import type {
   AppState,
   MediaSessionSummary,
-  PhoneWebRTCSessionResponse,
   RTCIceServerConfig,
   TaskRecord,
   WebRTCConfigResponse,
@@ -64,24 +61,23 @@ function rtcConfiguration(iceServers?: RTCIceServerConfig[]): RTCConfiguration {
 
 export default function HomePage() {
   const { apiBase, wsBase } = useRuntimeConfig();
+  const { pairingTargets } = useDesktopShell();
+
   const [state, setState] = useState<AppState>(mockState);
   const [backendReachable, setBackendReachable] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'create'>('dashboard');
   const [phoneViewerReady, setPhoneViewerReady] = useState(false);
   const [phoneViewerError, setPhoneViewerError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [prompt, setPrompt] = useState('simple smiley face');
   const [uploading, setUploading] = useState(false);
   const [composing, setComposing] = useState(false);
-  const [cameraSource, setCameraSource] = useState<CameraSource>('companion-camera');
-  const [externalCameraUrl, setExternalCameraUrl] = useState('');
   const [sourceSaving, setSourceSaving] = useState(false);
-  const [phoneSessionLoading, setPhoneSessionLoading] = useState(false);
   const [sourceTransitionTarget, setSourceTransitionTarget] = useState<CameraSource | null>(null);
   const [backendLinkCopied, setBackendLinkCopied] = useState(false);
   const [webrtcIceServers, setWebrtcIceServers] = useState<RTCIceServerConfig[]>([]);
   const [browserCameraReady, setBrowserCameraReady] = useState(false);
   const [browserCameraError, setBrowserCameraError] = useState<string | null>(null);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const analysisCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const browserUploadCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -89,18 +85,20 @@ export default function HomePage() {
   const browserUploadBusyRef = useRef(false);
   const browserStreamRef = useRef<MediaStream | null>(null);
   const phonePcRef = useRef<RTCPeerConnection | null>(null);
+
   const viewerIceServers = useMemo(
     () => state.camera?.media_session?.ice_servers ?? webrtcIceServers,
     [state.camera?.media_session?.ice_servers, webrtcIceServers],
   );
   const viewerIceKey = useMemo(() => JSON.stringify(viewerIceServers), [viewerIceServers]);
   const viewerRtcConfig = useMemo(() => rtcConfiguration(viewerIceServers), [viewerIceServers]);
-  const { pairingTargets } = useDesktopShell();
 
   const refreshTasks = useCallback(async () => {
     try {
       const response = await fetch(`${apiBase}/api/compose/tasks`, { cache: 'no-store' });
-      if (!response.ok) throw new Error('Failed to fetch tasks');
+      if (!response.ok) {
+        throw new Error('Failed to fetch tasks');
+      }
       const payload = (await response.json()) as { tasks: TaskRecord[] };
       setTasks(payload.tasks ?? []);
     } catch {
@@ -111,7 +109,9 @@ export default function HomePage() {
   const refreshState = useCallback(async () => {
     try {
       const response = await fetch(`${apiBase}/api/state`, { cache: 'no-store' });
-      if (!response.ok) throw new Error('Failed to fetch state');
+      if (!response.ok) {
+        throw new Error('Failed to fetch state');
+      }
       const nextState = (await response.json()) as AppState;
       setState(nextState);
       setBackendReachable(true);
@@ -139,6 +139,7 @@ export default function HomePage() {
     void refreshState();
     void refreshTasks();
     void refreshWebRTCConfig();
+
     const statePoll = window.setInterval(() => {
       if (!cancelled) {
         void refreshState();
@@ -157,66 +158,19 @@ export default function HomePage() {
         // Ignore invalid snapshots.
       }
     };
-    ws.onerror = () => {
-      // Keep polling state even if WebSocket transport is flaky in hosted environments.
-    };
-    ws.onclose = () => {
-      // HTTP polling remains the source of truth for basic reachability.
-    };
 
     return () => {
       cancelled = true;
       window.clearInterval(statePoll);
       ws.close();
     };
-  }, [apiBase, refreshState, refreshTasks, refreshWebRTCConfig, wsBase]);
+  }, [refreshState, refreshTasks, refreshWebRTCConfig, wsBase]);
 
   useEffect(() => {
     if (sourceTransitionTarget && state.camera?.source === sourceTransitionTarget) {
       setSourceTransitionTarget(null);
     }
   }, [sourceTransitionTarget, state.camera?.source]);
-
-  useEffect(() => {
-    const source = state.camera?.source;
-    if (!source) {
-      return;
-    }
-
-    if (sourceTransitionTarget && source !== sourceTransitionTarget) {
-      return;
-    }
-
-    if (source === 'external-camera') {
-      setCameraSource('external-camera');
-      setExternalCameraUrl(state.camera?.external_url ?? '');
-      return;
-    }
-
-    if (source === 'companion-camera') {
-      setCameraSource('companion-camera');
-      return;
-    }
-
-    if (source === 'phone-webrtc') {
-      setCameraSource('phone-webrtc');
-      return;
-    }
-
-    if (source === 'browser-camera') {
-      setCameraSource('browser-camera');
-      return;
-    }
-
-    if (source === 'kit-webrtc') {
-      setCameraSource('kit-webrtc');
-      return;
-    }
-
-    if (source === 'demo') {
-      setCameraSource(source);
-    }
-  }, [sourceTransitionTarget, state.camera]);
 
   useEffect(() => {
     const sessionId = state.camera?.media_session?.session_id;
@@ -250,8 +204,7 @@ export default function HomePage() {
             cache: 'no-store',
           });
           if (response.ok) {
-            const payload = await response.json() as { sdp: string; type: RTCSdpType };
-            remoteOffer = payload;
+            remoteOffer = (await response.json()) as { sdp: string; type: RTCSdpType };
             break;
           }
           await delay(1000);
@@ -285,7 +238,7 @@ export default function HomePage() {
             void fetch(`${apiBase}/api/camera/phone-webrtc/viewer-live/${sessionId}`, { method: 'POST' });
           } else if (pc.connectionState === 'failed') {
             setPhoneViewerReady(false);
-            setPhoneViewerError('Phone WebRTC peer connection failed.');
+            setPhoneViewerError('Phone WebRTC connection failed.');
           } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
             setPhoneViewerReady(false);
           }
@@ -310,13 +263,14 @@ export default function HomePage() {
             type: localDescription.type,
           }),
         });
+
         if (!answerResponse.ok) {
-          throw new Error('Failed to deliver dashboard viewer answer.');
+          throw new Error('Failed to deliver the dashboard answer.');
         }
       } catch (error) {
         if (!cancelled) {
           setPhoneViewerReady(false);
-          setPhoneViewerError(error instanceof Error ? error.message : 'Unable to start the phone WebRTC viewer.');
+          setPhoneViewerError(error instanceof Error ? error.message : 'Unable to start the phone viewer.');
         }
       }
     };
@@ -491,8 +445,7 @@ export default function HomePage() {
     };
   }, [apiBase, phoneViewerReady, state.camera?.media_session?.session_id, state.camera?.source]);
 
-  const applyCameraSource = async (source: CameraSource, externalUrl?: string) => {
-    setCameraSource(source);
+  const applyCameraSource = async (source: CameraSource) => {
     setSourceTransitionTarget(source);
     setSourceSaving(true);
     try {
@@ -501,39 +454,13 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source,
-          external_url: source === 'external-camera' ? (externalUrl ?? externalCameraUrl).trim() : null,
+          external_url: null,
         }),
       });
       await refreshState();
     } finally {
       setSourceTransitionTarget(null);
       setSourceSaving(false);
-    }
-  };
-
-  const provisionPhoneSession = async (forceNew = false) => {
-    setPhoneSessionLoading(true);
-    try {
-      setSourceTransitionTarget('phone-webrtc');
-      await fetch(`${apiBase}/api/camera/source`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'phone-webrtc' }),
-      });
-
-      const response = await fetch(`${apiBase}/api/camera/phone-webrtc/session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_label: 'Companion camera', force_new: forceNew }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to provision phone WebRTC session');
-      }
-      await response.json() as PhoneWebRTCSessionResponse;
-      await refreshState();
-    } finally {
-      setSourceTransitionTarget(null);
-      setPhoneSessionLoading(false);
     }
   };
 
@@ -570,7 +497,6 @@ export default function HomePage() {
       });
       await Promise.all([refreshTasks(), refreshState()]);
       setPrompt('');
-      setActiveTab('dashboard');
     } finally {
       setComposing(false);
     }
@@ -588,7 +514,6 @@ export default function HomePage() {
         body: formData,
       });
       await Promise.all([refreshTasks(), refreshState()]);
-      setActiveTab('dashboard');
     } finally {
       setUploading(false);
       event.target.value = '';
@@ -606,7 +531,6 @@ export default function HomePage() {
       body: JSON.stringify({ prompt: task.prompt }),
     });
     await Promise.all([refreshTasks(), refreshState()]);
-    setActiveTab('dashboard');
   };
 
   const activeJob = state.active_job ?? { id: null, name: null, status: 'idle', source_type: null, path_count: 0, prompt: null };
@@ -645,569 +569,109 @@ export default function HomePage() {
     source_name: null,
     source_kind: null,
   };
-  const robotPose = state.robot_pose ?? { x_mm: 0, y_mm: 0, heading_deg: 0, pen_down: false };
-  const operator = state.operator ?? { status_text: 'Connecting to backend', last_action: 'Waiting for operator', mock_mode: false, connection_mode: 'live' };
-  const recentEvents = state.recent_events ?? [];
+  const operator = state.operator ?? {
+    status_text: 'Connecting to the desktop runtime',
+    last_action: 'Waiting for operator',
+    mock_mode: false,
+    connection_mode: 'live',
+  };
+
   const taskReady = activeJob.status === 'draft' || activeJob.status === 'planned' || activeJob.status === 'ready';
   const shouldShowFallbackCameraStream =
     camera.online &&
     (camera.source === 'browser-camera' || camera.source === 'companion-camera') &&
     !camera.latest_frame_url;
   const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url, apiBase) ?? (shouldShowFallbackCameraStream ? `${apiBase}/api/camera/stream` : null);
-  const robotLeft = `${Math.max(10, Math.min(90, (robotPose.x_mm / Math.max(canvas.width_mm || 1, 1)) * 100))}%`;
-  const robotTop = `${Math.max(10, Math.min(90, (robotPose.y_mm / Math.max(canvas.height_mm || 1, 1)) * 100))}%`;
-  const aprilTagDetections = camera.april_tag_detections ?? [];
-  const canvasBorder = camera.canvas_border ?? { corners: [], source_tag_ids: [], detected: false };
-  const robotTag = aprilTagDetections.find((tag) => tag.tag_id === 4) ?? null;
   const activeTaskRecord = tasks.find((task) => task.id === activeJob.id) ?? null;
   const activePreviewUrl = overlay.image_data_url ?? svgToDataUrl(activeTaskRecord?.svg_content ?? null);
   const companionBackendUrl = pairingTargets[0] ?? apiBase;
 
-  const topStatus = useMemo(() => {
-    return [
-      { label: 'Backend', value: backendReachable ? 'Online' : 'Offline' },
+  const topStatus = useMemo(
+    () => [
+      { label: 'App', value: backendReachable ? 'Ready' : 'Starting' },
       { label: 'Camera', value: camera.online ? 'Live' : camera.source_status },
-      { label: 'Robot', value: state.robot_connected ? state.robot_status : 'Disconnected' },
-    ];
-  }, [backendReachable, camera.online, camera.source_status, state.robot_connected, state.robot_status]);
+      { label: 'Robot', value: state.robot_connected ? 'Connected' : 'Not connected' },
+    ],
+    [backendReachable, camera.online, camera.source_status, state.robot_connected],
+  );
 
-  const phoneConnectionStatus = phoneViewerReady
-    ? 'Live on dashboard'
-    : phoneViewerError
-      ? phoneViewerError
-      : camera.latest_frame_label ?? 'Waiting for phone connection';
   const companionConnectionStatus =
     camera.source === 'companion-camera'
       ? (camera.online
         ? `${camera.latest_frame_label}${mediaSession.device_label ? ` (${mediaSession.device_label})` : ''}`
-        : 'Waiting for the Camera Buddy app to connect on the same Wi-Fi.')
-      : 'Select Companion App on the dashboard to begin.';
+        : 'Waiting for Camera Buddy on the same Wi-Fi.')
+      : 'Choose Camera Buddy to use a phone or tablet.';
   const browserCameraStatus =
     camera.source === 'browser-camera'
-      ? (browserCameraReady ? 'This device camera is live and uploading.' : browserCameraError ?? 'Waiting for camera permission on this device.')
-      : 'Select This Device / USB Camera to use a webcam or capture card attached to this computer.';
+      ? (browserCameraReady ? 'This computer camera is live.' : browserCameraError ?? 'Waiting for camera permission on this computer.')
+      : 'Choose This Device if the camera is plugged into the computer.';
+
   const nextActionTitle = camera.online
     ? canvas.detected
       ? taskReady
-        ? 'Review the overlay and run the task'
-        : 'Create or load a drawing task'
-      : 'Hold the camera steady on the canvas'
-    : camera.source === 'companion-camera'
-      ? 'Open Camera Buddy and tap Go Live'
-      : camera.source === 'browser-camera'
-        ? 'Grant camera access on this machine'
-        : camera.source === 'external-camera'
-          ? 'Paste an external feed URL'
-          : 'Choose the camera path for this room';
+        ? 'You are ready to draw'
+        : 'Make or load a drawing'
+      : 'Point the camera at the paper'
+    : camera.source === 'browser-camera'
+      ? 'Allow the computer camera'
+      : 'Open Camera Buddy and tap Go Live';
   const nextActionCopy = camera.online
     ? canvas.detected
       ? taskReady
-        ? 'The camera is live, the canvas is localized, and the task overlay is ready for operator approval.'
-        : 'Localization is working. The next best move is loading a prompt or uploaded artwork into the workspace.'
-      : 'Keep all AprilTags visible and centered so localization can lock in before you start drawing.'
-    : camera.source === 'companion-camera'
-      ? 'Open the Expo companion app, choose Local Wi-Fi for best speed, paste the backend URL once, then tap Go Live.'
-      : camera.source === 'browser-camera'
-        ? 'This device or USB path is best for desks with webcams, document cameras, or HDMI capture cards.'
-        : camera.source === 'external-camera'
-          ? 'Use this when another camera system already publishes an image or MJPEG URL that the dashboard can preview.'
-          : 'Companion App is the easiest classroom path, while This Device / USB is best for fixed stations.';
+        ? 'Check the overlay, then start the robot when everyone is ready.'
+        : 'The paper is found. Now make a drawing or load one from the recent list.'
+      : 'Keep the full sheet and every AprilTag in view so SketchBot can find the page.'
+    : camera.source === 'browser-camera'
+      ? 'This path is best for a webcam, document camera, or USB camera plugged into the laptop.'
+      : 'Camera Buddy is the easiest classroom setup. Keep the phone or tablet on the same Wi-Fi as this computer.';
   const cameraModeLabel =
-    camera.source === 'companion-camera'
-      ? 'Camera Buddy app'
-      : camera.source === 'browser-camera'
-        ? 'This device / USB'
-        : camera.source === 'external-camera'
-          ? 'External feed'
-          : camera.source === 'phone-webrtc'
-            ? 'Legacy WebRTC'
-            : camera.source === 'kit-webrtc'
-              ? 'Certified kit WebRTC'
-              : camera.source;
+    camera.source === 'browser-camera'
+      ? 'This Device camera'
+      : camera.source === 'companion-camera'
+        ? 'Camera Buddy'
+        : camera.source === 'phone-webrtc'
+          ? 'Kit WebRTC'
+          : 'Camera Buddy';
+  const featuredTasks = tasks.slice(0, 3);
 
   return (
-    <main className="app-shell">
-      <div className="top-bar compact-top-bar">
-        <div>
-          <p className="eyebrow">SketchBot operator UI</p>
-          <h1>Operator Dashboard</h1>
-          <p className="subdued-text">A calmer operator experience for classrooms and studios: sign in, pick the camera path that fits the room, and keep the robot workspace visible without digging through debug controls.</p>
-        </div>
-        <div className="status-pills">
-          {topStatus.map((item) => (
-            <span key={item.label} className="status-pill">
-              {item.label}: {item.value}
-            </span>
-          ))}
-          <ThemeToggle />
-          <span className="mode-pill">{operator.mock_mode ? 'Mock' : 'Live'}</span>
-          <span className="status-pill">Operator Console</span>
-        </div>
-      </div>
-
-      <DesktopRuntimeBanner />
-
-      <div className="tab-row">
-        <button className={activeTab === 'dashboard' ? 'tab active' : 'tab'} type="button" onClick={() => setActiveTab('dashboard')}>
-          Dashboard
-        </button>
-        <button className={activeTab === 'create' ? 'tab active' : 'tab'} type="button" onClick={() => setActiveTab('create')}>
-          Create Task
-        </button>
-      </div>
-
-      <section className="panel quickstart-panel">
-        <div className="panel-header" style={{ marginBottom: 0 }}>
-          <p className="panel-eyebrow">Quick Start</p>
-          <div className="panel-title" style={{ fontSize: '1.05rem' }}>Recommended setup flow</div>
-          <p className="panel-subtitle">For most teams, the simplest path is Expo Companion on the same Wi-Fi. USB cameras stay best for fixed desks, and external feeds are best when the camera already exposes a URL.</p>
-        </div>
-        <div className="focus-strip">
-          <div className="focus-card focus-card-primary">
-            <p className="panel-eyebrow">Next Action</p>
-            <div className="focus-title">{nextActionTitle}</div>
-            <p className="focus-copy">{nextActionCopy}</p>
-          </div>
-          <div className="focus-card">
-            <p className="panel-eyebrow">Camera Path</p>
-            <div className="focus-title">{cameraModeLabel}</div>
-            <p className="focus-copy">{camera.latest_frame_label}</p>
-          </div>
-          <div className="focus-card">
-            <p className="panel-eyebrow">Workspace State</p>
-            <div className="focus-title">{canvas.detected ? 'Canvas locked' : 'Waiting for localization'}</div>
-            <p className="focus-copy">{taskReady ? `${activeJob.name ?? 'Task'} is ready to review.` : 'No active drawing task is loaded yet.'}</p>
-          </div>
-        </div>
-        <div className="source-choice-grid">
-          <div className="source-choice-card recommended">
-            <div className="choice-badge">Recommended</div>
-            <div className="source-choice-title">Camera Buddy App</div>
-            <div className="source-choice-copy">Best for phones and tablets walking around the robot. Local Wi-Fi is the fastest classroom setup.</div>
-            <button className="btn btn-primary source-choice-action" type="button" onClick={() => void activateCompanionCamera()}>
-              Use Camera Buddy
-            </button>
-          </div>
-          <div className="source-choice-card">
-            <div className="source-choice-title">This Device / USB</div>
-            <div className="source-choice-copy">Best for webcams, document cameras, HDMI capture cards, and fixed operator stations.</div>
-            <button className="btn source-choice-action" type="button" onClick={() => void activateBrowserCamera()}>
-              Use This Device
-            </button>
-          </div>
-          <div className="source-choice-card playful-choice">
-            <div className="source-choice-title">Already have a camera?</div>
-            <div className="source-choice-copy">USB and external feeds are still here, but most students should start with Camera Buddy.</div>
-            <button className="btn source-choice-action" type="button" onClick={() => setCameraSource('external-camera')}>
-              More camera choices
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {activeTab === 'dashboard' ? (
-        <section className="grid-main dashboard-layout">
-          <div className="side-stack">
-            <div className="panel" style={{ display: 'grid', gap: 10 }}>
-                <div className="section-header-row" style={{ flexWrap: 'wrap' }}>
-                  <div>
-                    <p className="panel-eyebrow">Live camera</p>
-                    <div className="panel-title" style={{ fontSize: '1.2rem' }}>Robot workspace</div>
-                  </div>
-                  <div className="status-pills">
-                  <span className="section-badge">Source: {cameraModeLabel}</span>
-                  <span className="section-badge">Status: {camera.source_status}</span>
-                  <span className="section-badge">{camera.latest_frame_label}</span>
-                  {robotTag ? <span className="section-badge">Heading: {robotPose.heading_deg.toFixed(1)} deg</span> : null}
-                  </div>
-                </div>
-
-              <div className="workspace-card" style={{ minHeight: 460 }}>
-                <div className="workspace-stage">
-                  <div className="canvas-frame">
-                    {camera.source === 'phone-webrtc' && phoneViewerReady ? (
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#050b16' }}
-                      />
-                    ) : camera.source === 'browser-camera' && browserCameraReady ? (
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#050b16' }}
-                      />
-                    ) : camera.source === 'phone-webrtc' ? (
-                      <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
-                        <div>
-                          <div style={{ fontWeight: 700, marginBottom: 8 }}>Phone WebRTC viewer waiting</div>
-                          <div>Session: {mediaSession.session_id ?? 'not provisioned'}</div>
-                          <div>Publisher: {mediaSession.publisher_status}</div>
-                          <div>Viewer: {mediaSession.viewer_status}</div>
-                          <div>{phoneViewerError ?? 'Waiting for phone publisher offer or viewer negotiation.'}</div>
-                        </div>
-                      </div>
-                    ) : camera.source === 'companion-camera' && !cameraFrameUrl ? (
-                      <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
-                        <div>
-                          <div style={{ fontWeight: 700, marginBottom: 8 }}>Camera Buddy waiting</div>
-                          <div>Same-room Camera Buddy mode selected</div>
-                          <div>{companionConnectionStatus}</div>
-                          <div style={{ marginTop: 10, color: 'var(--muted)' }}>Open the Expo app, paste the backend URL once, then tap Go Live.</div>
-                        </div>
-                      </div>
-                    ) : camera.source === 'browser-camera' && !browserCameraReady ? (
-                      <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
-                        <div>
-                          <div style={{ fontWeight: 700, marginBottom: 8 }}>This device / USB camera waiting</div>
-                          <div>{browserCameraStatus}</div>
-                        </div>
-                      </div>
-                    ) : cameraFrameUrl ? (
-                      <img
-                        src={cameraFrameUrl}
-                        alt={camera.latest_frame_label ?? 'Camera stream'}
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: 'var(--stage-backdrop)' }}
-                      />
-                    ) : (
-                      <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--muted)', fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                        No camera frame available
-                      </div>
-                    )}
-
-                    {canvasBorder.detected && (overlay.svg_path || overlay.image_data_url) ? (
-                      <img
-                        src={`${apiBase}/api/camera/overlay-preview`}
-                        alt={overlay.source_name ?? 'Overlay asset'}
-                        style={{
-                          position: 'absolute',
-                          inset: 0,
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'contain',
-                          opacity: 0.6,
-                          pointerEvents: 'none',
-                        }}
-                      />
-                    ) : null}
-
-                    {aprilTagDetections.map((tag) => {
-                      const left = `${tag.center.x * 100}%`;
-                      const top = `${tag.center.y * 100}%`;
-                      const polygonPoints = tag.corners.map((corner) => `${corner.x * 100},${corner.y * 100}`).join(' ');
-                      const isRobotTag = tag.tag_id === 4;
-                      return (
-                        <div key={tag.tag_id}>
-                          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-                            <polygon points={polygonPoints} fill={isRobotTag ? 'rgba(255,64,64,0.10)' : 'rgba(93,228,255,0.10)'} stroke={isRobotTag ? 'rgba(255,64,64,0.95)' : 'rgba(93,228,255,0.95)'} strokeWidth="0.45" />
-                          </svg>
-                          <div className="tag-pill" style={{ left, top, transform: 'translate(-50%, -50%)', position: 'absolute' }}>
-                            Tag {tag.tag_id}
-                          </div>
-                          {isRobotTag ? (
-                            <>
-                              <div style={{ position: 'absolute', left, top, width: 12, height: 12, borderRadius: '999px', background: '#ff3b30', boxShadow: '0 0 18px rgba(255,59,48,0.85)', transform: 'translate(-50%, -50%)' }} />
-                              <div style={{ position: 'absolute', left: `calc(${left} + 12px)`, top: `calc(${top} - 22px)`, color: '#ffd2d0', fontSize: 12, fontWeight: 700, textShadow: '0 0 12px rgba(0,0,0,0.75)' }}>
-                                {robotPose.heading_deg.toFixed(1)} deg
-                              </div>
-                            </>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-
-                    {canvasBorder.detected || taskReady ? (
-                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-                        {canvasBorder.detected ? (
-                          <polygon
-                            points={canvasBorder.corners.map((corner) => `${corner.x * 100},${corner.y * 100}`).join(' ')}
-                            fill="rgba(77,226,255,0.06)"
-                            stroke="rgba(77,226,255,0.95)"
-                            strokeWidth="0.7"
-                          />
-                        ) : null}
-                        {taskReady && !overlay.svg_path && !overlay.image_data_url ? (
-                          <>
-                            <polyline fill="none" stroke="rgba(255,79,216,0.65)" strokeWidth="0.55" strokeDasharray="2 2" points="14,30 20,30 20,18 31,18 31,44 44,44 44,22 56,22" />
-                            <polyline fill="none" stroke="rgba(93,228,255,0.95)" strokeWidth="0.9" points="18,25 28,25 28,40 40,40 40,28 52,28 52,45 64,45 64,32 78,32" />
-                          </>
-                        ) : null}
-                      </svg>
-                    ) : null}
-
-                    {taskReady ? (
-                      <div className="robot-dot" style={{ left: robotLeft, top: robotTop }}>
-                        <div className="robot-heading" style={{ transform: `translate(-50%, -92%) rotate(${robotPose.heading_deg}deg)` }} />
-                        <div className="pen-dot" />
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid-2">
-              <div className="panel">
-                <h3>Active Task</h3>
-                <ul className="compact-list">
-                  <li>Name: {activeJob.name ?? 'No active task'}</li>
-                  <li>State: {activeJob.status}</li>
-                  <li>Source: {activeJob.source_type ?? '--'}</li>
-                  <li>Paths: {activeJob.path_count}</li>
-                  <li>Overlay: {overlay.source_name ?? 'None'}</li>
-                </ul>
-              </div>
-              <div className="panel">
-                <h3>Robot Status</h3>
-                <ul className="compact-list">
-                  <li>Heading: {robotPose.heading_deg.toFixed(1)} deg</li>
-                  <li>Position: {robotPose.x_mm.toFixed(1)}, {robotPose.y_mm.toFixed(1)} mm</li>
-                  <li>Pen: {robotPose.pen_down ? 'down' : 'up'}</li>
-                  <li>Robot: {state.robot_connected ? state.robot_status : 'disconnected'}</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <aside className="side-stack">
-            <div className="panel">
-              <h3>Choose Camera</h3>
-              <div style={{ display: 'grid', gap: 12 }}>
-                {camera.source === 'companion-camera' || cameraSource === 'companion-camera' ? (
-                  <div className="guide-card">
-                    <div className="panel-header" style={{ marginBottom: 0 }}>
-                      <p className="panel-eyebrow">Camera Buddy</p>
-                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Connect a phone or tablet</div>
-                      <p className="panel-subtitle">This is the easiest setup for students. Open the Expo app, choose Local Wi-Fi if you are in the same room, paste the backend URL once, and tap Go Live.</p>
-                    </div>
-
-                    <div className="inline-actions">
-                      <button className="btn btn-primary" type="button" disabled={sourceSaving} onClick={() => void activateCompanionCamera()}>
-                        {sourceSaving ? 'Selecting source...' : 'Use Camera Buddy'}
-                      </button>
-                      <button className="btn" type="button" onClick={() => void copyBackendUrl()}>
-                        {backendLinkCopied ? 'Backend copied' : 'Copy backend URL'}
-                      </button>
-                    </div>
-
-                    <div className="friendly-steps">
-                      <div className="friendly-step">
-                        <span className="friendly-step-number">1</span>
-                        <div>
-                          <strong>Open the Expo app</strong>
-                          <p>Use the `companion-app` project on a phone or tablet.</p>
-                        </div>
-                      </div>
-                      <div className="friendly-step">
-                        <span className="friendly-step-number">2</span>
-                        <div>
-                          <strong>Paste this backend URL</strong>
-                          <p>{companionBackendUrl}</p>
-                        </div>
-                      </div>
-                      <div className="friendly-step">
-                        <span className="friendly-step-number">3</span>
-                        <div>
-                          <strong>Tap Go Live and aim at the paper</strong>
-                          <p>Local Wi-Fi is fastest. Hosted mode works, but will feel slower.</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="phone-guidance simple-guidance">
-                      <div style={{ display: 'grid', gap: 10 }}>
-                        <div className="status-card guide-highlight">
-                          <strong>Buddy status</strong>
-                          <span>{companionConnectionStatus}</span>
-                        </div>
-                        <div className="status-card">
-                          <strong>Current connection style</strong>
-                          <span>{pairingTargets.length ? 'Local classroom backend' : 'Desktop fallback address'}</span>
-                        </div>
-                        <div className="badge-line">
-                          <span className="mini-pill">Frames: {camera.online ? 'live' : 'waiting'}</span>
-                          <span className="mini-pill">Device: {mediaSession.device_label ?? 'not connected yet'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {camera.source === 'browser-camera' || cameraSource === 'browser-camera' ? (
-                  <div className="guide-card">
-                    <div className="panel-header" style={{ marginBottom: 0 }}>
-                      <p className="panel-eyebrow">Desk Camera</p>
-                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Use this device or a USB camera</div>
-                      <p className="panel-subtitle">Best for fixed setups with webcams, document cameras, or HDMI capture cards plugged into the operator machine.</p>
-                    </div>
-
-                    <div className="inline-actions">
-                      <button className="btn btn-primary" type="button" disabled={sourceSaving} onClick={() => void activateBrowserCamera()}>
-                        {sourceSaving ? 'Selecting source...' : 'Use This Device Camera'}
-                      </button>
-                    </div>
-
-                    <div className="status-card">
-                      <strong>Status</strong>
-                      <span>{browserCameraStatus}</span>
-                    </div>
-                  </div>
-                ) : null}
-
-                <details className="details-card">
-                  <summary>Other camera choices</summary>
-                  <div className="details-body" style={{ display: 'grid', gap: 12 }}>
-                    <div className="source-row">
-                      <button className={camera.source === 'browser-camera' || cameraSource === 'browser-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void activateBrowserCamera()}>
-                        This Device / USB
-                      </button>
-                      <button className={camera.source === 'external-camera' || cameraSource === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
-                        External URL
-                      </button>
-                      <button className={camera.source === 'phone-webrtc' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving || phoneSessionLoading} onClick={() => void provisionPhoneSession(false)}>
-                        Legacy WebRTC
-                      </button>
-                    </div>
-                    {camera.source === 'external-camera' || cameraSource === 'external-camera' ? (
-                      <div style={{ display: 'grid', gap: 10 }}>
-                        <p className="muted-note">Use a public MJPEG or image URL when another camera system already publishes a feed.</p>
-                        <input
-                          value={externalCameraUrl}
-                          onChange={(event) => setExternalCameraUrl(event.target.value)}
-                          placeholder="https://camera-host/stream.mjpg"
-                        />
-                        <button className="tab active" type="button" disabled={sourceSaving || !externalCameraUrl.trim()} onClick={() => void applyCameraSource('external-camera', externalCameraUrl)}>
-                          Save external camera
-                        </button>
-                      </div>
-                    ) : null}
-                    <ul className="compact-list">
-                      <li>Camera Buddy is the student-friendly default for phones and tablets.</li>
-                      <li>This Device / USB is best for fixed desks, webcams, and capture cards.</li>
-                      <li>External URL works for preview-only feeds that already expose an image or MJPEG stream.</li>
-                      <li>Certified kit WebRTC support is still reserved in the backend for future hardware bundles.</li>
-                    </ul>
-                    {camera.source === 'phone-webrtc' ? (
-                      <div className="status-card">
-                        <strong>Legacy WebRTC status</strong>
-                        <span>{phoneConnectionStatus}</span>
-                      </div>
-                    ) : null}
-                  </div>
-                </details>
-              </div>
-            </div>
-
-            <div className="panel">
-              <h3>Live View</h3>
-              <ul className="compact-list">
-                <li>Backend: {backendReachable ? 'reachable' : 'unreachable'}</li>
-                <li>Camera: {cameraModeLabel} / {camera.latest_frame_label}</li>
-                <li>Canvas detected: {canvas.detected ? 'yes' : 'no'}</li>
-                <li>Localization: {Math.round(state.localization_confidence * 100)}%</li>
-                <li>Mode: {operator.mock_mode ? 'mock' : 'live'}</li>
-              </ul>
-            </div>
-
-            <div className="panel">
-              <h3>Current Overlay Preview</h3>
-              {activePreviewUrl ? (
-                <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(120,140,255,0.16)', background: 'white' }}>
-                  <Image
-                    src={activePreviewUrl}
-                    alt={overlay.source_name ?? activeJob.name ?? 'Overlay preview'}
-                    width={512}
-                    height={512}
-                    unoptimized
-                    style={{ width: '100%', height: 'auto', display: 'block' }}
-                  />
-                </div>
-              ) : (
-                <ul className="compact-list">
-                  <li>No generated or uploaded overlay asset loaded yet.</li>
-                </ul>
-              )}
-              <ul className="compact-list" style={{ marginTop: 12 }}>
-                <li>Source: {overlay.source_name ?? 'none'}</li>
-                <li>Kind: {overlay.source_kind ?? 'none'}</li>
-                <li>Status: {activeJob.status}</li>
-              </ul>
-            </div>
-
-            <div className="panel">
-              <h3>Recent Activity</h3>
-              <ul className="compact-list">
-                {recentEvents.slice(0, 5).map((event, index) => (
-                  <li key={`${index}-${event}`}>{event}</li>
-                ))}
-              </ul>
-            </div>
-          </aside>
-        </section>
-      ) : (
-        <section className="grid-main dashboard-layout">
-          <div className="side-stack">
-            <div className="panel">
-              <h2>Create Task</h2>
-              <p className="subdued-text" style={{ marginBottom: 16 }}>Type a prompt or upload a black-and-white SVG/image. Finished tasks should immediately feel like overlays, not a separate workflow.</p>
-
-              <form onSubmit={submitPrompt} style={{ display: 'grid', gap: 12 }}>
-                <label className="block text-sm">
-                  <span className="mb-2 block text-[var(--muted)]">Prompt</span>
-                  <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4} placeholder="simple house outline" className="w-full rounded-2xl border border-[rgba(120,140,255,0.16)] bg-[rgba(5,8,22,0.8)] px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-300/40 focus:shadow-[0_0_0_4px_rgba(77,226,255,0.08)]" />
-                </label>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button className="tab active" type="submit" disabled={composing || !prompt.trim()}>
-                    {composing ? 'Generating...' : 'Generate overlay'}
-                  </button>
-                  <label className="tab" style={{ cursor: uploading ? 'progress' : 'pointer' }}>
-                    {uploading ? 'Uploading...' : 'Upload SVG / image'}
-                    <input type="file" accept=".svg,image/*" onChange={uploadFile} style={{ display: 'none' }} />
-                  </label>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          <aside className="side-stack">
-            <div className="panel">
-              <h3>Saved items</h3>
-              <ul className="compact-list">
-                {tasks.length === 0 ? <li>No saved items yet.</li> : tasks.slice(0, 8).map((task) => {
-                  const previewUrl = task.image_data_url ?? svgToDataUrl(task.svg_content ?? null);
-                  return (
-                    <li key={task.id} style={{ display: 'grid', gap: 8 }}>
-                      {previewUrl ? (
-                        <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(120,140,255,0.16)', background: 'white', maxWidth: 180 }}>
-                          <Image
-                            src={previewUrl}
-                            alt={task.name}
-                            width={256}
-                            height={256}
-                            unoptimized
-                            style={{ width: '100%', height: 'auto', display: 'block' }}
-                          />
-                        </div>
-                      ) : null}
-                      <strong>{task.name}</strong>
-                      <span>{task.source_type}</span>
-                      {task.prompt ? <span>{task.prompt}</span> : null}
-                      <button className="tab" type="button" onClick={() => void loadTask(task)}>
-                        Load into dashboard
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </aside>
-        </section>
-      )}
-    </main>
+    <StudentDashboard
+      topStatus={topStatus}
+      operatorMode={operator.mock_mode ? 'Practice mode' : 'Live mode'}
+      nextActionTitle={nextActionTitle}
+      nextActionCopy={nextActionCopy}
+      cameraModeLabel={cameraModeLabel}
+      cameraStatus={camera.latest_frame_label}
+      cameraSourceStatus={camera.source_status}
+      companionConnectionStatus={companionConnectionStatus}
+      browserCameraStatus={browserCameraStatus}
+      companionBackendUrl={companionBackendUrl}
+      backendReachable={backendReachable}
+      cameraReady={camera.online}
+      canvasReady={canvas.detected}
+      drawingReady={taskReady}
+      robotReady={state.robot_connected}
+      activeJobName={activeJob.name}
+      prompt={prompt}
+      composing={composing}
+      uploading={uploading}
+      featuredTasks={featuredTasks}
+      overlayPreviewUrl={activePreviewUrl}
+      overlayPreviewLabel={overlay.source_name ?? activeJob.name ?? 'Overlay preview'}
+      cameraFrameUrl={cameraFrameUrl}
+      browserCameraReady={browserCameraReady}
+      phoneViewerReady={phoneViewerReady}
+      cameraSource={camera.source}
+      videoRef={videoRef}
+      sourceSaving={sourceSaving}
+      backendLinkCopied={backendLinkCopied}
+      onActivateCompanionCamera={() => void activateCompanionCamera()}
+      onActivateBrowserCamera={() => void activateBrowserCamera()}
+      onCopyBackendUrl={() => void copyBackendUrl()}
+      onPromptChange={setPrompt}
+      onSubmitPrompt={(event) => void submitPrompt(event)}
+      onUploadFile={(event) => void uploadFile(event)}
+      onLoadTask={(task) => void loadTask(task)}
+    />
   );
 }
-

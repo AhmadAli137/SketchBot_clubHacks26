@@ -99,10 +99,10 @@ export default function PortalPage() {
     <main className="shell">
       <SiteHeader />
       <section className="hero">
-        <p className="eyebrow">Admin Portal</p>
-        <h1>Classrooms, releases, and fleet-wide settings.</h1>
+        <p className="eyebrow">Teacher Portal</p>
+        <h1>Keep your SketchBot classroom ready.</h1>
         <p>
-          This hosted portal is where teachers and administrators manage SketchBot outside the live operator session.
+          Use this page to check release status, make sure support systems are healthy, and download what your classroom needs.
         </p>
         <div className="pill-row">
           <div className="pill">
@@ -122,8 +122,8 @@ export default function PortalPage() {
 
       <section className="grid">
         <div className="panel">
-          <p className="eyebrow">Overview</p>
-          <h2>Platform status</h2>
+          <p className="eyebrow">At a glance</p>
+          <h2>Today&apos;s checklist</h2>
           <div className="stat-grid">
             <div className="stat">
               <strong>Organizations</strong>
@@ -149,21 +149,21 @@ export default function PortalPage() {
         </div>
 
         <div className="panel">
-          <p className="eyebrow">What lives here</p>
-          <h3>Administrative responsibilities</h3>
+          <p className="eyebrow">What you can do</p>
+          <h3>Teacher tasks</h3>
           <ul>
-            <li>Account, team, and classroom management</li>
-            <li>Saved projects, templates, and release metadata</li>
-            <li>Cloud-only diagnostics and support operations</li>
-            <li>Marketing site and onboarding for new customers</li>
+            <li>Manage sign-in and classroom access</li>
+            <li>Check the latest desktop and companion releases</li>
+            <li>See whether support systems are healthy</li>
+            <li>Share the newest setup instructions with staff</li>
           </ul>
         </div>
       </section>
 
       <section className="grid">
         <div className="panel">
-          <p className="eyebrow">Release channels</p>
-          <h2>Current package status</h2>
+          <p className="eyebrow">Downloads</p>
+          <h2>Current app versions</h2>
           <div className="stat-grid">
             <div className="stat">
               <strong>{releases.desktop.download_label}</strong>
@@ -177,7 +177,7 @@ export default function PortalPage() {
         </div>
 
         <div className="panel">
-          <p className="eyebrow">Support ops</p>
+          <p className="eyebrow">Support</p>
           <h3>Service heartbeat</h3>
           <ul>
             <li>Status: {support.status}</li>

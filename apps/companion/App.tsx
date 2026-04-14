@@ -1,10 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
+import { BarcodeScanningResult, CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -21,15 +20,10 @@ const DEFAULT_PORT = '8787';
 
 type SavedConfig = {
   backendUrl: string;
-  deviceLabel: string;
 };
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function formatTimeStamp(value: number) {
-  return new Date(value).toLocaleTimeString();
 }
 
 function normalizeLocalRuntimeUrl(value: string) {
@@ -61,18 +55,15 @@ export default function App() {
   const streamingRef = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [backendUrl, setBackendUrl] = useState('');
-  const [deviceLabel, setDeviceLabel] = useState('Camera Buddy');
   const [cameraFacing, setCameraFacing] = useState<CameraType>('back');
+  const [scanningRoomCode, setScanningRoomCode] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [status, setStatus] = useState('Enter the room address from SketchBot Desktop, then tap Go Live.');
+  const [status, setStatus] = useState('Paste the room address from SketchBot Desktop, then tap Go Live.');
   const [error, setError] = useState<string | null>(null);
-  const [lastUploadAt, setLastUploadAt] = useState<string | null>(null);
-  const [uploadCount, setUploadCount] = useState(0);
 
   const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
-  const primaryButtonLabel = busy ? 'Getting camera ready...' : streaming ? 'Stop Camera' : 'Go Live';
+  const primaryButtonLabel = busy ? 'Joining room...' : streaming ? 'Stop Camera' : 'Go Live';
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -84,9 +75,6 @@ export default function App() {
         const saved = JSON.parse(raw) as Partial<SavedConfig>;
         if (saved.backendUrl) {
           setBackendUrl(saved.backendUrl);
-        }
-        if (saved.deviceLabel) {
-          setDeviceLabel(saved.deviceLabel);
         }
       } catch {
         // Ignore storage failures and allow manual entry.
@@ -101,10 +89,9 @@ export default function App() {
       STORAGE_KEY,
       JSON.stringify({
         backendUrl: cleanedBackendUrl || backendUrl,
-        deviceLabel,
       } satisfies SavedConfig),
     ).catch(() => {});
-  }, [backendUrl, cleanedBackendUrl, deviceLabel]);
+  }, [backendUrl, cleanedBackendUrl]);
 
   const ensurePermission = async () => {
     if (permission?.granted) {
@@ -130,8 +117,6 @@ export default function App() {
   const runUploadLoop = async (targetBackendUrl: string, label: string) => {
     const pauseMs = 85;
     const quality = 0.11;
-    let lastUiUpdateAt = 0;
-
     try {
       while (streamingRef.current) {
         const picture = await cameraRef.current?.takePictureAsync({
@@ -160,12 +145,6 @@ export default function App() {
           throw new Error(`Frame upload failed (${uploadResponse.status}).`);
         }
 
-        const now = Date.now();
-        if (now - lastUiUpdateAt >= 800) {
-          lastUiUpdateAt = now;
-          setLastUploadAt(formatTimeStamp(now));
-          setUploadCount((current) => current + 1);
-        }
         await wait(pauseMs);
       }
     } catch (nextError) {
@@ -224,7 +203,7 @@ export default function App() {
       setStreaming(true);
       setStatus('Camera Buddy is live on the classroom Wi-Fi.');
       setBusy(false);
-      void runUploadLoop(cleanedBackendUrl, deviceLabel.trim() || 'Camera Buddy');
+      void runUploadLoop(cleanedBackendUrl, 'Camera Buddy');
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : 'Camera Buddy could not start.';
       setError(message);
@@ -250,11 +229,33 @@ export default function App() {
     setCameraFacing((current) => (current === 'back' ? 'front' : 'back'));
   };
 
-  const showSetupTip = () => {
-    Alert.alert(
-      'How to join the room',
-      'On the laptop, open SketchBot Desktop and choose Camera Buddy. Copy the room address shown there, paste it here, keep both devices on the same Wi-Fi, and tap Go Live.',
-    );
+  const startScanningRoomCode = async () => {
+    if (busy || streamingRef.current) {
+      return;
+    }
+
+    setError(null);
+    const granted = await ensurePermission();
+    if (!granted) {
+      setError('Camera permission is required to scan the room code.');
+      setStatus('Camera Buddy needs camera permission first.');
+      return;
+    }
+
+    setScanningRoomCode(true);
+    setStatus('Point the camera at the room QR code.');
+  };
+
+  const handleBarcodeScanned = ({ data }: BarcodeScanningResult) => {
+    if (!scanningRoomCode || !data) {
+      return;
+    }
+
+    const normalized = normalizeLocalRuntimeUrl(data);
+    setBackendUrl(normalized);
+    setScanningRoomCode(false);
+    setError(null);
+    setStatus('Room code scanned. Tap Go Live when the paper is in view.');
   };
 
   return (
@@ -305,31 +306,12 @@ export default function App() {
                 }
               }}
             />
-            <Text style={styles.helperText}>
-              This is usually the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
-            </Text>
-
-            <Pressable style={styles.secondaryButton} onPress={showSetupTip}>
-              <Text style={styles.secondaryButtonText}>Show setup tip</Text>
-            </Pressable>
-
-            <Pressable style={styles.linkButton} onPress={() => setShowSettings((current) => !current)}>
-              <Text style={styles.linkButtonText}>{showSettings ? 'Hide extra settings' : 'Rename this camera'}</Text>
-            </Pressable>
-
-            {showSettings ? (
-              <View style={styles.settingsCard}>
-                <Text style={styles.label}>Camera name</Text>
-                <TextInput
-                  autoCapitalize="words"
-                  placeholder="Camera Buddy"
-                  placeholderTextColor="#89a0c2"
-                  style={styles.input}
-                  value={deviceLabel}
-                  onChangeText={setDeviceLabel}
-                />
-              </View>
-            ) : null}
+              <Text style={styles.helperText}>
+                This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
+              </Text>
+              <Pressable style={styles.secondaryButton} onPress={() => void startScanningRoomCode()}>
+                <Text style={styles.secondaryButtonText}>Scan room code</Text>
+              </Pressable>
           </View>
 
           <View style={styles.card}>
@@ -345,7 +327,22 @@ export default function App() {
 
             <View style={styles.cameraShell}>
               {permission?.granted ? (
-                <CameraView ref={cameraRef} style={styles.camera} facing={cameraFacing} pictureSize="640x480" />
+                <View>
+                  <CameraView
+                    ref={cameraRef}
+                    style={styles.camera}
+                    facing={cameraFacing}
+                    pictureSize="640x480"
+                    barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                    onBarcodeScanned={scanningRoomCode ? handleBarcodeScanned : undefined}
+                  />
+                  {scanningRoomCode ? (
+                    <View style={styles.scanOverlay}>
+                      <View style={styles.scanFrame} />
+                      <Text style={styles.scanOverlayText}>Scan the QR code on the laptop screen</Text>
+                    </View>
+                  ) : null}
+                </View>
               ) : (
                 <View style={[styles.camera, styles.cameraPlaceholder]}>
                   <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission when you tap Go Live.</Text>
@@ -355,22 +352,7 @@ export default function App() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Ready check</Text>
-            <View style={styles.statusRow}>
-              <View style={styles.statusPill}>
-                <Text style={styles.statusPillLabel}>Connection</Text>
-                <Text style={styles.statusPillValue}>Same Wi-Fi</Text>
-              </View>
-              <View style={styles.statusPill}>
-                <Text style={styles.statusPillLabel}>Uploads</Text>
-                <Text style={styles.statusPillValue}>{uploadCount}</Text>
-              </View>
-              <View style={styles.statusPill}>
-                <Text style={styles.statusPillLabel}>Last frame</Text>
-                <Text style={styles.statusPillValue}>{lastUploadAt ?? 'Waiting'}</Text>
-              </View>
-            </View>
-
+            <Text style={styles.cardTitle}>Go live</Text>
             <View style={styles.statusCard}>
               <Text style={styles.statusText}>{status}</Text>
               {cleanedBackendUrl ? <Text style={styles.helperText}>Room address: {cleanedBackendUrl}</Text> : null}
@@ -534,24 +516,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 14,
   },
-  linkButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-    paddingHorizontal: 2,
-  },
-  linkButtonText: {
-    color: '#7a63d8',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  settingsCard: {
-    gap: 10,
-    borderRadius: 18,
-    backgroundColor: '#f7f5ff',
-    borderWidth: 1,
-    borderColor: '#e5defa',
-    padding: 12,
-  },
   cameraHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -579,6 +543,32 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4,
     backgroundColor: '#0c1220',
   },
+  scanOverlay: {
+    position: 'absolute',
+    inset: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 18,
+    backgroundColor: 'rgba(8, 14, 28, 0.22)',
+  },
+  scanFrame: {
+    width: '64%',
+    aspectRatio: 1,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: '#7be0ff',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  scanOverlayText: {
+    color: '#eff8ff',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
   cameraPlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -599,32 +589,6 @@ const styles = StyleSheet.create({
     color: '#42547e',
     fontWeight: '800',
     fontSize: 13,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  statusPill: {
-    flex: 1,
-    minHeight: 72,
-    borderRadius: 20,
-    padding: 12,
-    backgroundColor: '#f6fbff',
-    borderWidth: 1,
-    borderColor: '#d9efff',
-    justifyContent: 'space-between',
-  },
-  statusPillLabel: {
-    fontSize: 11,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: '#7b8aab',
-    fontWeight: '800',
-  },
-  statusPillValue: {
-    fontSize: 14,
-    color: '#1d2244',
-    fontWeight: '800',
   },
   statusCard: {
     borderRadius: 20,
