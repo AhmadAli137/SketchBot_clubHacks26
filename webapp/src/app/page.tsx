@@ -659,6 +659,7 @@ export default function HomePage() {
   const robotTag = aprilTagDetections.find((tag) => tag.tag_id === 4) ?? null;
   const activeTaskRecord = tasks.find((task) => task.id === activeJob.id) ?? null;
   const activePreviewUrl = overlay.image_data_url ?? svgToDataUrl(activeTaskRecord?.svg_content ?? null);
+  const isHostedBackend = API_BASE.includes('onrender.com');
 
   const topStatus = useMemo(() => {
     return [
@@ -675,7 +676,11 @@ export default function HomePage() {
       : camera.latest_frame_label ?? 'Waiting for phone connection';
   const companionConnectionStatus =
     camera.source === 'companion-camera'
-      ? (camera.online ? `${camera.latest_frame_label}${mediaSession.device_label ? ` (${mediaSession.device_label})` : ''}` : 'Waiting for the Expo companion app to connect on the same network.')
+      ? (camera.online
+        ? `${camera.latest_frame_label}${mediaSession.device_label ? ` (${mediaSession.device_label})` : ''}`
+        : isHostedBackend
+          ? 'Waiting for the Camera Buddy app. Hosted mode works, but Local Wi-Fi will feel much faster.'
+          : 'Waiting for the Camera Buddy app to connect on the same Wi-Fi.')
       : 'Select Companion App on the dashboard to begin.';
   const browserCameraStatus =
     camera.source === 'browser-camera'
@@ -688,7 +693,7 @@ export default function HomePage() {
         : 'Create or load a drawing task'
       : 'Hold the camera steady on the canvas'
     : camera.source === 'companion-camera'
-      ? 'Open the Expo companion app'
+      ? 'Open Camera Buddy and tap Go Live'
       : camera.source === 'browser-camera'
         ? 'Grant camera access on this machine'
         : camera.source === 'external-camera'
@@ -701,7 +706,7 @@ export default function HomePage() {
         : 'Localization is working. The next best move is loading a prompt or uploaded artwork into the workspace.'
       : 'Keep all AprilTags visible and centered so localization can lock in before you start drawing.'
     : camera.source === 'companion-camera'
-      ? 'Use the Expo app on a phone or tablet, paste the backend URL, and tap Start Streaming on the same Wi-Fi.'
+      ? 'Open the Expo companion app, choose Local Wi-Fi for best speed, paste the backend URL once, then tap Go Live.'
       : camera.source === 'browser-camera'
         ? 'This device or USB path is best for desks with webcams, document cameras, or HDMI capture cards.'
         : camera.source === 'external-camera'
@@ -709,7 +714,7 @@ export default function HomePage() {
           : 'Companion App is the easiest classroom path, while This Device / USB is best for fixed stations.';
   const cameraModeLabel =
     camera.source === 'companion-camera'
-      ? 'Expo companion app'
+      ? 'Camera Buddy app'
       : camera.source === 'browser-camera'
         ? 'This device / USB'
         : camera.source === 'external-camera'
@@ -785,10 +790,10 @@ export default function HomePage() {
         <div className="source-choice-grid">
           <div className="source-choice-card recommended">
             <div className="choice-badge">Recommended</div>
-            <div className="source-choice-title">Expo Companion</div>
-            <div className="source-choice-copy">Best for phones and tablets moving around the robot. Same-network, no relay infrastructure.</div>
+            <div className="source-choice-title">Camera Buddy App</div>
+            <div className="source-choice-copy">Best for phones and tablets walking around the robot. Local Wi-Fi is the fastest classroom setup.</div>
             <button className="btn btn-primary source-choice-action" type="button" onClick={() => void activateCompanionCamera()}>
-              Use Companion App
+              Use Camera Buddy
             </button>
           </div>
           <div className="source-choice-card">
@@ -798,11 +803,11 @@ export default function HomePage() {
               Use This Device
             </button>
           </div>
-          <div className="source-choice-card">
-            <div className="source-choice-title">External Feed</div>
-            <div className="source-choice-copy">Best when another system already hosts a public image or MJPEG stream.</div>
+          <div className="source-choice-card playful-choice">
+            <div className="source-choice-title">Already have a camera?</div>
+            <div className="source-choice-copy">USB and external feeds are still here, but most students should start with Camera Buddy.</div>
             <button className="btn source-choice-action" type="button" onClick={() => setCameraSource('external-camera')}>
-              Configure Feed
+              More camera choices
             </button>
           </div>
         </div>
@@ -812,18 +817,18 @@ export default function HomePage() {
         <section className="grid-main dashboard-layout">
           <div className="side-stack">
             <div className="panel" style={{ display: 'grid', gap: 10 }}>
-              <div className="section-header-row" style={{ flexWrap: 'wrap' }}>
-                <div>
-                  <p className="panel-eyebrow">Live camera</p>
-                  <div className="panel-title" style={{ fontSize: '1.2rem' }}>Robot workspace</div>
-                </div>
-                <div className="status-pills">
-                  <span className="section-badge">Source: {camera.source}</span>
+                <div className="section-header-row" style={{ flexWrap: 'wrap' }}>
+                  <div>
+                    <p className="panel-eyebrow">Live camera</p>
+                    <div className="panel-title" style={{ fontSize: '1.2rem' }}>Robot workspace</div>
+                  </div>
+                  <div className="status-pills">
+                  <span className="section-badge">Source: {cameraModeLabel}</span>
                   <span className="section-badge">Status: {camera.source_status}</span>
                   <span className="section-badge">{camera.latest_frame_label}</span>
                   {robotTag ? <span className="section-badge">Heading: {robotPose.heading_deg.toFixed(1)} deg</span> : null}
+                  </div>
                 </div>
-              </div>
 
               <div className="workspace-card" style={{ minHeight: 460 }}>
                 <div className="workspace-stage">
@@ -857,10 +862,10 @@ export default function HomePage() {
                     ) : camera.source === 'companion-camera' && !cameraFrameUrl ? (
                       <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
                         <div>
-                          <div style={{ fontWeight: 700, marginBottom: 8 }}>Companion app waiting</div>
-                          <div>Backend URL: {API_BASE}</div>
+                          <div style={{ fontWeight: 700, marginBottom: 8 }}>Camera Buddy waiting</div>
+                          <div>{isHostedBackend ? 'Hosted mode selected' : 'Local Wi-Fi mode selected'}</div>
                           <div>{companionConnectionStatus}</div>
-                          <div style={{ marginTop: 10, color: 'var(--muted)' }}>Use the Expo app from the `companion-app` folder on the same Wi-Fi as this dashboard.</div>
+                          <div style={{ marginTop: 10, color: 'var(--muted)' }}>Open the Expo app, paste the backend URL once, then tap Go Live.</div>
                         </div>
                       </div>
                     ) : camera.source === 'browser-camera' && !browserCameraReady ? (
@@ -978,74 +983,74 @@ export default function HomePage() {
 
           <aside className="side-stack">
             <div className="panel">
-              <h3>Camera Source</h3>
+              <h3>Choose Camera</h3>
               <div style={{ display: 'grid', gap: 12 }}>
-                <div className="source-row">
-                  <button className={camera.source === 'companion-camera' || cameraSource === 'companion-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void activateCompanionCamera()}>
-                    Companion App
-                  </button>
-                  <button className={camera.source === 'browser-camera' || cameraSource === 'browser-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void activateBrowserCamera()}>
-                    This Device / USB
-                  </button>
-                  <button className={cameraSource === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
-                    External Feed
-                  </button>
-                </div>
-
                 {camera.source === 'companion-camera' || cameraSource === 'companion-camera' ? (
                   <div className="guide-card">
                     <div className="panel-header" style={{ marginBottom: 0 }}>
-                      <p className="panel-eyebrow">Expo Companion</p>
-                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Connect companion app</div>
-                      <p className="panel-subtitle">Open the Expo companion app on a phone or tablet on the same Wi-Fi, paste the backend URL below, and tap Start Streaming. The dashboard will begin rendering uploaded frames automatically.</p>
+                      <p className="panel-eyebrow">Camera Buddy</p>
+                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Connect a phone or tablet</div>
+                      <p className="panel-subtitle">This is the easiest setup for students. Open the Expo app, choose Local Wi-Fi if you are in the same room, paste the backend URL once, and tap Go Live.</p>
                     </div>
 
                     <div className="inline-actions">
                       <button className="btn btn-primary" type="button" disabled={sourceSaving} onClick={() => void activateCompanionCamera()}>
-                        {sourceSaving ? 'Selecting source...' : 'Use Companion App'}
+                        {sourceSaving ? 'Selecting source...' : 'Use Camera Buddy'}
                       </button>
                       <button className="btn" type="button" onClick={() => void copyBackendUrl()}>
                         {backendLinkCopied ? 'Backend copied' : 'Copy backend URL'}
                       </button>
                     </div>
 
-                    <div className="phone-guidance">
+                    <div className="friendly-steps">
+                      <div className="friendly-step">
+                        <span className="friendly-step-number">1</span>
+                        <div>
+                          <strong>Open the Expo app</strong>
+                          <p>Use the `companion-app` project on a phone or tablet.</p>
+                        </div>
+                      </div>
+                      <div className="friendly-step">
+                        <span className="friendly-step-number">2</span>
+                        <div>
+                          <strong>Paste this backend URL</strong>
+                          <p>{API_BASE}</p>
+                        </div>
+                      </div>
+                      <div className="friendly-step">
+                        <span className="friendly-step-number">3</span>
+                        <div>
+                          <strong>Tap Go Live and aim at the paper</strong>
+                          <p>Local Wi-Fi is fastest. Hosted mode works, but will feel slower.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="phone-guidance simple-guidance">
                       <div style={{ display: 'grid', gap: 10 }}>
-                        <div className="status-card">
-                          <strong>Status</strong>
+                        <div className="status-card guide-highlight">
+                          <strong>Buddy status</strong>
                           <span>{companionConnectionStatus}</span>
                         </div>
                         <div className="status-card">
-                          <strong>Backend URL for the app</strong>
-                          <span>{API_BASE}</span>
+                          <strong>Current connection style</strong>
+                          <span>{isHostedBackend ? 'Hosted backend' : 'Local classroom backend'}</span>
                         </div>
                         <div className="badge-line">
-                          <span className="mini-pill">Same network required</span>
                           <span className="mini-pill">Frames: {camera.online ? 'live' : 'waiting'}</span>
                           <span className="mini-pill">Device: {mediaSession.device_label ?? 'not connected yet'}</span>
                         </div>
                       </div>
                     </div>
-
-                    <details className="details-card">
-                      <summary>Companion setup notes</summary>
-                      <div className="details-body">
-                        <ul className="compact-list">
-                          <li>Use the new Expo app in the `companion-app` folder for the primary mobile experience.</li>
-                          <li>The app should point at this backend URL over the same LAN.</li>
-                          <li>This path uses reliable frame uploads instead of browser WebRTC.</li>
-                        </ul>
-                      </div>
-                    </details>
                   </div>
                 ) : null}
 
                 {camera.source === 'browser-camera' || cameraSource === 'browser-camera' ? (
                   <div className="guide-card">
                     <div className="panel-header" style={{ marginBottom: 0 }}>
-                      <p className="panel-eyebrow">Local Camera</p>
+                      <p className="panel-eyebrow">Desk Camera</p>
                       <div className="panel-title" style={{ fontSize: '1.05rem' }}>Use this device or a USB camera</div>
-                      <p className="panel-subtitle">Best for laptops, tablets, webcams, or HDMI capture cards connected directly to the operator machine. When selected, the dashboard requests camera access and streams frames back into the backend automatically.</p>
+                      <p className="panel-subtitle">Best for fixed setups with webcams, document cameras, or HDMI capture cards plugged into the operator machine.</p>
                     </div>
 
                     <div className="inline-actions">
@@ -1061,36 +1066,38 @@ export default function HomePage() {
                   </div>
                 ) : null}
 
-                {camera.source === 'external-camera' || cameraSource === 'external-camera' ? (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    <p className="muted-note">Preview a public MJPEG or image URL for third-party IP cameras, capture cards, or other externally hosted feeds.</p>
-                    <input
-                      value={externalCameraUrl}
-                      onChange={(event) => setExternalCameraUrl(event.target.value)}
-                      placeholder="https://camera-host/stream.mjpg"
-                    />
-                    <button className="tab active" type="button" disabled={sourceSaving || !externalCameraUrl.trim()} onClick={() => void applyCameraSource('external-camera', externalCameraUrl)}>
-                      Save external camera
-                    </button>
-                  </div>
-                ) : null}
-
                 <details className="details-card">
-                  <summary>Future kit support and debugging</summary>
+                  <summary>Other camera choices</summary>
                   <div className="details-body" style={{ display: 'grid', gap: 12 }}>
                     <div className="source-row">
-                      <button className={camera.source === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
+                      <button className={camera.source === 'browser-camera' || cameraSource === 'browser-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void activateBrowserCamera()}>
+                        This Device / USB
+                      </button>
+                      <button className={camera.source === 'external-camera' || cameraSource === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
                         External URL
                       </button>
                       <button className={camera.source === 'phone-webrtc' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving || phoneSessionLoading} onClick={() => void provisionPhoneSession(false)}>
                         Legacy WebRTC
                       </button>
                     </div>
+                    {camera.source === 'external-camera' || cameraSource === 'external-camera' ? (
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        <p className="muted-note">Use a public MJPEG or image URL when another camera system already publishes a feed.</p>
+                        <input
+                          value={externalCameraUrl}
+                          onChange={(event) => setExternalCameraUrl(event.target.value)}
+                          placeholder="https://camera-host/stream.mjpg"
+                        />
+                        <button className="tab active" type="button" disabled={sourceSaving || !externalCameraUrl.trim()} onClick={() => void applyCameraSource('external-camera', externalCameraUrl)}>
+                          Save external camera
+                        </button>
+                      </div>
+                    ) : null}
                     <ul className="compact-list">
-                      <li>This device or USB keeps the browser-camera path available for tablets, laptops, webcams, and capture cards.</li>
-                      <li>The older browser-to-browser WebRTC flow is still available here for experimentation.</li>
-                      <li>Certified kit WebRTC support remains reserved in the backend for future hardware bundles.</li>
-                      <li>External URL is best for preview-only camera feeds that already expose an image or MJPEG stream.</li>
+                      <li>Camera Buddy is the student-friendly default for phones and tablets.</li>
+                      <li>This Device / USB is best for fixed desks, webcams, and capture cards.</li>
+                      <li>External URL works for preview-only feeds that already expose an image or MJPEG stream.</li>
+                      <li>Certified kit WebRTC support is still reserved in the backend for future hardware bundles.</li>
                     </ul>
                     {camera.source === 'phone-webrtc' ? (
                       <div className="status-card">
@@ -1107,7 +1114,7 @@ export default function HomePage() {
               <h3>Live View</h3>
               <ul className="compact-list">
                 <li>Backend: {backendReachable ? 'reachable' : 'unreachable'}</li>
-                <li>Camera: {camera.source} / {camera.latest_frame_label}</li>
+                <li>Camera: {cameraModeLabel} / {camera.latest_frame_label}</li>
                 <li>Canvas detected: {canvas.detected ? 'yes' : 'no'}</li>
                 <li>Localization: {Math.round(state.localization_confidence * 100)}%</li>
                 <li>Mode: {operator.mock_mode ? 'mock' : 'live'}</li>
