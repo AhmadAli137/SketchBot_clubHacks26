@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BarcodeScanningResult, CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,6 +14,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {
+  type MediaStream,
+  RTCPeerConnection,
+  RTCSessionDescription,
+  RTCView,
+  mediaDevices,
+  registerGlobals,
+} from 'react-native-webrtc';
 
 const STORAGE_KEY = 'sketchbot-camera-buddy-room';
 const DEFAULT_PORT = '8787';
@@ -21,6 +29,35 @@ const DEFAULT_PORT = '8787';
 type SavedConfig = {
   backendUrl: string;
 };
+
+type RTCIceServerConfig = {
+  urls: string | string[];
+  username?: string | null;
+  credential?: string | null;
+};
+
+type PhoneWebRTCSessionResponse = {
+  accepted: boolean;
+  source: string;
+  source_status: string;
+  session_id: string;
+  ingest_protocol: string;
+  viewer_protocol: string;
+  publisher_status: string;
+  viewer_status: string;
+  analysis_mode: string;
+  whip_url: string | null;
+  viewer_path: string | null;
+  device_label?: string | null;
+  ice_servers: RTCIceServerConfig[];
+  message: string;
+};
+
+try {
+  registerGlobals();
+} catch {
+  // Ignore duplicate registration during Fast Refresh.
+}
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,7 +76,16 @@ function shouldIgnoreSavedRoomUrl(value: string) {
       return true;
     }
 
-    if (hostname.startsWith('172.24.') || hostname.startsWith('172.25.') || hostname.startsWith('172.26.') || hostname.startsWith('172.27.') || hostname.startsWith('172.28.') || hostname.startsWith('172.29.') || hostname.startsWith('172.30.') || hostname.startsWith('172.31.')) {
+    if (
+      hostname.startsWith('172.24.') ||
+      hostname.startsWith('172.25.') ||
+      hostname.startsWith('172.26.') ||
+      hostname.startsWith('172.27.') ||
+      hostname.startsWith('172.28.') ||
+      hostname.startsWith('172.29.') ||
+      hostname.startsWith('172.30.') ||
+      hostname.startsWith('172.31.')
+    ) {
       return true;
     }
 
@@ -73,18 +119,47 @@ function normalizeLocalRuntimeUrl(value: string) {
   }
 }
 
+function waitForIceGatheringComplete(pc: RTCPeerConnection) {
+  if (pc.iceGatheringState === 'complete') {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    const timer = setInterval(() => {
+      if (pc.iceGatheringState === 'complete') {
+        clearInterval(timer);
+        resolve();
+      }
+    }, 100);
+  });
+}
+
+function rtcConfiguration(iceServers: RTCIceServerConfig[]) {
+  return {
+    iceServers: iceServers.map((server) => ({
+      urls: server.urls,
+      username: server.username ?? undefined,
+      credential: server.credential ?? undefined,
+    })),
+  };
+}
+
 export default function App() {
-  const cameraRef = useRef<CameraView | null>(null);
-  const streamingRef = useRef(false);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const connectionMonitorRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   const lastScannedRoomRef = useRef<string | null>(null);
   const lastScannedAtRef = useRef(0);
   const [permission, requestPermission] = useCameraPermissions();
   const [backendUrl, setBackendUrl] = useState('');
   const [cameraFacing, setCameraFacing] = useState<CameraType>('back');
-  const [streaming, setStreaming] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState('Point the camera at the room QR code on SketchBot Desktop, then tap Go Live.');
+  const [streaming, setStreaming] = useState(false);
+  const [status, setStatus] = useState('Point the phone at the room QR code on SketchBot Desktop, then tap Go Live.');
   const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<PhoneWebRTCSessionResponse | null>(null);
+  const [localStreamUrl, setLocalStreamUrl] = useState<string | null>(null);
 
   const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
   const primaryButtonLabel = busy ? 'Joining room...' : streaming ? 'Stop Camera' : 'Go Live';
@@ -105,7 +180,7 @@ export default function App() {
           }
         }
       } catch {
-        // Ignore storage failures and allow manual entry.
+        // Ignore storage failures and allow a fresh room scan.
       }
     };
 
@@ -138,11 +213,11 @@ export default function App() {
     }
 
     if (!cleanedBackendUrl) {
-      setStatus('Point the camera at the room QR code on SketchBot Desktop.');
+      setStatus('Point the phone at the room QR code on SketchBot Desktop.');
       return;
     }
 
-    setStatus('Room found. Tap Go Live when the paper is in view.');
+    setStatus('Room found. Tap Go Live to start the live camera stream.');
   }, [cleanedBackendUrl, permission?.granted, streaming]);
 
   const ensurePermission = async () => {
@@ -156,9 +231,7 @@ export default function App() {
   const pingBackend = async (targetBackendUrl: string) => {
     const response = await fetch(`${targetBackendUrl}/api/state`, {
       method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
+      headers: { Accept: 'application/json' },
     });
 
     if (!response.ok) {
@@ -166,57 +239,83 @@ export default function App() {
     }
   };
 
-  const runUploadLoop = async (targetBackendUrl: string, label: string) => {
-    const pauseMs = 85;
-    const quality = 0.11;
-    try {
-      while (streamingRef.current) {
-        const picture = await cameraRef.current?.takePictureAsync({
-          base64: true,
-          quality,
-          skipProcessing: true,
-        });
+  const provisionSession = async (targetBackendUrl: string) => {
+    const response = await fetch(`${targetBackendUrl}/api/camera/phone-webrtc/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_label: 'Camera Buddy',
+        force_new: true,
+      }),
+    });
 
-        if (!picture?.base64) {
-          await wait(pauseMs);
-          continue;
-        }
-
-        const uploadResponse = await fetch(`${targetBackendUrl}/api/camera/companion-frame`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            image_base64: picture.base64,
-            device_label: label,
-          }),
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error(`Frame upload failed (${uploadResponse.status}).`);
-        }
-
-        await wait(pauseMs);
-      }
-    } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'Camera Buddy could not keep streaming.';
-      setError(message);
-      setStatus('Camera Buddy paused.');
-      streamingRef.current = false;
-      setStreaming(false);
+    if (!response.ok) {
+      throw new Error(`Could not start the live room (${response.status}).`);
     }
+
+    const payload = (await response.json()) as PhoneWebRTCSessionResponse;
+    setSession(payload);
+    sessionIdRef.current = payload.session_id;
+    return payload;
   };
 
-  const stopStreaming = async () => {
-    streamingRef.current = false;
-    setStreaming(false);
-    setBusy(false);
-    setStatus('Camera Buddy stopped. Tap Go Live when your robot room is ready again.');
+  const stopStreaming = useCallback(
+    async (options?: { preserveStatus?: boolean }) => {
+      const sessionId = sessionIdRef.current;
+      const pc = peerConnectionRef.current;
+      if (pc) {
+        pc.close();
+        peerConnectionRef.current = null;
+      }
+      if (connectionMonitorRef.current) {
+        clearInterval(connectionMonitorRef.current);
+        connectionMonitorRef.current = null;
+      }
+
+      localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+      setLocalStreamUrl(null);
+      setStreaming(false);
+      setBusy(false);
+
+      if (sessionId && cleanedBackendUrl) {
+        try {
+          await fetch(`${cleanedBackendUrl}/api/camera/phone-webrtc/publisher-stop/${sessionId}`, { method: 'POST' });
+        } catch {
+          // Ignore cleanup failures; the next room join will reset the session.
+        }
+      }
+
+      if (!options?.preserveStatus) {
+        setStatus('Camera Buddy stopped. Tap Go Live when your robot room is ready again.');
+      }
+    },
+    [cleanedBackendUrl],
+  );
+
+  const ensureLocalStream = async () => {
+    if (localStreamRef.current) {
+      return localStreamRef.current;
+    }
+
+    const facingMode = cameraFacing === 'back' ? 'environment' : 'user';
+    const stream = await mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        width: 960,
+        height: 540,
+        frameRate: 24,
+        facingMode,
+      },
+    });
+
+    localStreamRef.current = stream;
+    setLocalStreamUrl(stream.toURL());
+    return stream;
   };
 
   const startStreaming = async () => {
-    if (busy || streamingRef.current) {
+    if (busy || streaming) {
       return;
     }
 
@@ -230,42 +329,107 @@ export default function App() {
       }
 
       if (!cleanedBackendUrl) {
-        throw new Error('Enter the room address from SketchBot Desktop first.');
+        throw new Error('Point Camera Buddy at the room QR code first.');
       }
 
       setStatus('Checking the SketchBot room...');
       await pingBackend(cleanedBackendUrl);
 
-      setStatus('Joining Camera Buddy mode...');
-      const sourceResponse = await fetch(`${cleanedBackendUrl}/api/camera/source`, {
+      setStatus('Opening the live room...');
+      const activeSession = await provisionSession(cleanedBackendUrl);
+      const stream = await ensureLocalStream();
+
+      const pc = new RTCPeerConnection(rtcConfiguration(activeSession.ice_servers));
+      peerConnectionRef.current = pc;
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await waitForIceGatheringComplete(pc);
+
+      const localDescription = pc.localDescription;
+      if (!localDescription?.sdp) {
+        throw new Error('The live stream offer was not created.');
+      }
+
+      const offerResponse = await fetch(`${cleanedBackendUrl}/api/camera/phone-webrtc/publisher-offer`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source: 'companion-camera',
+          session_id: activeSession.session_id,
+          sdp: localDescription.sdp,
+          type: localDescription.type,
         }),
       });
 
-      if (!sourceResponse.ok) {
-        throw new Error(`Could not switch camera mode (${sourceResponse.status}).`);
+      if (!offerResponse.ok) {
+        throw new Error(`SketchBot Desktop did not accept the live stream offer (${offerResponse.status}).`);
       }
 
-      streamingRef.current = true;
-      setStreaming(true);
-      setStatus('Camera Buddy is live on the classroom Wi-Fi.');
-      setBusy(false);
-      void runUploadLoop(cleanedBackendUrl, 'Camera Buddy');
+      setStatus('Connecting the live stream to SketchBot Desktop...');
+
+      let remoteAnswer: { sdp: string; type: 'answer' } | null = null;
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        const answerResponse = await fetch(
+          `${cleanedBackendUrl}/api/camera/phone-webrtc/viewer-answer/${activeSession.session_id}`,
+          { cache: 'no-store' },
+        );
+
+        if (answerResponse.ok) {
+          remoteAnswer = (await answerResponse.json()) as { sdp: string; type: 'answer' };
+          break;
+        }
+
+        await wait(400);
+      }
+
+      if (!remoteAnswer?.sdp) {
+        throw new Error('SketchBot Desktop took too long to answer the live stream.');
+      }
+
+      await pc.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
+      setStatus('Live stream ready. SketchBot Desktop is connecting now...');
+
+      let lastConnectionState = pc.connectionState;
+      const connectionDeadline = Date.now() + 20000;
+      connectionMonitorRef.current = setInterval(() => {
+        const nextState = pc.connectionState;
+        if (nextState === lastConnectionState && Date.now() < connectionDeadline) {
+          return;
+        }
+
+        lastConnectionState = nextState;
+
+        if (nextState === 'connected') {
+          if (connectionMonitorRef.current) {
+            clearInterval(connectionMonitorRef.current);
+            connectionMonitorRef.current = null;
+          }
+          setStreaming(true);
+          setBusy(false);
+          setError(null);
+          setStatus('Camera Buddy is live on the same Wi-Fi.');
+          void fetch(`${cleanedBackendUrl}/api/camera/phone-webrtc/publisher-live/${activeSession.session_id}`, {
+            method: 'POST',
+          });
+          return;
+        }
+
+        if (nextState === 'failed' || nextState === 'closed' || Date.now() >= connectionDeadline) {
+          if (connectionMonitorRef.current) {
+            clearInterval(connectionMonitorRef.current);
+            connectionMonitorRef.current = null;
+          }
+          setError('The live stream could not connect to SketchBot Desktop.');
+          setStatus('Camera Buddy could not finish the live connection.');
+          void stopStreaming({ preserveStatus: true });
+        }
+      }, 250);
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'Camera Buddy could not start.';
+      const message = nextError instanceof Error ? nextError.message : 'Camera Buddy could not start the live stream.';
       setError(message);
       setStatus('Camera Buddy could not start.');
-      streamingRef.current = false;
-      setStreaming(false);
-    } finally {
-      if (!streamingRef.current) {
-        setBusy(false);
-      }
+      await stopStreaming({ preserveStatus: true });
     }
   };
 
@@ -274,11 +438,17 @@ export default function App() {
       await stopStreaming();
       return;
     }
+
     await startStreaming();
   };
 
-  const flipCamera = () => {
-    setCameraFacing((current) => (current === 'back' ? 'front' : 'back'));
+  const flipCamera = async () => {
+    const nextFacing = cameraFacing === 'back' ? 'front' : 'back';
+    if (streaming || localStreamRef.current) {
+      await stopStreaming({ preserveStatus: true });
+      setStatus('Camera flipped. Tap Go Live to restart the live stream.');
+    }
+    setCameraFacing(nextFacing);
   };
 
   const handleBarcodeScanned = ({ data }: BarcodeScanningResult) => {
@@ -300,8 +470,14 @@ export default function App() {
     lastScannedAtRef.current = now;
     setBackendUrl(normalized);
     setError(null);
-    setStatus('Room code scanned. Tap Go Live when the paper is in view.');
+    setStatus('Room code scanned. Tap Go Live to start the live camera stream.');
   };
+
+  useEffect(() => {
+    return () => {
+      void stopStreaming({ preserveStatus: true });
+    };
+  }, [stopStreaming]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -312,23 +488,23 @@ export default function App() {
             <View style={styles.heroGlowA} />
             <View style={styles.heroGlowB} />
             <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
-            <Text style={styles.title}>Join the robot room and aim at the paper</Text>
+            <Text style={styles.title}>Join the robot room and stream live</Text>
             <Text style={styles.subtitle}>
-              Camera Buddy is made for the same classroom Wi-Fi as SketchBot Desktop. It turns your phone or tablet into the
-              robot's camera view.
+              Camera Buddy is made for the same classroom Wi-Fi as SketchBot Desktop. It turns your phone or tablet into a
+              smooth live camera for the robot.
             </Text>
             <View style={styles.heroSteps}>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>1</Text>
-                <Text style={styles.heroStepCopy}>Open the app and point the camera at the room code on the laptop.</Text>
+                <Text style={styles.heroStepCopy}>Point the phone at the room code on the laptop.</Text>
               </View>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>2</Text>
-                <Text style={styles.heroStepCopy}>Keep the whole sheet and all AprilTags visible.</Text>
+                <Text style={styles.heroStepCopy}>Keep the full sheet and all AprilTags in view.</Text>
               </View>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>3</Text>
-                <Text style={styles.heroStepCopy}>Tap Go Live and let SketchBot see the page.</Text>
+                <Text style={styles.heroStepCopy}>Tap Go Live to start the smooth classroom stream.</Text>
               </View>
             </View>
           </View>
@@ -351,34 +527,38 @@ export default function App() {
                 }
               }}
             />
-              <Text style={styles.helperText}>
-                This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
-              </Text>
-              <View style={styles.joinTip}>
-                <Text style={styles.joinTipTitle}>Kid shortcut</Text>
-                <Text style={styles.joinTipCopy}>The app scans the room code automatically. Just point the camera at the QR on the laptop.</Text>
-              </View>
+            <Text style={styles.helperText}>
+              This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
+            </Text>
+            <View style={styles.joinTip}>
+              <Text style={styles.joinTipTitle}>Kid shortcut</Text>
+              <Text style={styles.joinTipCopy}>The app scans the room code automatically. Just point the phone at the QR on the laptop.</Text>
+            </View>
           </View>
 
           <View style={styles.card}>
             <View style={styles.cameraHeader}>
               <View style={styles.cameraHeaderCopy}>
-                <Text style={styles.cardTitle}>Preview</Text>
-                <Text style={styles.cameraHint}>Keep the page fully inside the frame. AprilTags should stay clear and sharp.</Text>
+                <Text style={styles.cardTitle}>{streaming ? 'Live camera' : 'Room scanner'}</Text>
+                <Text style={styles.cameraHint}>
+                  {streaming
+                    ? 'This is your live SketchBot stream preview.'
+                    : 'Point at the room QR code first, then keep the page fully inside the frame.'}
+                </Text>
               </View>
-              <Pressable style={styles.ghostButton} onPress={flipCamera}>
+              <Pressable style={styles.ghostButton} onPress={() => void flipCamera()}>
                 <Text style={styles.ghostButtonText}>{cameraFacing === 'back' ? 'Front camera' : 'Back camera'}</Text>
               </Pressable>
             </View>
 
             <View style={styles.cameraShell}>
-              {permission?.granted ? (
+              {streaming && localStreamUrl ? (
+                <RTCView streamURL={localStreamUrl} objectFit="cover" mirror={cameraFacing === 'front'} style={styles.camera} />
+              ) : permission?.granted ? (
                 <View>
                   <CameraView
-                    ref={cameraRef}
                     style={styles.camera}
                     facing={cameraFacing}
-                    pictureSize="640x480"
                     barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                     onBarcodeScanned={shouldAutoScanRoomCode ? handleBarcodeScanned : undefined}
                   />
@@ -391,7 +571,7 @@ export default function App() {
                 </View>
               ) : (
                 <View style={[styles.camera, styles.cameraPlaceholder]}>
-                  <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission when you tap Go Live.</Text>
+                  <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission so Camera Buddy can scan the room and stream live.</Text>
                 </View>
               )}
             </View>
@@ -402,6 +582,7 @@ export default function App() {
             <View style={styles.statusCard}>
               <Text style={styles.statusText}>{status}</Text>
               {cleanedBackendUrl ? <Text style={styles.helperText}>Room address: {cleanedBackendUrl}</Text> : null}
+              {session?.session_id ? <Text style={styles.helperText}>Live session: {session.session_id}</Text> : null}
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
 
@@ -412,6 +593,9 @@ export default function App() {
             >
               {busy ? <ActivityIndicator color="#14233c" /> : <Text style={styles.primaryButtonText}>{primaryButtonLabel}</Text>}
             </Pressable>
+            <Text style={styles.helperText}>
+              Camera Buddy now uses a real live stream. For the smoothest result, run it from an Expo development build instead of Expo Go.
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

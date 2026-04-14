@@ -466,7 +466,7 @@ export default function HomePage() {
   };
 
   const activateCompanionCamera = async () => {
-    await applyCameraSource('companion-camera');
+    await applyCameraSource('phone-webrtc');
   };
 
   const activateBrowserCamera = async () => {
@@ -595,10 +595,19 @@ export default function HomePage() {
   );
 
   const companionConnectionStatus =
-    camera.source === 'companion-camera'
-      ? (camera.online
-        ? `${camera.latest_frame_label}${mediaSession.device_label ? ` (${mediaSession.device_label})` : ''}`
-        : 'Waiting for Camera Buddy on the same Wi-Fi.')
+    camera.source === 'phone-webrtc'
+      ? (phoneViewerReady
+        ? `Camera Buddy is live${mediaSession.device_label ? ` (${mediaSession.device_label})` : ''}`
+        : phoneViewerError ??
+          (mediaSession.publisher_status === 'awaiting-publisher'
+            ? 'Waiting for Camera Buddy to tap Go Live on the same Wi-Fi.'
+            : mediaSession.viewer_status === 'idle'
+              ? 'Waiting for SketchBot Desktop to finish connecting the live stream.'
+              : camera.latest_frame_label))
+      : camera.source === 'companion-camera'
+        ? (camera.online
+          ? `${camera.latest_frame_label}${mediaSession.device_label ? ` (${mediaSession.device_label})` : ''}`
+          : 'Waiting for Camera Buddy on the same Wi-Fi.')
       : 'Choose Camera Buddy to use a phone or tablet.';
   const browserCameraStatus =
     camera.source === 'browser-camera'
@@ -626,11 +635,9 @@ export default function HomePage() {
   const cameraModeLabel =
     camera.source === 'browser-camera'
       ? 'This Device camera'
-      : camera.source === 'companion-camera'
+      : camera.source === 'companion-camera' || camera.source === 'phone-webrtc'
         ? 'Camera Buddy'
-        : camera.source === 'phone-webrtc'
-          ? 'Kit WebRTC'
-          : 'Camera Buddy';
+        : 'Camera Buddy';
   const featuredTasks = tasks.slice(0, 3);
 
   return (

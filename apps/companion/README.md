@@ -1,44 +1,60 @@
 # SketchBot Camera Buddy
 
-Expo-based camera companion for same-network SketchBot desktop setups.
+Native Expo companion app for same-network SketchBot desktop classrooms.
 
-## What It Does
+## What Changed
 
-- previews the device camera
-- switches front/back camera
-- connects to a local SketchBot backend over LAN
-- uploads JPEG frames to `/api/camera/companion-frame`
-- marks the backend source as `companion-camera`
+Camera Buddy now uses a real WebRTC live stream for the main camera path.
 
-This app is intended for:
+That means:
 
-- phones
-- tablets
-- classroom carts
-- operator-side companion devices on the same Wi-Fi as the dashboard laptop
+- smooth live video instead of rapid photo uploads
+- no more `takePictureAsync` slideshow loop as the main experience
+- the phone publishes live video to SketchBot Desktop over the same Wi-Fi
+- the desktop still samples lightweight analysis frames locally for AprilTags
 
-## Run It
+## Important
+
+Because `react-native-webrtc` uses native code, **Camera Buddy no longer runs in Expo Go**.
+
+Use an Expo **development build** instead.
+
+## First-Time Setup
 
 ```bash
 cd apps/companion
 npm install
+npm run prebuild
+```
+
+Then build onto your device:
+
+```bash
+npm run android
+```
+
+or
+
+```bash
+npm run ios
+```
+
+After that, start Metro for the dev client:
+
+```bash
 npm start
 ```
 
-Then open it in Expo Go or a simulator/device.
+## Classroom Flow
 
-## Use It
-
-1. Start the backend on your laptop.
-2. Open the desktop dashboard and choose `Companion App`.
-3. In the app, enter the room address shown in the desktop app, for example:
-   `http://192.168.2.16:8787`
-4. Keep the device on the same Wi-Fi as the laptop.
+1. Start SketchBot Desktop on the laptop.
+2. Make sure the phone and laptop are on the same Wi-Fi.
+3. Open Camera Buddy from the Expo development build.
+4. Point the phone at the room QR code on the laptop.
 5. Tap `Go Live`.
 
 ## Notes
 
-- This path is designed for same-network use and avoids TURN/Twilio/VPS requirements.
-- It favors reliability and simplicity over low-latency browser WebRTC.
-- The app assumes the desktop operator and companion device are in the same room on the same Wi-Fi.
+- This path is designed for local classrooms and same-network robot sessions.
+- It does not require TURN, Twilio, or a VPS for the first version.
 - Future certified hardware kits can still use the reserved `kit-webrtc` backend path.

@@ -2,6 +2,7 @@
   "expo": {
     "name": "SketchBot Camera Buddy",
     "slug": "sketchbot-camera-buddy",
+    "scheme": "sketchbot-camera-buddy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -30,12 +31,14 @@
       ]
     },
     "plugins": [
+      "expo-dev-client",
       [
         "expo-camera",
         {
           "cameraPermission": "Allow SketchBot Camera Buddy to use the camera for same-network robot tracking."
         }
-      ]
+      ],
+      "@config-plugins/react-native-webrtc"
     ],
     "web": {
       "favicon": "./assets/favicon.png"
