@@ -62,6 +62,7 @@ function rtcConfiguration(iceServers?: RTCIceServerConfig[]): RTCConfiguration {
 export default function HomePage() {
   const { apiBase, wsBase } = useRuntimeConfig();
   const { pairingTargets } = useDesktopShell();
+  const companionBackendUrl = useMemo(() => pairingTargets[0] ?? apiBase, [pairingTargets, apiBase]);
 
   const [state, setState] = useState<AppState>(mockState);
   const [backendReachable, setBackendReachable] = useState(false);
@@ -478,7 +479,7 @@ export default function HomePage() {
     }
 
     try {
-      await navigator.clipboard.writeText(apiBase);
+      await navigator.clipboard.writeText(companionBackendUrl);
       setBackendLinkCopied(true);
       window.setTimeout(() => setBackendLinkCopied(false), 1800);
     } catch {
@@ -584,8 +585,6 @@ export default function HomePage() {
   const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url, apiBase) ?? (shouldShowFallbackCameraStream ? `${apiBase}/api/camera/stream` : null);
   const activeTaskRecord = tasks.find((task) => task.id === activeJob.id) ?? null;
   const activePreviewUrl = overlay.image_data_url ?? svgToDataUrl(activeTaskRecord?.svg_content ?? null);
-  const companionBackendUrl = pairingTargets[0] ?? apiBase;
-
   const topStatus = useMemo(
     () => [
       { label: 'App', value: backendReachable ? 'Ready' : 'Starting' },

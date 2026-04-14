@@ -6,7 +6,8 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 const DEV_RENDERER_URL = process.env.SKETCHBOT_RENDERER_URL || 'http://127.0.0.1:3001';
-const RUNTIME_HOST = '127.0.0.1';
+const RUNTIME_CONNECT_HOST = '127.0.0.1';
+const RUNTIME_BIND_HOST = process.env.SKETCHBOT_LOCAL_RUNTIME_BIND_HOST || '0.0.0.0';
 const RUNTIME_PORT = process.env.SKETCHBOT_LOCAL_RUNTIME_PORT || '8787';
 const isDev = !app.isPackaged;
 
@@ -23,7 +24,7 @@ let launchState = {
 };
 
 function localRuntimeUrl(pathname = '') {
-  return `http://${RUNTIME_HOST}:${RUNTIME_PORT}${pathname}`;
+  return `http://${RUNTIME_CONNECT_HOST}:${RUNTIME_PORT}${pathname}`;
 }
 
 function runtimeWorkingDirectory() {
@@ -79,9 +80,9 @@ function resolvePythonCommand() {
 
 function runtimeArgs(command) {
   if (path.basename(command).toLowerCase() === 'py') {
-    return ['-3', '-m', 'uvicorn', 'app.main:app', '--host', RUNTIME_HOST, '--port', String(RUNTIME_PORT)];
+    return ['-3', '-m', 'uvicorn', 'app.main:app', '--host', RUNTIME_BIND_HOST, '--port', String(RUNTIME_PORT)];
   }
-  return ['-m', 'uvicorn', 'app.main:app', '--host', RUNTIME_HOST, '--port', String(RUNTIME_PORT)];
+  return ['-m', 'uvicorn', 'app.main:app', '--host', RUNTIME_BIND_HOST, '--port', String(RUNTIME_PORT)];
 }
 
 function emitLaunchState() {
@@ -100,18 +101,38 @@ function setLaunchState(nextState) {
 
 function localPairingTargets() {
   const interfaces = os.networkInterfaces();
-  const urls = new Set();
+  const preferred = [];
+  const fallback = [];
 
-  for (const values of Object.values(interfaces)) {
+  for (const [name, values] of Object.entries(interfaces)) {
     for (const item of values ?? []) {
       if (!item || item.family !== 'IPv4' || item.internal) {
         continue;
       }
-      urls.add(`http://${item.address}:${RUNTIME_PORT}`);
+
+      if (item.address.startsWith('169.254.')) {
+        continue;
+      }
+
+      const url = `http://${item.address}:${RUNTIME_PORT}`;
+      const normalizedName = name.toLowerCase();
+      const looksVirtual =
+        normalizedName.includes('vethernet') ||
+        normalizedName.includes('hyper-v') ||
+        normalizedName.includes('wsl') ||
+        normalizedName.includes('vmware') ||
+        normalizedName.includes('virtual') ||
+        normalizedName.includes('loopback');
+
+      if (looksVirtual) {
+        fallback.push(url);
+      } else {
+        preferred.push(url);
+      }
     }
   }
 
-  return Array.from(urls).sort();
+  return Array.from(new Set([...preferred, ...fallback]));
 }
 
 function startLocalRuntime() {

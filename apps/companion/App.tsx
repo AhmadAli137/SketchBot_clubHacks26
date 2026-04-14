@@ -26,6 +26,29 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function shouldIgnoreSavedRoomUrl(value: string) {
+  if (!value) {
+    return true;
+  }
+
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : `http://${value}`);
+    const hostname = url.hostname.toLowerCase();
+
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return true;
+    }
+
+    if (hostname.startsWith('172.24.') || hostname.startsWith('172.25.') || hostname.startsWith('172.26.') || hostname.startsWith('172.27.') || hostname.startsWith('172.28.') || hostname.startsWith('172.29.') || hostname.startsWith('172.30.') || hostname.startsWith('172.31.')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeLocalRuntimeUrl(value: string) {
   const trimmed = value.trim().replace(/\/+$/, '');
   if (!trimmed) {
@@ -53,17 +76,19 @@ function normalizeLocalRuntimeUrl(value: string) {
 export default function App() {
   const cameraRef = useRef<CameraView | null>(null);
   const streamingRef = useRef(false);
+  const lastScannedRoomRef = useRef<string | null>(null);
+  const lastScannedAtRef = useRef(0);
   const [permission, requestPermission] = useCameraPermissions();
   const [backendUrl, setBackendUrl] = useState('');
   const [cameraFacing, setCameraFacing] = useState<CameraType>('back');
-  const [scanningRoomCode, setScanningRoomCode] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState('Scan the room code or paste the room address from SketchBot Desktop, then tap Go Live.');
+  const [status, setStatus] = useState('Point the camera at the room QR code on SketchBot Desktop, then tap Go Live.');
   const [error, setError] = useState<string | null>(null);
 
   const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
   const primaryButtonLabel = busy ? 'Joining room...' : streaming ? 'Stop Camera' : 'Go Live';
+  const shouldAutoScanRoomCode = Boolean(permission?.granted) && !streaming && !busy;
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -74,7 +99,10 @@ export default function App() {
         }
         const saved = JSON.parse(raw) as Partial<SavedConfig>;
         if (saved.backendUrl) {
-          setBackendUrl(saved.backendUrl);
+          const normalized = normalizeLocalRuntimeUrl(saved.backendUrl);
+          if (!shouldIgnoreSavedRoomUrl(normalized)) {
+            setBackendUrl(normalized);
+          }
         }
       } catch {
         // Ignore storage failures and allow manual entry.
@@ -92,6 +120,30 @@ export default function App() {
       } satisfies SavedConfig),
     ).catch(() => {});
   }, [backendUrl, cleanedBackendUrl]);
+
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) {
+      void requestPermission();
+    }
+  }, [permission, requestPermission]);
+
+  useEffect(() => {
+    if (streaming) {
+      return;
+    }
+
+    if (!permission?.granted) {
+      setStatus('Allow camera access so Camera Buddy can scan the room code automatically.');
+      return;
+    }
+
+    if (!cleanedBackendUrl) {
+      setStatus('Point the camera at the room QR code on SketchBot Desktop.');
+      return;
+    }
+
+    setStatus('Room found. Tap Go Live when the paper is in view.');
+  }, [cleanedBackendUrl, permission?.granted, streaming]);
 
   const ensurePermission = async () => {
     if (permission?.granted) {
@@ -229,31 +281,24 @@ export default function App() {
     setCameraFacing((current) => (current === 'back' ? 'front' : 'back'));
   };
 
-  const startScanningRoomCode = async () => {
-    if (busy || streamingRef.current) {
-      return;
-    }
-
-    setError(null);
-    const granted = await ensurePermission();
-    if (!granted) {
-      setError('Camera permission is required to scan the room code.');
-      setStatus('Camera Buddy needs camera permission first.');
-      return;
-    }
-
-    setScanningRoomCode(true);
-    setStatus('Point the camera at the room QR code.');
-  };
-
   const handleBarcodeScanned = ({ data }: BarcodeScanningResult) => {
-    if (!scanningRoomCode || !data) {
+    if (!shouldAutoScanRoomCode || !data) {
       return;
     }
 
     const normalized = normalizeLocalRuntimeUrl(data);
+    if (!normalized) {
+      return;
+    }
+
+    const now = Date.now();
+    if (lastScannedRoomRef.current === normalized && now - lastScannedAtRef.current < 2500) {
+      return;
+    }
+
+    lastScannedRoomRef.current = normalized;
+    lastScannedAtRef.current = now;
     setBackendUrl(normalized);
-    setScanningRoomCode(false);
     setError(null);
     setStatus('Room code scanned. Tap Go Live when the paper is in view.');
   };
@@ -275,7 +320,7 @@ export default function App() {
             <View style={styles.heroSteps}>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>1</Text>
-                <Text style={styles.heroStepCopy}>Scan the room code on the laptop or paste the room address.</Text>
+                <Text style={styles.heroStepCopy}>Open the app and point the camera at the room code on the laptop.</Text>
               </View>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>2</Text>
@@ -311,11 +356,8 @@ export default function App() {
               </Text>
               <View style={styles.joinTip}>
                 <Text style={styles.joinTipTitle}>Kid shortcut</Text>
-                <Text style={styles.joinTipCopy}>Tap Scan room code and point the phone at the QR on the laptop.</Text>
+                <Text style={styles.joinTipCopy}>The app scans the room code automatically. Just point the camera at the QR on the laptop.</Text>
               </View>
-              <Pressable style={styles.secondaryButton} onPress={() => void startScanningRoomCode()}>
-                <Text style={styles.secondaryButtonText}>Scan room code</Text>
-              </Pressable>
           </View>
 
           <View style={styles.card}>
@@ -338,12 +380,12 @@ export default function App() {
                     facing={cameraFacing}
                     pictureSize="640x480"
                     barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                    onBarcodeScanned={scanningRoomCode ? handleBarcodeScanned : undefined}
+                    onBarcodeScanned={shouldAutoScanRoomCode ? handleBarcodeScanned : undefined}
                   />
-                  {scanningRoomCode ? (
+                  {shouldAutoScanRoomCode ? (
                     <View style={styles.scanOverlay}>
                       <View style={styles.scanFrame} />
-                      <Text style={styles.scanOverlayText}>Scan the QR code on the laptop screen</Text>
+                      <Text style={styles.scanOverlayText}>Point at the room QR code on the laptop screen</Text>
                     </View>
                   ) : null}
                 </View>
@@ -523,20 +565,6 @@ const styles = StyleSheet.create({
     color: '#49657f',
     fontSize: 13,
     lineHeight: 18,
-  },
-  secondaryButton: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#cde9ff',
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#eef8ff',
-  },
-  secondaryButtonText: {
-    color: '#214864',
-    fontWeight: '800',
-    fontSize: 14,
   },
   cameraHeader: {
     flexDirection: 'row',

@@ -22,7 +22,7 @@ FastAPI local runtime for the desktop operator app.
 
 ```powershell
 cd services/local-runtime
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8787
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8787
 ```
 
 The Electron desktop app starts this service automatically during desktop development.

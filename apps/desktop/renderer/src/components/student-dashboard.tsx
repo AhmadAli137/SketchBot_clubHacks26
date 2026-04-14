@@ -218,7 +218,7 @@ export function StudentDashboard({
             </p>
             <div className="kid-callout">
               <strong>Fastest path for kids</strong>
-              <span>Open Camera Buddy, tap Scan room code, and point the phone at this screen.</span>
+              <span>Open Camera Buddy and point the phone at this screen. The app will scan the room code automatically.</span>
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
               <button className="btn btn-primary" type="button" disabled={sourceSaving} onClick={onActivateCompanionCamera}>
@@ -240,12 +240,12 @@ export function StudentDashboard({
                 )}
               </div>
               <p className="subdued-text" style={{ margin: 0 }}>
-                Open Camera Buddy and tap Scan room code to join this room without typing.
+                Open Camera Buddy and point it at this QR code to join the room without typing.
               </p>
             </div>
             <ul className="compact-list" style={{ marginTop: 12 }}>
               <li>Open Camera Buddy on the same Wi-Fi.</li>
-              <li>Scan the QR code or paste this room address: {companionBackendUrl}</li>
+              <li>Point the phone at the QR code or paste this room address: {companionBackendUrl}</li>
               <li>{cameraSource === 'browser-camera' ? browserCameraStatus : companionConnectionStatus}</li>
             </ul>
           </div>
