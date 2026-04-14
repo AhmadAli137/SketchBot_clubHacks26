@@ -1,10 +1,10 @@
 ﻿'use client';
 
 import Image from 'next/image';
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { DesktopRuntimeBanner } from '@/components/desktop-runtime-banner';
-import { API_BASE, WS_BASE } from '@/lib/config';
+import { useRuntimeConfig } from '@/lib/config';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useDesktopShell } from '@/lib/desktop-shell';
 import { mockState } from '@/lib/mock-state';
@@ -24,12 +24,12 @@ function svgToDataUrl(svg: string | null | undefined) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-function resolveMediaUrl(url: string | null | undefined) {
+function resolveMediaUrl(url: string | null | undefined, apiBase: string) {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
     return url;
   }
-  return `${API_BASE}${url}`;
+  return `${apiBase}${url}`;
 }
 
 function delay(ms: number) {
@@ -63,6 +63,7 @@ function rtcConfiguration(iceServers?: RTCIceServerConfig[]): RTCConfiguration {
 }
 
 export default function HomePage() {
+  const { apiBase, wsBase } = useRuntimeConfig();
   const [state, setState] = useState<AppState>(mockState);
   const [backendReachable, setBackendReachable] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'create'>('dashboard');
@@ -96,20 +97,20 @@ export default function HomePage() {
   const viewerRtcConfig = useMemo(() => rtcConfiguration(viewerIceServers), [viewerIceServers]);
   const { pairingTargets } = useDesktopShell();
 
-  const refreshTasks = async () => {
+  const refreshTasks = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/compose/tasks`, { cache: 'no-store' });
+      const response = await fetch(`${apiBase}/api/compose/tasks`, { cache: 'no-store' });
       if (!response.ok) throw new Error('Failed to fetch tasks');
       const payload = (await response.json()) as { tasks: TaskRecord[] };
       setTasks(payload.tasks ?? []);
     } catch {
       setTasks([]);
     }
-  };
+  }, [apiBase]);
 
-  const refreshState = async () => {
+  const refreshState = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/state`, { cache: 'no-store' });
+      const response = await fetch(`${apiBase}/api/state`, { cache: 'no-store' });
       if (!response.ok) throw new Error('Failed to fetch state');
       const nextState = (await response.json()) as AppState;
       setState(nextState);
@@ -117,11 +118,11 @@ export default function HomePage() {
     } catch {
       setBackendReachable(false);
     }
-  };
+  }, [apiBase]);
 
-  const refreshWebRTCConfig = async () => {
+  const refreshWebRTCConfig = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/webrtc/config`, { cache: 'no-store' });
+      const response = await fetch(`${apiBase}/api/webrtc/config`, { cache: 'no-store' });
       if (!response.ok) {
         throw new Error('Failed to fetch WebRTC config');
       }
@@ -130,7 +131,7 @@ export default function HomePage() {
     } catch {
       setWebrtcIceServers([]);
     }
-  };
+  }, [apiBase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,7 +145,7 @@ export default function HomePage() {
       }
     }, 5000);
 
-    const ws = new WebSocket(WS_BASE);
+    const ws = new WebSocket(wsBase);
     ws.onmessage = (event) => {
       try {
         const nextState = JSON.parse(event.data) as AppState;
@@ -168,7 +169,7 @@ export default function HomePage() {
       window.clearInterval(statePoll);
       ws.close();
     };
-  }, []);
+  }, [apiBase, refreshState, refreshTasks, refreshWebRTCConfig, wsBase]);
 
   useEffect(() => {
     if (sourceTransitionTarget && state.camera?.source === sourceTransitionTarget) {
@@ -245,7 +246,7 @@ export default function HomePage() {
 
         let remoteOffer: { sdp: string; type: RTCSdpType } | null = null;
         for (let attempt = 0; attempt < 60; attempt += 1) {
-          const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/publisher-offer/${sessionId}`, {
+          const response = await fetch(`${apiBase}/api/camera/phone-webrtc/publisher-offer/${sessionId}`, {
             cache: 'no-store',
           });
           if (response.ok) {
@@ -281,7 +282,7 @@ export default function HomePage() {
         pc.onconnectionstatechange = () => {
           if (pc.connectionState === 'connected') {
             setPhoneViewerReady(true);
-            void fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-live/${sessionId}`, { method: 'POST' });
+            void fetch(`${apiBase}/api/camera/phone-webrtc/viewer-live/${sessionId}`, { method: 'POST' });
           } else if (pc.connectionState === 'failed') {
             setPhoneViewerReady(false);
             setPhoneViewerError('Phone WebRTC peer connection failed.');
@@ -300,7 +301,7 @@ export default function HomePage() {
           throw new Error('Viewer local description missing.');
         }
 
-        const answerResponse = await fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-answer`, {
+        const answerResponse = await fetch(`${apiBase}/api/camera/phone-webrtc/viewer-answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -331,10 +332,10 @@ export default function HomePage() {
       }
       setPhoneViewerReady(false);
       if (viewerStarted) {
-        void fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
+        void fetch(`${apiBase}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
       }
     };
-  }, [state.camera?.media_session?.session_id, state.camera?.source, viewerIceKey, viewerRtcConfig]);
+  }, [apiBase, state.camera?.media_session?.session_id, state.camera?.source, viewerIceKey, viewerRtcConfig]);
 
   useEffect(() => {
     const shouldUseBrowserCamera = state.camera?.source === 'browser-camera';
@@ -420,7 +421,7 @@ export default function HomePage() {
           throw new Error('Unable to encode camera frame.');
         }
 
-        const response = await fetch(`${API_BASE}/api/camera/browser-frame`, {
+        const response = await fetch(`${apiBase}/api/camera/browser-frame`, {
           method: 'POST',
           headers: { 'Content-Type': 'image/jpeg' },
           body: blob,
@@ -438,7 +439,7 @@ export default function HomePage() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [browserCameraReady, state.camera?.source]);
+  }, [apiBase, browserCameraReady, state.camera?.source]);
 
   useEffect(() => {
     const sessionId = state.camera?.media_session?.session_id;
@@ -473,7 +474,7 @@ export default function HomePage() {
           throw new Error('Unable to encode analysis frame.');
         }
 
-        await fetch(`${API_BASE}/api/camera/phone-webrtc/analysis-frame`, {
+        await fetch(`${apiBase}/api/camera/phone-webrtc/analysis-frame`, {
           method: 'POST',
           headers: { 'Content-Type': 'image/jpeg' },
           body: blob,
@@ -488,14 +489,14 @@ export default function HomePage() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [phoneViewerReady, state.camera?.media_session?.session_id, state.camera?.source]);
+  }, [apiBase, phoneViewerReady, state.camera?.media_session?.session_id, state.camera?.source]);
 
   const applyCameraSource = async (source: CameraSource, externalUrl?: string) => {
     setCameraSource(source);
     setSourceTransitionTarget(source);
     setSourceSaving(true);
     try {
-      await fetch(`${API_BASE}/api/camera/source`, {
+      await fetch(`${apiBase}/api/camera/source`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -514,13 +515,13 @@ export default function HomePage() {
     setPhoneSessionLoading(true);
     try {
       setSourceTransitionTarget('phone-webrtc');
-      await fetch(`${API_BASE}/api/camera/source`, {
+      await fetch(`${apiBase}/api/camera/source`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: 'phone-webrtc' }),
       });
 
-      const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, {
+      const response = await fetch(`${apiBase}/api/camera/phone-webrtc/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ device_label: 'Companion camera', force_new: forceNew }),
@@ -550,7 +551,7 @@ export default function HomePage() {
     }
 
     try {
-      await navigator.clipboard.writeText(API_BASE);
+      await navigator.clipboard.writeText(apiBase);
       setBackendLinkCopied(true);
       window.setTimeout(() => setBackendLinkCopied(false), 1800);
     } catch {
@@ -562,7 +563,7 @@ export default function HomePage() {
     event.preventDefault();
     setComposing(true);
     try {
-      await fetch(`${API_BASE}/api/compose/prompt`, {
+      await fetch(`${apiBase}/api/compose/prompt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
@@ -582,7 +583,7 @@ export default function HomePage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      await fetch(`${API_BASE}/api/upload`, {
+      await fetch(`${apiBase}/api/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -599,7 +600,7 @@ export default function HomePage() {
       return;
     }
 
-    await fetch(`${API_BASE}/api/compose/prompt`, {
+    await fetch(`${apiBase}/api/compose/prompt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: task.prompt }),
@@ -652,7 +653,7 @@ export default function HomePage() {
     camera.online &&
     (camera.source === 'browser-camera' || camera.source === 'companion-camera') &&
     !camera.latest_frame_url;
-  const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url) ?? (shouldShowFallbackCameraStream ? `${API_BASE}/api/camera/stream` : null);
+  const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url, apiBase) ?? (shouldShowFallbackCameraStream ? `${apiBase}/api/camera/stream` : null);
   const robotLeft = `${Math.max(10, Math.min(90, (robotPose.x_mm / Math.max(canvas.width_mm || 1, 1)) * 100))}%`;
   const robotTop = `${Math.max(10, Math.min(90, (robotPose.y_mm / Math.max(canvas.height_mm || 1, 1)) * 100))}%`;
   const aprilTagDetections = camera.april_tag_detections ?? [];
@@ -660,7 +661,7 @@ export default function HomePage() {
   const robotTag = aprilTagDetections.find((tag) => tag.tag_id === 4) ?? null;
   const activeTaskRecord = tasks.find((task) => task.id === activeJob.id) ?? null;
   const activePreviewUrl = overlay.image_data_url ?? svgToDataUrl(activeTaskRecord?.svg_content ?? null);
-  const companionBackendUrl = pairingTargets[0] ?? API_BASE;
+  const companionBackendUrl = pairingTargets[0] ?? apiBase;
 
   const topStatus = useMemo(() => {
     return [
@@ -880,7 +881,7 @@ export default function HomePage() {
 
                     {canvasBorder.detected && (overlay.svg_path || overlay.image_data_url) ? (
                       <img
-                        src={`${API_BASE}/api/camera/overlay-preview`}
+                        src={`${apiBase}/api/camera/overlay-preview`}
                         alt={overlay.source_name ?? 'Overlay asset'}
                         style={{
                           position: 'absolute',

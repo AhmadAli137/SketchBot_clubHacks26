@@ -1,21 +1,34 @@
-const browserHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const browserProtocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
-const desktopRuntimePort =
-  typeof window !== 'undefined' ? window.sketchbotDesktop?.runtimePort : undefined;
-const wsProtocol = browserProtocol === 'https:' ? 'wss:' : 'ws:';
-const isLocalBrowserHost = browserHost === 'localhost' || browserHost === '127.0.0.1';
-const fallbackBackendHost = `${browserHost}:8787`;
-const desktopApiBase = desktopRuntimePort ? `http://127.0.0.1:${desktopRuntimePort}` : undefined;
-const desktopWsBase = desktopRuntimePort ? `ws://127.0.0.1:${desktopRuntimePort}/ws/state` : undefined;
+'use client';
 
-export const API_BASE =
-  desktopApiBase ??
+import { useEffect, useState } from 'react';
+
+const DEFAULT_API_BASE =
   process.env.NEXT_PUBLIC_LOCAL_RUNTIME_URL ??
   process.env.NEXT_PUBLIC_BACKEND_URL ??
-  (isLocalBrowserHost ? `${browserProtocol}//127.0.0.1:8787` : `${browserProtocol}//${fallbackBackendHost}`);
+  'http://127.0.0.1:8787';
 
-export const WS_BASE =
-  desktopWsBase ??
+const DEFAULT_WS_BASE =
   process.env.NEXT_PUBLIC_LOCAL_RUNTIME_WS ??
   process.env.NEXT_PUBLIC_BACKEND_WS ??
-  (isLocalBrowserHost ? `${wsProtocol}//127.0.0.1:8787/ws/state` : `${wsProtocol}//${fallbackBackendHost}/ws/state`);
+  'ws://127.0.0.1:8787/ws/state';
+
+export function useRuntimeConfig() {
+  const [runtimeConfig, setRuntimeConfig] = useState({
+    apiBase: DEFAULT_API_BASE,
+    wsBase: DEFAULT_WS_BASE,
+  });
+
+  useEffect(() => {
+    const runtimePort = window.sketchbotDesktop?.runtimePort;
+    if (!runtimePort) {
+      return;
+    }
+
+    setRuntimeConfig({
+      apiBase: `http://127.0.0.1:${runtimePort}`,
+      wsBase: `ws://127.0.0.1:${runtimePort}/ws/state`,
+    });
+  }, []);
+
+  return runtimeConfig;
+}

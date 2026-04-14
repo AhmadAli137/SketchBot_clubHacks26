@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
-import { API_BASE } from '@/lib/config';
+import { useRuntimeConfig } from '@/lib/config';
 import type { PhoneWebRTCSessionResponse, RTCIceServerConfig } from '@/lib/types';
 
 type FacingMode = 'environment' | 'user';
@@ -40,6 +40,7 @@ function rtcConfiguration(iceServers?: RTCIceServerConfig[]): RTCConfiguration {
 }
 
 export default function RemoteCameraPage() {
+  const { apiBase } = useRuntimeConfig();
   const [facingMode, setFacingMode] = useState<FacingMode>('environment');
   const [deviceLabel, setDeviceLabel] = useState('Companion camera');
   const [previewing, setPreviewing] = useState(false);
@@ -83,12 +84,12 @@ export default function RemoteCameraPage() {
     setPublishing(false);
     if (sessionId) {
       try {
-        await fetch(`${API_BASE}/api/camera/phone-webrtc/publisher-stop/${sessionId}`, { method: 'POST' });
+        await fetch(`${apiBase}/api/camera/phone-webrtc/publisher-stop/${sessionId}`, { method: 'POST' });
       } catch {
         // Ignore shutdown cleanup failures.
       }
     }
-  }, []);
+  }, [apiBase]);
 
   const ensurePreview = async () => {
     if (streamRef.current) {
@@ -119,7 +120,7 @@ export default function RemoteCameraPage() {
 
   const loadExistingSession = useCallback(async (): Promise<PhoneWebRTCSessionResponse | null> => {
     try {
-      const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, { cache: 'no-store' });
+      const response = await fetch(`${apiBase}/api/camera/phone-webrtc/session`, { cache: 'no-store' });
       if (!response.ok) {
         return null;
       }
@@ -133,13 +134,13 @@ export default function RemoteCameraPage() {
       // Ignore missing or unreachable session here.
       return null;
     }
-  }, [publishing]);
+  }, [apiBase, publishing]);
 
   const provisionSession = async (forceNew = false): Promise<PhoneWebRTCSessionResponse | null> => {
     setSessionLoading(true);
     try {
       setError(null);
-      const sourceResponse = await fetch(`${API_BASE}/api/camera/source`, {
+      const sourceResponse = await fetch(`${apiBase}/api/camera/source`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: 'phone-webrtc' }),
@@ -148,7 +149,7 @@ export default function RemoteCameraPage() {
         throw new Error('Unable to switch the backend to companion camera mode.');
       }
 
-      const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, {
+      const response = await fetch(`${apiBase}/api/camera/phone-webrtc/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ device_label: deviceLabel.trim() || 'Companion camera', force_new: forceNew }),
@@ -211,7 +212,7 @@ export default function RemoteCameraPage() {
         if (pc.connectionState === 'connected') {
           setPublishing(true);
           setStatus('Companion WebRTC publishing.');
-          void fetch(`${API_BASE}/api/camera/phone-webrtc/publisher-live/${activeSession.session_id}`, { method: 'POST' });
+          void fetch(`${apiBase}/api/camera/phone-webrtc/publisher-live/${activeSession.session_id}`, { method: 'POST' });
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
           setPublishing(false);
         }
@@ -226,7 +227,7 @@ export default function RemoteCameraPage() {
         throw new Error('Publisher local description missing.');
       }
 
-      const publishResponse = await fetch(`${API_BASE}/api/camera/phone-webrtc/publisher-offer`, {
+      const publishResponse = await fetch(`${apiBase}/api/camera/phone-webrtc/publisher-offer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -243,7 +244,7 @@ export default function RemoteCameraPage() {
 
       let remoteAnswer: { sdp: string; type: RTCSdpType } | null = null;
       for (let attempt = 0; attempt < 60; attempt += 1) {
-        const answerResponse = await fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-answer/${activeSession.session_id}`, {
+        const answerResponse = await fetch(`${apiBase}/api/camera/phone-webrtc/viewer-answer/${activeSession.session_id}`, {
           cache: 'no-store',
         });
         if (answerResponse.ok) {
@@ -273,7 +274,7 @@ export default function RemoteCameraPage() {
     try {
       setError(null);
       await ensurePreview();
-      await fetch(`${API_BASE}/api/camera/source`, {
+      await fetch(`${apiBase}/api/camera/source`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: 'browser-camera' }),
@@ -328,7 +329,7 @@ export default function RemoteCameraPage() {
           throw new Error('Unable to encode camera frame.');
         }
 
-        const response = await fetch(`${API_BASE}/api/camera/browser-frame`, {
+        const response = await fetch(`${apiBase}/api/camera/browser-frame`, {
           method: 'POST',
           headers: { 'Content-Type': 'image/jpeg' },
           body: blob,
@@ -348,7 +349,7 @@ export default function RemoteCameraPage() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [legacyUploading]);
+  }, [apiBase, legacyUploading]);
 
   const startPhoneCamera = async () => {
     setStatus('Starting companion camera...');
@@ -513,7 +514,7 @@ export default function RemoteCameraPage() {
 
       <ul className="compact-list compact-status-list">
         <li>Status: {status}</li>
-        <li>Backend: {API_BASE}</li>
+        <li>Backend: {apiBase}</li>
         <li>Tip: mount the companion device above the canvas and keep AprilTags fully visible.</li>
         {error ? <li style={{ color: '#ffd2d0' }}>Error: {error}</li> : null}
       </ul>
