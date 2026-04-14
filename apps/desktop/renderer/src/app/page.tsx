@@ -3,8 +3,10 @@
 import Image from 'next/image';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
+import { DesktopRuntimeBanner } from '@/components/desktop-runtime-banner';
 import { API_BASE, WS_BASE } from '@/lib/config';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useDesktopShell } from '@/lib/desktop-shell';
 import { mockState } from '@/lib/mock-state';
 import type {
   AppState,
@@ -92,6 +94,7 @@ export default function HomePage() {
   );
   const viewerIceKey = useMemo(() => JSON.stringify(viewerIceServers), [viewerIceServers]);
   const viewerRtcConfig = useMemo(() => rtcConfiguration(viewerIceServers), [viewerIceServers]);
+  const { pairingTargets } = useDesktopShell();
 
   const refreshTasks = async () => {
     try {
@@ -657,7 +660,7 @@ export default function HomePage() {
   const robotTag = aprilTagDetections.find((tag) => tag.tag_id === 4) ?? null;
   const activeTaskRecord = tasks.find((task) => task.id === activeJob.id) ?? null;
   const activePreviewUrl = overlay.image_data_url ?? svgToDataUrl(activeTaskRecord?.svg_content ?? null);
-  const isHostedBackend = API_BASE.includes('onrender.com');
+  const companionBackendUrl = pairingTargets[0] ?? API_BASE;
 
   const topStatus = useMemo(() => {
     return [
@@ -676,9 +679,7 @@ export default function HomePage() {
     camera.source === 'companion-camera'
       ? (camera.online
         ? `${camera.latest_frame_label}${mediaSession.device_label ? ` (${mediaSession.device_label})` : ''}`
-        : isHostedBackend
-          ? 'Waiting for the Camera Buddy app. Hosted mode works, but Local Wi-Fi will feel much faster.'
-          : 'Waiting for the Camera Buddy app to connect on the same Wi-Fi.')
+        : 'Waiting for the Camera Buddy app to connect on the same Wi-Fi.')
       : 'Select Companion App on the dashboard to begin.';
   const browserCameraStatus =
     camera.source === 'browser-camera'
@@ -742,6 +743,8 @@ export default function HomePage() {
           <span className="status-pill">Operator Console</span>
         </div>
       </div>
+
+      <DesktopRuntimeBanner />
 
       <div className="tab-row">
         <button className={activeTab === 'dashboard' ? 'tab active' : 'tab'} type="button" onClick={() => setActiveTab('dashboard')}>
@@ -851,7 +854,7 @@ export default function HomePage() {
                       <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 14, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
                         <div>
                           <div style={{ fontWeight: 700, marginBottom: 8 }}>Camera Buddy waiting</div>
-                          <div>{isHostedBackend ? 'Hosted mode selected' : 'Local Wi-Fi mode selected'}</div>
+                          <div>Same-room Camera Buddy mode selected</div>
                           <div>{companionConnectionStatus}</div>
                           <div style={{ marginTop: 10, color: 'var(--muted)' }}>Open the Expo app, paste the backend URL once, then tap Go Live.</div>
                         </div>
@@ -1002,7 +1005,7 @@ export default function HomePage() {
                         <span className="friendly-step-number">2</span>
                         <div>
                           <strong>Paste this backend URL</strong>
-                          <p>{API_BASE}</p>
+                          <p>{companionBackendUrl}</p>
                         </div>
                       </div>
                       <div className="friendly-step">
@@ -1022,7 +1025,7 @@ export default function HomePage() {
                         </div>
                         <div className="status-card">
                           <strong>Current connection style</strong>
-                          <span>{isHostedBackend ? 'Hosted backend' : 'Local classroom backend'}</span>
+                          <span>{pairingTargets.length ? 'Local classroom backend' : 'Desktop fallback address'}</span>
                         </div>
                         <div className="badge-line">
                           <span className="mini-pill">Frames: {camera.online ? 'live' : 'waiting'}</span>

@@ -10,6 +10,8 @@
   "scripts": {
     "desktop:dev": "npm --prefix apps/desktop run dev",
     "desktop:build": "npm --prefix apps/desktop run build",
+    "desktop:pack": "npm --prefix apps/desktop run pack",
+    "desktop:dist": "npm --prefix apps/desktop run dist",
     "admin:dev": "npm --prefix apps/admin-web run dev",
     "admin:build": "npm --prefix apps/admin-web run build",
     "companion:dev": "npm --prefix apps/companion start",

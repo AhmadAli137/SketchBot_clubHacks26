@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { SiteHeader } from '@/components/site-header';
 import { CLOUD_BACKEND_URL } from '@/lib/config';
 
 type PortalSummary = {
@@ -13,6 +14,24 @@ type PortalSummary = {
   support_status: string;
 };
 
+type ReleaseInfo = {
+  version: string;
+  channel: string;
+  published_at: string;
+  download_label: string;
+};
+
+type ReleasePayload = {
+  desktop: ReleaseInfo;
+  companion: ReleaseInfo;
+};
+
+type SupportPayload = {
+  status: string;
+  message: string;
+  updated_at: string;
+};
+
 const fallbackSummary: PortalSummary = {
   organization_count: 12,
   desktop_channel: 'stable',
@@ -22,19 +41,51 @@ const fallbackSummary: PortalSummary = {
   support_status: 'green',
 };
 
+const fallbackReleases: ReleasePayload = {
+  desktop: {
+    version: '0.1.0',
+    channel: 'stable',
+    published_at: '2026-04-14',
+    download_label: 'Desktop installer',
+  },
+  companion: {
+    version: '1.0.0',
+    channel: 'stable',
+    published_at: '2026-04-14',
+    download_label: 'Expo Camera Buddy',
+  },
+};
+
+const fallbackSupport: SupportPayload = {
+  status: 'green',
+  message: 'All platform systems are healthy.',
+  updated_at: '2026-04-14T12:00:00Z',
+};
+
 export default function PortalPage() {
   const [summary, setSummary] = useState<PortalSummary>(fallbackSummary);
+  const [releases, setReleases] = useState<ReleasePayload>(fallbackReleases);
+  const [support, setSupport] = useState<SupportPayload>(fallbackSupport);
   const [reachable, setReachable] = useState(false);
 
   useEffect(() => {
     const loadSummary = async () => {
       try {
-        const response = await fetch(`${CLOUD_BACKEND_URL}/api/admin/summary`, { cache: 'no-store' });
-        if (!response.ok) {
+        const [summaryResponse, releasesResponse, supportResponse] = await Promise.all([
+          fetch(`${CLOUD_BACKEND_URL}/api/admin/summary`, { cache: 'no-store' }),
+          fetch(`${CLOUD_BACKEND_URL}/api/admin/releases`, { cache: 'no-store' }),
+          fetch(`${CLOUD_BACKEND_URL}/api/admin/support`, { cache: 'no-store' }),
+        ]);
+        if (!summaryResponse.ok || !releasesResponse.ok || !supportResponse.ok) {
           throw new Error('Cloud backend unavailable');
         }
-        const payload = (await response.json()) as PortalSummary;
-        setSummary(payload);
+
+        const summaryPayload = (await summaryResponse.json()) as PortalSummary;
+        const releasesPayload = (await releasesResponse.json()) as ReleasePayload;
+        const supportPayload = (await supportResponse.json()) as SupportPayload;
+        setSummary(summaryPayload);
+        setReleases(releasesPayload);
+        setSupport(supportPayload);
         setReachable(true);
       } catch {
         setReachable(false);
@@ -46,6 +97,7 @@ export default function PortalPage() {
 
   return (
     <main className="shell">
+      <SiteHeader />
       <section className="hero">
         <p className="eyebrow">Admin Portal</p>
         <h1>Classrooms, releases, and fleet-wide settings.</h1>
@@ -89,6 +141,10 @@ export default function PortalPage() {
               <strong>Companion version</strong>
               {summary.latest_companion_version}
             </div>
+            <div className="stat">
+              <strong>Support message</strong>
+              {support.message}
+            </div>
           </div>
         </div>
 
@@ -100,6 +156,33 @@ export default function PortalPage() {
             <li>Saved projects, templates, and release metadata</li>
             <li>Cloud-only diagnostics and support operations</li>
             <li>Marketing site and onboarding for new customers</li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="grid">
+        <div className="panel">
+          <p className="eyebrow">Release channels</p>
+          <h2>Current package status</h2>
+          <div className="stat-grid">
+            <div className="stat">
+              <strong>{releases.desktop.download_label}</strong>
+              {releases.desktop.version} on {releases.desktop.channel}
+            </div>
+            <div className="stat">
+              <strong>{releases.companion.download_label}</strong>
+              {releases.companion.version} on {releases.companion.channel}
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <p className="eyebrow">Support ops</p>
+          <h3>Service heartbeat</h3>
+          <ul>
+            <li>Status: {support.status}</li>
+            <li>Updated: {support.updated_at}</li>
+            <li>{support.message}</li>
           </ul>
         </div>
       </section>

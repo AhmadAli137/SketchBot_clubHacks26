@@ -16,20 +16,13 @@ import {
   View,
 } from 'react-native';
 
-const STORAGE_KEY = 'sketchbot-companion-config';
-const HOSTED_BACKEND_URL = 'https://sketchbot-backend.onrender.com';
-
-type ConnectionMode = 'local' | 'hosted';
+const STORAGE_KEY = 'sketchbot-camera-buddy-room';
+const DEFAULT_PORT = '8787';
 
 type SavedConfig = {
   backendUrl: string;
   deviceLabel: string;
-  connectionMode: ConnectionMode;
 };
-
-function normalizeBackendUrl(value: string) {
-  return value.trim().replace(/\/+$/, '');
-}
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,29 +32,47 @@ function formatTimeStamp(value: number) {
   return new Date(value).toLocaleTimeString();
 }
 
+function normalizeLocalRuntimeUrl(value: string) {
+  const trimmed = value.trim().replace(/\/+$/, '');
+  if (!trimmed) {
+    return '';
+  }
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+
+  try {
+    const url = new URL(candidate);
+    url.pathname = '';
+    url.search = '';
+    url.hash = '';
+
+    if (!url.port || url.port === '3000' || url.port === '3001') {
+      url.port = DEFAULT_PORT;
+    }
+
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return trimmed;
+  }
+}
+
 export default function App() {
   const cameraRef = useRef<CameraView | null>(null);
   const streamingRef = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [backendUrl, setBackendUrl] = useState('');
   const [deviceLabel, setDeviceLabel] = useState('Camera Buddy');
-  const [connectionMode, setConnectionMode] = useState<ConnectionMode>('local');
   const [cameraFacing, setCameraFacing] = useState<CameraType>('back');
   const [streaming, setStreaming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [status, setStatus] = useState('Pick Local Wi-Fi for the fastest classroom setup, then tap Go Live.');
+  const [status, setStatus] = useState('Enter the room address from SketchBot Desktop, then tap Go Live.');
   const [error, setError] = useState<string | null>(null);
   const [lastUploadAt, setLastUploadAt] = useState<string | null>(null);
   const [uploadCount, setUploadCount] = useState(0);
 
-  const cleanedBackendUrl = useMemo(() => normalizeBackendUrl(backendUrl), [backendUrl]);
-  const isHostedMode = connectionMode === 'hosted';
-  const backendHint = isHostedMode
-    ? 'Hosted mode is easy to try, but it will feel slower because snapshots travel through the internet.'
-    : 'Local Wi-Fi mode is fastest. Use your laptop address, like http://192.168.x.x:8000.';
-  const backendLabel = isHostedMode ? 'Hosted SketchBot URL' : 'Laptop / classroom backend URL';
-  const primaryButtonLabel = busy ? 'Getting ready...' : streaming ? 'Stop Camera' : 'Go Live';
+  const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
+  const primaryButtonLabel = busy ? 'Getting camera ready...' : streaming ? 'Stop Camera' : 'Go Live';
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -77,9 +88,6 @@ export default function App() {
         if (saved.deviceLabel) {
           setDeviceLabel(saved.deviceLabel);
         }
-        if (saved.connectionMode === 'hosted' || saved.connectionMode === 'local') {
-          setConnectionMode(saved.connectionMode);
-        }
       } catch {
         // Ignore storage failures and allow manual entry.
       }
@@ -92,12 +100,11 @@ export default function App() {
     void AsyncStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        backendUrl,
+        backendUrl: cleanedBackendUrl || backendUrl,
         deviceLabel,
-        connectionMode,
       } satisfies SavedConfig),
     ).catch(() => {});
-  }, [backendUrl, connectionMode, deviceLabel]);
+  }, [backendUrl, cleanedBackendUrl, deviceLabel]);
 
   const ensurePermission = async () => {
     if (permission?.granted) {
@@ -107,12 +114,8 @@ export default function App() {
     return next.granted;
   };
 
-  const pingBackend = async () => {
-    if (!cleanedBackendUrl) {
-      throw new Error('Add a backend URL first.');
-    }
-
-    const response = await fetch(`${cleanedBackendUrl}/api/state`, {
+  const pingBackend = async (targetBackendUrl: string) => {
+    const response = await fetch(`${targetBackendUrl}/api/state`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
@@ -120,13 +123,13 @@ export default function App() {
     });
 
     if (!response.ok) {
-      throw new Error(`Backend check failed (${response.status}).`);
+      throw new Error(`Room check failed (${response.status}).`);
     }
   };
 
-  const runUploadLoop = async (targetBackendUrl: string, label: string, mode: ConnectionMode) => {
-    const pauseMs = mode === 'local' ? 90 : 260;
-    const quality = mode === 'local' ? 0.11 : 0.08;
+  const runUploadLoop = async (targetBackendUrl: string, label: string) => {
+    const pauseMs = 85;
+    const quality = 0.11;
     let lastUiUpdateAt = 0;
 
     try {
@@ -158,7 +161,7 @@ export default function App() {
         }
 
         const now = Date.now();
-        if (now - lastUiUpdateAt >= 900) {
+        if (now - lastUiUpdateAt >= 800) {
           lastUiUpdateAt = now;
           setLastUploadAt(formatTimeStamp(now));
           setUploadCount((current) => current + 1);
@@ -166,9 +169,9 @@ export default function App() {
         await wait(pauseMs);
       }
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'Camera buddy streaming failed.';
+      const message = nextError instanceof Error ? nextError.message : 'Camera Buddy could not keep streaming.';
       setError(message);
-      setStatus('Camera buddy paused.');
+      setStatus('Camera Buddy paused.');
       streamingRef.current = false;
       setStreaming(false);
     }
@@ -178,7 +181,7 @@ export default function App() {
     streamingRef.current = false;
     setStreaming(false);
     setBusy(false);
-    setStatus('Camera buddy stopped. Tap Go Live when you are ready again.');
+    setStatus('Camera Buddy stopped. Tap Go Live when your robot room is ready again.');
   };
 
   const startStreaming = async () => {
@@ -196,13 +199,13 @@ export default function App() {
       }
 
       if (!cleanedBackendUrl) {
-        throw new Error('Please add the backend URL first.');
+        throw new Error('Enter the room address from SketchBot Desktop first.');
       }
 
       setStatus('Checking the SketchBot room...');
-      await pingBackend();
+      await pingBackend(cleanedBackendUrl);
 
-      setStatus('Switching SketchBot to Camera Buddy mode...');
+      setStatus('Joining Camera Buddy mode...');
       const sourceResponse = await fetch(`${cleanedBackendUrl}/api/camera/source`, {
         method: 'POST',
         headers: {
@@ -219,17 +222,13 @@ export default function App() {
 
       streamingRef.current = true;
       setStreaming(true);
-      setStatus(
-        isHostedMode
-          ? 'Camera buddy is live. Hosted mode can feel slower than Local Wi-Fi.'
-          : 'Camera buddy is live on the same Wi-Fi.',
-      );
+      setStatus('Camera Buddy is live on the classroom Wi-Fi.');
       setBusy(false);
-      void runUploadLoop(cleanedBackendUrl, deviceLabel.trim() || 'Camera Buddy', connectionMode);
+      void runUploadLoop(cleanedBackendUrl, deviceLabel.trim() || 'Camera Buddy');
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'Camera buddy streaming failed.';
+      const message = nextError instanceof Error ? nextError.message : 'Camera Buddy could not start.';
       setError(message);
-      setStatus('Camera buddy could not start.');
+      setStatus('Camera Buddy could not start.');
       streamingRef.current = false;
       setStreaming(false);
     } finally {
@@ -251,23 +250,10 @@ export default function App() {
     setCameraFacing((current) => (current === 'back' ? 'front' : 'back'));
   };
 
-  const handleModeChange = (mode: ConnectionMode) => {
-    setConnectionMode(mode);
-    setError(null);
-    setStatus(mode === 'local' ? 'Local Wi-Fi is fastest for classrooms.' : 'Hosted mode is easier to reach, but slower.');
-    if (mode === 'hosted') {
-      setBackendUrl(HOSTED_BACKEND_URL);
-    } else if (normalizeBackendUrl(backendUrl) === HOSTED_BACKEND_URL) {
-      setBackendUrl('');
-    }
-  };
-
   const showSetupTip = () => {
     Alert.alert(
-      connectionMode === 'local' ? 'Local Wi-Fi mode' : 'Hosted mode',
-      connectionMode === 'local'
-        ? 'Keep your phone or tablet on the same Wi-Fi as the dashboard laptop. Copy the laptop backend URL from the dashboard and paste it here.'
-        : 'Hosted mode uses the public SketchBot backend URL. It is easier to reach, but much slower than Local Wi-Fi snapshots.',
+      'How to join the room',
+      'On the laptop, open SketchBot Desktop and choose Camera Buddy. Copy the room address shown there, paste it here, keep both devices on the same Wi-Fi, and tap Go Live.',
     );
   };
 
@@ -280,18 +266,19 @@ export default function App() {
             <View style={styles.heroGlowA} />
             <View style={styles.heroGlowB} />
             <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
-            <Text style={styles.title}>Turn your phone into the robot camera</Text>
+            <Text style={styles.title}>Join the robot room and aim at the paper</Text>
             <Text style={styles.subtitle}>
-              The easiest setup is Local Wi-Fi: phone and laptop on the same network, then tap Go Live and aim at the whole canvas.
+              Camera Buddy is made for the same classroom Wi-Fi as SketchBot Desktop. It turns your phone or tablet into the
+              robot's camera view.
             </Text>
             <View style={styles.heroSteps}>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>1</Text>
-                <Text style={styles.heroStepCopy}>Pick Local Wi-Fi or Hosted.</Text>
+                <Text style={styles.heroStepCopy}>Copy the room address from SketchBot Desktop.</Text>
               </View>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>2</Text>
-                <Text style={styles.heroStepCopy}>Aim at the paper and AprilTags.</Text>
+                <Text style={styles.heroStepCopy}>Keep the whole sheet and all AprilTags visible.</Text>
               </View>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>3</Text>
@@ -301,43 +288,33 @@ export default function App() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Choose your connection</Text>
-            <View style={styles.modeRow}>
-              <Pressable
-                style={[styles.modeButton, connectionMode === 'local' ? styles.modeButtonActive : null]}
-                onPress={() => handleModeChange('local')}
-              >
-                <Text style={[styles.modeTitle, connectionMode === 'local' ? styles.modeTitleActive : null]}>Local Wi-Fi</Text>
-                <Text style={[styles.modeCopy, connectionMode === 'local' ? styles.modeCopyActive : null]}>Fastest for the same room</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modeButton, connectionMode === 'hosted' ? styles.modeButtonActive : null]}
-                onPress={() => handleModeChange('hosted')}
-              >
-                <Text style={[styles.modeTitle, connectionMode === 'hosted' ? styles.modeTitleActive : null]}>Hosted</Text>
-                <Text style={[styles.modeCopy, connectionMode === 'hosted' ? styles.modeCopyActive : null]}>Easier to reach, slower</Text>
-              </Pressable>
-            </View>
-
-            <Text style={styles.label}>{backendLabel}</Text>
+            <Text style={styles.cardTitle}>Join this classroom</Text>
+            <Text style={styles.label}>Room address from SketchBot Desktop</Text>
             <TextInput
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
-              placeholder={isHostedMode ? HOSTED_BACKEND_URL : 'http://192.168.2.16:8000'}
+              placeholder="192.168.2.16 or http://192.168.2.16:8787"
               placeholderTextColor="#89a0c2"
               style={styles.input}
               value={backendUrl}
               onChangeText={setBackendUrl}
+              onBlur={() => {
+                if (backendUrl.trim()) {
+                  setBackendUrl(normalizeLocalRuntimeUrl(backendUrl));
+                }
+              }}
             />
-            <Text style={styles.helperText}>{backendHint}</Text>
+            <Text style={styles.helperText}>
+              This is usually the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
+            </Text>
 
             <Pressable style={styles.secondaryButton} onPress={showSetupTip}>
               <Text style={styles.secondaryButtonText}>Show setup tip</Text>
             </Pressable>
 
             <Pressable style={styles.linkButton} onPress={() => setShowSettings((current) => !current)}>
-              <Text style={styles.linkButtonText}>{showSettings ? 'Hide extra settings' : 'Edit camera name'}</Text>
+              <Text style={styles.linkButtonText}>{showSettings ? 'Hide extra settings' : 'Rename this camera'}</Text>
             </Pressable>
 
             {showSettings ? (
@@ -359,7 +336,7 @@ export default function App() {
             <View style={styles.cameraHeader}>
               <View style={styles.cameraHeaderCopy}>
                 <Text style={styles.cardTitle}>Preview</Text>
-                <Text style={styles.cameraHint}>Keep the whole paper and all AprilTags visible.</Text>
+                <Text style={styles.cameraHint}>Keep the page fully inside the frame. AprilTags should stay clear and sharp.</Text>
               </View>
               <Pressable style={styles.ghostButton} onPress={flipCamera}>
                 <Text style={styles.ghostButtonText}>{cameraFacing === 'back' ? 'Front camera' : 'Back camera'}</Text>
@@ -371,7 +348,7 @@ export default function App() {
                 <CameraView ref={cameraRef} style={styles.camera} facing={cameraFacing} pictureSize="640x480" />
               ) : (
                 <View style={[styles.camera, styles.cameraPlaceholder]}>
-                  <Text style={styles.cameraPlaceholderText}>We’ll ask for camera permission when you tap Go Live.</Text>
+                  <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission when you tap Go Live.</Text>
                 </View>
               )}
             </View>
@@ -381,8 +358,8 @@ export default function App() {
             <Text style={styles.cardTitle}>Ready check</Text>
             <View style={styles.statusRow}>
               <View style={styles.statusPill}>
-                <Text style={styles.statusPillLabel}>Mode</Text>
-                <Text style={styles.statusPillValue}>{connectionMode === 'local' ? 'Local Wi-Fi' : 'Hosted'}</Text>
+                <Text style={styles.statusPillLabel}>Connection</Text>
+                <Text style={styles.statusPillValue}>Same Wi-Fi</Text>
               </View>
               <View style={styles.statusPill}>
                 <Text style={styles.statusPillLabel}>Uploads</Text>
@@ -396,6 +373,7 @@ export default function App() {
 
             <View style={styles.statusCard}>
               <Text style={styles.statusText}>{status}</Text>
+              {cleanedBackendUrl ? <Text style={styles.helperText}>Room address: {cleanedBackendUrl}</Text> : null}
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
 
@@ -469,13 +447,13 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     fontWeight: '900',
     color: '#1d2244',
-    maxWidth: '85%',
+    maxWidth: '90%',
   },
   subtitle: {
     fontSize: 15,
     lineHeight: 23,
     color: '#576182',
-    maxWidth: '92%',
+    maxWidth: '94%',
   },
   heroSteps: {
     gap: 10,
@@ -521,44 +499,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#1d2244',
-  },
-  modeRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  modeButton: {
-    flex: 1,
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    backgroundColor: '#f5f6ff',
-    borderWidth: 1,
-    borderColor: '#dde3ff',
-    gap: 4,
-  },
-  modeButtonActive: {
-    backgroundColor: '#edf9ff',
-    borderColor: '#97ddff',
-    shadowColor: '#79d5ff',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  modeTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#26345d',
-  },
-  modeTitleActive: {
-    color: '#0d5578',
-  },
-  modeCopy: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: '#6d7899',
-  },
-  modeCopyActive: {
-    color: '#4a6d87',
   },
   label: {
     fontSize: 13,

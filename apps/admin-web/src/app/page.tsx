@@ -1,10 +1,12 @@
 import Link from 'next/link';
 
+import { SiteHeader } from '@/components/site-header';
 import { CLOUD_BACKEND_URL } from '@/lib/config';
 
 export default function HomePage() {
   return (
     <main className="shell">
+      <SiteHeader />
       <section className="hero">
         <p className="eyebrow">SketchBot Platform</p>
         <h1>Desktop robotics for classrooms, with cloud tools for teachers and teams.</h1>
@@ -66,6 +68,10 @@ export default function HomePage() {
             <div className="stat">
               <strong>Sync</strong>
               Store and retrieve saved tasks, device metadata, and release channels.
+            </div>
+            <div className="stat">
+              <strong>Support</strong>
+              Hosted status, release health, and classroom administration live here instead of inside the operator session.
             </div>
           </div>
         </div>

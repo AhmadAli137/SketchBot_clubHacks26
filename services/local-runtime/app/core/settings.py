@@ -88,7 +88,7 @@ class Settings:
         self.cors_origins = _split_csv(
             os.getenv(
                 "BACKEND_CORS_ORIGINS",
-                "http://localhost:3001,http://127.0.0.1:3001",
+                "http://localhost:3001,http://127.0.0.1:3001,null",
             )
         )
         self.cors_origin_regex = os.getenv("BACKEND_CORS_ORIGIN_REGEX")

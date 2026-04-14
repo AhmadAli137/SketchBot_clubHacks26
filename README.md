@@ -62,6 +62,7 @@ From the repository root:
 
 ```powershell
 npm run desktop:dev
+npm run desktop:dist
 npm run admin:dev
 npm run companion:dev
 npm run local-runtime:dev
@@ -73,5 +74,6 @@ npm run cloud-backend:dev
 - `apps/desktop` is distributed as a local desktop app
 - `services/local-runtime` runs locally with the desktop app
 - `apps/companion` runs in Expo Go or as a packaged mobile app
+- `apps/companion` assumes the same local network as the desktop app
 - `apps/admin-web` deploys to Vercel
 - `services/cloud-backend` deploys to Render or a similar Python host

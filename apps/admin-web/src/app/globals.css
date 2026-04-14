@@ -45,6 +45,61 @@ button {
   gap: 18px;
 }
 
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 2px;
+}
+
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: white;
+  font-weight: 900;
+  background: linear-gradient(135deg, rgba(39, 196, 221, 0.95), rgba(249, 92, 203, 0.82));
+  box-shadow: 0 12px 24px rgba(84, 98, 155, 0.18);
+}
+
+.site-kicker {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6a7ed0;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.site-nav a,
+.site-nav-note {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(248, 251, 255, 0.96);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.site-nav-note {
+  color: var(--muted);
+}
+
 .hero,
 .panel {
   border-radius: 28px;
@@ -139,6 +194,11 @@ button {
 }
 
 @media (max-width: 980px) {
+  .site-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .grid,
   .stat-grid {
     grid-template-columns: 1fr;

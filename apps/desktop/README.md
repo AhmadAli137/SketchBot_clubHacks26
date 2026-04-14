@@ -22,6 +22,26 @@ That starts:
 - the Electron shell
 - the local runtime on `http://127.0.0.1:8787`
 
+## Production Packaging
+
+The desktop package is built around a local-first runtime:
+
+- Electron hosts the operator window
+- the renderer is exported as a static desktop UI
+- the FastAPI local runtime is bundled as an extra resource
+
+From the repository root:
+
+```powershell
+npm run desktop:dist
+```
+
+Notes:
+
+- SketchBot Desktop still expects a working Python 3.11+ interpreter on the operator machine unless you later bundle Python as part of your installer strategy.
+- If Python lives outside the normal PATH, set `SKETCHBOT_PYTHON` before launching the app.
+- The packaged app exposes same-network Camera Buddy addresses so the companion device can join the room without guessing ports.
+
 ## Structure
 
 - `electron/` - Electron main/preload processes

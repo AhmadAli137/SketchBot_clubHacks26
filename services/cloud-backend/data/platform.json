@@ -1,0 +1,36 @@
+{
+  "site": {
+    "brand": "SketchBot",
+    "headline": "Desktop-first classroom robotics with cloud administration",
+    "desktop_app": "SketchBot Desktop",
+    "companion_app": "SketchBot Camera Buddy",
+    "support_email": "support@sketchbot.example"
+  },
+  "summary": {
+    "organization_count": 12,
+    "desktop_channel": "stable",
+    "companion_channel": "stable",
+    "latest_desktop_version": "0.1.0",
+    "latest_companion_version": "1.0.0",
+    "support_status": "green"
+  },
+  "releases": {
+    "desktop": {
+      "version": "0.1.0",
+      "channel": "stable",
+      "published_at": "2026-04-14",
+      "download_label": "Desktop installer"
+    },
+    "companion": {
+      "version": "1.0.0",
+      "channel": "stable",
+      "published_at": "2026-04-14",
+      "download_label": "Expo Camera Buddy"
+    }
+  },
+  "support": {
+    "status": "green",
+    "message": "All platform systems are healthy.",
+    "updated_at": "2026-04-14T12:00:00Z"
+  }
+}

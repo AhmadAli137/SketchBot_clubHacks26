@@ -1,16 +1,63 @@
 {
   "name": "sketchbot-desktop",
+  "version": "0.1.0",
+  "description": "Local-first SketchBot operator desktop app",
+  "author": "SketchBot",
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"npm --prefix renderer run dev\" \"wait-on tcp:3001 && electron .\"",
-    "build": "npm --prefix renderer run build",
+    "build": "npm run build:renderer",
+    "build:renderer": "npm --prefix renderer run build",
     "start:renderer": "npm --prefix renderer run start",
-    "electron": "electron ."
+    "electron": "electron .",
+    "pack": "npm run build:renderer && electron-builder --dir",
+    "dist": "npm run build:renderer && electron-builder"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "electron": "37.2.0",
     "wait-on": "^8.0.5"
+  },
+  "build": {
+    "appId": "com.sketchbot.desktop",
+    "productName": "SketchBot Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "renderer/out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../services/local-runtime/app",
+        "to": "local-runtime/app"
+      },
+      {
+        "from": "../../services/local-runtime/data",
+        "to": "local-runtime/data"
+      },
+      {
+        "from": "../../services/local-runtime/requirements.txt",
+        "to": "local-runtime/requirements.txt"
+      }
+    ],
+    "asarUnpack": [
+      "**/*.py"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
   }
 }
