@@ -35,6 +35,10 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function formatTimeStamp(value: number) {
+  return new Date(value).toLocaleTimeString();
+}
+
 export default function App() {
   const cameraRef = useRef<CameraView | null>(null);
   const streamingRef = useRef(false);
@@ -121,8 +125,9 @@ export default function App() {
   };
 
   const runUploadLoop = async (targetBackendUrl: string, label: string, mode: ConnectionMode) => {
-    const pauseMs = mode === 'local' ? 120 : 280;
-    const quality = mode === 'local' ? 0.16 : 0.1;
+    const pauseMs = mode === 'local' ? 90 : 260;
+    const quality = mode === 'local' ? 0.11 : 0.08;
+    let lastUiUpdateAt = 0;
 
     try {
       while (streamingRef.current) {
@@ -152,8 +157,12 @@ export default function App() {
           throw new Error(`Frame upload failed (${uploadResponse.status}).`);
         }
 
-        setLastUploadAt(new Date().toLocaleTimeString());
-        setUploadCount((current) => current + 1);
+        const now = Date.now();
+        if (now - lastUiUpdateAt >= 900) {
+          lastUiUpdateAt = now;
+          setLastUploadAt(formatTimeStamp(now));
+          setUploadCount((current) => current + 1);
+        }
         await wait(pauseMs);
       }
     } catch (nextError) {
@@ -359,7 +368,7 @@ export default function App() {
 
             <View style={styles.cameraShell}>
               {permission?.granted ? (
-                <CameraView ref={cameraRef} style={styles.camera} facing={cameraFacing} />
+                <CameraView ref={cameraRef} style={styles.camera} facing={cameraFacing} pictureSize="640x480" />
               ) : (
                 <View style={[styles.camera, styles.cameraPlaceholder]}>
                   <Text style={styles.cameraPlaceholderText}>We’ll ask for camera permission when you tap Go Live.</Text>

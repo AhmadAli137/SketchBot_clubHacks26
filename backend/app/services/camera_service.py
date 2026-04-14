@@ -18,6 +18,11 @@ class CameraService:
         self._latest_frame: bytes | None = None
         self._frame_seq = 0
         self._last_ok_at: float | None = None
+        self._last_analysis_at: float = 0.0
+        self._analysis_min_interval_seconds = 0.28
+        self._last_dimensions: tuple[int | None, int | None] = (None, None)
+        self._last_dimensions_at: float = 0.0
+        self._dimensions_cache_seconds = 1.2
         self._source = 'companion-camera'
         self._external_url: str | None = None
         self._refresh_state(
@@ -71,6 +76,9 @@ class CameraService:
             pass
 
     def _frame_dimensions(self, payload: bytes) -> tuple[int | None, int | None]:
+        now = time.time()
+        if (now - self._last_dimensions_at) <= self._dimensions_cache_seconds:
+            return self._last_dimensions
         try:
             import cv2
             import numpy as np
@@ -79,7 +87,10 @@ class CameraService:
             if frame is None:
                 return None, None
             height, width = frame.shape[:2]
-            return width, height
+            dims = (width, height)
+            self._last_dimensions = dims
+            self._last_dimensions_at = now
+            return dims
         except Exception:
             return None, None
 
@@ -107,7 +118,10 @@ class CameraService:
             height,
             supports_webrtc=source in {'phone-webrtc', 'kit-webrtc'},
         )
-        apriltag_service.update_from_frame(payload)
+        now = time.time()
+        if (now - self._last_analysis_at) >= self._analysis_min_interval_seconds:
+            self._last_analysis_at = now
+            apriltag_service.update_from_frame(payload)
         return True
 
     def set_companion_device_label(self, label: str | None) -> None:
