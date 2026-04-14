@@ -681,6 +681,44 @@ export default function HomePage() {
     camera.source === 'browser-camera'
       ? (browserCameraReady ? 'This device camera is live and uploading.' : browserCameraError ?? 'Waiting for camera permission on this device.')
       : 'Select This Device / USB Camera to use a webcam or capture card attached to this computer.';
+  const nextActionTitle = camera.online
+    ? canvas.detected
+      ? taskReady
+        ? 'Review the overlay and run the task'
+        : 'Create or load a drawing task'
+      : 'Hold the camera steady on the canvas'
+    : camera.source === 'companion-camera'
+      ? 'Open the Expo companion app'
+      : camera.source === 'browser-camera'
+        ? 'Grant camera access on this machine'
+        : camera.source === 'external-camera'
+          ? 'Paste an external feed URL'
+          : 'Choose the camera path for this room';
+  const nextActionCopy = camera.online
+    ? canvas.detected
+      ? taskReady
+        ? 'The camera is live, the canvas is localized, and the task overlay is ready for operator approval.'
+        : 'Localization is working. The next best move is loading a prompt or uploaded artwork into the workspace.'
+      : 'Keep all AprilTags visible and centered so localization can lock in before you start drawing.'
+    : camera.source === 'companion-camera'
+      ? 'Use the Expo app on a phone or tablet, paste the backend URL, and tap Start Streaming on the same Wi-Fi.'
+      : camera.source === 'browser-camera'
+        ? 'This device or USB path is best for desks with webcams, document cameras, or HDMI capture cards.'
+        : camera.source === 'external-camera'
+          ? 'Use this when another camera system already publishes an image or MJPEG URL that the dashboard can preview.'
+          : 'Companion App is the easiest classroom path, while This Device / USB is best for fixed stations.';
+  const cameraModeLabel =
+    camera.source === 'companion-camera'
+      ? 'Expo companion app'
+      : camera.source === 'browser-camera'
+        ? 'This device / USB'
+        : camera.source === 'external-camera'
+          ? 'External feed'
+          : camera.source === 'phone-webrtc'
+            ? 'Legacy WebRTC'
+            : camera.source === 'kit-webrtc'
+              ? 'Certified kit WebRTC'
+              : camera.source;
 
   return (
     <main className="app-shell">
@@ -727,18 +765,45 @@ export default function HomePage() {
           <div className="panel-title" style={{ fontSize: '1.05rem' }}>Recommended setup flow</div>
           <p className="panel-subtitle">For most teams, the simplest path is Expo Companion on the same Wi-Fi. USB cameras stay best for fixed desks, and external feeds are best when the camera already exposes a URL.</p>
         </div>
+        <div className="focus-strip">
+          <div className="focus-card focus-card-primary">
+            <p className="panel-eyebrow">Next Action</p>
+            <div className="focus-title">{nextActionTitle}</div>
+            <p className="focus-copy">{nextActionCopy}</p>
+          </div>
+          <div className="focus-card">
+            <p className="panel-eyebrow">Camera Path</p>
+            <div className="focus-title">{cameraModeLabel}</div>
+            <p className="focus-copy">{camera.latest_frame_label}</p>
+          </div>
+          <div className="focus-card">
+            <p className="panel-eyebrow">Workspace State</p>
+            <div className="focus-title">{canvas.detected ? 'Canvas locked' : 'Waiting for localization'}</div>
+            <p className="focus-copy">{taskReady ? `${activeJob.name ?? 'Task'} is ready to review.` : 'No active drawing task is loaded yet.'}</p>
+          </div>
+        </div>
         <div className="source-choice-grid">
-          <div className="source-choice-card">
+          <div className="source-choice-card recommended">
+            <div className="choice-badge">Recommended</div>
             <div className="source-choice-title">Expo Companion</div>
             <div className="source-choice-copy">Best for phones and tablets moving around the robot. Same-network, no relay infrastructure.</div>
+            <button className="btn btn-primary source-choice-action" type="button" onClick={() => void activateCompanionCamera()}>
+              Use Companion App
+            </button>
           </div>
           <div className="source-choice-card">
             <div className="source-choice-title">This Device / USB</div>
             <div className="source-choice-copy">Best for webcams, document cameras, HDMI capture cards, and fixed operator stations.</div>
+            <button className="btn source-choice-action" type="button" onClick={() => void activateBrowserCamera()}>
+              Use This Device
+            </button>
           </div>
           <div className="source-choice-card">
             <div className="source-choice-title">External Feed</div>
             <div className="source-choice-copy">Best when another system already hosts a public image or MJPEG stream.</div>
+            <button className="btn source-choice-action" type="button" onClick={() => setCameraSource('external-camera')}>
+              Configure Feed
+            </button>
           </div>
         </div>
       </section>
@@ -795,6 +860,7 @@ export default function HomePage() {
                           <div style={{ fontWeight: 700, marginBottom: 8 }}>Companion app waiting</div>
                           <div>Backend URL: {API_BASE}</div>
                           <div>{companionConnectionStatus}</div>
+                          <div style={{ marginTop: 10, color: 'var(--muted)' }}>Use the Expo app from the `companion-app` folder on the same Wi-Fi as this dashboard.</div>
                         </div>
                       </div>
                     ) : camera.source === 'browser-camera' && !browserCameraReady ? (

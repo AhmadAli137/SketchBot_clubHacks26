@@ -594,6 +594,39 @@ textarea { resize: vertical; }
   gap: 14px;
 }
 
+.focus-strip {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1.25fr 1fr 1fr;
+}
+
+.focus-card {
+  border-radius: 18px;
+  border: 1px solid rgba(110, 129, 255, 0.12);
+  background: linear-gradient(180deg, rgba(249, 252, 255, 0.98), rgba(239, 244, 252, 0.94));
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.focus-card-primary {
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.16), rgba(107, 124, 255, 0.12), rgba(255, 79, 216, 0.08));
+  border-color: rgba(93, 228, 255, 0.18);
+}
+
+.focus-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.focus-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
 .source-choice-grid {
   display: grid;
   gap: 10px;
@@ -609,6 +642,24 @@ textarea { resize: vertical; }
   gap: 6px;
 }
 
+.source-choice-card.recommended {
+  border-color: rgba(93, 228, 255, 0.18);
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.14), rgba(255, 255, 255, 0.98), rgba(244, 238, 255, 0.94));
+}
+
+.choice-badge {
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(93, 228, 255, 0.2);
+  background: rgba(93, 228, 255, 0.12);
+  color: #1d5267;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .source-choice-title {
   font-size: 0.98rem;
   font-weight: 700;
@@ -619,6 +670,10 @@ textarea { resize: vertical; }
   color: var(--muted);
   line-height: 1.5;
   font-size: 0.9rem;
+}
+
+.source-choice-action {
+  margin-top: 8px;
 }
 
 .phone-guidance {
@@ -735,6 +790,7 @@ textarea { resize: vertical; }
     grid-template-columns: 1fr;
   }
 
+  .focus-strip,
   .source-choice-grid {
     grid-template-columns: 1fr;
   }
@@ -817,6 +873,20 @@ textarea { resize: vertical; }
 
 :root[data-theme='dark'] .section-badge,
 :root[data-theme='dark'] .mode-pill {
+  color: #d8f9ff;
+}
+
+:root[data-theme='dark'] .focus-card,
+:root[data-theme='dark'] .source-choice-card {
+  background: rgba(8, 12, 24, 0.88);
+}
+
+:root[data-theme='dark'] .focus-card-primary,
+:root[data-theme='dark'] .source-choice-card.recommended {
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.12), rgba(8, 12, 24, 0.92), rgba(168, 85, 247, 0.08));
+}
+
+:root[data-theme='dark'] .choice-badge {
   color: #d8f9ff;
 }
 
