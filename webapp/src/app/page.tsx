@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import { SignInButton, UserButton, useUser } from '@clerk/nextjs';
 import Image from 'next/image';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -61,6 +62,7 @@ function rtcConfiguration(iceServers?: RTCIceServerConfig[]): RTCConfiguration {
 }
 
 export default function HomePage() {
+  const { user, isLoaded: userLoaded, isSignedIn } = useUser();
   const [state, setState] = useState<AppState>(mockState);
   const [backendReachable, setBackendReachable] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'create'>('dashboard');
@@ -686,7 +688,7 @@ export default function HomePage() {
         <div>
           <p className="eyebrow">SketchBot operator UI</p>
           <h1>Operator Dashboard</h1>
-          <p className="subdued-text">Choose between an Expo companion app, this device or USB camera, an external feed, or a future certified-kit WebRTC source for the higher-end hardware path.</p>
+          <p className="subdued-text">A calmer operator experience for classrooms and studios: sign in, pick the camera path that fits the room, and keep the robot workspace visible without digging through debug controls.</p>
         </div>
         <div className="status-pills">
           {topStatus.map((item) => (
@@ -696,6 +698,17 @@ export default function HomePage() {
           ))}
           <ThemeToggle />
           <span className="mode-pill">{operator.mock_mode ? 'Mock' : 'Live'}</span>
+          {isSignedIn ? (
+            <span className="status-pill auth-pill">
+              {userLoaded ? `Operator: ${user?.firstName ?? user?.username ?? user?.primaryEmailAddress?.emailAddress ?? 'Signed in'}` : 'Loading operator'}
+            </span>
+          ) : null}
+          {isSignedIn ? <UserButton /> : null}
+          {!isSignedIn ? (
+            <SignInButton mode="redirect">
+              <button className="tab active" type="button">Sign in</button>
+            </SignInButton>
+          ) : null}
         </div>
       </div>
 
@@ -707,6 +720,28 @@ export default function HomePage() {
           Create Task
         </button>
       </div>
+
+      <section className="panel quickstart-panel">
+        <div className="panel-header" style={{ marginBottom: 0 }}>
+          <p className="panel-eyebrow">Quick Start</p>
+          <div className="panel-title" style={{ fontSize: '1.05rem' }}>Recommended setup flow</div>
+          <p className="panel-subtitle">For most teams, the simplest path is Expo Companion on the same Wi-Fi. USB cameras stay best for fixed desks, and external feeds are best when the camera already exposes a URL.</p>
+        </div>
+        <div className="source-choice-grid">
+          <div className="source-choice-card">
+            <div className="source-choice-title">Expo Companion</div>
+            <div className="source-choice-copy">Best for phones and tablets moving around the robot. Same-network, no relay infrastructure.</div>
+          </div>
+          <div className="source-choice-card">
+            <div className="source-choice-title">This Device / USB</div>
+            <div className="source-choice-copy">Best for webcams, document cameras, HDMI capture cards, and fixed operator stations.</div>
+          </div>
+          <div className="source-choice-card">
+            <div className="source-choice-title">External Feed</div>
+            <div className="source-choice-copy">Best when another system already hosts a public image or MJPEG stream.</div>
+          </div>
+        </div>
+      </section>
 
       {activeTab === 'dashboard' ? (
         <section className="grid-main dashboard-layout">
