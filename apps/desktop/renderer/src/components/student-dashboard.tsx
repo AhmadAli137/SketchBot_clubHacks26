@@ -86,6 +86,7 @@ export function StudentDashboard({
   onLoadTask,
 }: StudentDashboardProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const quickPromptIdeas = ['happy robot face', 'rocket ship', 'tiny dinosaur'];
   const showLiveVideo = (cameraSource === 'browser-camera' && browserCameraReady) || (cameraSource === 'phone-webrtc' && phoneViewerReady);
 
   useEffect(() => {
@@ -117,11 +118,18 @@ export function StudentDashboard({
 
   return (
     <main className="app-shell">
-      <div className="top-bar compact-top-bar">
+      <div className="top-bar compact-top-bar top-bar-playful">
         <div>
           <p className="eyebrow">SketchBot operator UI</p>
           <h1>Let&apos;s get your robot drawing</h1>
-          <p className="subdued-text">Follow the steps from top to bottom. Most students only need Camera Buddy, a drawing prompt, and a clear view of the paper.</p>
+          <p className="subdued-text">
+            Follow the steps from top to bottom. Most students only need Camera Buddy, a fun drawing idea, and a clear view of the paper.
+          </p>
+          <div className="mission-strip">
+            <span className="mission-chip">Join the room</span>
+            <span className="mission-chip">Pick a fun drawing</span>
+            <span className="mission-chip">Start the robot</span>
+          </div>
         </div>
         <div className="status-pills">
           {topStatus.map((item) => (
@@ -136,17 +144,17 @@ export function StudentDashboard({
 
       <DesktopRuntimeBanner />
 
-      <section className="panel quickstart-panel">
+      <section className="panel quickstart-panel hero-panel">
         <div className="panel-header" style={{ marginBottom: 0 }}>
-          <p className="panel-eyebrow">Start here</p>
-          <div className="panel-title" style={{ fontSize: '1.05rem' }}>{nextActionTitle}</div>
+          <p className="panel-eyebrow">Mission control</p>
+          <div className="panel-title" style={{ fontSize: '1.15rem' }}>{nextActionTitle}</div>
           <p className="panel-subtitle">{nextActionCopy}</p>
         </div>
       </section>
 
       <section className="grid-main dashboard-layout">
         <div className="side-stack">
-          <div className="panel" style={{ display: 'grid', gap: 10 }}>
+          <div className="panel workspace-panel" style={{ display: 'grid', gap: 10 }}>
             <div className="section-header-row" style={{ flexWrap: 'wrap' }}>
               <div>
                 <p className="panel-eyebrow">Robot view</p>
@@ -158,7 +166,7 @@ export function StudentDashboard({
               </div>
             </div>
 
-            <div className="workspace-card" style={{ minHeight: 460 }}>
+            <div className="workspace-card workspace-card-playful" style={{ minHeight: 460 }}>
               <div className="workspace-stage">
                 <div className="canvas-frame">
                   {showLiveVideo ? (
@@ -176,7 +184,20 @@ export function StudentDashboard({
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: 'var(--stage-backdrop)' }}
                     />
                   ) : (
-                    <div style={{ position: 'absolute', inset: 0, background: 'var(--stage-backdrop)', display: 'grid', placeItems: 'center', color: 'var(--text)', fontSize: 15, padding: 24, textAlign: 'center', lineHeight: 1.6 }}>
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'var(--stage-backdrop)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: 'var(--text)',
+                        fontSize: 15,
+                        padding: 24,
+                        textAlign: 'center',
+                        lineHeight: 1.6,
+                      }}
+                    >
                       <div>
                         <div style={{ fontWeight: 700, marginBottom: 8 }}>Camera view will appear here</div>
                         <div>{cameraSource === 'browser-camera' ? browserCameraStatus : companionConnectionStatus}</div>
@@ -192,7 +213,13 @@ export function StudentDashboard({
         <aside className="side-stack">
           <div className="panel">
             <h3>1. Connect a camera</h3>
-            <p className="subdued-text" style={{ marginBottom: 12 }}>Use Camera Buddy if you have a phone or tablet. Use This Device for a webcam on the computer.</p>
+            <p className="subdued-text" style={{ marginBottom: 12 }}>
+              Use Camera Buddy if you have a phone or tablet. Use This Device for a webcam on the computer.
+            </p>
+            <div className="kid-callout">
+              <strong>Fastest path for kids</strong>
+              <span>Open Camera Buddy, tap Scan room code, and point the phone at this screen.</span>
+            </div>
             <div style={{ display: 'grid', gap: 10 }}>
               <button className="btn btn-primary" type="button" disabled={sourceSaving} onClick={onActivateCompanionCamera}>
                 {sourceSaving ? 'Selecting camera...' : 'Use Camera Buddy'}
@@ -213,7 +240,7 @@ export function StudentDashboard({
                 )}
               </div>
               <p className="subdued-text" style={{ margin: 0 }}>
-                Open Camera Buddy and tap “Scan room code” to join this room without typing.
+                Open Camera Buddy and tap Scan room code to join this room without typing.
               </p>
             </div>
             <ul className="compact-list" style={{ marginTop: 12 }}>
@@ -227,6 +254,13 @@ export function StudentDashboard({
             <h3>2. Make a drawing</h3>
             <form onSubmit={onSubmitPrompt} style={{ display: 'grid', gap: 12 }}>
               <textarea value={prompt} onChange={(event) => onPromptChange(event.target.value)} rows={4} placeholder="Draw a smiling robot face" />
+              <div className="prompt-chip-row">
+                {quickPromptIdeas.map((idea) => (
+                  <button key={idea} className="prompt-chip" type="button" onClick={() => onPromptChange(idea)}>
+                    {idea}
+                  </button>
+                ))}
+              </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <button className="btn btn-primary" type="submit" disabled={composing || !prompt.trim()}>
                   {composing ? 'Making drawing...' : 'Make drawing'}
@@ -241,7 +275,7 @@ export function StudentDashboard({
               <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
                 <strong>Recent drawings</strong>
                 {featuredTasks.map((task) => (
-                  <button key={task.id} className="btn" type="button" onClick={() => onLoadTask(task)}>
+                  <button key={task.id} className="btn recent-task-btn" type="button" onClick={() => onLoadTask(task)}>
                     {task.name}
                   </button>
                 ))}
@@ -251,6 +285,10 @@ export function StudentDashboard({
 
           <div className="panel">
             <h3>3. Are you ready?</h3>
+            <div className="kid-callout ready-callout">
+              <strong>Green lights</strong>
+              <span>When these mostly say yes, your robot room is ready.</span>
+            </div>
             <ul className="compact-list">
               <li>App connected: {backendReachable ? 'yes' : 'not yet'}</li>
               <li>Camera ready: {cameraReady ? 'yes' : 'not yet'}</li>

@@ -545,6 +545,12 @@ textarea { resize: vertical; }
   gap: 8px;
 }
 
+.top-bar-playful {
+  background:
+    radial-gradient(circle at top right, rgba(255, 201, 107, 0.28), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 248, 255, 0.92));
+}
+
 .status-pill,
 .mode-pill {
   display: inline-flex;
@@ -674,6 +680,33 @@ textarea { resize: vertical; }
   gap: 14px;
 }
 
+.hero-panel {
+  background:
+    radial-gradient(circle at top left, rgba(93, 228, 255, 0.14), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(255, 79, 216, 0.1), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 255, 0.92));
+}
+
+.mission-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mission-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 129, 255, 0.14);
+  background: rgba(248, 251, 255, 0.96);
+  color: #2d4f71;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .focus-strip {
   display: grid;
   gap: 10px;
@@ -758,6 +791,65 @@ textarea { resize: vertical; }
 
 .source-choice-action {
   margin-top: 8px;
+}
+
+.kid-callout {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 201, 107, 0.26);
+  background: linear-gradient(135deg, rgba(255, 245, 204, 0.88), rgba(255, 255, 255, 0.98));
+  margin-bottom: 12px;
+}
+
+.kid-callout strong {
+  color: #7a4f11;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kid-callout span {
+  color: var(--text);
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.ready-callout {
+  border-color: rgba(77, 255, 184, 0.22);
+  background: linear-gradient(135deg, rgba(223, 255, 239, 0.92), rgba(255, 255, 255, 0.98));
+}
+
+.prompt-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prompt-chip {
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 129, 255, 0.14);
+  background: rgba(248, 251, 255, 0.96);
+  color: #2d4f71;
+  padding: 7px 11px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.recent-task-btn {
+  justify-content: flex-start;
+}
+
+.workspace-panel {
+  background:
+    radial-gradient(circle at top left, rgba(93, 228, 255, 0.1), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 255, 0.92));
+}
+
+.workspace-card-playful {
+  box-shadow: 0 14px 30px rgba(81, 97, 153, 0.08);
 }
 
 .phone-guidance {

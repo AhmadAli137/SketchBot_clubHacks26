@@ -59,7 +59,7 @@ export default function App() {
   const [scanningRoomCode, setScanningRoomCode] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState('Paste the room address from SketchBot Desktop, then tap Go Live.');
+  const [status, setStatus] = useState('Scan the room code or paste the room address from SketchBot Desktop, then tap Go Live.');
   const [error, setError] = useState<string | null>(null);
 
   const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
@@ -275,7 +275,7 @@ export default function App() {
             <View style={styles.heroSteps}>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>1</Text>
-                <Text style={styles.heroStepCopy}>Copy the room address from SketchBot Desktop.</Text>
+                <Text style={styles.heroStepCopy}>Scan the room code on the laptop or paste the room address.</Text>
               </View>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>2</Text>
@@ -283,7 +283,7 @@ export default function App() {
               </View>
               <View style={styles.heroStep}>
                 <Text style={styles.heroStepNumber}>3</Text>
-                <Text style={styles.heroStepCopy}>Tap Go Live.</Text>
+                <Text style={styles.heroStepCopy}>Tap Go Live and let SketchBot see the page.</Text>
               </View>
             </View>
           </View>
@@ -309,6 +309,10 @@ export default function App() {
               <Text style={styles.helperText}>
                 This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
               </Text>
+              <View style={styles.joinTip}>
+                <Text style={styles.joinTipTitle}>Kid shortcut</Text>
+                <Text style={styles.joinTipCopy}>Tap Scan room code and point the phone at the QR on the laptop.</Text>
+              </View>
               <Pressable style={styles.secondaryButton} onPress={() => void startScanningRoomCode()}>
                 <Text style={styles.secondaryButtonText}>Scan room code</Text>
               </Pressable>
@@ -502,17 +506,35 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: '#7581a0',
   },
+  joinTip: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#d7e7ff',
+    backgroundColor: '#eef8ff',
+    padding: 12,
+    gap: 4,
+  },
+  joinTipTitle: {
+    color: '#28506e',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  joinTipCopy: {
+    color: '#49657f',
+    fontSize: 13,
+    lineHeight: 18,
+  },
   secondaryButton: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#dbe2ff',
+    borderColor: '#cde9ff',
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f8faff',
+    backgroundColor: '#eef8ff',
   },
   secondaryButtonText: {
-    color: '#314469',
+    color: '#214864',
     fontWeight: '800',
     fontSize: 14,
   },
