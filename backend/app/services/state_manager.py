@@ -62,14 +62,26 @@ class StateManager:
             status = 'Phone stream live'
         elif state.camera.source == 'phone-webrtc' and not state.camera.online:
             status = 'Phone stream offline'
+        elif state.camera.source == 'kit-webrtc' and state.camera.source_status == 'awaiting-session':
+            status = 'Certified kit session needed'
+        elif state.camera.source == 'kit-webrtc' and state.camera.source_status == 'awaiting-publisher':
+            status = 'Waiting for certified kit camera'
+        elif state.camera.source == 'kit-webrtc' and state.camera.source_status == 'awaiting-viewer':
+            status = 'Waiting for dashboard viewer'
+        elif state.camera.source == 'kit-webrtc' and state.camera.source_status == 'negotiating':
+            status = 'Negotiating certified kit stream'
+        elif state.camera.source == 'kit-webrtc' and state.camera.source_status == 'live':
+            status = 'Certified kit stream live'
+        elif state.camera.source == 'kit-webrtc' and not state.camera.online:
+            status = 'Certified kit camera offline'
         elif state.camera.source == 'browser-camera' and not state.camera.online:
-            status = 'Waiting for phone camera'
+            status = 'Waiting for device or USB camera'
         elif state.camera.source == 'external-camera' and not state.camera.external_url:
             status = 'External camera URL needed'
         elif state.camera.source == 'external-camera':
             status = 'External camera preview'
         elif not state.camera.online:
-            status = 'Pi camera offline'
+            status = 'Camera offline'
         elif not state.canvas.detected:
             status = 'Waiting for localization'
         elif state.workflow.task_state in {'draft', 'planned', 'ready'}:

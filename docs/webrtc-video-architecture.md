@@ -268,14 +268,16 @@ Responsibilities after refactor:
 
 Camera sources should remain explicit in state:
 
-- `pi-camera`
+- `browser-camera`
 - `phone-webrtc`
-- `external-webrtc`
+- `kit-webrtc`
+- `external-camera`
 - `demo`
 
 Notes:
 
-- `browser-camera` as JPEG upload is a transition state, not the end state
+- `browser-camera` can back tablet, laptop, or USB-camera capture flows while a richer companion experience evolves
+- `kit-webrtc` is the reserved path for future certified hardware bundles
 - `external-camera` should eventually mean an external standards-based video source, not just a URL preview field
 
 ## Overlay strategy

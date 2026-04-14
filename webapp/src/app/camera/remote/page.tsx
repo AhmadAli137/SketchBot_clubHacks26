@@ -41,11 +41,11 @@ function rtcConfiguration(iceServers?: RTCIceServerConfig[]): RTCConfiguration {
 
 export default function RemoteCameraPage() {
   const [facingMode, setFacingMode] = useState<FacingMode>('environment');
-  const [deviceLabel, setDeviceLabel] = useState('Phone publisher');
+  const [deviceLabel, setDeviceLabel] = useState('Companion camera');
   const [previewing, setPreviewing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [legacyUploading, setLegacyUploading] = useState(false);
-  const [status, setStatus] = useState('Ready to provision a phone WebRTC session.');
+  const [status, setStatus] = useState('Ready to provision a companion camera session.');
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<PhoneWebRTCSessionResponse | null>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
@@ -69,7 +69,7 @@ export default function RemoteCameraPage() {
     setPreviewing(false);
     setLegacyUploading(false);
     setStatus((current) => (
-      current === 'Legacy JPEG fallback uploading.' || current === 'Phone WebRTC publishing.' ? 'Camera preview stopped.' : current
+      current === 'Legacy JPEG fallback uploading.' || current === 'Companion WebRTC publishing.' ? 'Camera preview stopped.' : current
     ));
   }, []);
 
@@ -145,16 +145,16 @@ export default function RemoteCameraPage() {
         body: JSON.stringify({ source: 'phone-webrtc' }),
       });
       if (!sourceResponse.ok) {
-        throw new Error('Unable to switch the backend to phone camera mode.');
+        throw new Error('Unable to switch the backend to companion camera mode.');
       }
 
       const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_label: deviceLabel.trim() || 'Phone publisher', force_new: forceNew }),
+        body: JSON.stringify({ device_label: deviceLabel.trim() || 'Companion camera', force_new: forceNew }),
       });
       if (!response.ok) {
-        throw new Error(`Failed to provision phone WebRTC session (${response.status}).`);
+        throw new Error(`Failed to provision companion WebRTC session (${response.status}).`);
       }
 
       const payload = await response.json() as PhoneWebRTCSessionResponse;
@@ -163,8 +163,8 @@ export default function RemoteCameraPage() {
       setStatus(payload.message);
       return payload;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to provision phone WebRTC session.');
-      setStatus('Phone WebRTC session setup failed.');
+      setError(err instanceof Error ? err.message : 'Failed to provision companion WebRTC session.');
+      setStatus('Companion WebRTC session setup failed.');
       return null;
     } finally {
       setSessionLoading(false);
@@ -195,7 +195,7 @@ export default function RemoteCameraPage() {
       }
 
       if (!activeSession?.session_id) {
-        throw new Error('The backend did not return a usable phone WebRTC session.');
+        throw new Error('The backend did not return a usable companion camera session.');
       }
 
       setError(null);
@@ -210,7 +210,7 @@ export default function RemoteCameraPage() {
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') {
           setPublishing(true);
-          setStatus('Phone WebRTC publishing.');
+          setStatus('Companion WebRTC publishing.');
           void fetch(`${API_BASE}/api/camera/phone-webrtc/publisher-live/${activeSession.session_id}`, { method: 'POST' });
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
           setPublishing(false);
@@ -262,7 +262,7 @@ export default function RemoteCameraPage() {
       setStatus('Viewer answer applied. Waiting for peer connection...');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to start WebRTC publishing.');
-      setStatus('Phone WebRTC publish failed.');
+      setStatus('Companion WebRTC publish failed.');
       await stopPublishing();
     } finally {
       setPublishLoading(false);
@@ -351,14 +351,14 @@ export default function RemoteCameraPage() {
   }, [legacyUploading]);
 
   const startPhoneCamera = async () => {
-    setStatus('Starting phone camera...');
+    setStatus('Starting companion camera...');
     await startPublishing();
   };
 
   const stopPhoneCamera = async () => {
     await stopPublishing();
     stopPreview();
-    setStatus('Phone camera stopped.');
+    setStatus('Companion camera stopped.');
   };
 
   const connectionLabel = publishing ? 'Live' : publishLoading ? 'Connecting' : session?.publisher_status ?? 'idle';
@@ -371,8 +371,8 @@ export default function RemoteCameraPage() {
       <div className="top-bar compact-top-bar">
         <div>
           <p className="eyebrow">SketchBot remote camera</p>
-          <h1>Phone Camera</h1>
-          <p className="subdued-text">This page is the camera companion for the dashboard. One tap starts preview, syncs the session, and begins publishing the live phone stream.</p>
+          <h1>Companion Camera</h1>
+          <p className="subdued-text">This page is the camera companion for the dashboard. One tap starts preview, syncs the session, and begins publishing the live camera stream from a phone, tablet, or laptop.</p>
         </div>
         <div className="status-pills">
           <span className="status-pill">{connectionLabel}</span>
@@ -386,14 +386,14 @@ export default function RemoteCameraPage() {
       <section className="panel" style={{ display: 'grid', gap: 14 }}>
         <div className="panel-header">
           <p className="panel-eyebrow">Guided Flow</p>
-          <div className="panel-title">Use this phone as the live camera</div>
+          <div className="panel-title">Use this device as the live camera</div>
           <p className="panel-subtitle">Tap the main button below. The app will reuse the dashboard session when available, start the local preview, and publish the stream automatically.</p>
         </div>
 
         <div className="grid-2">
           <label>
             Device label
-            <input value={deviceLabel} onChange={(event) => setDeviceLabel(event.target.value)} placeholder="Ahmad iPhone" />
+            <input value={deviceLabel} onChange={(event) => setDeviceLabel(event.target.value)} placeholder="Studio tablet camera" />
           </label>
           <label>
             Lens
@@ -406,7 +406,7 @@ export default function RemoteCameraPage() {
 
         <div className="inline-actions">
           <button className="btn btn-primary" type="button" disabled={publishLoading || publishing} onClick={() => void startPhoneCamera()}>
-            {publishLoading ? 'Starting phone camera...' : publishing ? 'Phone camera live' : 'Start Phone Camera'}
+            {publishLoading ? 'Starting companion camera...' : publishing ? 'Companion camera live' : 'Start Companion Camera'}
           </button>
           <button className="btn" type="button" onClick={() => void stopPhoneCamera()} disabled={!canStopPhoneCamera}>
             Stop Camera
@@ -464,7 +464,7 @@ export default function RemoteCameraPage() {
               </ul>
             ) : (
               <ul className="compact-list">
-                <li>Waiting for the dashboard to prepare a phone session.</li>
+                <li>Waiting for the dashboard to prepare a companion session.</li>
               </ul>
             )}
           </div>
@@ -478,7 +478,7 @@ export default function RemoteCameraPage() {
           <p className="panel-subtitle">This checks framing and also supplies the stream tracks used by WebRTC publishing.</p>
           {!isSecureCameraContext ? (
             <p className="panel-subtitle" style={{ color: '#ffd2d0' }}>
-              Camera access is blocked here because this page is running over plain HTTP. Use HTTPS on the phone, or test the camera page on localhost.
+              Camera access is blocked here because this page is running over plain HTTP. Use HTTPS on the companion device, or test the camera page on localhost.
             </p>
           ) : null}
         </div>
@@ -514,7 +514,7 @@ export default function RemoteCameraPage() {
       <ul className="compact-list compact-status-list">
         <li>Status: {status}</li>
         <li>Backend: {API_BASE}</li>
-        <li>Tip: mount the phone above the canvas and keep AprilTags fully visible.</li>
+        <li>Tip: mount the companion device above the canvas and keep AprilTags fully visible.</li>
         {error ? <li style={{ color: '#ffd2d0' }}>Error: {error}</li> : null}
       </ul>
 

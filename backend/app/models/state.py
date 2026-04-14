@@ -78,9 +78,9 @@ class MediaSessionSummary(BaseModel):
 
 class CameraState(BaseModel):
     online: bool = False
-    source: str = 'pi-camera'
-    source_status: str = 'idle'
-    latest_frame_label: str = 'No frame'
+    source: str = 'phone-webrtc'
+    source_status: str = 'awaiting-session'
+    latest_frame_label: str = 'Phone or certified kit camera session required'
     latest_frame_url: str | None = None
     external_url: str | None = None
     supports_webrtc: bool = True

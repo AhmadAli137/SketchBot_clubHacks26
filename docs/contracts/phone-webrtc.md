@@ -54,10 +54,10 @@ Recommended camera state shape additions:
 
 ### `camera.source`
 
-- `pi-camera`
 - `browser-camera`
 - `phone-webrtc`
 - `external-camera`
+- `kit-webrtc`
 - `demo`
 
 ### `camera.source_status`

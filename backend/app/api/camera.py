@@ -66,7 +66,7 @@ def _phone_webrtc_session_response() -> PhoneWebRTCSessionResponse:
 def get_camera_feed() -> CameraFeedInfo:
     camera_service.capture_frame()
     state = state_manager.state
-    default_frame_url = '/api/camera/stream' if state.camera.source in {'pi-camera', 'browser-camera'} else None
+    default_frame_url = '/api/camera/stream' if state.camera.source == 'browser-camera' else None
     return CameraFeedInfo(
         online=state.camera.online,
         source=state.camera.source,

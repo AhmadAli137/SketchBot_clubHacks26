@@ -17,7 +17,7 @@ import type {
   WebRTCConfigResponse,
 } from '@/lib/types';
 
-type CameraSource = 'pi-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'demo';
+type CameraSource = 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 
 function svgToDataUrl(svg: string | null | undefined) {
   if (!svg) return null;
@@ -66,15 +66,13 @@ export default function HomePage() {
   const [state, setState] = useState<AppState>(mockState);
   const [backendReachable, setBackendReachable] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'create'>('dashboard');
-  const [piWebrtcReady, setPiWebrtcReady] = useState(false);
-  const [piWebrtcFailed, setPiWebrtcFailed] = useState(false);
   const [phoneViewerReady, setPhoneViewerReady] = useState(false);
   const [phoneViewerError, setPhoneViewerError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [prompt, setPrompt] = useState('simple smiley face');
   const [uploading, setUploading] = useState(false);
   const [composing, setComposing] = useState(false);
-  const [cameraSource, setCameraSource] = useState<CameraSource>('pi-camera');
+  const [cameraSource, setCameraSource] = useState<CameraSource>('phone-webrtc');
   const [externalCameraUrl, setExternalCameraUrl] = useState('');
   const [sourceSaving, setSourceSaving] = useState(false);
   const [phoneSessionLoading, setPhoneSessionLoading] = useState(false);
@@ -86,9 +84,13 @@ export default function HomePage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const analysisCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const analysisUploadBusyRef = useRef(false);
-  const piPcRef = useRef<RTCPeerConnection | null>(null);
   const phonePcRef = useRef<RTCPeerConnection | null>(null);
-  const shouldUsePiWebrtc = state.camera?.source === 'pi-camera' && Boolean(state.camera?.supports_webrtc);
+  const viewerIceServers = useMemo(
+    () => state.camera?.media_session?.ice_servers ?? webrtcIceServers,
+    [state.camera?.media_session?.ice_servers, webrtcIceServers],
+  );
+  const viewerIceKey = useMemo(() => JSON.stringify(viewerIceServers), [viewerIceServers]);
+  const viewerRtcConfig = useMemo(() => rtcConfiguration(viewerIceServers), [viewerIceServers]);
 
   const refreshTasks = async () => {
     try {
@@ -165,75 +167,6 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (!shouldUsePiWebrtc) {
-      setPiWebrtcReady(false);
-      setPiWebrtcFailed(false);
-      const pc = piPcRef.current;
-      if (pc) {
-        pc.close();
-        piPcRef.current = null;
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-      return;
-    }
-
-    let cancelled = false;
-
-    const startPiWebRTC = async () => {
-      try {
-        const pc = new RTCPeerConnection(rtcConfiguration(webrtcIceServers));
-        piPcRef.current = pc;
-
-        pc.ontrack = (event) => {
-          const [stream] = event.streams;
-          if (videoRef.current && stream) {
-            videoRef.current.srcObject = stream;
-            void videoRef.current.play().catch(() => {});
-            setPiWebrtcReady(true);
-            setPiWebrtcFailed(false);
-          }
-        };
-
-        const offer = await pc.createOffer({ offerToReceiveVideo: true });
-        await pc.setLocalDescription(offer);
-
-        const response = await fetch(`${API_BASE}/api/webrtc/offer`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sdp: offer.sdp, type: offer.type }),
-        });
-        if (!response.ok) {
-          throw new Error('WebRTC offer failed');
-        }
-
-        const answer = await response.json();
-        if (cancelled) {
-          return;
-        }
-        await pc.setRemoteDescription(answer);
-      } catch {
-        if (!cancelled) {
-          setPiWebrtcFailed(true);
-          setPiWebrtcReady(false);
-        }
-      }
-    };
-
-    void startPiWebRTC();
-
-    return () => {
-      cancelled = true;
-      const pc = piPcRef.current;
-      if (pc) {
-        pc.close();
-        piPcRef.current = null;
-      }
-    };
-  }, [shouldUsePiWebrtc, webrtcIceServers]);
-
-  useEffect(() => {
     if (sourceTransitionTarget && state.camera?.source === sourceTransitionTarget) {
       setSourceTransitionTarget(null);
     }
@@ -265,7 +198,12 @@ export default function HomePage() {
       return;
     }
 
-    if (source === 'pi-camera' || source === 'demo') {
+    if (source === 'kit-webrtc') {
+      setCameraSource('kit-webrtc');
+      return;
+    }
+
+    if (source === 'demo') {
       setCameraSource(source);
     }
   }, [sourceTransitionTarget, state.camera]);
@@ -326,7 +264,7 @@ export default function HomePage() {
         pc.close();
         phonePcRef.current = null;
       }
-      if (!shouldUsePiWebrtc && videoRef.current) {
+      if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
       return;
@@ -362,7 +300,7 @@ export default function HomePage() {
         }
 
         viewerStarted = true;
-        const pc = new RTCPeerConnection(rtcConfiguration(state.camera?.media_session?.ice_servers ?? webrtcIceServers));
+        const pc = new RTCPeerConnection(viewerRtcConfig);
         phonePcRef.current = pc;
 
         pc.ontrack = (event) => {
@@ -431,7 +369,7 @@ export default function HomePage() {
         void fetch(`${API_BASE}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
       }
     };
-  }, [shouldUsePiWebrtc, state.camera?.media_session?.session_id, state.camera?.source, JSON.stringify(state.camera?.media_session?.ice_servers ?? webrtcIceServers)]);
+  }, [state.camera?.media_session?.session_id, state.camera?.source, viewerIceKey, viewerRtcConfig]);
 
   useEffect(() => {
     const sessionId = state.camera?.media_session?.session_id;
@@ -516,7 +454,7 @@ export default function HomePage() {
       const response = await fetch(`${API_BASE}/api/camera/phone-webrtc/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_label: 'Dashboard operator', force_new: forceNew }),
+        body: JSON.stringify({ device_label: 'Companion camera', force_new: forceNew }),
       });
       if (!response.ok) {
         throw new Error('Failed to provision phone WebRTC session');
@@ -640,8 +578,7 @@ export default function HomePage() {
   const taskReady = activeJob.status === 'draft' || activeJob.status === 'planned' || activeJob.status === 'ready';
   const shouldShowFallbackCameraStream =
     camera.online &&
-    camera.source !== 'phone-webrtc' &&
-    camera.source !== 'external-camera' &&
+    camera.source === 'browser-camera' &&
     !camera.latest_frame_url;
   const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url) ?? (shouldShowFallbackCameraStream ? `${API_BASE}/api/camera/stream` : null);
   const remoteCameraUrl = '/camera/remote';
@@ -673,7 +610,7 @@ export default function HomePage() {
         <div>
           <p className="eyebrow">SketchBot operator UI</p>
           <h1>Operator Dashboard</h1>
-          <p className="subdued-text">Choose a camera source, bring a phone online with one guided flow, and keep the fallback/debug tools tucked away until you actually need them.</p>
+          <p className="subdued-text">Choose between a companion phone, this device or USB camera, an external feed, or a future certified-kit WebRTC source without carrying a board-specific camera setup.</p>
         </div>
         <div className="status-pills">
           {topStatus.map((item) => (
@@ -715,15 +652,7 @@ export default function HomePage() {
               <div className="workspace-card" style={{ minHeight: 460 }}>
                 <div className="workspace-stage">
                   <div className="canvas-frame">
-                    {shouldUsePiWebrtc && piWebrtcReady ? (
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#050b16' }}
-                      />
-                    ) : camera.source === 'phone-webrtc' && phoneViewerReady ? (
+                    {camera.source === 'phone-webrtc' && phoneViewerReady ? (
                       <video
                         ref={videoRef}
                         autoPlay
@@ -741,7 +670,7 @@ export default function HomePage() {
                           <div>{phoneViewerError ?? 'Waiting for phone publisher offer or viewer negotiation.'}</div>
                         </div>
                       </div>
-                    ) : cameraFrameUrl && (!shouldUsePiWebrtc || !piWebrtcFailed) ? (
+                    ) : cameraFrameUrl ? (
                       <img
                         src={cameraFrameUrl}
                         alt={camera.latest_frame_label ?? 'Camera stream'}
@@ -852,14 +781,11 @@ export default function HomePage() {
               <h3>Camera Source</h3>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div className="source-row">
-                  <button className={camera.source === 'pi-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void applyCameraSource('pi-camera')}>
-                    Raspberry Pi
-                  </button>
                   <button className={camera.source === 'phone-webrtc' || cameraSource === 'phone-webrtc' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving || phoneSessionLoading} onClick={() => void connectPhoneCamera()}>
-                    Phone Camera
+                    Companion Camera
                   </button>
                   <button className={cameraSource === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
-                    More Sources
+                    External Feed
                   </button>
                 </div>
 
@@ -867,16 +793,16 @@ export default function HomePage() {
                   <div className="guide-card">
                     <div className="panel-header" style={{ marginBottom: 0 }}>
                       <p className="panel-eyebrow">Guided Phone Flow</p>
-                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Connect phone camera</div>
-                      <p className="panel-subtitle">Start the phone flow here, then open the remote camera page from the QR code. The phone page will handle preview and publishing automatically.</p>
+                      <div className="panel-title" style={{ fontSize: '1.05rem' }}>Connect companion camera</div>
+                      <p className="panel-subtitle">Start the companion flow here, then open the remote camera page from the QR code on a phone, tablet, or laptop with a camera. The companion page handles preview and publishing automatically.</p>
                     </div>
 
                     <div className="inline-actions">
                       <button className="btn btn-primary" type="button" disabled={phoneSessionLoading} onClick={() => void connectPhoneCamera()}>
-                        {phoneSessionLoading ? 'Preparing phone session...' : 'Connect Phone Camera'}
+                        {phoneSessionLoading ? 'Preparing companion session...' : 'Connect Companion Camera'}
                       </button>
                       <button className="btn" type="button" disabled={!phoneCameraUrl} onClick={() => void copyPhoneCameraLink()}>
-                        {phoneLinkCopied ? 'Link copied' : 'Copy phone link'}
+                        {phoneLinkCopied ? 'Link copied' : 'Copy companion link'}
                       </button>
                     </div>
 
@@ -894,7 +820,7 @@ export default function HomePage() {
                           <span>{phoneConnectionStatus}</span>
                         </div>
                         <div className="status-card">
-                          <strong>Open on phone</strong>
+                          <strong>Open on companion device</strong>
                           <span>{phoneCameraUrl || remoteCameraUrl}</span>
                         </div>
                         <div className="badge-line">
@@ -928,7 +854,7 @@ export default function HomePage() {
 
                 {camera.source === 'external-camera' || cameraSource === 'external-camera' ? (
                   <div style={{ display: 'grid', gap: 10 }}>
-                    <p className="muted-note">Preview a public MJPEG or image URL without changing the rest of the workflow.</p>
+                    <p className="muted-note">Preview a public MJPEG or image URL for third-party IP cameras, capture cards, or other externally hosted feeds.</p>
                     <input
                       value={externalCameraUrl}
                       onChange={(event) => setExternalCameraUrl(event.target.value)}
@@ -941,18 +867,19 @@ export default function HomePage() {
                 ) : null}
 
                 <details className="details-card">
-                  <summary>More sources and debugging</summary>
+                  <summary>Future kit support and debugging</summary>
                   <div className="details-body" style={{ display: 'grid', gap: 12 }}>
                     <div className="source-row">
                       <button className={camera.source === 'browser-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => void applyCameraSource('browser-camera')}>
-                        Legacy Upload
+                        Browser Upload
                       </button>
                       <button className={camera.source === 'external-camera' ? 'tab active' : 'tab'} type="button" disabled={sourceSaving} onClick={() => setCameraSource('external-camera')}>
                         External URL
                       </button>
                     </div>
                     <ul className="compact-list">
-                      <li>Legacy upload keeps the older JPEG path available while WebRTC stabilizes.</li>
+                      <li>This device or USB keeps the browser-camera path available for tablets, laptops, webcams, and capture cards.</li>
+                      <li>Certified kit WebRTC support remains reserved in the backend for future hardware bundles.</li>
                       <li>External URL is best for preview-only camera feeds that already expose an image or MJPEG stream.</li>
                     </ul>
                   </div>

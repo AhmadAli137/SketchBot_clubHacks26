@@ -21,7 +21,7 @@ class CameraFeedInfo(BaseModel):
 
 
 class CameraSourceRequest(BaseModel):
-    source: Literal['pi-camera', 'browser-camera', 'phone-webrtc', 'external-camera', 'demo']
+    source: Literal['browser-camera', 'phone-webrtc', 'external-camera', 'kit-webrtc', 'demo']
     external_url: str | None = None
 
 
