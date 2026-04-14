@@ -1,0 +1,19 @@
+{
+  "name": "sketchbot-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/desktop",
+    "apps/desktop/renderer",
+    "apps/admin-web",
+    "apps/companion"
+  ],
+  "scripts": {
+    "desktop:dev": "npm --prefix apps/desktop run dev",
+    "desktop:build": "npm --prefix apps/desktop run build",
+    "admin:dev": "npm --prefix apps/admin-web run dev",
+    "admin:build": "npm --prefix apps/admin-web run build",
+    "companion:dev": "npm --prefix apps/companion start",
+    "local-runtime:dev": "python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8787 --app-dir services/local-runtime",
+    "cloud-backend:dev": "python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8010 --app-dir services/cloud-backend"
+  }
+}

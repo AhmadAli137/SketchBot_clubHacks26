@@ -1,37 +1,13 @@
 services:
   - type: web
-    name: sketchbot-backend
-    runtime: docker
-    rootDir: backend
+    name: sketchbot-cloud-backend
+    runtime: python
+    rootDir: services/cloud-backend
     plan: starter
     autoDeploy: true
     healthCheckPath: /
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PORT
-        value: "8000"
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: BACKEND_CORS_ORIGINS
-        sync: false
-      - key: BACKEND_CORS_ORIGIN_REGEX
-        sync: false
-      - key: WEBRTC_ICE_PROVIDER
-        sync: false
-      - key: WEBRTC_STUN_URLS
-        sync: false
-      - key: WEBRTC_TURN_URLS
-        sync: false
-      - key: WEBRTC_TURN_USERNAME
-        sync: false
-      - key: WEBRTC_TURN_CREDENTIAL
-        sync: false
-      - key: WEBRTC_ICE_SERVERS_JSON
-        sync: false
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_API_KEY
-        sync: false
-      - key: TWILIO_API_SECRET
-        sync: false
-      - key: TWILIO_TOKEN_TTL
-        sync: false
+        value: "8010"
