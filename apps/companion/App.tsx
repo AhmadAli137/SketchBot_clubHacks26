@@ -7,6 +7,7 @@ import {
   Animated,
   type LayoutChangeEvent,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -205,7 +206,6 @@ export default function App() {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const connectionMonitorRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const scanNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanLineProgress = useRef(new Animated.Value(0)).current;
   const sessionIdRef = useRef<string | null>(null);
   const lastScannedRoomRef = useRef<string | null>(null);
@@ -224,21 +224,40 @@ export default function App() {
   const [scanFrame, setScanFrame] = useState<ScanFrame | null>(null);
   const [scannerLayout, setScannerLayout] = useState({ width: 0, height: 0 });
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [pendingRoomUrl, setPendingRoomUrl] = useState<string | null>(null);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [previewRotation, setPreviewRotation] = useState(0);
+  const [previewZoom, setPreviewZoom] = useState(0);
 
   const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
   const primaryButtonLabel = busy ? 'Joining room...' : streaming ? 'Stop Camera' : 'Go Live';
-  const shouldAutoScanRoomCode = Boolean(permission?.granted) && !streaming && !busy && currentPage === 'connect';
+  const shouldAutoScanRoomCode =
+    Boolean(permission?.granted) && !streaming && !busy && currentPage === 'connect' && !pendingRoomUrl;
   const isLandscape = width > height;
   const previewAspectRatio = isLandscape ? 16 / 9 : 3 / 4;
+  const livePreviewHeight = useMemo(() => {
+    if (previewExpanded) {
+      return isLandscape ? Math.min(height * 0.78, 520) : Math.min(height * 0.68, 720);
+    }
+
+    return isLandscape ? Math.min(height * 0.58, 420) : Math.min(height * 0.46, 520);
+  }, [height, isLandscape, previewExpanded]);
+  const previewTransform = useMemo(
+    () => [
+      { rotate: `${previewRotation}deg` },
+      { scale: 1 + previewZoom },
+    ],
+    [previewRotation, previewZoom],
+  );
   const guideSize = useMemo(() => {
     if (!scannerLayout.width || !scannerLayout.height) {
       return 0;
     }
 
-    return Math.min(scannerLayout.width * 0.68, scannerLayout.height * 0.68);
+    return Math.min(scannerLayout.width * 0.72, scannerLayout.height * 0.72);
   }, [scannerLayout.height, scannerLayout.width]);
   const guideLeft = useMemo(() => (scannerLayout.width - guideSize) / 2, [guideSize, scannerLayout.width]);
-  const guideTop = useMemo(() => (scannerLayout.height - guideSize) / 2, [guideSize, scannerLayout.height]);
+  const guideTop = useMemo(() => (scannerLayout.height - guideSize) / 2 - 8, [guideSize, scannerLayout.height]);
   const scanLineOffset = scanLineProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [0, Math.max(guideSize - 8, 0)],
@@ -306,14 +325,6 @@ export default function App() {
 
     setStatus('Room found. Tap Go Live to start the live camera stream.');
   }, [cleanedBackendUrl, permission?.granted, streaming]);
-
-  useEffect(() => {
-    return () => {
-      if (scanNavigationTimeoutRef.current) {
-        clearTimeout(scanNavigationTimeoutRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (currentPage !== 'connect' || !shouldAutoScanRoomCode || scanFrame || !guideSize) {
@@ -428,9 +439,9 @@ export default function App() {
     const stream = await mediaDevices.getUserMedia({
       audio: false,
       video: {
-        width: 960,
-        height: 540,
-        frameRate: 24,
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30, max: 30 },
         facingMode,
       },
     });
@@ -601,18 +612,10 @@ export default function App() {
     lastScannedAtRef.current = now;
     setBackendUrl(normalized);
     setScanFrame(nextScanFrame);
+    setPendingRoomUrl(normalized);
     setShowManualEntry(false);
     setError(null);
-    setStatus('Room code locked in. Opening the live camera screen...');
-
-    if (scanNavigationTimeoutRef.current) {
-      clearTimeout(scanNavigationTimeoutRef.current);
-    }
-    scanNavigationTimeoutRef.current = setTimeout(() => {
-      setCurrentPage('live');
-      setStatus('Room found. Tap Go Live to start the live camera stream.');
-      setScanFrame(null);
-    }, 500);
+    setStatus('Room found. Start the camera when you are ready.');
   };
 
   const handleScannerLayout = (event: LayoutChangeEvent) => {
@@ -622,6 +625,7 @@ export default function App() {
 
   const openConnectPage = () => {
     setScanFrame(null);
+    setPendingRoomUrl(null);
     setError(null);
     setCurrentPage('connect');
     setStatus(
@@ -640,9 +644,26 @@ export default function App() {
     }
 
     setScanFrame(null);
+    setPendingRoomUrl(null);
     setError(null);
     setStatus('Room found. Tap Go Live to start the live camera stream.');
     setCurrentPage('live');
+  };
+
+  const startFromLockedRoom = async () => {
+    setPendingRoomUrl(null);
+    setError(null);
+    setCurrentPage('live');
+    setStatus('Room found. Starting the live camera...');
+    await wait(120);
+    await startStreaming();
+  };
+
+  const rescanRoomCode = () => {
+    setPendingRoomUrl(null);
+    setScanFrame(null);
+    setError(null);
+    setStatus('Point the phone at the room QR code on SketchBot Desktop.');
   };
 
   const returnToConnectPage = async () => {
@@ -652,8 +673,12 @@ export default function App() {
 
     setCurrentPage('menu');
     setScanFrame(null);
+    setPendingRoomUrl(null);
     setError(null);
     setShowManualEntry(false);
+    setPreviewExpanded(false);
+    setPreviewRotation(0);
+    setPreviewZoom(0);
     setStatus(cleanedBackendUrl ? 'Saved room ready.' : 'Choose what you want Camera Buddy to do.');
   };
 
@@ -826,10 +851,10 @@ export default function App() {
                 <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
                 <Text style={styles.title}>Scan the room code</Text>
                 <Text style={styles.subtitle}>
-                  Point the phone at the QR code on SketchBot Desktop. When Camera Buddy locks onto it, the room page will open automatically.
+                  Point the phone at the QR code on SketchBot Desktop. Camera Buddy will lock onto it, then you can start the live camera in one tap.
                 </Text>
                 <View style={styles.connectHintPill}>
-                  <Text style={styles.connectHintPillText}>Aim at the whole QR and hold still for a beat.</Text>
+                  <Text style={styles.connectHintPillText}>Keep the whole QR inside the frame for a smooth lock.</Text>
                 </View>
               </View>
 
@@ -849,7 +874,7 @@ export default function App() {
                       <View style={styles.scanOverlay}>
                         <View style={styles.scanStatusPill}>
                           <View style={[styles.scanStatusDot, scanFrame ? styles.scanStatusDotLocked : null]} />
-                          <Text style={styles.scanStatusText}>{scanFrame ? 'QR locked' : 'Looking for room code'}</Text>
+                          <Text style={styles.scanStatusText}>{scanFrame ? 'Room code locked' : 'Looking for room code'}</Text>
                         </View>
                         {scanFrame ? (
                           <View
@@ -894,9 +919,14 @@ export default function App() {
                             <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
                           </View>
                         )}
-                        <Text style={styles.scanOverlayText}>
-                          {scanFrame ? 'Locked on. Opening the live camera screen...' : 'Point at the room QR code on the laptop screen'}
-                        </Text>
+                        <View style={styles.scanOverlayMessage}>
+                          <Text style={styles.scanOverlayText}>
+                            {scanFrame ? 'Room found' : 'Center the whole room code inside the guide'}
+                          </Text>
+                          <Text style={styles.scanOverlaySubtext}>
+                            {scanFrame ? 'Hold still and tap Start camera.' : 'Camera Buddy will lock on before it opens the room.'}
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   ) : (
@@ -907,7 +937,7 @@ export default function App() {
                 </View>
                 <View style={styles.scannerFooter}>
                   <Text style={styles.scannerFooterCopy}>
-                    Hold still for a moment and Camera Buddy will jump into the room for you.
+                    The scanner stays here until the room locks, so kids can line it up without feeling rushed.
                   </Text>
                   <View style={styles.scannerActions}>
                     <Pressable style={styles.scannerSecondaryButton} onPress={() => void flipCamera()}>
@@ -965,7 +995,7 @@ export default function App() {
             </>
           ) : (
             <>
-              <View style={styles.heroCard}>
+            <View style={styles.heroCard}>
                 <View style={styles.heroGlowA} />
                 <View style={styles.heroGlowB} />
                 <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
@@ -999,32 +1029,61 @@ export default function App() {
                     <Text style={styles.cameraHint}>
                       {streaming
                         ? 'This is your live SketchBot stream preview.'
-                        : 'Aim at the paper now. The live stream starts when you tap Go Live.'}
+                        : 'Aim at the paper now. Use the controls to frame the shot before you go live.'}
                     </Text>
                   </View>
                 </View>
 
-                <View style={[styles.cameraShell, isLandscape ? styles.cameraShellLandscape : null]}>
+                <View style={styles.cameraControlRow}>
+                  <Pressable style={styles.cameraControlButton} onPress={() => setPreviewZoom((value) => clamp(Number((value - 0.12).toFixed(2)), 0, 0.6))}>
+                    <Text style={styles.cameraControlButtonText}>Zoom out</Text>
+                  </Pressable>
+                  <Pressable style={styles.cameraControlButton} onPress={() => setPreviewZoom((value) => clamp(Number((value + 0.12).toFixed(2)), 0, 0.6))}>
+                    <Text style={styles.cameraControlButtonText}>Zoom in</Text>
+                  </Pressable>
+                  <Pressable style={styles.cameraControlButton} onPress={() => setPreviewRotation((value) => (value + 90) % 360)}>
+                    <Text style={styles.cameraControlButtonText}>Rotate view</Text>
+                  </Pressable>
+                  <Pressable style={styles.cameraControlButton} onPress={() => setPreviewExpanded((value) => !value)}>
+                    <Text style={styles.cameraControlButtonText}>{previewExpanded ? 'Shrink view' : 'Expand view'}</Text>
+                  </Pressable>
+                </View>
+
+                <View
+                  style={[
+                    styles.cameraShell,
+                    styles.liveCameraShell,
+                    isLandscape ? styles.cameraShellLandscape : null,
+                    previewExpanded ? styles.cameraShellExpanded : null,
+                  ]}
+                >
+                  <View style={[styles.cameraViewport, { height: livePreviewHeight }]}>
                   {cameraSurfaceMode === 'stream' && localStreamUrl ? (
                     <RTCView
                       streamURL={localStreamUrl}
                       objectFit="cover"
                       mirror={cameraFacing === 'front'}
-                      style={[styles.camera, { aspectRatio: previewAspectRatio }]}
+                      style={[styles.camera, styles.liveCamera, { height: livePreviewHeight, transform: previewTransform }]}
                     />
                   ) : permission?.granted ? (
-                    <CameraView style={[styles.camera, { aspectRatio: previewAspectRatio }]} facing={cameraFacing} />
+                    <CameraView
+                      style={[styles.camera, styles.liveCamera, { height: livePreviewHeight, transform: previewTransform }]}
+                      facing={cameraFacing}
+                      zoom={previewZoom}
+                    />
                   ) : cameraSurfaceMode === 'stream' ? (
-                    <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
+                    <View style={[styles.camera, styles.cameraPlaceholder, styles.liveCamera, { height: livePreviewHeight }]}>
                       <ActivityIndicator color="#4ac7f0" size="large" />
                       <Text style={styles.cameraPlaceholderText}>Starting the live camera...</Text>
                     </View>
                   ) : (
-                    <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
+                    <View style={[styles.camera, styles.cameraPlaceholder, styles.liveCamera, { height: livePreviewHeight }]}>
                       <Text style={styles.cameraPlaceholderText}>Camera access is required before Camera Buddy can go live.</Text>
                     </View>
                   )}
+                  </View>
                 </View>
+                <Text style={styles.cameraFooterHint}>Use Zoom, Rotate, and Expand to match the phone orientation and fill more of the screen.</Text>
               </View>
 
               <View style={styles.card}>
@@ -1050,6 +1109,33 @@ export default function App() {
             </>
           )}
         </ScrollView>
+        <Modal
+          animationType="fade"
+          transparent
+          visible={currentPage === 'connect' && Boolean(pendingRoomUrl)}
+          onRequestClose={rescanRoomCode}
+        >
+          <View style={styles.lockModalBackdrop}>
+            <View style={styles.lockModalCard}>
+              <View style={styles.lockModalBadge}>
+                <Text style={styles.lockModalBadgeText}>Room locked</Text>
+              </View>
+              <Text style={styles.lockModalTitle}>Ready to start the camera?</Text>
+              <Text style={styles.lockModalCopy}>
+                Camera Buddy found the room and is holding onto it so the scan doesn&apos;t drift away.
+              </Text>
+              {pendingRoomUrl ? <Text style={styles.lockModalRoom}>{pendingRoomUrl}</Text> : null}
+              <View style={styles.lockModalActions}>
+                <Pressable style={styles.lockModalSecondaryButton} onPress={rescanRoomCode}>
+                  <Text style={styles.lockModalSecondaryText}>Scan again</Text>
+                </Pressable>
+                <Pressable style={styles.lockModalPrimaryButton} onPress={() => void startFromLockedRoom()}>
+                  <Text style={styles.lockModalPrimaryText}>Start camera</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1589,6 +1675,17 @@ const styles = StyleSheet.create({
     borderColor: '#dbe1fb',
     backgroundColor: '#0c1220',
   },
+  liveCameraShell: {
+    borderRadius: 30,
+    borderColor: '#b8ddff',
+    backgroundColor: '#040915',
+  },
+  cameraShellExpanded: {
+    shadowColor: '#5fcfff',
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+  },
   scannerShell: {
     overflow: 'hidden',
     borderRadius: 28,
@@ -1601,10 +1698,21 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 820,
   },
+  cameraViewport: {
+    width: '100%',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#040915',
+  },
   camera: {
     width: '100%',
     aspectRatio: 3 / 4,
     backgroundColor: '#0c1220',
+  },
+  liveCamera: {
+    width: '100%',
+    backgroundColor: '#040915',
   },
   scannerCamera: {
     width: '100%',
@@ -1655,6 +1763,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 13,
   },
+  scanOverlayMessage: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    bottom: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(7, 15, 30, 0.62)',
+    borderWidth: 1,
+    borderColor: 'rgba(123, 224, 255, 0.16)',
+    gap: 6,
+  },
   scanLine: {
     position: 'absolute',
     left: 12,
@@ -1673,10 +1794,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     textAlign: 'center',
-    paddingHorizontal: 24,
     textShadowColor: 'rgba(0,0,0,0.35)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
+  },
+  scanOverlaySubtext: {
+    color: '#cfe9ff',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   scanCorner: {
     position: 'absolute',
@@ -1721,6 +1847,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  cameraControlRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  cameraControlButton: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#d3e4ff',
+  },
+  cameraControlButtonText: {
+    color: '#2a4468',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  cameraFooterHint: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#7581a0',
   },
   scannerActions: {
     flexDirection: 'row',
@@ -1792,5 +1941,89 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.65,
+  },
+  lockModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(6, 10, 20, 0.56)',
+    justifyContent: 'center',
+    padding: 22,
+  },
+  lockModalCard: {
+    borderRadius: 30,
+    padding: 22,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dce7ff',
+    gap: 14,
+    shadowColor: '#1e3157',
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 5,
+  },
+  lockModalBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#eef8ff',
+  },
+  lockModalBadgeText: {
+    color: '#245278',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+  },
+  lockModalTitle: {
+    color: '#1d2244',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '900',
+  },
+  lockModalCopy: {
+    color: '#5e6c8d',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  lockModalRoom: {
+    color: '#2a4468',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '800',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: '#f5f9ff',
+  },
+  lockModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  lockModalSecondaryButton: {
+    flex: 1,
+    borderRadius: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3f6ff',
+  },
+  lockModalSecondaryText: {
+    color: '#425778',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  lockModalPrimaryButton: {
+    flex: 1,
+    borderRadius: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#7be0ff',
+  },
+  lockModalPrimaryText: {
+    color: '#17304a',
+    fontSize: 15,
+    fontWeight: '900',
   },
 });
