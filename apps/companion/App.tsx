@@ -256,7 +256,6 @@ export default function App() {
           const normalized = normalizeLocalRuntimeUrl(saved.backendUrl);
           if (!shouldIgnoreSavedRoomUrl(normalized)) {
             setBackendUrl(normalized);
-            setCurrentPage('live');
           }
         }
       } catch {
