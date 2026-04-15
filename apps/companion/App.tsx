@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  type LayoutChangeEvent,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -52,6 +53,13 @@ type PhoneWebRTCSessionResponse = {
   device_label?: string | null;
   ice_servers: RTCIceServerConfig[];
   message: string;
+};
+
+type ScanFrame = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 };
 
 try {
@@ -152,11 +160,51 @@ function rtcConfiguration(iceServers: RTCIceServerConfig[]) {
   };
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function extractScanFrame(
+  result: BarcodeScanningResult,
+  layout: { width: number; height: number },
+): ScanFrame | null {
+  const rawPoints = (
+    result as BarcodeScanningResult & {
+      cornerPoints?: Array<{ x: number; y: number }>;
+    }
+  ).cornerPoints;
+
+  if (!layout.width || !layout.height || !rawPoints || rawPoints.length < 3) {
+    return null;
+  }
+
+  const xs = rawPoints.map((point) => Number(point.x)).filter((value) => Number.isFinite(value));
+  const ys = rawPoints.map((point) => Number(point.y)).filter((value) => Number.isFinite(value));
+
+  if (!xs.length || !ys.length) {
+    return null;
+  }
+
+  const left = clamp(Math.min(...xs), 0, layout.width);
+  const top = clamp(Math.min(...ys), 0, layout.height);
+  const right = clamp(Math.max(...xs), 0, layout.width);
+  const bottom = clamp(Math.max(...ys), 0, layout.height);
+  const width = right - left;
+  const height = bottom - top;
+
+  if (width < 32 || height < 32) {
+    return null;
+  }
+
+  return { left, top, width, height };
+}
+
 export default function App() {
   const { width, height } = useWindowDimensions();
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const connectionMonitorRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scanNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const lastScannedRoomRef = useRef<string | null>(null);
   const lastScannedAtRef = useRef(0);
@@ -170,10 +218,13 @@ export default function App() {
   const [session, setSession] = useState<PhoneWebRTCSessionResponse | null>(null);
   const [localStreamUrl, setLocalStreamUrl] = useState<string | null>(null);
   const [cameraSurfaceMode, setCameraSurfaceMode] = useState<'scanner' | 'stream'>('scanner');
+  const [currentPage, setCurrentPage] = useState<'connect' | 'live'>('connect');
+  const [scanFrame, setScanFrame] = useState<ScanFrame | null>(null);
+  const [scannerLayout, setScannerLayout] = useState({ width: 0, height: 0 });
 
   const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
   const primaryButtonLabel = busy ? 'Joining room...' : streaming ? 'Stop Camera' : 'Go Live';
-  const shouldAutoScanRoomCode = Boolean(permission?.granted) && !streaming && !busy;
+  const shouldAutoScanRoomCode = Boolean(permission?.granted) && !streaming && !busy && currentPage === 'connect';
   const isLandscape = width > height;
   const previewAspectRatio = isLandscape ? 16 / 9 : 3 / 4;
 
@@ -189,6 +240,7 @@ export default function App() {
           const normalized = normalizeLocalRuntimeUrl(saved.backendUrl);
           if (!shouldIgnoreSavedRoomUrl(normalized)) {
             setBackendUrl(normalized);
+            setCurrentPage('live');
           }
         }
       } catch {
@@ -231,6 +283,14 @@ export default function App() {
 
     setStatus('Room found. Tap Go Live to start the live camera stream.');
   }, [cleanedBackendUrl, permission?.granted, streaming]);
+
+  useEffect(() => {
+    return () => {
+      if (scanNavigationTimeoutRef.current) {
+        clearTimeout(scanNavigationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const ensurePermission = async () => {
     if (permission?.granted) {
@@ -289,6 +349,7 @@ export default function App() {
       setLocalStreamUrl(null);
       setStreaming(false);
       setCameraSurfaceMode('scanner');
+      setScanFrame(null);
       setBusy(false);
 
       if (sessionId && cleanedBackendUrl) {
@@ -467,7 +528,8 @@ export default function App() {
     setCameraSurfaceMode('scanner');
   };
 
-  const handleBarcodeScanned = ({ data }: BarcodeScanningResult) => {
+  const handleBarcodeScanned = (result: BarcodeScanningResult) => {
+    const { data } = result;
     if (!shouldAutoScanRoomCode || !data) {
       return;
     }
@@ -482,11 +544,53 @@ export default function App() {
       return;
     }
 
+    const nextScanFrame = extractScanFrame(result, scannerLayout);
     lastScannedRoomRef.current = normalized;
     lastScannedAtRef.current = now;
     setBackendUrl(normalized);
+    setScanFrame(nextScanFrame);
     setError(null);
-    setStatus('Room code scanned. Tap Go Live to start the live camera stream.');
+    setStatus('Room code locked in. Opening the live camera screen...');
+
+    if (scanNavigationTimeoutRef.current) {
+      clearTimeout(scanNavigationTimeoutRef.current);
+    }
+    scanNavigationTimeoutRef.current = setTimeout(() => {
+      setCurrentPage('live');
+      setStatus('Room found. Tap Go Live to start the live camera stream.');
+      setScanFrame(null);
+    }, 500);
+  };
+
+  const handleScannerLayout = (event: LayoutChangeEvent) => {
+    const { width: nextWidth, height: nextHeight } = event.nativeEvent.layout;
+    setScannerLayout({ width: nextWidth, height: nextHeight });
+  };
+
+  const openLivePage = () => {
+    if (!cleanedBackendUrl) {
+      setError('Paste the room address or scan the QR code first.');
+      return;
+    }
+
+    setError(null);
+    setStatus('Room found. Tap Go Live to start the live camera stream.');
+    setCurrentPage('live');
+  };
+
+  const returnToConnectPage = async () => {
+    if (streaming) {
+      await stopStreaming({ preserveStatus: true });
+    }
+
+    setCurrentPage('connect');
+    setScanFrame(null);
+    setError(null);
+    setStatus(
+      cleanedBackendUrl
+        ? 'Room saved. Point at the room QR code again or continue when you are ready.'
+        : 'Point the phone at the room QR code on SketchBot Desktop.',
+    );
   };
 
   useEffect(() => {
@@ -500,129 +604,224 @@ export default function App() {
       <StatusBar style="dark" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={[styles.container, isLandscape ? styles.containerLandscape : null]}>
-          <View style={styles.heroCard}>
-            <View style={styles.heroGlowA} />
-            <View style={styles.heroGlowB} />
-            <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
-            <Text style={styles.title}>Join the robot room and stream live</Text>
-            <Text style={styles.subtitle}>
-              Camera Buddy is made for the same classroom Wi-Fi as SketchBot Desktop. It turns your phone or tablet into a
-              smooth live camera for the robot.
-            </Text>
-            <View style={styles.heroSteps}>
-              <View style={styles.heroStep}>
-                <Text style={styles.heroStepNumber}>1</Text>
-                <Text style={styles.heroStepCopy}>Point the phone at the room code on the laptop.</Text>
-              </View>
-              <View style={styles.heroStep}>
-                <Text style={styles.heroStepNumber}>2</Text>
-                <Text style={styles.heroStepCopy}>Keep the full sheet and all AprilTags in view.</Text>
-              </View>
-              <View style={styles.heroStep}>
-                <Text style={styles.heroStepNumber}>3</Text>
-                <Text style={styles.heroStepCopy}>Tap Go Live to start the smooth classroom stream.</Text>
-              </View>
-            </View>
+          <View style={styles.pageTabs}>
+            <Pressable
+              style={[styles.pageTab, currentPage === 'connect' ? styles.pageTabActive : null]}
+              onPress={() => void returnToConnectPage()}
+            >
+              <Text style={[styles.pageTabNumber, currentPage === 'connect' ? styles.pageTabNumberActive : null]}>1</Text>
+              <Text style={[styles.pageTabText, currentPage === 'connect' ? styles.pageTabTextActive : null]}>Join room</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.pageTab, currentPage === 'live' ? styles.pageTabActive : null]}
+              onPress={openLivePage}
+            >
+              <Text style={[styles.pageTabNumber, currentPage === 'live' ? styles.pageTabNumberActive : null]}>2</Text>
+              <Text style={[styles.pageTabText, currentPage === 'live' ? styles.pageTabTextActive : null]}>Live camera</Text>
+            </Pressable>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Join this classroom</Text>
-            <Text style={styles.label}>Room address from SketchBot Desktop</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              placeholder="192.168.2.16 or http://192.168.2.16:8787"
-              placeholderTextColor="#89a0c2"
-              style={styles.input}
-              value={backendUrl}
-              onChangeText={setBackendUrl}
-              onBlur={() => {
-                if (backendUrl.trim()) {
-                  setBackendUrl(normalizeLocalRuntimeUrl(backendUrl));
-                }
-              }}
-            />
-            <Text style={styles.helperText}>
-              This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
-            </Text>
-            <View style={styles.joinTip}>
-              <Text style={styles.joinTipTitle}>Kid shortcut</Text>
-              <Text style={styles.joinTipCopy}>The app scans the room code automatically. Just point the phone at the QR on the laptop.</Text>
-            </View>
-          </View>
+          {currentPage === 'connect' ? (
+            <>
+              <View style={styles.heroCard}>
+                <View style={styles.heroGlowA} />
+                <View style={styles.heroGlowB} />
+                <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
+                <Text style={styles.title}>Join the robot room</Text>
+                <Text style={styles.subtitle}>
+                  Start here. Scan the QR code from SketchBot Desktop or paste the room address. Once the app locks onto the code,
+                  it will take you to the live camera screen.
+                </Text>
+                <View style={styles.heroSteps}>
+                  <View style={styles.heroStep}>
+                    <Text style={styles.heroStepNumber}>1</Text>
+                    <Text style={styles.heroStepCopy}>Point the phone at the room code on the laptop.</Text>
+                  </View>
+                  <View style={styles.heroStep}>
+                    <Text style={styles.heroStepNumber}>2</Text>
+                    <Text style={styles.heroStepCopy}>Wait for the corners to lock onto the QR.</Text>
+                  </View>
+                  <View style={styles.heroStep}>
+                    <Text style={styles.heroStepNumber}>3</Text>
+                    <Text style={styles.heroStepCopy}>Continue to the live camera screen.</Text>
+                  </View>
+                </View>
+              </View>
 
-          <View style={styles.card}>
-            <View style={styles.cameraHeader}>
-              <View style={styles.cameraHeaderCopy}>
-                <Text style={styles.cardTitle}>{streaming ? 'Live camera' : 'Room scanner'}</Text>
-                <Text style={styles.cameraHint}>
-                  {streaming
-                    ? 'This is your live SketchBot stream preview.'
-                    : 'Point at the room QR code first, then keep the page fully inside the frame.'}
+              <View style={styles.card}>
+                <View style={styles.cameraHeader}>
+                  <View style={styles.cameraHeaderCopy}>
+                    <Text style={styles.cardTitle}>Scan the room code</Text>
+                    <Text style={styles.cameraHint}>
+                      Hold the QR code inside the guide. Camera Buddy will lock onto the four corners when it finds the room.
+                    </Text>
+                  </View>
+                  <Pressable style={styles.ghostButton} onPress={() => void flipCamera()}>
+                    <Text style={styles.ghostButtonText}>{cameraFacing === 'back' ? 'Switch to front camera' : 'Switch to back camera'}</Text>
+                  </Pressable>
+                </View>
+
+                <View
+                  style={[styles.cameraShell, isLandscape ? styles.cameraShellLandscape : null]}
+                  onLayout={handleScannerLayout}
+                >
+                  {permission?.granted && cameraSurfaceMode === 'scanner' ? (
+                    <View>
+                      <CameraView
+                        style={[styles.camera, { aspectRatio: previewAspectRatio }]}
+                        facing={cameraFacing}
+                        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                        onBarcodeScanned={shouldAutoScanRoomCode ? handleBarcodeScanned : undefined}
+                      />
+                      <View style={styles.scanOverlay}>
+                        {scanFrame ? (
+                          <View
+                            style={[
+                              styles.lockedScanFrame,
+                              {
+                                left: scanFrame.left,
+                                top: scanFrame.top,
+                                width: scanFrame.width,
+                                height: scanFrame.height,
+                              },
+                            ]}
+                          >
+                            <View style={[styles.scanCorner, styles.scanCornerTopLeft]} />
+                            <View style={[styles.scanCorner, styles.scanCornerTopRight]} />
+                            <View style={[styles.scanCorner, styles.scanCornerBottomLeft]} />
+                            <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
+                          </View>
+                        ) : (
+                          <View style={styles.scanGuideFrame}>
+                            <View style={[styles.scanCorner, styles.scanCornerTopLeft]} />
+                            <View style={[styles.scanCorner, styles.scanCornerTopRight]} />
+                            <View style={[styles.scanCorner, styles.scanCornerBottomLeft]} />
+                            <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
+                          </View>
+                        )}
+                        <Text style={styles.scanOverlayText}>
+                          {scanFrame ? 'Locked on. Opening the live camera screen...' : 'Point at the room QR code on the laptop screen'}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
+                      <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission so Camera Buddy can scan the room code.</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Paste the room address</Text>
+                <Text style={styles.label}>Room address from SketchBot Desktop</Text>
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  placeholder="192.168.2.16 or http://192.168.2.16:8787"
+                  placeholderTextColor="#89a0c2"
+                  style={styles.input}
+                  value={backendUrl}
+                  onChangeText={setBackendUrl}
+                  onBlur={() => {
+                    if (backendUrl.trim()) {
+                      setBackendUrl(normalizeLocalRuntimeUrl(backendUrl));
+                    }
+                  }}
+                />
+                <Text style={styles.helperText}>
+                  This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
+                </Text>
+                <Pressable
+                  style={[styles.primaryButton, !cleanedBackendUrl ? styles.buttonDisabled : null]}
+                  disabled={!cleanedBackendUrl}
+                  onPress={openLivePage}
+                >
+                  <Text style={styles.primaryButtonText}>Continue to live camera</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.heroCard}>
+                <View style={styles.heroGlowA} />
+                <View style={styles.heroGlowB} />
+                <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
+                <Text style={styles.title}>Stream the live camera</Text>
+                <Text style={styles.subtitle}>
+                  Keep the full page and all AprilTags inside the frame, then tap Go Live. If you need a different room, go back to
+                  the join screen.
+                </Text>
+                <View style={styles.heroActions}>
+                  <Pressable style={styles.secondaryPillButton} onPress={() => void returnToConnectPage()}>
+                    <Text style={styles.secondaryPillButtonText}>Change room</Text>
+                  </Pressable>
+                  <Pressable style={styles.secondaryPillButton} onPress={() => void flipCamera()}>
+                    <Text style={styles.secondaryPillButtonText}>
+                      {cameraFacing === 'back' ? 'Switch to front camera' : 'Switch to back camera'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.card}>
+                <View style={styles.cameraHeader}>
+                  <View style={styles.cameraHeaderCopy}>
+                    <Text style={styles.cardTitle}>{streaming ? 'Live camera' : 'Camera preview'}</Text>
+                    <Text style={styles.cameraHint}>
+                      {streaming
+                        ? 'This is your live SketchBot stream preview.'
+                        : 'Aim at the paper now. The live stream starts when you tap Go Live.'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={[styles.cameraShell, isLandscape ? styles.cameraShellLandscape : null]}>
+                  {cameraSurfaceMode === 'stream' && localStreamUrl ? (
+                    <RTCView
+                      streamURL={localStreamUrl}
+                      objectFit="cover"
+                      mirror={cameraFacing === 'front'}
+                      style={[styles.camera, { aspectRatio: previewAspectRatio }]}
+                    />
+                  ) : permission?.granted ? (
+                    <CameraView style={[styles.camera, { aspectRatio: previewAspectRatio }]} facing={cameraFacing} />
+                  ) : cameraSurfaceMode === 'stream' ? (
+                    <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
+                      <ActivityIndicator color="#4ac7f0" size="large" />
+                      <Text style={styles.cameraPlaceholderText}>Starting the live camera...</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
+                      <Text style={styles.cameraPlaceholderText}>Camera access is required before Camera Buddy can go live.</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Go live</Text>
+                <View style={styles.statusCard}>
+                  <Text style={styles.statusText}>{status}</Text>
+                  {cleanedBackendUrl ? <Text style={styles.helperText}>Room address: {cleanedBackendUrl}</Text> : null}
+                  {session?.session_id ? <Text style={styles.helperText}>Live session: {session.session_id}</Text> : null}
+                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                </View>
+
+                <Pressable
+                  style={[styles.primaryButton, busy ? styles.buttonDisabled : null, streaming ? styles.primaryButtonStop : null]}
+                  onPress={() => void handlePrimaryAction()}
+                  disabled={busy}
+                >
+                  {busy ? <ActivityIndicator color="#14233c" /> : <Text style={styles.primaryButtonText}>{primaryButtonLabel}</Text>}
+                </Pressable>
+                <Text style={styles.helperText}>
+                  Camera Buddy now uses a real live stream. For the smoothest result, run it from an Expo development build instead of Expo Go.
                 </Text>
               </View>
-              <Pressable style={styles.ghostButton} onPress={() => void flipCamera()}>
-                <Text style={styles.ghostButtonText}>{cameraFacing === 'back' ? 'Switch to front camera' : 'Switch to back camera'}</Text>
-              </Pressable>
-            </View>
-
-            <View style={[styles.cameraShell, isLandscape ? styles.cameraShellLandscape : null]}>
-              {cameraSurfaceMode === 'stream' && localStreamUrl ? (
-                <RTCView
-                  streamURL={localStreamUrl}
-                  objectFit="cover"
-                  mirror={cameraFacing === 'front'}
-                  style={[styles.camera, { aspectRatio: previewAspectRatio }]}
-                />
-              ) : permission?.granted && cameraSurfaceMode === 'scanner' ? (
-                <View>
-                  <CameraView
-                    style={[styles.camera, { aspectRatio: previewAspectRatio }]}
-                    facing={cameraFacing}
-                    barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                    onBarcodeScanned={shouldAutoScanRoomCode ? handleBarcodeScanned : undefined}
-                  />
-                  {shouldAutoScanRoomCode ? (
-                    <View style={styles.scanOverlay}>
-                      <View style={styles.scanFrame} />
-                      <Text style={styles.scanOverlayText}>Point at the room QR code on the laptop screen</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : cameraSurfaceMode === 'stream' ? (
-                <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
-                  <ActivityIndicator color="#4ac7f0" size="large" />
-                  <Text style={styles.cameraPlaceholderText}>Starting the live camera...</Text>
-                </View>
-              ) : (
-                <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
-                  <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission so Camera Buddy can scan the room and stream live.</Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Go live</Text>
-            <View style={styles.statusCard}>
-              <Text style={styles.statusText}>{status}</Text>
-              {cleanedBackendUrl ? <Text style={styles.helperText}>Room address: {cleanedBackendUrl}</Text> : null}
-              {session?.session_id ? <Text style={styles.helperText}>Live session: {session.session_id}</Text> : null}
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            </View>
-
-            <Pressable
-              style={[styles.primaryButton, busy ? styles.buttonDisabled : null, streaming ? styles.primaryButtonStop : null]}
-              onPress={() => void handlePrimaryAction()}
-              disabled={busy}
-            >
-              {busy ? <ActivityIndicator color="#14233c" /> : <Text style={styles.primaryButtonText}>{primaryButtonLabel}</Text>}
-            </Pressable>
-            <Text style={styles.helperText}>
-              Camera Buddy now uses a real live stream. For the smoothest result, run it from an Expo development build instead of Expo Go.
-            </Text>
-          </View>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -643,6 +842,51 @@ const styles = StyleSheet.create({
   },
   containerLandscape: {
     paddingHorizontal: 24,
+  },
+  pageTabs: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  pageTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#dce4ff',
+    backgroundColor: '#ffffff',
+  },
+  pageTabActive: {
+    borderColor: '#8fcfff',
+    backgroundColor: '#eef9ff',
+  },
+  pageTabNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    overflow: 'hidden',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 28,
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#6c7a9b',
+    backgroundColor: '#f2f5ff',
+  },
+  pageTabNumberActive: {
+    color: '#17304a',
+    backgroundColor: '#7be0ff',
+  },
+  pageTabText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#596887',
+  },
+  pageTabTextActive: {
+    color: '#223457',
   },
   heroCard: {
     overflow: 'hidden',
@@ -699,11 +943,27 @@ const styles = StyleSheet.create({
   heroSteps: {
     gap: 10,
   },
+  heroActions: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
   heroStep: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingVertical: 6,
+  },
+  secondaryPillButton: {
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#eff4ff',
+  },
+  secondaryPillButtonText: {
+    color: '#3f557c',
+    fontWeight: '800',
+    fontSize: 13,
   },
   heroStepNumber: {
     width: 28,
@@ -819,13 +1079,15 @@ const styles = StyleSheet.create({
     gap: 18,
     backgroundColor: 'rgba(8, 14, 28, 0.22)',
   },
-  scanFrame: {
+  scanGuideFrame: {
     width: '64%',
     aspectRatio: 1,
-    borderRadius: 24,
-    borderWidth: 3,
-    borderColor: '#7be0ff',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 28,
+    position: 'relative',
+  },
+  lockedScanFrame: {
+    position: 'absolute',
+    borderRadius: 18,
   },
   scanOverlayText: {
     color: '#eff8ff',
@@ -836,6 +1098,40 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.35)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
+  },
+  scanCorner: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderColor: '#7be0ff',
+  },
+  scanCornerTopLeft: {
+    top: 0,
+    left: 0,
+    borderLeftWidth: 4,
+    borderTopWidth: 4,
+    borderTopLeftRadius: 18,
+  },
+  scanCornerTopRight: {
+    top: 0,
+    right: 0,
+    borderRightWidth: 4,
+    borderTopWidth: 4,
+    borderTopRightRadius: 18,
+  },
+  scanCornerBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderLeftWidth: 4,
+    borderBottomWidth: 4,
+    borderBottomLeftRadius: 18,
+  },
+  scanCornerBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderRightWidth: 4,
+    borderBottomWidth: 4,
+    borderBottomRightRadius: 18,
   },
   cameraPlaceholder: {
     justifyContent: 'center',
