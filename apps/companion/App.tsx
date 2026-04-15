@@ -672,11 +672,36 @@ export default function App() {
             <View style={styles.splashScreen}>
               <View style={styles.splashOrbA} />
               <View style={styles.splashOrbB} />
-              <View style={styles.splashBadge}>
-                <Text style={styles.splashBadgeText}>SketchBot</Text>
+              <View style={styles.splashTopRow}>
+                <View style={styles.splashBadge}>
+                  <Text style={styles.splashBadgeText}>SketchBot</Text>
+                </View>
+                <View style={styles.splashMiniPill}>
+                  <Text style={styles.splashMiniPillText}>Companion</Text>
+                </View>
+              </View>
+              <View style={styles.splashDevice}>
+                <View style={styles.splashDeviceGlow} />
+                <View style={styles.splashDeviceScreen}>
+                  <View style={styles.splashDeviceChip} />
+                  <View style={styles.splashDeviceFrame}>
+                    <View style={[styles.splashDeviceCorner, styles.splashDeviceCornerTopLeft]} />
+                    <View style={[styles.splashDeviceCorner, styles.splashDeviceCornerTopRight]} />
+                    <View style={[styles.splashDeviceCorner, styles.splashDeviceCornerBottomLeft]} />
+                    <View style={[styles.splashDeviceCorner, styles.splashDeviceCornerBottomRight]} />
+                  </View>
+                </View>
               </View>
               <Text style={styles.splashTitle}>Camera Buddy</Text>
               <Text style={styles.splashCopy}>Join the robot room, help with setup, and stream live from the same Wi-Fi.</Text>
+              <View style={styles.splashFeatureRow}>
+                <View style={styles.splashFeaturePill}>
+                  <Text style={styles.splashFeaturePillText}>Fast QR join</Text>
+                </View>
+                <View style={styles.splashFeaturePill}>
+                  <Text style={styles.splashFeaturePillText}>Live camera</Text>
+                </View>
+              </View>
             </View>
           ) : currentPage === 'menu' ? (
             <>
@@ -684,17 +709,35 @@ export default function App() {
                 <View style={styles.heroGlowA} />
                 <View style={styles.heroGlowB} />
                 <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
-                <Text style={styles.title}>Choose what you want to do</Text>
+                <Text style={styles.title}>Choose a mission</Text>
                 <Text style={styles.subtitle}>
                   Camera Buddy can help you join a room, run the live camera, and grow into more companion tools over time.
                 </Text>
+                <View style={styles.heroPillRow}>
+                  <View style={styles.heroStatPill}>
+                    <Text style={styles.heroStatLabel}>Best start</Text>
+                    <Text style={styles.heroStatValue}>Scan room code</Text>
+                  </View>
+                  <View style={styles.heroStatPill}>
+                    <Text style={styles.heroStatLabel}>Wi-Fi</Text>
+                    <Text style={styles.heroStatValue}>Same room</Text>
+                  </View>
+                </View>
               </View>
 
               <View style={styles.menuGrid}>
                 <Pressable style={[styles.menuCard, styles.menuCardPrimary]} onPress={openConnectPage}>
+                  <View style={styles.menuCardOrbitA} />
+                  <View style={styles.menuCardOrbitB} />
                   <Text style={[styles.menuEyebrow, styles.menuEyebrowPrimary]}>Best for kids</Text>
                   <Text style={[styles.menuTitle, styles.menuTitlePrimary]}>Scan room code</Text>
                   <Text style={[styles.menuCopy, styles.menuCopyPrimary]}>Open the scanner and lock onto the QR from SketchBot Desktop.</Text>
+                  <View style={styles.menuCardFooter}>
+                    <View style={styles.menuCardActionPill}>
+                      <Text style={styles.menuCardActionText}>Open scanner</Text>
+                    </View>
+                    <Text style={styles.menuCardMeta}>Fastest path</Text>
+                  </View>
                 </Pressable>
 
                 <Pressable
@@ -707,6 +750,11 @@ export default function App() {
                   <Text style={styles.menuCopy}>
                     {cleanedBackendUrl ? cleanedBackendUrl : 'Save a room first by scanning or pasting a link.'}
                   </Text>
+                  <View style={styles.menuCardFooter}>
+                    <View style={[styles.menuCardActionPill, styles.menuCardActionPillSoft]}>
+                      <Text style={styles.menuCardActionText}>Resume</Text>
+                    </View>
+                  </View>
                 </Pressable>
               </View>
 
@@ -780,6 +828,9 @@ export default function App() {
                 <Text style={styles.subtitle}>
                   Point the phone at the QR code on SketchBot Desktop. When Camera Buddy locks onto it, the room page will open automatically.
                 </Text>
+                <View style={styles.connectHintPill}>
+                  <Text style={styles.connectHintPillText}>Aim at the whole QR and hold still for a beat.</Text>
+                </View>
               </View>
 
               <View style={styles.scannerCard}>
@@ -923,6 +974,12 @@ export default function App() {
                   Keep the full page and all AprilTags inside the frame, then tap Go Live. If you need a different room, go back to
                   the join screen.
                 </Text>
+                <View style={styles.heroPillRow}>
+                  <View style={styles.heroStatPill}>
+                    <Text style={styles.heroStatLabel}>Room</Text>
+                    <Text style={styles.heroStatValue} numberOfLines={1}>{cleanedBackendUrl || 'Not connected'}</Text>
+                  </View>
+                </View>
                 <View style={styles.heroActions}>
                   <Pressable style={styles.secondaryPillButton} onPress={() => void returnToConnectPage()}>
                     <Text style={styles.secondaryPillButtonText}>Main menu</Text>
@@ -1027,6 +1084,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 16 },
     elevation: 6,
   },
+  splashTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 18,
+  },
   splashOrbA: {
     position: 'absolute',
     width: 240,
@@ -1063,6 +1126,94 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
+  splashMiniPill: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(123, 224, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(123, 224, 255, 0.18)',
+  },
+  splashMiniPillText: {
+    color: '#cdefff',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  splashDevice: {
+    alignSelf: 'stretch',
+    height: 220,
+    marginBottom: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splashDeviceGlow: {
+    position: 'absolute',
+    width: 240,
+    height: 140,
+    borderRadius: 999,
+    backgroundColor: 'rgba(121, 213, 255, 0.18)',
+  },
+  splashDeviceScreen: {
+    width: '88%',
+    maxWidth: 320,
+    aspectRatio: 3 / 4,
+    borderRadius: 28,
+    padding: 18,
+    backgroundColor: '#0a1122',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splashDeviceChip: {
+    position: 'absolute',
+    top: 16,
+    width: 72,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  splashDeviceFrame: {
+    width: '72%',
+    aspectRatio: 1,
+    position: 'relative',
+  },
+  splashDeviceCorner: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    borderColor: '#7be0ff',
+  },
+  splashDeviceCornerTopLeft: {
+    top: 0,
+    left: 0,
+    borderLeftWidth: 4,
+    borderTopWidth: 4,
+    borderTopLeftRadius: 16,
+  },
+  splashDeviceCornerTopRight: {
+    top: 0,
+    right: 0,
+    borderRightWidth: 4,
+    borderTopWidth: 4,
+    borderTopRightRadius: 16,
+  },
+  splashDeviceCornerBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderLeftWidth: 4,
+    borderBottomWidth: 4,
+    borderBottomLeftRadius: 16,
+  },
+  splashDeviceCornerBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderRightWidth: 4,
+    borderBottomWidth: 4,
+    borderBottomRightRadius: 16,
+  },
   splashTitle: {
     fontSize: 40,
     lineHeight: 44,
@@ -1075,6 +1226,25 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     color: '#d6e8ff',
     maxWidth: '90%',
+  },
+  splashFeatureRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+    flexWrap: 'wrap',
+  },
+  splashFeaturePill: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  splashFeaturePillText: {
+    color: '#f6fbff',
+    fontSize: 13,
+    fontWeight: '800',
   },
   menuGrid: {
     gap: 12,
@@ -1090,6 +1260,7 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 10 },
     elevation: 2,
+    overflow: 'hidden',
   },
   menuCardPrimary: {
     backgroundColor: '#10192f',
@@ -1109,6 +1280,24 @@ const styles = StyleSheet.create({
   menuEyebrowPrimary: {
     color: '#8ccfff',
   },
+  menuCardOrbitA: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 999,
+    top: -30,
+    right: -20,
+    backgroundColor: 'rgba(121, 213, 255, 0.14)',
+  },
+  menuCardOrbitB: {
+    position: 'absolute',
+    width: 110,
+    height: 110,
+    borderRadius: 999,
+    bottom: -30,
+    left: -10,
+    backgroundColor: 'rgba(255, 182, 223, 0.14)',
+  },
   menuTitle: {
     fontSize: 24,
     lineHeight: 28,
@@ -1126,6 +1315,34 @@ const styles = StyleSheet.create({
   },
   menuCopyPrimary: {
     color: '#d6e8ff',
+  },
+  menuCardFooter: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  menuCardActionPill: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: '#7be0ff',
+  },
+  menuCardActionPillSoft: {
+    backgroundColor: '#eef8ff',
+  },
+  menuCardActionText: {
+    color: '#16324a',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  menuCardMeta: {
+    color: '#b7cae8',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   toolList: {
     gap: 10,
@@ -1165,6 +1382,19 @@ const styles = StyleSheet.create({
   connectHeader: {
     paddingHorizontal: 6,
     gap: 10,
+  },
+  connectHintPill: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: '#eef8ff',
+  },
+  connectHintPillText: {
+    color: '#245278',
+    fontSize: 13,
+    fontWeight: '800',
   },
   heroCard: {
     overflow: 'hidden',
@@ -1236,6 +1466,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     flexWrap: 'wrap',
+  },
+  heroPillRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  heroStatPill: {
+    minWidth: 120,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.66)',
+    borderWidth: 1,
+    borderColor: 'rgba(123, 149, 214, 0.14)',
+  },
+  heroStatLabel: {
+    color: '#6d7b9a',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+    marginBottom: 4,
+  },
+  heroStatValue: {
+    color: '#243457',
+    fontSize: 14,
+    fontWeight: '800',
   },
   heroStep: {
     flexDirection: 'row',
