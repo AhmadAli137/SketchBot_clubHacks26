@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -119,14 +120,21 @@ function normalizeLocalRuntimeUrl(value: string) {
   }
 }
 
-function waitForIceGatheringComplete(pc: RTCPeerConnection) {
+function waitForIceGatheringComplete(pc: RTCPeerConnection, timeoutMs = 2500) {
   if (pc.iceGatheringState === 'complete') {
     return Promise.resolve();
   }
 
   return new Promise<void>((resolve) => {
+    const startedAt = Date.now();
     const timer = setInterval(() => {
       if (pc.iceGatheringState === 'complete') {
+        clearInterval(timer);
+        resolve();
+        return;
+      }
+
+      if (Date.now() - startedAt >= timeoutMs) {
         clearInterval(timer);
         resolve();
       }
@@ -145,6 +153,7 @@ function rtcConfiguration(iceServers: RTCIceServerConfig[]) {
 }
 
 export default function App() {
+  const { width, height } = useWindowDimensions();
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const connectionMonitorRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -160,10 +169,13 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<PhoneWebRTCSessionResponse | null>(null);
   const [localStreamUrl, setLocalStreamUrl] = useState<string | null>(null);
+  const [cameraSurfaceMode, setCameraSurfaceMode] = useState<'scanner' | 'stream'>('scanner');
 
   const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
   const primaryButtonLabel = busy ? 'Joining room...' : streaming ? 'Stop Camera' : 'Go Live';
   const shouldAutoScanRoomCode = Boolean(permission?.granted) && !streaming && !busy;
+  const isLandscape = width > height;
+  const previewAspectRatio = isLandscape ? 16 / 9 : 3 / 4;
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -276,6 +288,7 @@ export default function App() {
       localStreamRef.current = null;
       setLocalStreamUrl(null);
       setStreaming(false);
+      setCameraSurfaceMode('scanner');
       setBusy(false);
 
       if (sessionId && cleanedBackendUrl) {
@@ -337,6 +350,8 @@ export default function App() {
 
       setStatus('Opening the live room...');
       const activeSession = await provisionSession(cleanedBackendUrl);
+      setCameraSurfaceMode('stream');
+      await wait(300);
       const stream = await ensureLocalStream();
 
       const pc = new RTCPeerConnection(rtcConfiguration(activeSession.ice_servers));
@@ -449,6 +464,7 @@ export default function App() {
       setStatus('Camera flipped. Tap Go Live to restart the live stream.');
     }
     setCameraFacing(nextFacing);
+    setCameraSurfaceMode('scanner');
   };
 
   const handleBarcodeScanned = ({ data }: BarcodeScanningResult) => {
@@ -483,7 +499,7 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView contentContainerStyle={[styles.container, isLandscape ? styles.containerLandscape : null]}>
           <View style={styles.heroCard}>
             <View style={styles.heroGlowA} />
             <View style={styles.heroGlowB} />
@@ -547,17 +563,22 @@ export default function App() {
                 </Text>
               </View>
               <Pressable style={styles.ghostButton} onPress={() => void flipCamera()}>
-                <Text style={styles.ghostButtonText}>{cameraFacing === 'back' ? 'Front camera' : 'Back camera'}</Text>
+                <Text style={styles.ghostButtonText}>{cameraFacing === 'back' ? 'Switch to front camera' : 'Switch to back camera'}</Text>
               </Pressable>
             </View>
 
-            <View style={styles.cameraShell}>
-              {streaming && localStreamUrl ? (
-                <RTCView streamURL={localStreamUrl} objectFit="cover" mirror={cameraFacing === 'front'} style={styles.camera} />
-              ) : permission?.granted ? (
+            <View style={[styles.cameraShell, isLandscape ? styles.cameraShellLandscape : null]}>
+              {cameraSurfaceMode === 'stream' && localStreamUrl ? (
+                <RTCView
+                  streamURL={localStreamUrl}
+                  objectFit="cover"
+                  mirror={cameraFacing === 'front'}
+                  style={[styles.camera, { aspectRatio: previewAspectRatio }]}
+                />
+              ) : permission?.granted && cameraSurfaceMode === 'scanner' ? (
                 <View>
                   <CameraView
-                    style={styles.camera}
+                    style={[styles.camera, { aspectRatio: previewAspectRatio }]}
                     facing={cameraFacing}
                     barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                     onBarcodeScanned={shouldAutoScanRoomCode ? handleBarcodeScanned : undefined}
@@ -569,8 +590,13 @@ export default function App() {
                     </View>
                   ) : null}
                 </View>
+              ) : cameraSurfaceMode === 'stream' ? (
+                <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
+                  <ActivityIndicator color="#4ac7f0" size="large" />
+                  <Text style={styles.cameraPlaceholderText}>Starting the live camera...</Text>
+                </View>
               ) : (
-                <View style={[styles.camera, styles.cameraPlaceholder]}>
+                <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
                   <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission so Camera Buddy can scan the room and stream live.</Text>
                 </View>
               )}
@@ -614,6 +640,9 @@ const styles = StyleSheet.create({
   container: {
     padding: 18,
     gap: 16,
+  },
+  containerLandscape: {
+    paddingHorizontal: 24,
   },
   heroCard: {
     overflow: 'hidden',
@@ -771,6 +800,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#dbe1fb',
     backgroundColor: '#0c1220',
+  },
+  cameraShellLandscape: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 820,
   },
   camera: {
     width: '100%',

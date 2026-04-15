@@ -36,6 +36,7 @@ type StudentDashboardProps = {
   browserCameraReady: boolean;
   phoneViewerReady: boolean;
   cameraSource: string;
+  liveVideoAspectRatio: number | null;
   videoRef: RefObject<HTMLVideoElement | null>;
   sourceSaving: boolean;
   backendLinkCopied: boolean;
@@ -74,6 +75,7 @@ export function StudentDashboard({
   browserCameraReady,
   phoneViewerReady,
   cameraSource,
+  liveVideoAspectRatio,
   videoRef,
   sourceSaving,
   backendLinkCopied,
@@ -86,8 +88,22 @@ export function StudentDashboard({
   onLoadTask,
 }: StudentDashboardProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [cameraViewMode, setCameraViewMode] = useState<'fit' | 'fill'>('fit');
+  const [cameraRotation, setCameraRotation] = useState(0);
+  const [hasManualViewPreference, setHasManualViewPreference] = useState(false);
   const quickPromptIdeas = ['happy robot face', 'rocket ship', 'tiny dinosaur'];
-  const showLiveVideo = (cameraSource === 'browser-camera' && browserCameraReady) || (cameraSource === 'phone-webrtc' && phoneViewerReady);
+  const shouldMountVideo = cameraSource === 'browser-camera' || cameraSource === 'phone-webrtc';
+  const showVideoFrame = (cameraSource === 'browser-camera' && browserCameraReady) || (cameraSource === 'phone-webrtc' && phoneViewerReady);
+  const mediaObjectFit = cameraViewMode === 'fill' ? 'cover' : 'contain';
+  const mediaTransform = cameraRotation === 0 ? undefined : `rotate(${cameraRotation}deg)`;
+  const isLandscapeFeed = (liveVideoAspectRatio ?? 1) >= 1;
+
+  useEffect(() => {
+    if (!liveVideoAspectRatio || hasManualViewPreference) {
+      return;
+    }
+    setCameraViewMode(isLandscapeFeed ? 'fill' : 'fit');
+  }, [hasManualViewPreference, isLandscapeFeed, liveVideoAspectRatio]);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,27 +179,67 @@ export function StudentDashboard({
               <div className="status-pills">
                 <span className="section-badge">Camera: {cameraModeLabel}</span>
                 <span className="section-badge">{cameraStatus}</span>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    setHasManualViewPreference(true);
+                    setCameraViewMode((current) => (current === 'fit' ? 'fill' : 'fit'));
+                  }}
+                >
+                  {cameraViewMode === 'fit' ? 'Fill frame' : 'Fit frame'}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    setHasManualViewPreference(true);
+                    setCameraRotation((current) => (current + 90) % 360);
+                  }}
+                >
+                  Rotate view
+                </button>
               </div>
             </div>
 
             <div className="workspace-card workspace-card-playful" style={{ minHeight: 460 }}>
-              <div className="workspace-stage">
+              <div className="workspace-stage" style={{ aspectRatio: isLandscapeFeed ? '16 / 9' : '4 / 5' }}>
                 <div className="canvas-frame">
-                  {showLiveVideo ? (
+                  {shouldMountVideo ? (
                     <video
                       ref={videoRef}
                       autoPlay
                       playsInline
                       muted
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#050b16' }}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: mediaObjectFit,
+                        background: '#050b16',
+                        opacity: showVideoFrame ? 1 : 0,
+                        pointerEvents: 'none',
+                        transform: mediaTransform,
+                      }}
                     />
-                  ) : cameraFrameUrl ? (
+                  ) : null}
+                  {!showVideoFrame && cameraFrameUrl ? (
                     <img
                       src={cameraFrameUrl}
                       alt={cameraStatus}
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: 'var(--stage-backdrop)' }}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: mediaObjectFit,
+                        background: 'var(--stage-backdrop)',
+                        transform: mediaTransform,
+                      }}
                     />
-                  ) : (
+                  ) : null}
+                  {!showVideoFrame && !cameraFrameUrl ? (
                     <div
                       style={{
                         position: 'absolute',
@@ -203,7 +259,7 @@ export function StudentDashboard({
                         <div>{cameraSource === 'browser-camera' ? browserCameraStatus : companionConnectionStatus}</div>
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -247,6 +303,7 @@ export function StudentDashboard({
               <li>Open Camera Buddy on the same Wi-Fi.</li>
               <li>Point the phone at the QR code or paste this room address: {companionBackendUrl}</li>
               <li>{cameraSource === 'browser-camera' ? browserCameraStatus : companionConnectionStatus}</li>
+              <li>The view now adapts automatically when the phone rotates. Use Fill frame or Rotate view if you still want to adjust it.</li>
             </ul>
           </div>
 

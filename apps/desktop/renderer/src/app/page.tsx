@@ -78,6 +78,7 @@ export default function HomePage() {
   const [webrtcIceServers, setWebrtcIceServers] = useState<RTCIceServerConfig[]>([]);
   const [browserCameraReady, setBrowserCameraReady] = useState(false);
   const [browserCameraError, setBrowserCameraError] = useState<string | null>(null);
+  const [liveVideoAspectRatio, setLiveVideoAspectRatio] = useState<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const analysisCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -92,8 +93,6 @@ export default function HomePage() {
     [state.camera?.media_session?.ice_servers, webrtcIceServers],
   );
   const viewerIceKey = useMemo(() => JSON.stringify(viewerIceServers), [viewerIceServers]);
-  const viewerRtcConfig = useMemo(() => rtcConfiguration(viewerIceServers), [viewerIceServers]);
-
   const refreshTasks = useCallback(async () => {
     try {
       const response = await fetch(`${apiBase}/api/compose/tasks`, { cache: 'no-store' });
@@ -193,6 +192,7 @@ export default function HomePage() {
 
     let cancelled = false;
     let viewerStarted = false;
+    const abortController = new AbortController();
 
     const startPhoneViewer = async () => {
       try {
@@ -201,12 +201,20 @@ export default function HomePage() {
 
         let remoteOffer: { sdp: string; type: RTCSdpType } | null = null;
         for (let attempt = 0; attempt < 60; attempt += 1) {
+          if (cancelled) {
+            return;
+          }
+
           const response = await fetch(`${apiBase}/api/camera/phone-webrtc/publisher-offer/${sessionId}`, {
             cache: 'no-store',
+            signal: abortController.signal,
           });
           if (response.ok) {
             remoteOffer = (await response.json()) as { sdp: string; type: RTCSdpType };
             break;
+          }
+          if (cancelled) {
+            return;
           }
           await delay(1000);
         }
@@ -220,22 +228,32 @@ export default function HomePage() {
         }
 
         viewerStarted = true;
-        const pc = new RTCPeerConnection(viewerRtcConfig);
+        const pc = new RTCPeerConnection(rtcConfiguration(JSON.parse(viewerIceKey) as RTCIceServerConfig[]));
         phonePcRef.current = pc;
+        pc.addTransceiver('video', { direction: 'recvonly' });
 
         pc.ontrack = (event) => {
           const [stream] = event.streams;
-          if (videoRef.current && stream) {
-            videoRef.current.srcObject = stream;
+          const targetStream = stream ?? new MediaStream([event.track]);
+
+          event.track.onunmute = () => {
+            if (cancelled || !videoRef.current) {
+              return;
+            }
+            videoRef.current.srcObject = targetStream;
             void videoRef.current.play().catch(() => {});
             setPhoneViewerReady(true);
             setPhoneViewerError(null);
+          };
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = targetStream;
+            void videoRef.current.play().catch(() => {});
           }
         };
 
         pc.onconnectionstatechange = () => {
           if (pc.connectionState === 'connected') {
-            setPhoneViewerReady(true);
             void fetch(`${apiBase}/api/camera/phone-webrtc/viewer-live/${sessionId}`, { method: 'POST' });
           } else if (pc.connectionState === 'failed') {
             setPhoneViewerReady(false);
@@ -269,6 +287,9 @@ export default function HomePage() {
           throw new Error('Failed to deliver the dashboard answer.');
         }
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
         if (!cancelled) {
           setPhoneViewerReady(false);
           setPhoneViewerError(error instanceof Error ? error.message : 'Unable to start the phone viewer.');
@@ -280,6 +301,7 @@ export default function HomePage() {
 
     return () => {
       cancelled = true;
+      abortController.abort();
       const pc = phonePcRef.current;
       if (pc) {
         pc.close();
@@ -290,7 +312,7 @@ export default function HomePage() {
         void fetch(`${apiBase}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
       }
     };
-  }, [apiBase, state.camera?.media_session?.session_id, state.camera?.source, viewerIceKey, viewerRtcConfig]);
+  }, [apiBase, state.camera?.media_session?.session_id, state.camera?.source, viewerIceKey]);
 
   useEffect(() => {
     const shouldUseBrowserCamera = state.camera?.source === 'browser-camera';
@@ -348,6 +370,28 @@ export default function HomePage() {
       setBrowserCameraReady(false);
     };
   }, [state.camera?.source]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    const updateAspectRatio = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        setLiveVideoAspectRatio(video.videoWidth / video.videoHeight);
+      }
+    };
+
+    updateAspectRatio();
+    video.addEventListener('loadedmetadata', updateAspectRatio);
+    video.addEventListener('resize', updateAspectRatio);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', updateAspectRatio);
+      video.removeEventListener('resize', updateAspectRatio);
+    };
+  }, [state.camera?.source, phoneViewerReady, browserCameraReady]);
 
   useEffect(() => {
     if (state.camera?.source !== 'browser-camera' || !browserCameraReady) {
@@ -668,6 +712,7 @@ export default function HomePage() {
       browserCameraReady={browserCameraReady}
       phoneViewerReady={phoneViewerReady}
       cameraSource={camera.source}
+      liveVideoAspectRatio={liveVideoAspectRatio}
       videoRef={videoRef}
       sourceSaving={sourceSaving}
       backendLinkCopied={backendLinkCopied}
