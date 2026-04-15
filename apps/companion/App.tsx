@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   type LayoutChangeEvent,
   KeyboardAvoidingView,
   Platform,
@@ -205,6 +206,7 @@ export default function App() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const connectionMonitorRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scanNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scanLineProgress = useRef(new Animated.Value(0)).current;
   const sessionIdRef = useRef<string | null>(null);
   const lastScannedRoomRef = useRef<string | null>(null);
   const lastScannedAtRef = useRef(0);
@@ -221,12 +223,26 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<'connect' | 'live'>('connect');
   const [scanFrame, setScanFrame] = useState<ScanFrame | null>(null);
   const [scannerLayout, setScannerLayout] = useState({ width: 0, height: 0 });
+  const [showManualEntry, setShowManualEntry] = useState(false);
 
   const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
   const primaryButtonLabel = busy ? 'Joining room...' : streaming ? 'Stop Camera' : 'Go Live';
   const shouldAutoScanRoomCode = Boolean(permission?.granted) && !streaming && !busy && currentPage === 'connect';
   const isLandscape = width > height;
   const previewAspectRatio = isLandscape ? 16 / 9 : 3 / 4;
+  const guideSize = useMemo(() => {
+    if (!scannerLayout.width || !scannerLayout.height) {
+      return 0;
+    }
+
+    return Math.min(scannerLayout.width * 0.68, scannerLayout.height * 0.68);
+  }, [scannerLayout.height, scannerLayout.width]);
+  const guideLeft = useMemo(() => (scannerLayout.width - guideSize) / 2, [guideSize, scannerLayout.width]);
+  const guideTop = useMemo(() => (scannerLayout.height - guideSize) / 2, [guideSize, scannerLayout.height]);
+  const scanLineOffset = scanLineProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, Math.max(guideSize - 8, 0)],
+  });
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -291,6 +307,35 @@ export default function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (currentPage !== 'connect' || !shouldAutoScanRoomCode || scanFrame || !guideSize) {
+      scanLineProgress.stopAnimation();
+      scanLineProgress.setValue(0);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanLineProgress, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scanLineProgress, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+
+    return () => {
+      animation.stop();
+      scanLineProgress.stopAnimation();
+    };
+  }, [currentPage, guideSize, scanFrame, scanLineProgress, shouldAutoScanRoomCode]);
 
   const ensurePermission = async () => {
     if (permission?.granted) {
@@ -549,6 +594,7 @@ export default function App() {
     lastScannedAtRef.current = now;
     setBackendUrl(normalized);
     setScanFrame(nextScanFrame);
+    setShowManualEntry(false);
     setError(null);
     setStatus('Room code locked in. Opening the live camera screen...');
 
@@ -570,9 +616,11 @@ export default function App() {
   const openLivePage = () => {
     if (!cleanedBackendUrl) {
       setError('Paste the room address or scan the QR code first.');
+      setShowManualEntry(true);
       return;
     }
 
+    setScanFrame(null);
     setError(null);
     setStatus('Room found. Tap Go Live to start the live camera stream.');
     setCurrentPage('live');
@@ -604,76 +652,34 @@ export default function App() {
       <StatusBar style="dark" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={[styles.container, isLandscape ? styles.containerLandscape : null]}>
-          <View style={styles.pageTabs}>
-            <Pressable
-              style={[styles.pageTab, currentPage === 'connect' ? styles.pageTabActive : null]}
-              onPress={() => void returnToConnectPage()}
-            >
-              <Text style={[styles.pageTabNumber, currentPage === 'connect' ? styles.pageTabNumberActive : null]}>1</Text>
-              <Text style={[styles.pageTabText, currentPage === 'connect' ? styles.pageTabTextActive : null]}>Join room</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.pageTab, currentPage === 'live' ? styles.pageTabActive : null]}
-              onPress={openLivePage}
-            >
-              <Text style={[styles.pageTabNumber, currentPage === 'live' ? styles.pageTabNumberActive : null]}>2</Text>
-              <Text style={[styles.pageTabText, currentPage === 'live' ? styles.pageTabTextActive : null]}>Live camera</Text>
-            </Pressable>
-          </View>
-
           {currentPage === 'connect' ? (
             <>
-              <View style={styles.heroCard}>
-                <View style={styles.heroGlowA} />
-                <View style={styles.heroGlowB} />
+              <View style={styles.connectHeader}>
                 <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
-                <Text style={styles.title}>Join the robot room</Text>
+                <Text style={styles.title}>Scan the room code</Text>
                 <Text style={styles.subtitle}>
-                  Start here. Scan the QR code from SketchBot Desktop or paste the room address. Once the app locks onto the code,
-                  it will take you to the live camera screen.
+                  Point the phone at the QR code on SketchBot Desktop. When Camera Buddy locks onto it, the room page will open automatically.
                 </Text>
-                <View style={styles.heroSteps}>
-                  <View style={styles.heroStep}>
-                    <Text style={styles.heroStepNumber}>1</Text>
-                    <Text style={styles.heroStepCopy}>Point the phone at the room code on the laptop.</Text>
-                  </View>
-                  <View style={styles.heroStep}>
-                    <Text style={styles.heroStepNumber}>2</Text>
-                    <Text style={styles.heroStepCopy}>Wait for the corners to lock onto the QR.</Text>
-                  </View>
-                  <View style={styles.heroStep}>
-                    <Text style={styles.heroStepNumber}>3</Text>
-                    <Text style={styles.heroStepCopy}>Continue to the live camera screen.</Text>
-                  </View>
-                </View>
               </View>
 
-              <View style={styles.card}>
-                <View style={styles.cameraHeader}>
-                  <View style={styles.cameraHeaderCopy}>
-                    <Text style={styles.cardTitle}>Scan the room code</Text>
-                    <Text style={styles.cameraHint}>
-                      Hold the QR code inside the guide. Camera Buddy will lock onto the four corners when it finds the room.
-                    </Text>
-                  </View>
-                  <Pressable style={styles.ghostButton} onPress={() => void flipCamera()}>
-                    <Text style={styles.ghostButtonText}>{cameraFacing === 'back' ? 'Switch to front camera' : 'Switch to back camera'}</Text>
-                  </Pressable>
-                </View>
-
+              <View style={styles.scannerCard}>
                 <View
-                  style={[styles.cameraShell, isLandscape ? styles.cameraShellLandscape : null]}
+                  style={[styles.scannerShell, isLandscape ? styles.cameraShellLandscape : null]}
                   onLayout={handleScannerLayout}
                 >
                   {permission?.granted && cameraSurfaceMode === 'scanner' ? (
                     <View>
                       <CameraView
-                        style={[styles.camera, { aspectRatio: previewAspectRatio }]}
+                        style={[styles.scannerCamera, { aspectRatio: previewAspectRatio }]}
                         facing={cameraFacing}
                         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                         onBarcodeScanned={shouldAutoScanRoomCode ? handleBarcodeScanned : undefined}
                       />
                       <View style={styles.scanOverlay}>
+                        <View style={styles.scanStatusPill}>
+                          <View style={[styles.scanStatusDot, scanFrame ? styles.scanStatusDotLocked : null]} />
+                          <Text style={styles.scanStatusText}>{scanFrame ? 'QR locked' : 'Looking for room code'}</Text>
+                        </View>
                         {scanFrame ? (
                           <View
                             style={[
@@ -692,7 +698,25 @@ export default function App() {
                             <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
                           </View>
                         ) : (
-                          <View style={styles.scanGuideFrame}>
+                          <View
+                            style={[
+                              styles.scanGuideFrame,
+                              {
+                                width: guideSize,
+                                height: guideSize,
+                                left: guideLeft,
+                                top: guideTop,
+                              },
+                            ]}
+                          >
+                            <Animated.View
+                              style={[
+                                styles.scanLine,
+                                {
+                                  transform: [{ translateY: scanLineOffset }],
+                                },
+                              ]}
+                            />
                             <View style={[styles.scanCorner, styles.scanCornerTopLeft]} />
                             <View style={[styles.scanCorner, styles.scanCornerTopRight]} />
                             <View style={[styles.scanCorner, styles.scanCornerBottomLeft]} />
@@ -705,42 +729,68 @@ export default function App() {
                       </View>
                     </View>
                   ) : (
-                    <View style={[styles.camera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
+                    <View style={[styles.scannerCamera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
                       <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission so Camera Buddy can scan the room code.</Text>
                     </View>
                   )}
                 </View>
+                <View style={styles.scannerFooter}>
+                  <Text style={styles.scannerFooterCopy}>
+                    Hold still for a moment and Camera Buddy will jump into the room for you.
+                  </Text>
+                  <View style={styles.scannerActions}>
+                    <Pressable style={styles.scannerSecondaryButton} onPress={() => void flipCamera()}>
+                      <Text style={styles.scannerSecondaryButtonText}>
+                        {cameraFacing === 'back' ? 'Switch camera' : 'Use back camera'}
+                      </Text>
+                    </Pressable>
+                    <Pressable style={styles.scannerSecondaryButton} onPress={() => setShowManualEntry((current) => !current)}>
+                      <Text style={styles.scannerSecondaryButtonText}>{showManualEntry ? 'Hide link box' : 'Paste room link'}</Text>
+                    </Pressable>
+                  </View>
+                </View>
               </View>
 
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Paste the room address</Text>
-                <Text style={styles.label}>Room address from SketchBot Desktop</Text>
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="url"
-                  placeholder="192.168.2.16 or http://192.168.2.16:8787"
-                  placeholderTextColor="#89a0c2"
-                  style={styles.input}
-                  value={backendUrl}
-                  onChangeText={setBackendUrl}
-                  onBlur={() => {
-                    if (backendUrl.trim()) {
-                      setBackendUrl(normalizeLocalRuntimeUrl(backendUrl));
-                    }
-                  }}
-                />
-                <Text style={styles.helperText}>
-                  This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
-                </Text>
-                <Pressable
-                  style={[styles.primaryButton, !cleanedBackendUrl ? styles.buttonDisabled : null]}
-                  disabled={!cleanedBackendUrl}
-                  onPress={openLivePage}
-                >
-                  <Text style={styles.primaryButtonText}>Continue to live camera</Text>
-                </Pressable>
-              </View>
+              {showManualEntry ? (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Paste the room address</Text>
+                  <Text style={styles.label}>Room address from SketchBot Desktop</Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    placeholder="192.168.2.16 or http://192.168.2.16:8787"
+                    placeholderTextColor="#89a0c2"
+                    style={styles.input}
+                    value={backendUrl}
+                    onChangeText={setBackendUrl}
+                    onBlur={() => {
+                      if (backendUrl.trim()) {
+                        setBackendUrl(normalizeLocalRuntimeUrl(backendUrl));
+                      }
+                    }}
+                  />
+                  <Text style={styles.helperText}>
+                    This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
+                  </Text>
+                  <Pressable
+                    style={[styles.primaryButton, !cleanedBackendUrl ? styles.buttonDisabled : null]}
+                    disabled={!cleanedBackendUrl}
+                    onPress={openLivePage}
+                  >
+                    <Text style={styles.primaryButtonText}>Open room</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {error ? (
+                <View style={styles.card}>
+                  <View style={styles.statusCard}>
+                    <Text style={styles.statusText}>{status}</Text>
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                </View>
+              ) : null}
             </>
           ) : (
             <>
@@ -843,50 +893,9 @@ const styles = StyleSheet.create({
   containerLandscape: {
     paddingHorizontal: 24,
   },
-  pageTabs: {
-    flexDirection: 'row',
+  connectHeader: {
+    paddingHorizontal: 6,
     gap: 10,
-  },
-  pageTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#dce4ff',
-    backgroundColor: '#ffffff',
-  },
-  pageTabActive: {
-    borderColor: '#8fcfff',
-    backgroundColor: '#eef9ff',
-  },
-  pageTabNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-    overflow: 'hidden',
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    lineHeight: 28,
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#6c7a9b',
-    backgroundColor: '#f2f5ff',
-  },
-  pageTabNumberActive: {
-    color: '#17304a',
-    backgroundColor: '#7be0ff',
-  },
-  pageTabText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#596887',
-  },
-  pageTabTextActive: {
-    color: '#223457',
   },
   heroCard: {
     overflow: 'hidden',
@@ -901,6 +910,17 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
     elevation: 3,
+  },
+  scannerCard: {
+    backgroundColor: '#0d1424',
+    borderRadius: 30,
+    padding: 14,
+    gap: 14,
+    shadowColor: '#223a68',
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 4,
   },
   heroGlowA: {
     position: 'absolute',
@@ -1021,24 +1041,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: '#7581a0',
   },
-  joinTip: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#d7e7ff',
-    backgroundColor: '#eef8ff',
-    padding: 12,
-    gap: 4,
-  },
-  joinTipTitle: {
-    color: '#28506e',
-    fontWeight: '900',
-    fontSize: 13,
-  },
-  joinTipCopy: {
-    color: '#49657f',
-    fontSize: 13,
-    lineHeight: 18,
-  },
   cameraHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1061,6 +1063,13 @@ const styles = StyleSheet.create({
     borderColor: '#dbe1fb',
     backgroundColor: '#0c1220',
   },
+  scannerShell: {
+    overflow: 'hidden',
+    borderRadius: 28,
+    backgroundColor: '#060b15',
+    borderWidth: 1,
+    borderColor: 'rgba(123, 224, 255, 0.18)',
+  },
   cameraShellLandscape: {
     alignSelf: 'center',
     width: '100%',
@@ -1071,23 +1080,67 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4,
     backgroundColor: '#0c1220',
   },
+  scannerCamera: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    backgroundColor: '#060b15',
+  },
   scanOverlay: {
     position: 'absolute',
     inset: 0,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 18,
-    backgroundColor: 'rgba(8, 14, 28, 0.22)',
+    backgroundColor: 'rgba(5, 10, 20, 0.34)',
   },
   scanGuideFrame: {
-    width: '64%',
-    aspectRatio: 1,
-    borderRadius: 28,
     position: 'relative',
   },
   lockedScanFrame: {
     position: 'absolute',
     borderRadius: 18,
+    backgroundColor: 'rgba(123, 224, 255, 0.06)',
+  },
+  scanStatusPill: {
+    position: 'absolute',
+    top: 18,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(7, 15, 30, 0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(123, 224, 255, 0.22)',
+  },
+  scanStatusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    backgroundColor: '#7be0ff',
+  },
+  scanStatusDotLocked: {
+    backgroundColor: '#7dffb5',
+  },
+  scanStatusText: {
+    color: '#eff8ff',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  scanLine: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: 4,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: '#7be0ff',
+    shadowColor: '#7be0ff',
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
   },
   scanOverlayText: {
     color: '#eff8ff',
@@ -1133,6 +1186,35 @@ const styles = StyleSheet.create({
     borderBottomWidth: 4,
     borderBottomRightRadius: 18,
   },
+  scannerFooter: {
+    gap: 12,
+    paddingHorizontal: 6,
+  },
+  scannerFooterCopy: {
+    color: '#d6e8ff',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  scannerActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  scannerSecondaryButton: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(241, 245, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  scannerSecondaryButtonText: {
+    color: '#f3f8ff',
+    fontWeight: '800',
+    fontSize: 13,
+  },
   cameraPlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -1142,17 +1224,6 @@ const styles = StyleSheet.create({
     color: '#d8e7ff',
     textAlign: 'center',
     lineHeight: 20,
-  },
-  ghostButton: {
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#f1f5ff',
-  },
-  ghostButtonText: {
-    color: '#42547e',
-    fontWeight: '800',
-    fontSize: 13,
   },
   statusCard: {
     borderRadius: 20,
