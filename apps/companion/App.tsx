@@ -220,7 +220,7 @@ export default function App() {
   const [session, setSession] = useState<PhoneWebRTCSessionResponse | null>(null);
   const [localStreamUrl, setLocalStreamUrl] = useState<string | null>(null);
   const [cameraSurfaceMode, setCameraSurfaceMode] = useState<'scanner' | 'stream'>('scanner');
-  const [currentPage, setCurrentPage] = useState<'connect' | 'live'>('connect');
+  const [currentPage, setCurrentPage] = useState<'splash' | 'menu' | 'connect' | 'live'>('splash');
   const [scanFrame, setScanFrame] = useState<ScanFrame | null>(null);
   const [scannerLayout, setScannerLayout] = useState({ width: 0, height: 0 });
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -264,6 +264,14 @@ export default function App() {
     };
 
     void loadConfig();
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage((current) => (current === 'splash' ? 'menu' : current));
+    }, 1200);
+
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -612,10 +620,22 @@ export default function App() {
     setScannerLayout({ width: nextWidth, height: nextHeight });
   };
 
+  const openConnectPage = () => {
+    setScanFrame(null);
+    setError(null);
+    setCurrentPage('connect');
+    setStatus(
+      cleanedBackendUrl
+        ? 'Point at the room QR code again, or paste a new room link.'
+        : 'Point the phone at the room QR code on SketchBot Desktop.',
+    );
+  };
+
   const openLivePage = () => {
     if (!cleanedBackendUrl) {
       setError('Paste the room address or scan the QR code first.');
       setShowManualEntry(true);
+      setCurrentPage('connect');
       return;
     }
 
@@ -630,14 +650,11 @@ export default function App() {
       await stopStreaming({ preserveStatus: true });
     }
 
-    setCurrentPage('connect');
+    setCurrentPage('menu');
     setScanFrame(null);
     setError(null);
-    setStatus(
-      cleanedBackendUrl
-        ? 'Room saved. Point at the room QR code again or continue when you are ready.'
-        : 'Point the phone at the room QR code on SketchBot Desktop.',
-    );
+    setShowManualEntry(false);
+    setStatus(cleanedBackendUrl ? 'Saved room ready.' : 'Choose what you want Camera Buddy to do.');
   };
 
   useEffect(() => {
@@ -651,7 +668,111 @@ export default function App() {
       <StatusBar style="dark" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={[styles.container, isLandscape ? styles.containerLandscape : null]}>
-          {currentPage === 'connect' ? (
+          {currentPage === 'splash' ? (
+            <View style={styles.splashScreen}>
+              <View style={styles.splashOrbA} />
+              <View style={styles.splashOrbB} />
+              <View style={styles.splashBadge}>
+                <Text style={styles.splashBadgeText}>SketchBot</Text>
+              </View>
+              <Text style={styles.splashTitle}>Camera Buddy</Text>
+              <Text style={styles.splashCopy}>Join the robot room, help with setup, and stream live from the same Wi-Fi.</Text>
+            </View>
+          ) : currentPage === 'menu' ? (
+            <>
+              <View style={styles.heroCard}>
+                <View style={styles.heroGlowA} />
+                <View style={styles.heroGlowB} />
+                <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
+                <Text style={styles.title}>Choose what you want to do</Text>
+                <Text style={styles.subtitle}>
+                  Camera Buddy can help you join a room, run the live camera, and grow into more companion tools over time.
+                </Text>
+              </View>
+
+              <View style={styles.menuGrid}>
+                <Pressable style={[styles.menuCard, styles.menuCardPrimary]} onPress={openConnectPage}>
+                  <Text style={[styles.menuEyebrow, styles.menuEyebrowPrimary]}>Best for kids</Text>
+                  <Text style={[styles.menuTitle, styles.menuTitlePrimary]}>Scan room code</Text>
+                  <Text style={[styles.menuCopy, styles.menuCopyPrimary]}>Open the scanner and lock onto the QR from SketchBot Desktop.</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.menuCard, !cleanedBackendUrl ? styles.menuCardDisabled : null]}
+                  onPress={openLivePage}
+                  disabled={!cleanedBackendUrl}
+                >
+                  <Text style={styles.menuEyebrow}>Quick return</Text>
+                  <Text style={styles.menuTitle}>Open saved room</Text>
+                  <Text style={styles.menuCopy}>
+                    {cleanedBackendUrl ? cleanedBackendUrl : 'Save a room first by scanning or pasting a link.'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>More companion tools</Text>
+                <View style={styles.toolList}>
+                  <View style={styles.toolItem}>
+                    <Text style={styles.toolTitle}>Camera setup</Text>
+                    <Text style={styles.toolCopy}>Live now</Text>
+                  </View>
+                  <View style={styles.toolItem}>
+                    <Text style={styles.toolTitle}>Room join</Text>
+                    <Text style={styles.toolCopy}>Live now</Text>
+                  </View>
+                  <View style={styles.toolItem}>
+                    <Text style={styles.toolTitle}>Paper check</Text>
+                    <Text style={styles.toolCopy}>Coming soon</Text>
+                  </View>
+                </View>
+                <Pressable style={styles.secondaryMenuButton} onPress={() => setShowManualEntry((current) => !current)}>
+                  <Text style={styles.secondaryMenuButtonText}>{showManualEntry ? 'Hide room link box' : 'Paste room link instead'}</Text>
+                </Pressable>
+              </View>
+
+              {showManualEntry ? (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Paste the room address</Text>
+                  <Text style={styles.label}>Room address from SketchBot Desktop</Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    placeholder="192.168.2.16 or http://192.168.2.16:8787"
+                    placeholderTextColor="#89a0c2"
+                    style={styles.input}
+                    value={backendUrl}
+                    onChangeText={setBackendUrl}
+                    onBlur={() => {
+                      if (backendUrl.trim()) {
+                        setBackendUrl(normalizeLocalRuntimeUrl(backendUrl));
+                      }
+                    }}
+                  />
+                  <Text style={styles.helperText}>
+                    This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
+                  </Text>
+                  <Pressable
+                    style={[styles.primaryButton, !cleanedBackendUrl ? styles.buttonDisabled : null]}
+                    disabled={!cleanedBackendUrl}
+                    onPress={openLivePage}
+                  >
+                    <Text style={styles.primaryButtonText}>Open room</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {error ? (
+                <View style={styles.card}>
+                  <View style={styles.statusCard}>
+                    <Text style={styles.statusText}>{status}</Text>
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </>
+          ) : currentPage === 'connect' ? (
             <>
               <View style={styles.connectHeader}>
                 <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
@@ -804,7 +925,7 @@ export default function App() {
                 </Text>
                 <View style={styles.heroActions}>
                   <Pressable style={styles.secondaryPillButton} onPress={() => void returnToConnectPage()}>
-                    <Text style={styles.secondaryPillButtonText}>Change room</Text>
+                    <Text style={styles.secondaryPillButtonText}>Main menu</Text>
                   </Pressable>
                   <Pressable style={styles.secondaryPillButton} onPress={() => void flipCamera()}>
                     <Text style={styles.secondaryPillButtonText}>
@@ -891,6 +1012,155 @@ const styles = StyleSheet.create({
   },
   containerLandscape: {
     paddingHorizontal: 24,
+  },
+  splashScreen: {
+    minHeight: 620,
+    borderRadius: 34,
+    overflow: 'hidden',
+    padding: 28,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    backgroundColor: '#121934',
+    shadowColor: '#1f3760',
+    shadowOpacity: 0.26,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 6,
+  },
+  splashOrbA: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 999,
+    top: -30,
+    right: -40,
+    backgroundColor: '#79d5ff',
+    opacity: 0.34,
+  },
+  splashOrbB: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 999,
+    bottom: -90,
+    left: -40,
+    backgroundColor: '#ffb6df',
+    opacity: 0.42,
+  },
+  splashBadge: {
+    marginBottom: 18,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  splashBadgeText: {
+    color: '#f3f8ff',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  splashTitle: {
+    fontSize: 40,
+    lineHeight: 44,
+    fontWeight: '900',
+    color: '#ffffff',
+    marginBottom: 12,
+  },
+  splashCopy: {
+    fontSize: 17,
+    lineHeight: 25,
+    color: '#d6e8ff',
+    maxWidth: '90%',
+  },
+  menuGrid: {
+    gap: 12,
+  },
+  menuCard: {
+    borderRadius: 28,
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e1e7ff',
+    shadowColor: '#97a6cf',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 2,
+  },
+  menuCardPrimary: {
+    backgroundColor: '#10192f',
+    borderColor: '#1e3658',
+  },
+  menuCardDisabled: {
+    opacity: 0.58,
+  },
+  menuEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    color: '#7a86a8',
+    marginBottom: 10,
+  },
+  menuEyebrowPrimary: {
+    color: '#8ccfff',
+  },
+  menuTitle: {
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '900',
+    color: '#1d2244',
+    marginBottom: 8,
+  },
+  menuTitlePrimary: {
+    color: '#ffffff',
+  },
+  menuCopy: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: '#61708f',
+  },
+  menuCopyPrimary: {
+    color: '#d6e8ff',
+  },
+  toolList: {
+    gap: 10,
+  },
+  toolItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    backgroundColor: '#f7f9ff',
+  },
+  toolTitle: {
+    color: '#243457',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  toolCopy: {
+    color: '#6f7d9b',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  secondaryMenuButton: {
+    marginTop: 12,
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eef8ff',
+  },
+  secondaryMenuButtonText: {
+    color: '#244d72',
+    fontWeight: '800',
+    fontSize: 14,
   },
   connectHeader: {
     paddingHorizontal: 6,
