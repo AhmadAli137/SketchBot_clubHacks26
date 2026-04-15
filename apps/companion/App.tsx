@@ -32,6 +32,10 @@ const DEFAULT_PORT = '8787';
 
 type SavedConfig = {
   backendUrl: string;
+  classroomName?: string;
+  teacherName?: string;
+  students?: string[];
+  bots?: string[];
 };
 
 type RTCIceServerConfig = {
@@ -62,6 +66,14 @@ type ScanFrame = {
   top: number;
   width: number;
   height: number;
+};
+
+type ClassroomJoinDetails = {
+  backendUrl: string;
+  classroomName?: string;
+  teacherName?: string;
+  students?: string[];
+  bots?: string[];
 };
 
 try {
@@ -128,6 +140,77 @@ function normalizeLocalRuntimeUrl(value: string) {
   } catch {
     return trimmed;
   }
+}
+
+function parseDelimitedList(value: string | null) {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split('|')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parseClassroomJoinValue(value: string): ClassroomJoinDetails | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        roomUrl?: string;
+        classroomName?: string;
+        teacherName?: string;
+        students?: string[];
+        bots?: string[];
+      };
+
+      if (!parsed.roomUrl) {
+        return null;
+      }
+
+      return {
+        backendUrl: normalizeLocalRuntimeUrl(parsed.roomUrl),
+        classroomName: parsed.classroomName?.trim() || undefined,
+        teacherName: parsed.teacherName?.trim() || undefined,
+        students: parsed.students?.filter(Boolean) ?? [],
+        bots: parsed.bots?.filter(Boolean) ?? [],
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol === 'sketchbot:' && url.hostname === 'classroom') {
+      const roomUrl = url.searchParams.get('room');
+      if (!roomUrl) {
+        return null;
+      }
+
+      return {
+        backendUrl: normalizeLocalRuntimeUrl(roomUrl),
+        classroomName: url.searchParams.get('name')?.trim() || undefined,
+        teacherName: url.searchParams.get('teacher')?.trim() || undefined,
+        students: parseDelimitedList(url.searchParams.get('students')),
+        bots: parseDelimitedList(url.searchParams.get('bots')),
+      };
+    }
+  } catch {
+    // Fall back to raw room URL parsing.
+  }
+
+  const normalized = normalizeLocalRuntimeUrl(trimmed);
+  if (!normalized) {
+    return null;
+  }
+
+  return { backendUrl: normalized };
 }
 
 function waitForIceGatheringComplete(pc: RTCPeerConnection, timeoutMs = 2500) {
@@ -212,10 +295,14 @@ export default function App() {
   const lastScannedAtRef = useRef(0);
   const [permission, requestPermission] = useCameraPermissions();
   const [backendUrl, setBackendUrl] = useState('');
+  const [classroomName, setClassroomName] = useState('');
+  const [teacherName, setTeacherName] = useState('');
+  const [studentNames, setStudentNames] = useState<string[]>([]);
+  const [botNames, setBotNames] = useState<string[]>([]);
   const [cameraFacing, setCameraFacing] = useState<CameraType>('back');
   const [busy, setBusy] = useState(false);
   const [streaming, setStreaming] = useState(false);
-  const [status, setStatus] = useState('Point the phone at the room QR code on SketchBot Desktop, then tap Go Live.');
+  const [status, setStatus] = useState('Point the phone at the classroom code on SketchBot Desktop, then tap Go Live.');
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<PhoneWebRTCSessionResponse | null>(null);
   const [localStreamUrl, setLocalStreamUrl] = useState<string | null>(null);
@@ -225,12 +312,14 @@ export default function App() {
   const [scannerLayout, setScannerLayout] = useState({ width: 0, height: 0 });
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [pendingRoomUrl, setPendingRoomUrl] = useState<string | null>(null);
+  const [manualJoinInput, setManualJoinInput] = useState('');
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [previewRotation, setPreviewRotation] = useState(0);
   const [previewZoom, setPreviewZoom] = useState(0);
 
   const cleanedBackendUrl = useMemo(() => normalizeLocalRuntimeUrl(backendUrl), [backendUrl]);
-  const primaryButtonLabel = busy ? 'Joining room...' : streaming ? 'Stop Camera' : 'Go Live';
+  const classroomLabel = classroomName || 'SketchBot classroom';
+  const primaryButtonLabel = busy ? 'Joining classroom...' : streaming ? 'Stop Camera' : 'Go Live';
   const shouldAutoScanRoomCode =
     Boolean(permission?.granted) && !streaming && !busy && currentPage === 'connect' && !pendingRoomUrl;
   const isLandscape = width > height;
@@ -277,6 +366,13 @@ export default function App() {
             setBackendUrl(normalized);
           }
         }
+        const savedClassroomName = saved.classroomName?.trim() || '';
+        const savedTeacherName = saved.teacherName?.trim() || '';
+        setClassroomName(savedClassroomName);
+        setTeacherName(savedTeacherName);
+        setStudentNames(saved.students?.filter(Boolean) ?? []);
+        setBotNames(saved.bots?.filter(Boolean) ?? []);
+        setManualJoinInput(savedClassroomName || saved.backendUrl || '');
       } catch {
         // Ignore storage failures and allow a fresh room scan.
       }
@@ -298,9 +394,13 @@ export default function App() {
       STORAGE_KEY,
       JSON.stringify({
         backendUrl: cleanedBackendUrl || backendUrl,
+        classroomName,
+        teacherName,
+        students: studentNames,
+        bots: botNames,
       } satisfies SavedConfig),
     ).catch(() => {});
-  }, [backendUrl, cleanedBackendUrl]);
+  }, [backendUrl, botNames, cleanedBackendUrl, classroomName, studentNames, teacherName]);
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) {
@@ -314,17 +414,26 @@ export default function App() {
     }
 
     if (!permission?.granted) {
-      setStatus('Allow camera access so Camera Buddy can scan the room code automatically.');
+      setStatus('Allow camera access so Camera Buddy can scan the classroom code automatically.');
       return;
     }
 
     if (!cleanedBackendUrl) {
-      setStatus('Point the phone at the room QR code on SketchBot Desktop.');
+      setStatus('Point the phone at the classroom code on SketchBot Desktop.');
       return;
     }
 
-    setStatus('Room found. Tap Go Live to start the live camera stream.');
-  }, [cleanedBackendUrl, permission?.granted, streaming]);
+    setStatus(`${classroomLabel} is ready. Tap Go Live to start the live camera stream.`);
+  }, [classroomLabel, cleanedBackendUrl, permission?.granted, streaming]);
+
+  const applyJoinDetails = (details: ClassroomJoinDetails) => {
+    setBackendUrl(details.backendUrl);
+    setClassroomName(details.classroomName ?? '');
+    setTeacherName(details.teacherName ?? '');
+    setStudentNames(details.students ?? []);
+    setBotNames(details.bots ?? []);
+    setManualJoinInput(details.classroomName ?? details.backendUrl);
+  };
 
   useEffect(() => {
     if (currentPage !== 'connect' || !shouldAutoScanRoomCode || scanFrame || !guideSize) {
@@ -370,7 +479,7 @@ export default function App() {
     });
 
     if (!response.ok) {
-      throw new Error(`Room check failed (${response.status}).`);
+      throw new Error(`Classroom check failed (${response.status}).`);
     }
   };
 
@@ -385,7 +494,7 @@ export default function App() {
     });
 
     if (!response.ok) {
-      throw new Error(`Could not start the live room (${response.status}).`);
+      throw new Error(`Could not start the live classroom (${response.status}).`);
     }
 
     const payload = (await response.json()) as PhoneWebRTCSessionResponse;
@@ -424,7 +533,7 @@ export default function App() {
       }
 
       if (!options?.preserveStatus) {
-        setStatus('Camera Buddy stopped. Tap Go Live when your robot room is ready again.');
+        setStatus('Camera Buddy stopped. Tap Go Live when your classroom is ready again.');
       }
     },
     [cleanedBackendUrl],
@@ -466,13 +575,13 @@ export default function App() {
       }
 
       if (!cleanedBackendUrl) {
-        throw new Error('Point Camera Buddy at the room QR code first.');
+        throw new Error('Point Camera Buddy at the classroom code first.');
       }
 
-      setStatus('Checking the SketchBot room...');
+      setStatus(`Checking ${classroomLabel}...`);
       await pingBackend(cleanedBackendUrl);
 
-      setStatus('Opening the live room...');
+      setStatus(`Opening ${classroomLabel}...`);
       const activeSession = await provisionSession(cleanedBackendUrl);
       setCameraSurfaceMode('stream');
       await wait(300);
@@ -505,7 +614,7 @@ export default function App() {
         throw new Error(`SketchBot Desktop did not accept the live stream offer (${offerResponse.status}).`);
       }
 
-      setStatus('Connecting the live stream to SketchBot Desktop...');
+      setStatus(`Connecting the live stream to ${classroomLabel}...`);
 
       let remoteAnswer: { sdp: string; type: 'answer' } | null = null;
       for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -527,7 +636,7 @@ export default function App() {
       }
 
       await pc.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
-      setStatus('Live stream ready. SketchBot Desktop is connecting now...');
+      setStatus(`${classroomLabel} is connecting to SketchBot Desktop now...`);
 
       let lastConnectionState = pc.connectionState;
       const connectionDeadline = Date.now() + 20000;
@@ -547,7 +656,7 @@ export default function App() {
           setStreaming(true);
           setBusy(false);
           setError(null);
-          setStatus('Camera Buddy is live on the same Wi-Fi.');
+          setStatus(`${classroomLabel} is live on the same Wi-Fi.`);
           void fetch(`${cleanedBackendUrl}/api/camera/phone-webrtc/publisher-live/${activeSession.session_id}`, {
             method: 'POST',
           });
@@ -567,7 +676,7 @@ export default function App() {
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : 'Camera Buddy could not start the live stream.';
       setError(message);
-      setStatus('Camera Buddy could not start.');
+      setStatus('Camera Buddy could not start the classroom stream.');
       await stopStreaming({ preserveStatus: true });
     }
   };
@@ -585,7 +694,7 @@ export default function App() {
     const nextFacing = cameraFacing === 'back' ? 'front' : 'back';
     if (streaming || localStreamRef.current) {
       await stopStreaming({ preserveStatus: true });
-      setStatus('Camera flipped. Tap Go Live to restart the live stream.');
+      setStatus('Camera flipped. Tap Go Live to restart the classroom stream.');
     }
     setCameraFacing(nextFacing);
     setCameraSurfaceMode('scanner');
@@ -597,25 +706,25 @@ export default function App() {
       return;
     }
 
-    const normalized = normalizeLocalRuntimeUrl(data);
-    if (!normalized) {
+    const joinDetails = parseClassroomJoinValue(data);
+    if (!joinDetails?.backendUrl) {
       return;
     }
 
     const now = Date.now();
-    if (lastScannedRoomRef.current === normalized && now - lastScannedAtRef.current < 2500) {
+    if (lastScannedRoomRef.current === joinDetails.backendUrl && now - lastScannedAtRef.current < 2500) {
       return;
     }
 
     const nextScanFrame = extractScanFrame(result, scannerLayout);
-    lastScannedRoomRef.current = normalized;
+    lastScannedRoomRef.current = joinDetails.backendUrl;
     lastScannedAtRef.current = now;
-    setBackendUrl(normalized);
+    applyJoinDetails(joinDetails);
     setScanFrame(nextScanFrame);
-    setPendingRoomUrl(normalized);
+    setPendingRoomUrl(joinDetails.backendUrl);
     setShowManualEntry(false);
     setError(null);
-    setStatus('Room found. Start the camera when you are ready.');
+    setStatus(`${joinDetails.classroomName || 'Classroom'} found. Start the camera when you are ready.`);
   };
 
   const handleScannerLayout = (event: LayoutChangeEvent) => {
@@ -630,14 +739,14 @@ export default function App() {
     setCurrentPage('connect');
     setStatus(
       cleanedBackendUrl
-        ? 'Point at the room QR code again, or paste a new room link.'
-        : 'Point the phone at the room QR code on SketchBot Desktop.',
+        ? 'Point at the classroom code again, or paste a new classroom link.'
+        : 'Point the phone at the classroom code on SketchBot Desktop.',
     );
   };
 
   const openLivePage = () => {
     if (!cleanedBackendUrl) {
-      setError('Paste the room address or scan the QR code first.');
+      setError('Paste the classroom link or scan the classroom code first.');
       setShowManualEntry(true);
       setCurrentPage('connect');
       return;
@@ -646,7 +755,7 @@ export default function App() {
     setScanFrame(null);
     setPendingRoomUrl(null);
     setError(null);
-    setStatus('Room found. Tap Go Live to start the live camera stream.');
+    setStatus(`${classroomLabel} is ready. Tap Go Live to start the live camera stream.`);
     setCurrentPage('live');
   };
 
@@ -654,7 +763,7 @@ export default function App() {
     setPendingRoomUrl(null);
     setError(null);
     setCurrentPage('live');
-    setStatus('Room found. Starting the live camera...');
+    setStatus(`Starting ${classroomLabel}...`);
     await wait(120);
     await startStreaming();
   };
@@ -663,7 +772,7 @@ export default function App() {
     setPendingRoomUrl(null);
     setScanFrame(null);
     setError(null);
-    setStatus('Point the phone at the room QR code on SketchBot Desktop.');
+    setStatus('Point the phone at the classroom code on SketchBot Desktop.');
   };
 
   const returnToConnectPage = async () => {
@@ -679,7 +788,7 @@ export default function App() {
     setPreviewExpanded(false);
     setPreviewRotation(0);
     setPreviewZoom(0);
-    setStatus(cleanedBackendUrl ? 'Saved room ready.' : 'Choose what you want Camera Buddy to do.');
+    setStatus(cleanedBackendUrl ? 'Saved classroom ready.' : 'Choose what you want Camera Buddy to do.');
   };
 
   useEffect(() => {
@@ -718,7 +827,7 @@ export default function App() {
                 </View>
               </View>
               <Text style={styles.splashTitle}>Camera Buddy</Text>
-              <Text style={styles.splashCopy}>Join the robot room, help with setup, and stream live from the same Wi-Fi.</Text>
+              <Text style={styles.splashCopy}>Join the classroom, help with setup, and stream live from the same Wi-Fi.</Text>
               <View style={styles.splashFeatureRow}>
                 <View style={styles.splashFeaturePill}>
                   <Text style={styles.splashFeaturePillText}>Fast QR join</Text>
@@ -736,12 +845,12 @@ export default function App() {
                 <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
                 <Text style={styles.title}>Choose a mission</Text>
                 <Text style={styles.subtitle}>
-                  Camera Buddy can help you join a room, run the live camera, and grow into more companion tools over time.
+                  Camera Buddy can help you join a classroom, run the live camera, and grow into more companion tools over time.
                 </Text>
                 <View style={styles.heroPillRow}>
                   <View style={styles.heroStatPill}>
                     <Text style={styles.heroStatLabel}>Best start</Text>
-                    <Text style={styles.heroStatValue}>Scan room code</Text>
+                    <Text style={styles.heroStatValue}>Scan classroom code</Text>
                   </View>
                   <View style={styles.heroStatPill}>
                     <Text style={styles.heroStatLabel}>Wi-Fi</Text>
@@ -755,8 +864,8 @@ export default function App() {
                   <View style={styles.menuCardOrbitA} />
                   <View style={styles.menuCardOrbitB} />
                   <Text style={[styles.menuEyebrow, styles.menuEyebrowPrimary]}>Best for kids</Text>
-                  <Text style={[styles.menuTitle, styles.menuTitlePrimary]}>Scan room code</Text>
-                  <Text style={[styles.menuCopy, styles.menuCopyPrimary]}>Open the scanner and lock onto the QR from SketchBot Desktop.</Text>
+                  <Text style={[styles.menuTitle, styles.menuTitlePrimary]}>Scan classroom code</Text>
+                  <Text style={[styles.menuCopy, styles.menuCopyPrimary]}>Open the scanner and lock onto the classroom QR from SketchBot Desktop.</Text>
                   <View style={styles.menuCardFooter}>
                     <View style={styles.menuCardActionPill}>
                       <Text style={styles.menuCardActionText}>Open scanner</Text>
@@ -771,9 +880,9 @@ export default function App() {
                   disabled={!cleanedBackendUrl}
                 >
                   <Text style={styles.menuEyebrow}>Quick return</Text>
-                  <Text style={styles.menuTitle}>Open saved room</Text>
+                  <Text style={styles.menuTitle}>Open saved classroom</Text>
                   <Text style={styles.menuCopy}>
-                    {cleanedBackendUrl ? cleanedBackendUrl : 'Save a room first by scanning or pasting a link.'}
+                    {classroomName || (cleanedBackendUrl ? 'Saved classroom' : 'Save a classroom first by scanning or pasting a link.')}
                   </Text>
                   <View style={styles.menuCardFooter}>
                     <View style={[styles.menuCardActionPill, styles.menuCardActionPillSoft]}>
@@ -791,7 +900,7 @@ export default function App() {
                     <Text style={styles.toolCopy}>Live now</Text>
                   </View>
                   <View style={styles.toolItem}>
-                    <Text style={styles.toolTitle}>Room join</Text>
+                    <Text style={styles.toolTitle}>Classroom join</Text>
                     <Text style={styles.toolCopy}>Live now</Text>
                   </View>
                   <View style={styles.toolItem}>
@@ -800,38 +909,41 @@ export default function App() {
                   </View>
                 </View>
                 <Pressable style={styles.secondaryMenuButton} onPress={() => setShowManualEntry((current) => !current)}>
-                  <Text style={styles.secondaryMenuButtonText}>{showManualEntry ? 'Hide room link box' : 'Paste room link instead'}</Text>
+                  <Text style={styles.secondaryMenuButtonText}>{showManualEntry ? 'Hide classroom link box' : 'Paste classroom link instead'}</Text>
                 </Pressable>
               </View>
 
               {showManualEntry ? (
                 <View style={styles.card}>
-                  <Text style={styles.cardTitle}>Paste the room address</Text>
-                  <Text style={styles.label}>Room address from SketchBot Desktop</Text>
+                  <Text style={styles.cardTitle}>Paste the classroom link</Text>
+                  <Text style={styles.label}>Classroom link from SketchBot Desktop</Text>
                   <TextInput
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="url"
-                    placeholder="192.168.2.16 or http://192.168.2.16:8787"
+                    placeholder="Paste the classroom link from the desktop app"
                     placeholderTextColor="#89a0c2"
                     style={styles.input}
-                    value={backendUrl}
-                    onChangeText={setBackendUrl}
+                    value={manualJoinInput}
+                    onChangeText={setManualJoinInput}
                     onBlur={() => {
-                      if (backendUrl.trim()) {
-                        setBackendUrl(normalizeLocalRuntimeUrl(backendUrl));
+                      if (manualJoinInput.trim()) {
+                        const parsed = parseClassroomJoinValue(manualJoinInput);
+                        if (parsed) {
+                          applyJoinDetails(parsed);
+                        }
                       }
                     }}
                   />
                   <Text style={styles.helperText}>
-                    This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
+                    This link carries the classroom name and the hidden local room connection details together.
                   </Text>
                   <Pressable
                     style={[styles.primaryButton, !cleanedBackendUrl ? styles.buttonDisabled : null]}
                     disabled={!cleanedBackendUrl}
                     onPress={openLivePage}
                   >
-                    <Text style={styles.primaryButtonText}>Open room</Text>
+                    <Text style={styles.primaryButtonText}>Open classroom</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -849,12 +961,12 @@ export default function App() {
             <>
               <View style={styles.connectHeader}>
                 <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
-                <Text style={styles.title}>Scan the room code</Text>
+                <Text style={styles.title}>Scan the classroom code</Text>
                 <Text style={styles.subtitle}>
-                  Point the phone at the QR code on SketchBot Desktop. Camera Buddy will lock onto it, then you can start the live camera in one tap.
+                  Point the phone at the QR code on SketchBot Desktop. Camera Buddy will lock onto the classroom, then you can start the live camera in one tap.
                 </Text>
                 <View style={styles.connectHintPill}>
-                  <Text style={styles.connectHintPillText}>Keep the whole QR inside the frame for a smooth lock.</Text>
+                  <Text style={styles.connectHintPillText}>Keep the whole classroom code inside the frame for a smooth lock.</Text>
                 </View>
               </View>
 
@@ -874,7 +986,7 @@ export default function App() {
                       <View style={styles.scanOverlay}>
                         <View style={styles.scanStatusPill}>
                           <View style={[styles.scanStatusDot, scanFrame ? styles.scanStatusDotLocked : null]} />
-                          <Text style={styles.scanStatusText}>{scanFrame ? 'Room code locked' : 'Looking for room code'}</Text>
+                          <Text style={styles.scanStatusText}>{scanFrame ? 'Classroom locked' : 'Looking for classroom code'}</Text>
                         </View>
                         {scanFrame ? (
                           <View
@@ -919,25 +1031,17 @@ export default function App() {
                             <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
                           </View>
                         )}
-                        <View style={styles.scanOverlayMessage}>
-                          <Text style={styles.scanOverlayText}>
-                            {scanFrame ? 'Room found' : 'Center the whole room code inside the guide'}
-                          </Text>
-                          <Text style={styles.scanOverlaySubtext}>
-                            {scanFrame ? 'Hold still and tap Start camera.' : 'Camera Buddy will lock on before it opens the room.'}
-                          </Text>
-                        </View>
                       </View>
                     </View>
                   ) : (
                     <View style={[styles.scannerCamera, styles.cameraPlaceholder, { aspectRatio: previewAspectRatio }]}>
-                      <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission so Camera Buddy can scan the room code.</Text>
+                      <Text style={styles.cameraPlaceholderText}>We&apos;ll ask for camera permission so Camera Buddy can scan the classroom code.</Text>
                     </View>
                   )}
                 </View>
                 <View style={styles.scannerFooter}>
                   <Text style={styles.scannerFooterCopy}>
-                    The scanner stays here until the room locks, so kids can line it up without feeling rushed.
+                    The scanner stays here until the classroom locks, so kids can line it up without feeling rushed.
                   </Text>
                   <View style={styles.scannerActions}>
                     <Pressable style={styles.scannerSecondaryButton} onPress={() => void flipCamera()}>
@@ -946,7 +1050,7 @@ export default function App() {
                       </Text>
                     </Pressable>
                     <Pressable style={styles.scannerSecondaryButton} onPress={() => setShowManualEntry((current) => !current)}>
-                      <Text style={styles.scannerSecondaryButtonText}>{showManualEntry ? 'Hide link box' : 'Paste room link'}</Text>
+                      <Text style={styles.scannerSecondaryButtonText}>{showManualEntry ? 'Hide link box' : 'Paste classroom link'}</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -954,32 +1058,35 @@ export default function App() {
 
               {showManualEntry ? (
                 <View style={styles.card}>
-                  <Text style={styles.cardTitle}>Paste the room address</Text>
-                  <Text style={styles.label}>Room address from SketchBot Desktop</Text>
+                  <Text style={styles.cardTitle}>Paste the classroom link</Text>
+                  <Text style={styles.label}>Classroom link from SketchBot Desktop</Text>
                   <TextInput
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="url"
-                    placeholder="192.168.2.16 or http://192.168.2.16:8787"
+                    placeholder="Paste the classroom link from the desktop app"
                     placeholderTextColor="#89a0c2"
                     style={styles.input}
-                    value={backendUrl}
-                    onChangeText={setBackendUrl}
+                    value={manualJoinInput}
+                    onChangeText={setManualJoinInput}
                     onBlur={() => {
-                      if (backendUrl.trim()) {
-                        setBackendUrl(normalizeLocalRuntimeUrl(backendUrl));
+                      if (manualJoinInput.trim()) {
+                        const parsed = parseClassroomJoinValue(manualJoinInput);
+                        if (parsed) {
+                          applyJoinDetails(parsed);
+                        }
                       }
                     }}
                   />
                   <Text style={styles.helperText}>
-                    This is the local room address shown in the desktop app, like `http://192.168.x.x:8787`.
+                    This link carries the classroom name and the hidden local room connection details together.
                   </Text>
                   <Pressable
                     style={[styles.primaryButton, !cleanedBackendUrl ? styles.buttonDisabled : null]}
                     disabled={!cleanedBackendUrl}
                     onPress={openLivePage}
                   >
-                    <Text style={styles.primaryButtonText}>Open room</Text>
+                    <Text style={styles.primaryButtonText}>Open classroom</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -1001,14 +1108,20 @@ export default function App() {
                 <Text style={styles.eyebrow}>SketchBot Camera Buddy</Text>
                 <Text style={styles.title}>Stream the live camera</Text>
                 <Text style={styles.subtitle}>
-                  Keep the full page and all AprilTags inside the frame, then tap Go Live. If you need a different room, go back to
+                  Keep the full page and all AprilTags inside the frame, then tap Go Live. If you need a different classroom, go back to
                   the join screen.
                 </Text>
                 <View style={styles.heroPillRow}>
                   <View style={styles.heroStatPill}>
-                    <Text style={styles.heroStatLabel}>Room</Text>
-                    <Text style={styles.heroStatValue} numberOfLines={1}>{cleanedBackendUrl || 'Not connected'}</Text>
+                    <Text style={styles.heroStatLabel}>Classroom</Text>
+                    <Text style={styles.heroStatValue} numberOfLines={1}>{classroomLabel}</Text>
                   </View>
+                  {teacherName ? (
+                    <View style={styles.heroStatPill}>
+                      <Text style={styles.heroStatLabel}>Teacher</Text>
+                      <Text style={styles.heroStatValue} numberOfLines={1}>{teacherName}</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <View style={styles.heroActions}>
                   <Pressable style={styles.secondaryPillButton} onPress={() => void returnToConnectPage()}>
@@ -1090,7 +1203,10 @@ export default function App() {
                 <Text style={styles.cardTitle}>Go live</Text>
                 <View style={styles.statusCard}>
                   <Text style={styles.statusText}>{status}</Text>
-                  {cleanedBackendUrl ? <Text style={styles.helperText}>Room address: {cleanedBackendUrl}</Text> : null}
+                  <Text style={styles.helperText}>Classroom: {classroomLabel}</Text>
+                  {teacherName ? <Text style={styles.helperText}>Teacher: {teacherName}</Text> : null}
+                  {studentNames.length ? <Text style={styles.helperText}>Students: {studentNames.join(', ')}</Text> : null}
+                  {botNames.length ? <Text style={styles.helperText}>Robots: {botNames.join(', ')}</Text> : null}
                   {session?.session_id ? <Text style={styles.helperText}>Live session: {session.session_id}</Text> : null}
                   {error ? <Text style={styles.errorText}>{error}</Text> : null}
                 </View>
@@ -1118,13 +1234,16 @@ export default function App() {
           <View style={styles.lockModalBackdrop}>
             <View style={styles.lockModalCard}>
               <View style={styles.lockModalBadge}>
-                <Text style={styles.lockModalBadgeText}>Room locked</Text>
+                <Text style={styles.lockModalBadgeText}>Classroom locked</Text>
               </View>
               <Text style={styles.lockModalTitle}>Ready to start the camera?</Text>
               <Text style={styles.lockModalCopy}>
-                Camera Buddy found the room and is holding onto it so the scan doesn&apos;t drift away.
+                Camera Buddy found the classroom and is holding the lock so the scan doesn&apos;t drift away.
               </Text>
-              {pendingRoomUrl ? <Text style={styles.lockModalRoom}>{pendingRoomUrl}</Text> : null}
+              <Text style={styles.lockModalRoom}>{classroomLabel}</Text>
+              {teacherName ? <Text style={styles.helperText}>Teacher: {teacherName}</Text> : null}
+              {studentNames.length ? <Text style={styles.helperText}>Students: {studentNames.join(', ')}</Text> : null}
+              {botNames.length ? <Text style={styles.helperText}>Robots: {botNames.join(', ')}</Text> : null}
               <View style={styles.lockModalActions}>
                 <Pressable style={styles.lockModalSecondaryButton} onPress={rescanRoomCode}>
                   <Text style={styles.lockModalSecondaryText}>Scan again</Text>
@@ -1763,19 +1882,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 13,
   },
-  scanOverlayMessage: {
-    position: 'absolute',
-    left: 18,
-    right: 18,
-    bottom: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(7, 15, 30, 0.62)',
-    borderWidth: 1,
-    borderColor: 'rgba(123, 224, 255, 0.16)',
-    gap: 6,
-  },
   scanLine: {
     position: 'absolute',
     left: 12,
@@ -1788,21 +1894,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },
-  },
-  scanOverlayText: {
-    color: '#eff8ff',
-    fontSize: 15,
-    fontWeight: '800',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  scanOverlaySubtext: {
-    color: '#cfe9ff',
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: 'center',
   },
   scanCorner: {
     position: 'absolute',

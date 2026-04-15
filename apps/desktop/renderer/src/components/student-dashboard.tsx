@@ -49,6 +49,42 @@ type StudentDashboardProps = {
   onLoadTask: (task: TaskRecord) => void;
 };
 
+type ClassroomProfile = {
+  classroomName: string;
+  teacherName: string;
+  students: string[];
+  bots: string[];
+};
+
+const CLASSROOM_PROFILE_STORAGE_KEY = 'sketchbot-classroom-profile';
+
+const defaultClassroomProfile: ClassroomProfile = {
+  classroomName: 'Bluebird Makers',
+  teacherName: 'Ms. Ahmad',
+  students: ['Ava', 'Noah'],
+  bots: ['SketchBot 01'],
+};
+
+function sanitizeRosterEntry(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function buildClassroomJoinLink(profile: ClassroomProfile, roomUrl: string) {
+  const url = new URL('sketchbot://classroom');
+  url.searchParams.set('name', profile.classroomName || 'SketchBot Classroom');
+  url.searchParams.set('room', roomUrl);
+  if (profile.teacherName) {
+    url.searchParams.set('teacher', profile.teacherName);
+  }
+  if (profile.students.length) {
+    url.searchParams.set('students', profile.students.join('|'));
+  }
+  if (profile.bots.length) {
+    url.searchParams.set('bots', profile.bots.join('|'));
+  }
+  return url.toString();
+}
+
 export function StudentDashboard({
   topStatus,
   operatorMode,
@@ -88,6 +124,10 @@ export function StudentDashboard({
   onLoadTask,
 }: StudentDashboardProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [classroomProfile, setClassroomProfile] = useState<ClassroomProfile>(defaultClassroomProfile);
+  const [studentDraft, setStudentDraft] = useState('');
+  const [botDraft, setBotDraft] = useState('');
+  const [classroomLinkCopied, setClassroomLinkCopied] = useState(false);
   const [cameraViewMode, setCameraViewMode] = useState<'fit' | 'fill'>('fit');
   const [cameraRotation, setCameraRotation] = useState(0);
   const [hasManualViewPreference, setHasManualViewPreference] = useState(false);
@@ -97,6 +137,31 @@ export function StudentDashboard({
   const mediaObjectFit = cameraViewMode === 'fill' ? 'cover' : 'contain';
   const mediaTransform = cameraRotation === 0 ? undefined : `rotate(${cameraRotation}deg)`;
   const isLandscapeFeed = (liveVideoAspectRatio ?? 1) >= 1;
+  const classroomJoinLink = buildClassroomJoinLink(classroomProfile, companionBackendUrl);
+  const studentSummary = classroomProfile.students.length ? classroomProfile.students.join(', ') : 'No students registered yet';
+  const botSummary = classroomProfile.bots.length ? classroomProfile.bots.join(', ') : 'No robots registered yet';
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CLASSROOM_PROFILE_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const saved = JSON.parse(raw) as Partial<ClassroomProfile>;
+      setClassroomProfile({
+        classroomName: saved.classroomName?.trim() || defaultClassroomProfile.classroomName,
+        teacherName: saved.teacherName?.trim() || defaultClassroomProfile.teacherName,
+        students: saved.students?.filter(Boolean) ?? defaultClassroomProfile.students,
+        bots: saved.bots?.filter(Boolean) ?? defaultClassroomProfile.bots,
+      });
+    } catch {
+      // Keep defaults if local profile data is malformed.
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(CLASSROOM_PROFILE_STORAGE_KEY, JSON.stringify(classroomProfile));
+  }, [classroomProfile]);
 
   useEffect(() => {
     if (!liveVideoAspectRatio || hasManualViewPreference) {
@@ -108,7 +173,7 @@ export function StudentDashboard({
   useEffect(() => {
     let cancelled = false;
 
-    void QRCode.toDataURL(companionBackendUrl, {
+    void QRCode.toDataURL(classroomJoinLink, {
       margin: 1,
       width: 180,
       color: {
@@ -130,7 +195,50 @@ export function StudentDashboard({
     return () => {
       cancelled = true;
     };
-  }, [companionBackendUrl]);
+  }, [classroomJoinLink]);
+
+  const updateClassroomProfile = (nextProfile: Partial<ClassroomProfile>) => {
+    setClassroomProfile((current) => ({
+      ...current,
+      ...nextProfile,
+    }));
+  };
+
+  const addStudent = () => {
+    const entry = sanitizeRosterEntry(studentDraft);
+    if (!entry || classroomProfile.students.includes(entry)) {
+      return;
+    }
+    updateClassroomProfile({ students: [...classroomProfile.students, entry] });
+    setStudentDraft('');
+  };
+
+  const addBot = () => {
+    const entry = sanitizeRosterEntry(botDraft);
+    if (!entry || classroomProfile.bots.includes(entry)) {
+      return;
+    }
+    updateClassroomProfile({ bots: [...classroomProfile.bots, entry] });
+    setBotDraft('');
+  };
+
+  const removeStudent = (entry: string) => {
+    updateClassroomProfile({ students: classroomProfile.students.filter((student) => student !== entry) });
+  };
+
+  const removeBot = (entry: string) => {
+    updateClassroomProfile({ bots: classroomProfile.bots.filter((bot) => bot !== entry) });
+  };
+
+  const copyClassroomLink = async () => {
+    try {
+      await navigator.clipboard.writeText(classroomJoinLink);
+      setClassroomLinkCopied(true);
+      window.setTimeout(() => setClassroomLinkCopied(false), 1800);
+    } catch {
+      void onCopyBackendUrl();
+    }
+  };
 
   return (
     <main className="app-shell">
@@ -268,13 +376,105 @@ export function StudentDashboard({
 
         <aside className="side-stack">
           <div className="panel">
+            <h3>Create a classroom</h3>
+            <p className="subdued-text" style={{ marginBottom: 12 }}>
+              Give this room a friendly name, then register the kids and robots who belong in it.
+            </p>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="subdued-text" style={{ margin: 0 }}>Classroom name</span>
+                <input
+                  value={classroomProfile.classroomName}
+                  onChange={(event) => updateClassroomProfile({ classroomName: event.target.value })}
+                  placeholder="Bluebird Makers"
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="subdued-text" style={{ margin: 0 }}>Teacher or helper</span>
+                <input
+                  value={classroomProfile.teacherName}
+                  onChange={(event) => updateClassroomProfile({ teacherName: event.target.value })}
+                  placeholder="Ms. Ahmad"
+                />
+              </label>
+            </div>
+            <div style={{ display: 'grid', gap: 14, marginTop: 14 }}>
+              <div>
+                <div className="kid-callout" style={{ marginBottom: 10 }}>
+                  <strong>Students</strong>
+                  <span>{studentSummary}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    value={studentDraft}
+                    onChange={(event) => setStudentDraft(event.target.value)}
+                    placeholder="Add a student"
+                    style={{ flex: 1, minWidth: 170 }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addStudent();
+                      }
+                    }}
+                  />
+                  <button className="btn" type="button" onClick={addStudent}>
+                    Add student
+                  </button>
+                </div>
+                {classroomProfile.students.length ? (
+                  <div className="prompt-chip-row" style={{ marginTop: 10 }}>
+                    {classroomProfile.students.map((student) => (
+                      <button key={student} className="prompt-chip" type="button" onClick={() => removeStudent(student)}>
+                        {student} ×
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div>
+                <div className="kid-callout" style={{ marginBottom: 10 }}>
+                  <strong>Robots</strong>
+                  <span>{botSummary}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    value={botDraft}
+                    onChange={(event) => setBotDraft(event.target.value)}
+                    placeholder="Add a bot"
+                    style={{ flex: 1, minWidth: 170 }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addBot();
+                      }
+                    }}
+                  />
+                  <button className="btn" type="button" onClick={addBot}>
+                    Add robot
+                  </button>
+                </div>
+                {classroomProfile.bots.length ? (
+                  <div className="prompt-chip-row" style={{ marginTop: 10 }}>
+                    {classroomProfile.bots.map((bot) => (
+                      <button key={bot} className="prompt-chip" type="button" onClick={() => removeBot(bot)}>
+                        {bot} ×
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="panel">
             <h3>1. Connect a camera</h3>
             <p className="subdued-text" style={{ marginBottom: 12 }}>
-              Use Camera Buddy if you have a phone or tablet. Use This Device for a webcam on the computer.
+              Use Camera Buddy if you have a phone or tablet. The phone joins this classroom by name, not by showing the raw network address.
             </p>
             <div className="kid-callout">
               <strong>Fastest path for kids</strong>
-              <span>Open Camera Buddy and point the phone at this screen. The app will scan the room code automatically.</span>
+              <span>Open Camera Buddy and point the phone at this classroom code. Kids will see {classroomProfile.classroomName} instead of an IP address.</span>
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
               <button className="btn btn-primary" type="button" disabled={sourceSaving} onClick={onActivateCompanionCamera}>
@@ -283,25 +483,31 @@ export function StudentDashboard({
               <button className="btn" type="button" disabled={sourceSaving} onClick={onActivateBrowserCamera}>
                 Use This Device Camera
               </button>
-              <button className="btn" type="button" onClick={onCopyBackendUrl}>
-                {backendLinkCopied ? 'Room address copied' : 'Copy room address'}
+              <button className="btn" type="button" onClick={() => void copyClassroomLink()}>
+                {classroomLinkCopied || backendLinkCopied ? 'Classroom link copied' : 'Copy classroom link'}
               </button>
             </div>
             <div style={{ display: 'grid', justifyItems: 'start', gap: 10, marginTop: 14 }}>
               <div className="qr-shell">
                 {qrDataUrl ? (
-                  <img src={qrDataUrl} alt="QR code for the SketchBot room address" />
+                  <img src={qrDataUrl} alt={`QR code for the ${classroomProfile.classroomName} classroom`} />
                 ) : (
                   <div className="qr-placeholder">QR code</div>
                 )}
               </div>
+              <div className="kid-callout" style={{ margin: 0 }}>
+                <strong>{classroomProfile.classroomName}</strong>
+                <span>{classroomProfile.teacherName || 'Classroom helper'} · {classroomProfile.students.length} students · {classroomProfile.bots.length} bots</span>
+              </div>
               <p className="subdued-text" style={{ margin: 0 }}>
-                Open Camera Buddy and point it at this QR code to join the room without typing.
+                Open Camera Buddy and point it at this QR code to join the classroom without typing.
               </p>
             </div>
             <ul className="compact-list" style={{ marginTop: 12 }}>
               <li>Open Camera Buddy on the same Wi-Fi.</li>
-              <li>Point the phone at the QR code or paste this room address: {companionBackendUrl}</li>
+              <li>Scan the classroom code for {classroomProfile.classroomName} or paste the classroom link.</li>
+              <li>Students registered: {studentSummary}</li>
+              <li>Robots registered: {botSummary}</li>
               <li>{cameraSource === 'browser-camera' ? browserCameraStatus : companionConnectionStatus}</li>
               <li>The view now adapts automatically when the phone rotates. Use Fill frame or Rotate view if you still want to adjust it.</li>
             </ul>
