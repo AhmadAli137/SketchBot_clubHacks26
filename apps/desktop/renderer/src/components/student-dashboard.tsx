@@ -1,120 +1,52 @@
 'use client';
 
-import Image from 'next/image';
 import QRCode from 'qrcode';
-import { useEffect, useState } from 'react';
-import type { ChangeEvent, FormEvent, RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 
-import { DesktopRuntimeBanner } from '@/components/desktop-runtime-banner';
-import { ThemeToggle } from '@/components/theme-toggle';
-import type { TaskRecord } from '@/lib/types';
-
-type StudentDashboardProps = {
-  topStatus: Array<{ label: string; value: string }>;
-  operatorMode: string;
-  nextActionTitle: string;
-  nextActionCopy: string;
-  cameraModeLabel: string;
-  cameraStatus: string;
-  cameraSourceStatus: string;
-  companionConnectionStatus: string;
-  browserCameraStatus: string;
-  companionBackendUrl: string;
-  backendReachable: boolean;
-  cameraReady: boolean;
-  canvasReady: boolean;
-  drawingReady: boolean;
-  robotReady: boolean;
-  activeJobName: string | null;
-  prompt: string;
-  composing: boolean;
-  uploading: boolean;
-  featuredTasks: TaskRecord[];
-  overlayPreviewUrl: string | null;
-  overlayPreviewLabel: string;
-  cameraFrameUrl: string | null;
-  browserCameraReady: boolean;
-  phoneViewerReady: boolean;
-  cameraSource: string;
-  liveVideoAspectRatio: number | null;
-  videoRef: RefObject<HTMLVideoElement | null>;
-  sourceSaving: boolean;
-  backendLinkCopied: boolean;
-  onActivateCompanionCamera: () => void;
-  onActivateBrowserCamera: () => void;
-  onCopyBackendUrl: () => void;
-  onPromptChange: (value: string) => void;
-  onSubmitPrompt: (event: FormEvent) => void;
-  onUploadFile: (event: ChangeEvent<HTMLInputElement>) => void;
-  onLoadTask: (task: TaskRecord) => void;
-};
-
-type ClassroomProfile = {
-  classroomName: string;
-  teacherName: string;
-  students: string[];
-  bots: string[];
-};
-
-const CLASSROOM_PROFILE_STORAGE_KEY = 'sketchbot-classroom-profile';
-
-const defaultClassroomProfile: ClassroomProfile = {
-  classroomName: 'Bluebird Makers',
-  teacherName: 'Ms. Ahmad',
-  students: ['Ava', 'Noah'],
-  bots: ['SketchBot 01'],
-};
-
-function sanitizeRosterEntry(value: string) {
-  return value.trim().replace(/\s+/g, ' ');
-}
-
-function buildClassroomJoinLink(profile: ClassroomProfile, roomUrl: string) {
-  const url = new URL('sketchbot://classroom');
-  url.searchParams.set('name', profile.classroomName || 'SketchBot Classroom');
-  url.searchParams.set('room', roomUrl);
-  if (profile.teacherName) {
-    url.searchParams.set('teacher', profile.teacherName);
-  }
-  if (profile.students.length) {
-    url.searchParams.set('students', profile.students.join('|'));
-  }
-  if (profile.bots.length) {
-    url.searchParams.set('bots', profile.bots.join('|'));
-  }
-  return url.toString();
-}
+import { ConceptMap } from '@/components/concept-map';
+import { TutorPanel } from '@/components/tutor-panel';
+import type { BlockProgram } from '@/components/block-editor';
+import { LearningHeader } from '@/components/student-dashboard/learning-header';
+import { LearningStage } from '@/components/student-dashboard/learning-stage';
+import { PromptComposer } from '@/components/student-dashboard/prompt-composer';
+import type { StudentDashboardProps } from '@/components/student-dashboard/types';
+import type { AgeGroup, ConceptLayer } from '@/lib/concept-types';
+import { awardBadge, saveDrawing } from '@/lib/progress-store';
 
 export function StudentDashboard({
   topStatus,
-  operatorMode,
-  nextActionTitle,
-  nextActionCopy,
-  cameraModeLabel,
-  cameraStatus,
+  backendReachable,
+  cameraReady,
+  robotReady,
+  cameraSource,
+  cameraFrameUrl,
   companionConnectionStatus,
   browserCameraStatus,
   companionBackendUrl,
-  backendReachable,
-  cameraReady,
-  canvasReady,
-  drawingReady,
-  robotReady,
-  activeJobName,
-  prompt,
-  composing,
-  uploading,
-  featuredTasks,
-  overlayPreviewUrl,
-  overlayPreviewLabel,
-  cameraFrameUrl,
   browserCameraReady,
   phoneViewerReady,
-  cameraSource,
   liveVideoAspectRatio,
   videoRef,
   sourceSaving,
   backendLinkCopied,
+  canvasDetected,
+  aprilTagDetections,
+  canvasBorder,
+  liveCameraOverlayUrl,
+  liveMarkerOverlayUrl,
+  prompt,
+  composing,
+  uploading,
+  featuredTasks,
+  activeJobName,
+  conceptId = null,
+  conceptTitle = 'Free Draw',
+  ageGroup: ageGroupProp = 'explorer',
+  studentName = '',
+  apiBase = '',
+  onConceptSelect,
+  onBackToHome,
   onActivateCompanionCamera,
   onActivateBrowserCamera,
   onCopyBackendUrl,
@@ -123,457 +55,323 @@ export function StudentDashboard({
   onUploadFile,
   onLoadTask,
 }: StudentDashboardProps) {
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [classroomProfile, setClassroomProfile] = useState<ClassroomProfile>(defaultClassroomProfile);
-  const [studentDraft, setStudentDraft] = useState('');
-  const [botDraft, setBotDraft] = useState('');
-  const [classroomLinkCopied, setClassroomLinkCopied] = useState(false);
-  const [cameraViewMode, setCameraViewMode] = useState<'fit' | 'fill'>('fit');
-  const [cameraRotation, setCameraRotation] = useState(0);
-  const [hasManualViewPreference, setHasManualViewPreference] = useState(false);
-  const quickPromptIdeas = ['happy robot face', 'rocket ship', 'tiny dinosaur'];
-  const shouldMountVideo = cameraSource === 'browser-camera' || cameraSource === 'phone-webrtc';
-  const showVideoFrame = (cameraSource === 'browser-camera' && browserCameraReady) || (cameraSource === 'phone-webrtc' && phoneViewerReady);
-  const mediaObjectFit = cameraViewMode === 'fill' ? 'cover' : 'contain';
-  const mediaTransform = cameraRotation === 0 ? undefined : `rotate(${cameraRotation}deg)`;
-  const isLandscapeFeed = (liveVideoAspectRatio ?? 1) >= 1;
-  const classroomJoinLink = buildClassroomJoinLink(classroomProfile, companionBackendUrl);
-  const studentSummary = classroomProfile.students.length ? classroomProfile.students.join(', ') : 'No students registered yet';
-  const botSummary = classroomProfile.bots.length ? classroomProfile.bots.join(', ') : 'No robots registered yet';
+  const [activeLayer, setActiveLayer] = useState<ConceptLayer>('intuitive');
+  const [ageGroup, setAgeGroup] = useState<AgeGroup>(ageGroupProp);
+  const [showCameraControls, setShowCameraControls] = useState(false);
+  const [showSystemStatus, setShowSystemStatus] = useState(false);
+  const [showConceptMap, setShowConceptMap] = useState(false);
+  const [celebrationBadge, setCelebrationBadge] = useState<{ emoji: string; name: string } | null>(null);
+  const [lastSubmittedPrompt, setLastSubmittedPrompt] = useState<string | null>(null);
+  const [interactionMode, setInteractionMode] = useState<'language' | 'blocks' | 'code'>('language');
+  const [codeGeneratedSvg, setCodeGeneratedSvg] = useState<string | null>(null);
+  const [blockPreviewSvg, setBlockPreviewSvg] = useState<string | null>(null);
+  const [cameraBuddyQrUrl, setCameraBuddyQrUrl] = useState<string | null>(null);
+  const workspaceCameraRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(CLASSROOM_PROFILE_STORAGE_KEY);
-      if (!raw) {
-        return;
-      }
-      const saved = JSON.parse(raw) as Partial<ClassroomProfile>;
-      setClassroomProfile({
-        classroomName: saved.classroomName?.trim() || defaultClassroomProfile.classroomName,
-        teacherName: saved.teacherName?.trim() || defaultClassroomProfile.teacherName,
-        students: saved.students?.filter(Boolean) ?? defaultClassroomProfile.students,
-        bots: saved.bots?.filter(Boolean) ?? defaultClassroomProfile.bots,
-      });
-    } catch {
-      // Keep defaults if local profile data is malformed.
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(CLASSROOM_PROFILE_STORAGE_KEY, JSON.stringify(classroomProfile));
-  }, [classroomProfile]);
-
-  useEffect(() => {
-    if (!liveVideoAspectRatio || hasManualViewPreference) {
-      return;
-    }
-    setCameraViewMode(isLandscapeFeed ? 'fill' : 'fit');
-  }, [hasManualViewPreference, isLandscapeFeed, liveVideoAspectRatio]);
+    setAgeGroup(ageGroupProp);
+  }, [ageGroupProp]);
 
   useEffect(() => {
     let cancelled = false;
 
-    void QRCode.toDataURL(classroomJoinLink, {
+    if (!companionBackendUrl) {
+      setCameraBuddyQrUrl(null);
+      return;
+    }
+
+    QRCode.toDataURL(companionBackendUrl, {
       margin: 1,
-      width: 180,
+      width: 220,
       color: {
-        dark: '#17304a',
+        dark: '#12304a',
         light: '#ffffff',
       },
     })
-      .then((nextUrl) => {
+      .then((url) => {
         if (!cancelled) {
-          setQrDataUrl(nextUrl);
+          setCameraBuddyQrUrl(url);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setQrDataUrl(null);
+          setCameraBuddyQrUrl(null);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [classroomJoinLink]);
+  }, [companionBackendUrl]);
 
-  const updateClassroomProfile = (nextProfile: Partial<ClassroomProfile>) => {
-    setClassroomProfile((current) => ({
-      ...current,
-      ...nextProfile,
-    }));
-  };
-
-  const addStudent = () => {
-    const entry = sanitizeRosterEntry(studentDraft);
-    if (!entry || classroomProfile.students.includes(entry)) {
+  useEffect(() => {
+    if (!studentName || !cameraReady) {
       return;
     }
-    updateClassroomProfile({ students: [...classroomProfile.students, entry] });
-    setStudentDraft('');
-  };
 
-  const addBot = () => {
-    const entry = sanitizeRosterEntry(botDraft);
-    if (!entry || classroomProfile.bots.includes(entry)) {
+    const isNew = awardBadge(studentName, 'first-drawing');
+    if (!isNew) {
       return;
     }
-    updateClassroomProfile({ bots: [...classroomProfile.bots, entry] });
-    setBotDraft('');
+
+    setCelebrationBadge({ emoji: '✏️', name: 'First Drawing' });
+    const timeout = window.setTimeout(() => setCelebrationBadge(null), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [cameraReady, studentName]);
+
+  const hasLiveCamera =
+    cameraReady &&
+    ((cameraSource === 'phone-webrtc' && phoneViewerReady) ||
+      (cameraSource === 'browser-camera' && browserCameraReady) ||
+      (cameraSource !== 'phone-webrtc' && cameraSource !== 'browser-camera' && Boolean(cameraFrameUrl)));
+
+  const shouldMountVideo = cameraSource === 'browser-camera' || cameraSource === 'phone-webrtc';
+  const showLiveCameraShell =
+    hasLiveCamera ||
+    shouldMountVideo ||
+    (cameraReady && Boolean(cameraFrameUrl)) ||
+    cameraSource === 'companion-camera' ||
+    cameraSource === 'external-camera' ||
+    cameraSource === 'kit-webrtc';
+  const showSimulator = !showLiveCameraShell;
+  const cameraWaitingMessage =
+    cameraSource === 'phone-webrtc'
+      ? companionConnectionStatus
+      : cameraSource === 'browser-camera'
+        ? browserCameraStatus
+        : cameraReady
+          ? 'Waiting for the latest camera frame to arrive.'
+          : null;
+
+  const sysStatus: 'live' | 'sim' | 'error' =
+    hasLiveCamera && robotReady ? 'live' : hasLiveCamera ? 'sim' : !backendReachable ? 'error' : 'sim';
+
+  const sysLabel = sysStatus === 'live' ? 'Live' : sysStatus === 'error' ? 'Offline' : 'Simulator';
+
+  const hasVisionData = aprilTagDetections.length > 0 || canvasBorder.detected;
+  const detectionSvg = hasVisionData ? (
+    <svg
+      viewBox="0 0 1 1"
+      preserveAspectRatio="none"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        overflow: 'visible',
+        pointerEvents: 'none',
+      }}
+    >
+      {aprilTagDetections.map((detection) => (
+        <polygon
+          key={`tag-${detection.tag_id}`}
+          points={detection.corners.map((corner) => `${corner.x},${corner.y}`).join(' ')}
+          fill="rgba(93,228,255,0.05)"
+          stroke="rgba(93,228,255,0.85)"
+          strokeWidth="0.004"
+          strokeLinejoin="round"
+        />
+      ))}
+      {canvasBorder.detected && (
+        <>
+          <polygon
+            points={canvasBorder.corners.map((corner) => `${corner.x},${corner.y}`).join(' ')}
+            fill="none"
+            stroke="rgba(255,79,140,0.92)"
+            strokeWidth="0.004"
+            strokeLinejoin="round"
+          />
+          {canvasBorder.corners.map((corner, index) => (
+            <circle
+              key={`border-${index}`}
+              cx={corner.x}
+              cy={corner.y}
+              r="0.012"
+              fill="rgba(255,79,140,0.9)"
+              stroke="rgba(255,255,255,0.88)"
+              strokeWidth="0.004"
+            />
+          ))}
+        </>
+      )}
+    </svg>
+  ) : null;
+
+  const handlePromptSubmit = (event: FormEvent) => {
+    setLastSubmittedPrompt(prompt);
+    onSubmitPrompt(event);
   };
 
-  const removeStudent = (entry: string) => {
-    updateClassroomProfile({ students: classroomProfile.students.filter((student) => student !== entry) });
-  };
-
-  const removeBot = (entry: string) => {
-    updateClassroomProfile({ bots: classroomProfile.bots.filter((bot) => bot !== entry) });
-  };
-
-  const copyClassroomLink = async () => {
+  const handleBlockRun = async (program: BlockProgram) => {
     try {
-      await navigator.clipboard.writeText(classroomJoinLink);
-      setClassroomLinkCopied(true);
-      window.setTimeout(() => setClassroomLinkCopied(false), 1800);
-    } catch {
-      void onCopyBackendUrl();
+      const response = await fetch(`${apiBase}/api/block-runner/run`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          concept_id: conceptId,
+          program,
+        }),
+      });
+
+      const payload = (await response.json()) as {
+        ok?: boolean;
+        message?: string;
+        svg?: string | null;
+        task_name?: string | null;
+      };
+
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.message || 'Block execution failed.');
+      }
+
+      if (payload.svg) {
+        setCodeGeneratedSvg(payload.svg);
+      }
+      setLastSubmittedPrompt(payload.task_name || conceptTitle || 'block program');
+    } catch (error) {
+      console.error('Block runner failed', error);
+      setLastSubmittedPrompt('Block runner error');
     }
   };
+
+  useEffect(() => {
+    if (!cameraReady || !studentName || !activeJobName) {
+      return;
+    }
+
+    saveDrawing(studentName, {
+      prompt: activeJobName,
+      concept_id: conceptId ?? undefined,
+      layer: activeLayer,
+    });
+  }, [cameraReady, activeJobName, studentName, conceptId, activeLayer]);
 
   return (
-    <main className="app-shell">
-      <div className="top-bar compact-top-bar top-bar-playful">
-        <div>
-          <p className="eyebrow">SketchBot operator UI</p>
-          <h1>Let&apos;s get your robot drawing</h1>
-          <p className="subdued-text">
-            Follow the steps from top to bottom. Most students only need Camera Buddy, a fun drawing idea, and a clear view of the paper.
-          </p>
-          <div className="mission-strip">
-            <span className="mission-chip">Join the room</span>
-            <span className="mission-chip">Pick a fun drawing</span>
-            <span className="mission-chip">Start the robot</span>
-          </div>
+    <div className="app-shell learning-app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <LearningHeader
+        conceptId={conceptId}
+        conceptTitle={conceptTitle}
+        ageGroup={ageGroup}
+        sysStatus={sysStatus}
+        sysLabel={sysLabel}
+        topStatus={topStatus}
+        showSimulator={showSimulator}
+        showSystemStatus={showSystemStatus}
+        showCameraControls={showCameraControls}
+        sourceSaving={sourceSaving}
+        cameraSource={cameraSource}
+        browserCameraStatus={browserCameraStatus}
+        companionConnectionStatus={companionConnectionStatus}
+        backendLinkCopied={backendLinkCopied}
+        cameraBuddyQrUrl={cameraBuddyQrUrl}
+        onBackToHome={onBackToHome}
+        onAgeGroupChange={setAgeGroup}
+        onOpenConceptMap={() => setShowConceptMap(true)}
+        onToggleSystemStatus={() => setShowSystemStatus((value) => !value)}
+        onToggleCameraControls={() => setShowCameraControls((value) => !value)}
+        onCloseCameraControls={() => setShowCameraControls(false)}
+        onActivateCompanionCamera={onActivateCompanionCamera}
+        onActivateBrowserCamera={onActivateBrowserCamera}
+        onCopyBackendUrl={onCopyBackendUrl}
+      />
+
+      <div className="learn-body" style={{ flex: 1, minHeight: 0 }}>
+        <div className="learn-canvas-col">
+          <LearningStage
+            showSimulator={showSimulator}
+            showLiveCameraShell={showLiveCameraShell}
+            shouldMountVideo={shouldMountVideo}
+            cameraFrameUrl={cameraFrameUrl}
+            liveVideoAspectRatio={liveVideoAspectRatio}
+            cameraBuddyQrUrl={cameraBuddyQrUrl}
+            sourceSaving={sourceSaving}
+            backendLinkCopied={backendLinkCopied}
+            cameraSource={cameraSource}
+            browserCameraStatus={browserCameraStatus}
+            companionConnectionStatus={companionConnectionStatus}
+              cameraWaitingMessage={cameraWaitingMessage}
+              canvasDetected={canvasDetected}
+              liveCameraOverlayUrl={liveCameraOverlayUrl}
+              liveMarkerOverlayUrl={liveMarkerOverlayUrl}
+              detectionSvg={detectionSvg}
+            videoRef={videoRef}
+            composing={composing}
+            featuredSvgContent={
+              interactionMode === 'blocks'
+                ? blockPreviewSvg ?? codeGeneratedSvg ?? featuredTasks[0]?.svg_content ?? null
+                : codeGeneratedSvg ?? featuredTasks[0]?.svg_content ?? null
+            }
+            workspaceCameraRef={workspaceCameraRef}
+            onActivateCompanionCamera={onActivateCompanionCamera}
+            onActivateBrowserCamera={onActivateBrowserCamera}
+            onCopyBackendUrl={onCopyBackendUrl}
+          />
+
+          <PromptComposer
+            interactionMode={interactionMode}
+            activeLayer={activeLayer}
+            prompt={prompt}
+            composing={composing}
+            uploading={uploading}
+            featuredTasks={featuredTasks}
+            conceptId={conceptId}
+            apiBase={apiBase}
+            onPromptChange={onPromptChange}
+            onSubmitPrompt={handlePromptSubmit}
+            onUploadFile={onUploadFile}
+            onLoadTask={onLoadTask}
+            onInteractionModeChange={setInteractionMode}
+            onBlockRun={handleBlockRun}
+            onBlockPreviewSvgChange={setBlockPreviewSvg}
+            onCodeSvgResult={(svg) => {
+              setCodeGeneratedSvg(svg);
+              setLastSubmittedPrompt('code execution result');
+            }}
+          />
         </div>
-        <div className="status-pills">
-          {topStatus.map((item) => (
-            <span key={item.label} className="status-pill">
-              {item.label}: {item.value}
-            </span>
-          ))}
-          <ThemeToggle />
-          <span className="mode-pill">{operatorMode}</span>
+
+        <div className="learn-tutor-col">
+          <TutorPanel
+            studentName={studentName}
+            ageGroup={ageGroup}
+            conceptId={conceptId}
+            conceptTitle={conceptTitle}
+            activeLayer={activeLayer}
+            apiBase={apiBase}
+            drawingPrompt={lastSubmittedPrompt}
+            pathCount={featuredTasks[0]?.path_count ?? 0}
+            backendReachable={backendReachable}
+            onLayerChange={setActiveLayer}
+          />
         </div>
       </div>
 
-      <DesktopRuntimeBanner />
+      {showConceptMap && (
+        <ConceptMap
+          studentName={studentName}
+          ageGroup={ageGroup}
+          onConceptSelect={(nextConceptId, nextConceptTitle) => {
+            onConceptSelect?.(nextConceptId, nextConceptTitle);
+          }}
+          onClose={() => setShowConceptMap(false)}
+        />
+      )}
 
-      <section className="panel quickstart-panel hero-panel">
-        <div className="panel-header" style={{ marginBottom: 0 }}>
-          <p className="panel-eyebrow">Mission control</p>
-          <div className="panel-title" style={{ fontSize: '1.15rem' }}>{nextActionTitle}</div>
-          <p className="panel-subtitle">{nextActionCopy}</p>
-        </div>
-      </section>
-
-      <section className="grid-main dashboard-layout">
-        <div className="side-stack">
-          <div className="panel workspace-panel" style={{ display: 'grid', gap: 10 }}>
-            <div className="section-header-row" style={{ flexWrap: 'wrap' }}>
-              <div>
-                <p className="panel-eyebrow">Robot view</p>
-                <div className="panel-title" style={{ fontSize: '1.2rem' }}>Watch the paper and robot</div>
-              </div>
-              <div className="status-pills">
-                <span className="section-badge">Camera: {cameraModeLabel}</span>
-                <span className="section-badge">{cameraStatus}</span>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => {
-                    setHasManualViewPreference(true);
-                    setCameraViewMode((current) => (current === 'fit' ? 'fill' : 'fit'));
-                  }}
-                >
-                  {cameraViewMode === 'fit' ? 'Fill frame' : 'Fit frame'}
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => {
-                    setHasManualViewPreference(true);
-                    setCameraRotation((current) => (current + 90) % 360);
-                  }}
-                >
-                  Rotate view
-                </button>
-              </div>
-            </div>
-
-            <div className="workspace-card workspace-card-playful" style={{ minHeight: 460 }}>
-              <div className="workspace-stage" style={{ aspectRatio: isLandscapeFeed ? '16 / 9' : '4 / 5' }}>
-                <div className="canvas-frame">
-                  {shouldMountVideo ? (
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: mediaObjectFit,
-                        background: '#050b16',
-                        opacity: showVideoFrame ? 1 : 0,
-                        pointerEvents: 'none',
-                        transform: mediaTransform,
-                      }}
-                    />
-                  ) : null}
-                  {!showVideoFrame && cameraFrameUrl ? (
-                    <img
-                      src={cameraFrameUrl}
-                      alt={cameraStatus}
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: mediaObjectFit,
-                        background: 'var(--stage-backdrop)',
-                        transform: mediaTransform,
-                      }}
-                    />
-                  ) : null}
-                  {!showVideoFrame && !cameraFrameUrl ? (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'var(--stage-backdrop)',
-                        display: 'grid',
-                        placeItems: 'center',
-                        color: 'var(--text)',
-                        fontSize: 15,
-                        padding: 24,
-                        textAlign: 'center',
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 700, marginBottom: 8 }}>Camera view will appear here</div>
-                        <div>{cameraSource === 'browser-camera' ? browserCameraStatus : companionConnectionStatus}</div>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
+      {celebrationBadge && (
+        <div className="celebration-overlay" onClick={() => setCelebrationBadge(null)}>
+          <div className="celebration-card">
+            <div className="celebration-emoji">{celebrationBadge.emoji}</div>
+            <div className="celebration-title">Badge Earned!</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>{celebrationBadge.name}</div>
+            <div className="celebration-body">Keep exploring to unlock more concepts and badges.</div>
+            <button type="button" className="btn-cta" style={{ marginTop: 4 }} onClick={() => setCelebrationBadge(null)}>
+              Continue Learning
+            </button>
           </div>
         </div>
-
-        <aside className="side-stack">
-          <div className="panel">
-            <h3>Create a classroom</h3>
-            <p className="subdued-text" style={{ marginBottom: 12 }}>
-              Give this room a friendly name, then register the kids and robots who belong in it.
-            </p>
-            <div style={{ display: 'grid', gap: 12 }}>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span className="subdued-text" style={{ margin: 0 }}>Classroom name</span>
-                <input
-                  value={classroomProfile.classroomName}
-                  onChange={(event) => updateClassroomProfile({ classroomName: event.target.value })}
-                  placeholder="Bluebird Makers"
-                />
-              </label>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span className="subdued-text" style={{ margin: 0 }}>Teacher or helper</span>
-                <input
-                  value={classroomProfile.teacherName}
-                  onChange={(event) => updateClassroomProfile({ teacherName: event.target.value })}
-                  placeholder="Ms. Ahmad"
-                />
-              </label>
-            </div>
-            <div style={{ display: 'grid', gap: 14, marginTop: 14 }}>
-              <div>
-                <div className="kid-callout" style={{ marginBottom: 10 }}>
-                  <strong>Students</strong>
-                  <span>{studentSummary}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <input
-                    value={studentDraft}
-                    onChange={(event) => setStudentDraft(event.target.value)}
-                    placeholder="Add a student"
-                    style={{ flex: 1, minWidth: 170 }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        addStudent();
-                      }
-                    }}
-                  />
-                  <button className="btn" type="button" onClick={addStudent}>
-                    Add student
-                  </button>
-                </div>
-                {classroomProfile.students.length ? (
-                  <div className="prompt-chip-row" style={{ marginTop: 10 }}>
-                    {classroomProfile.students.map((student) => (
-                      <button key={student} className="prompt-chip" type="button" onClick={() => removeStudent(student)}>
-                        {student} ×
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              <div>
-                <div className="kid-callout" style={{ marginBottom: 10 }}>
-                  <strong>Robots</strong>
-                  <span>{botSummary}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <input
-                    value={botDraft}
-                    onChange={(event) => setBotDraft(event.target.value)}
-                    placeholder="Add a bot"
-                    style={{ flex: 1, minWidth: 170 }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        addBot();
-                      }
-                    }}
-                  />
-                  <button className="btn" type="button" onClick={addBot}>
-                    Add robot
-                  </button>
-                </div>
-                {classroomProfile.bots.length ? (
-                  <div className="prompt-chip-row" style={{ marginTop: 10 }}>
-                    {classroomProfile.bots.map((bot) => (
-                      <button key={bot} className="prompt-chip" type="button" onClick={() => removeBot(bot)}>
-                        {bot} ×
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="panel">
-            <h3>1. Connect a camera</h3>
-            <p className="subdued-text" style={{ marginBottom: 12 }}>
-              Use Camera Buddy if you have a phone or tablet. The phone joins this classroom by name, not by showing the raw network address.
-            </p>
-            <div className="kid-callout">
-              <strong>Fastest path for kids</strong>
-              <span>Open Camera Buddy and point the phone at this classroom code. Kids will see {classroomProfile.classroomName} instead of an IP address.</span>
-            </div>
-            <div style={{ display: 'grid', gap: 10 }}>
-              <button className="btn btn-primary" type="button" disabled={sourceSaving} onClick={onActivateCompanionCamera}>
-                {sourceSaving ? 'Selecting camera...' : 'Use Camera Buddy'}
-              </button>
-              <button className="btn" type="button" disabled={sourceSaving} onClick={onActivateBrowserCamera}>
-                Use This Device Camera
-              </button>
-              <button className="btn" type="button" onClick={() => void copyClassroomLink()}>
-                {classroomLinkCopied || backendLinkCopied ? 'Classroom link copied' : 'Copy classroom link'}
-              </button>
-            </div>
-            <div style={{ display: 'grid', justifyItems: 'start', gap: 10, marginTop: 14 }}>
-              <div className="qr-shell">
-                {qrDataUrl ? (
-                  <img src={qrDataUrl} alt={`QR code for the ${classroomProfile.classroomName} classroom`} />
-                ) : (
-                  <div className="qr-placeholder">QR code</div>
-                )}
-              </div>
-              <div className="kid-callout" style={{ margin: 0 }}>
-                <strong>{classroomProfile.classroomName}</strong>
-                <span>{classroomProfile.teacherName || 'Classroom helper'} · {classroomProfile.students.length} students · {classroomProfile.bots.length} bots</span>
-              </div>
-              <p className="subdued-text" style={{ margin: 0 }}>
-                Open Camera Buddy and point it at this QR code to join the classroom without typing.
-              </p>
-            </div>
-            <ul className="compact-list" style={{ marginTop: 12 }}>
-              <li>Open Camera Buddy on the same Wi-Fi.</li>
-              <li>Scan the classroom code for {classroomProfile.classroomName} or paste the classroom link.</li>
-              <li>Students registered: {studentSummary}</li>
-              <li>Robots registered: {botSummary}</li>
-              <li>{cameraSource === 'browser-camera' ? browserCameraStatus : companionConnectionStatus}</li>
-              <li>The view now adapts automatically when the phone rotates. Use Fill frame or Rotate view if you still want to adjust it.</li>
-            </ul>
-          </div>
-
-          <div className="panel">
-            <h3>2. Make a drawing</h3>
-            <form onSubmit={onSubmitPrompt} style={{ display: 'grid', gap: 12 }}>
-              <textarea value={prompt} onChange={(event) => onPromptChange(event.target.value)} rows={4} placeholder="Draw a smiling robot face" />
-              <div className="prompt-chip-row">
-                {quickPromptIdeas.map((idea) => (
-                  <button key={idea} className="prompt-chip" type="button" onClick={() => onPromptChange(idea)}>
-                    {idea}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button className="btn btn-primary" type="submit" disabled={composing || !prompt.trim()}>
-                  {composing ? 'Making drawing...' : 'Make drawing'}
-                </button>
-                <label className="btn" style={{ cursor: uploading ? 'progress' : 'pointer' }}>
-                  {uploading ? 'Uploading...' : 'Upload picture'}
-                  <input type="file" accept=".svg,image/*" onChange={onUploadFile} style={{ display: 'none' }} />
-                </label>
-              </div>
-            </form>
-            {featuredTasks.length ? (
-              <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
-                <strong>Recent drawings</strong>
-                {featuredTasks.map((task) => (
-                  <button key={task.id} className="btn recent-task-btn" type="button" onClick={() => onLoadTask(task)}>
-                    {task.name}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="panel">
-            <h3>3. Are you ready?</h3>
-            <div className="kid-callout ready-callout">
-              <strong>Green lights</strong>
-              <span>When these mostly say yes, your robot room is ready.</span>
-            </div>
-            <ul className="compact-list">
-              <li>App connected: {backendReachable ? 'yes' : 'not yet'}</li>
-              <li>Camera ready: {cameraReady ? 'yes' : 'not yet'}</li>
-              <li>Paper found: {canvasReady ? 'yes' : 'show all AprilTags'}</li>
-              <li>Drawing ready: {drawingReady ? activeJobName ?? 'yes' : 'make one first'}</li>
-              <li>Robot ready: {robotReady ? 'yes' : 'connect the robot'}</li>
-            </ul>
-            {overlayPreviewUrl ? (
-              <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(120,140,255,0.16)', background: 'white', marginTop: 12 }}>
-                <Image
-                  src={overlayPreviewUrl}
-                  alt={overlayPreviewLabel}
-                  width={512}
-                  height={512}
-                  unoptimized
-                  style={{ width: '100%', height: 'auto', display: 'block' }}
-                />
-              </div>
-            ) : null}
-          </div>
-        </aside>
-      </section>
-    </main>
+      )}
+    </div>
   );
 }

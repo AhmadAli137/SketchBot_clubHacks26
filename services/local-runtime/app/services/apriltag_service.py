@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import time
 from typing import Iterable
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -10,16 +11,39 @@ import numpy as np
 from app.models.state import AprilTagDetection, CanvasBorder, Point2D
 from app.services.state_manager import state_manager
 
+DEBUG_FRAME_PATH = Path('/tmp/sketchbot-apriltag-analysis.jpg')
+DEBUG_NORMALIZED_PATH = Path('/tmp/sketchbot-apriltag-analysis-normalized.png')
 
 class AprilTagService:
     def __init__(self) -> None:
-        self._dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
-        self._detector = cv2.aruco.ArucoDetector(self._dictionary, cv2.aruco.DetectorParameters())
+        parameters = cv2.aruco.DetectorParameters()
+        parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+        parameters.adaptiveThreshWinSizeMin = 5
+        parameters.adaptiveThreshWinSizeMax = 35
+        parameters.adaptiveThreshWinSizeStep = 5
+        parameters.minMarkerPerimeterRate = 0.015
+        parameters.maxMarkerPerimeterRate = 6.0
+        self._detectors = [
+            ('tag36h11', cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11), parameters)),
+            ('tag36h10', cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h10), parameters)),
+            ('tag25h9', cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_25h9), parameters)),
+            ('tag16h5', cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_16h5), parameters)),
+        ]
         self._last_canvas_border: CanvasBorder | None = None
         self._last_canvas_confidence: float = 0.0
         self._last_robot_heading_deg: float = 0.0
         self._last_seen_at: float | None = None
         self._hold_seconds = 1.0
+        self._last_debug_summary: dict = {
+            'status': 'idle',
+            'last_updated_at': None,
+            'frame_width': None,
+            'frame_height': None,
+            'detections': [],
+            'family_attempts': [],
+            'canvas_detected': False,
+            'canvas_confidence': 0.0,
+        }
 
     def update_from_frame(self, payload: bytes | None) -> None:
         state = state_manager.state
@@ -27,13 +51,17 @@ class AprilTagService:
             self._clear_detection_state()
             return
 
+        try:
+            DEBUG_FRAME_PATH.write_bytes(payload)
+        except Exception:
+            pass
+
         frame = cv2.imdecode(np.frombuffer(payload, dtype=np.uint8), cv2.IMREAD_COLOR)
         if frame is None:
             self._clear_detection_state()
             return
 
-        corners, ids, rejected = self._detector.detectMarkers(frame)
-        detections = self._convert_detections(corners, ids, frame.shape[1], frame.shape[0])
+        detections, family_attempts = self._detect_tags(frame)
 
         state.camera.april_tag_detections = detections
         canvas_tags = [d for d in detections if d.tag_id in {0, 1, 2, 3}]
@@ -59,6 +87,24 @@ class AprilTagService:
             state.canvas.detected = False
             state.canvas.confidence = 0.0
             state.localization_confidence = 0.0
+
+        self._last_debug_summary = {
+            'status': 'ok',
+            'last_updated_at': time.time(),
+            'frame_width': int(frame.shape[1]),
+            'frame_height': int(frame.shape[0]),
+            'detections': [
+                {
+                    'tag_id': detection.tag_id,
+                    'family': detection.family,
+                    'decision_margin': detection.decision_margin,
+                }
+                for detection in detections
+            ],
+            'family_attempts': family_attempts,
+            'canvas_detected': state.canvas.detected,
+            'canvas_confidence': state.canvas.confidence,
+        }
 
         canvas_angle_deg = None
         if len(canvas_tags) >= 2:
@@ -106,6 +152,16 @@ class AprilTagService:
         state.canvas.confidence = 0.0
         state.localization_confidence = 0.0
         state.robot_pose.heading_deg = 0.0
+        self._last_debug_summary = {
+            'status': 'waiting-for-frame',
+            'last_updated_at': time.time(),
+            'frame_width': None,
+            'frame_height': None,
+            'detections': [],
+            'family_attempts': [],
+            'canvas_detected': False,
+            'canvas_confidence': 0.0,
+        }
         state_manager._normalize_state()
         state_manager._refresh_operator_summary()
 
@@ -113,6 +169,48 @@ class AprilTagService:
         state = state_manager.state
         if state.camera.april_tag_detections:
             return
+
+    def _detect_tags(self, frame: np.ndarray) -> tuple[list[AprilTagDetection], list[dict]]:
+        grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        normalized = cv2.equalizeHist(grayscale)
+        try:
+            cv2.imwrite(str(DEBUG_NORMALIZED_PATH), normalized)
+        except Exception:
+            pass
+
+        detections_by_key: dict[tuple[str, int], AprilTagDetection] = {}
+        family_attempts: list[dict] = []
+        for family, detector in self._detectors:
+            corners, ids, rejected = detector.detectMarkers(normalized)
+            ids_list = [] if ids is None else [int(marker_id) for marker_id in ids.flatten()]
+            family_attempts.append(
+                {
+                    'family': family,
+                    'count': len(ids_list),
+                    'ids': ids_list,
+                    'rejected_count': len(rejected) if rejected is not None else 0,
+                }
+            )
+            for detection in self._convert_detections(corners, ids, frame.shape[1], frame.shape[0], family):
+                key = (family, detection.tag_id)
+                existing = detections_by_key.get(key)
+                if existing is None or detection.decision_margin > existing.decision_margin:
+                    detections_by_key[key] = detection
+
+        return list(detections_by_key.values()), family_attempts
+
+    def debug_snapshot(self) -> dict:
+        return dict(self._last_debug_summary)
+
+    def debug_frame(self) -> bytes | None:
+        if DEBUG_FRAME_PATH.exists():
+            return DEBUG_FRAME_PATH.read_bytes()
+        return None
+
+    def debug_normalized_frame(self) -> bytes | None:
+        if DEBUG_NORMALIZED_PATH.exists():
+            return DEBUG_NORMALIZED_PATH.read_bytes()
+        return None
 
     def _order_canvas_corners(self, corners: list[Point2D]) -> list[Point2D]:
         pts = np.array([[corner.x, corner.y] for corner in corners], dtype=np.float32)
@@ -127,7 +225,7 @@ class AprilTagService:
         ordered = [top_left, top_right, bottom_right, bottom_left]
         return [Point2D(x=float(x), y=float(y)) for x, y in ordered]
 
-    def _convert_detections(self, corners, ids, width: int, height: int) -> list[AprilTagDetection]:
+    def _convert_detections(self, corners, ids, width: int, height: int, family: str) -> list[AprilTagDetection]:
         if ids is None or len(ids) == 0:
             return []
 
@@ -143,6 +241,7 @@ class AprilTagService:
             detections.append(
                 AprilTagDetection(
                     tag_id=int(marker_id),
+                    family=family,
                     center=center,
                     corners=corner_points,
                     decision_margin=float(perimeter),
@@ -156,22 +255,23 @@ class AprilTagService:
         if any(tag_id not in by_id for tag_id in required):
             return CanvasBorder(detected=False)
 
-        # OpenCV ArUco corner order is top-left, top-right, bottom-right, bottom-left
-        # in the marker's own upright orientation. Using tag centers shrinks/skews the
-        # inferred canvas. We want the OUTER canvas corners from the corresponding tag corners.
-        tag0 = by_id[0]
-        tag1 = by_id[1]
-        tag2 = by_id[2]
-        tag3 = by_id[3]
-        if min(len(tag0.corners), len(tag1.corners), len(tag2.corners), len(tag3.corners)) < 4:
+        required_detections = [by_id[tag_id] for tag_id in required]
+        if min(len(detection.corners) for detection in required_detections) < 4:
             return CanvasBorder(detected=False)
 
-        border_corners = self._order_canvas_corners([
-            tag0.corners[0],
-            tag1.corners[1],
-            tag3.corners[2],
-            tag2.corners[3],
-        ])
+        canvas_center = Point2D(
+            x=sum(detection.center.x for detection in required_detections) / len(required_detections),
+            y=sum(detection.center.y for detection in required_detections) / len(required_detections),
+        )
+        outer_corners = [
+            max(
+                detection.corners,
+                key=lambda corner: (corner.x - canvas_center.x) ** 2 + (corner.y - canvas_center.y) ** 2,
+            )
+            for detection in required_detections
+        ]
+
+        border_corners = self._order_canvas_corners(outer_corners)
         return CanvasBorder(corners=border_corners, source_tag_ids=required, detected=True)
 
 

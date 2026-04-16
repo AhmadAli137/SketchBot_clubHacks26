@@ -5,6 +5,7 @@ import threading
 from uuid import uuid4
 
 from app.models.state import MediaSessionSummary, RTCIceServerSummary
+from app.services.camera_service import camera_service
 from app.services.ice_config_service import ice_config_service
 from app.services.state_manager import state_manager
 
@@ -48,6 +49,10 @@ class MediaSessionService:
     def provision_phone_webrtc_session(self, device_label: str | None = None, force_new: bool = False) -> MediaSessionSummary:
         state = state_manager.state
         session = state.camera.media_session
+
+        # Keep the runtime camera service and the serialized state aligned so
+        # analysis-frame uploads are accepted during phone WebRTC sessions.
+        camera_service.set_source('phone-webrtc')
 
         previous_session_id = session.session_id
         if force_new or not session.session_id:

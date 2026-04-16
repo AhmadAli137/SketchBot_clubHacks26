@@ -2,6 +2,8 @@
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { AuthScreen, type AuthRole } from '@/components/auth-screen';
+import { HomeScreen } from '@/components/home-screen';
 import { StudentDashboard } from '@/components/student-dashboard';
 import { useRuntimeConfig } from '@/lib/config';
 import { useDesktopShell } from '@/lib/desktop-shell';
@@ -13,8 +15,10 @@ import type {
   TaskRecord,
   WebRTCConfigResponse,
 } from '@/lib/types';
+import type { AgeGroup } from '@/lib/concept-types';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
+type AppView = 'auth' | 'home' | 'session';
 
 function svgToDataUrl(svg: string | null | undefined) {
   if (!svg) return null;
@@ -64,6 +68,71 @@ export default function HomePage() {
   const { pairingTargets } = useDesktopShell();
   const companionBackendUrl = useMemo(() => pairingTargets[0] ?? apiBase, [pairingTargets, apiBase]);
 
+  // ─── Auth / routing state ──────────────────────────────────────────────
+  const [view, setView] = useState<AppView>('auth');
+  const [userRole, setUserRole] = useState<AuthRole>('guest');
+  const [userName, setUserName] = useState('');
+  const [classroomName, setClassroomName] = useState('');
+  const [studentCount, setStudentCount] = useState(0);
+
+  // ─── Learning system state ─────────────────────────────────────────────
+  const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null);
+  const [selectedConceptTitle, setSelectedConceptTitle] = useState<string>('Free Draw');
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>('explorer');
+  const [sessionStartPrompt, setSessionStartPrompt] = useState<string>('');
+
+  // Load persisted session on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('sketchbot-session-v1');
+      if (raw) {
+        const saved = JSON.parse(raw) as { role: AuthRole; name: string; view: AppView };
+        setUserRole(saved.role);
+        setUserName(saved.name);
+        setView(saved.view === 'session' ? 'home' : saved.view); // never restore mid-session
+      }
+      const profileRaw = localStorage.getItem('sketchbot-classroom-profile');
+      if (profileRaw) {
+        const profile = JSON.parse(profileRaw) as { classroomName?: string; students?: string[] };
+        setClassroomName(profile.classroomName ?? '');
+        setStudentCount(profile.students?.length ?? 0);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleAuthenticated = (role: AuthRole, name: string) => {
+    setUserRole(role);
+    setUserName(name);
+    setView('home');
+    localStorage.setItem('sketchbot-session-v1', JSON.stringify({ role, name, view: 'home' }));
+  };
+
+  const handleStartSession = (conceptId?: string, starterPrompt?: string, ageGroup?: AgeGroup) => {
+    if (conceptId !== undefined) setSelectedConceptId(conceptId ?? null);
+    if (starterPrompt) {
+      setSessionStartPrompt(starterPrompt);
+      setPrompt(starterPrompt);
+    }
+    if (ageGroup) setSelectedAgeGroup(ageGroup);
+    setView('session');
+    localStorage.setItem('sketchbot-session-v1', JSON.stringify({ role: userRole, name: userName, view: 'session' }));
+  };
+
+  const handleConceptSelect = (conceptId: string, conceptTitle: string) => {
+    setSelectedConceptId(conceptId);
+    setSelectedConceptTitle(conceptTitle);
+  };
+
+  const handleSignOut = () => {
+    setView('auth');
+    setUserRole('guest');
+    setUserName('');
+    localStorage.removeItem('sketchbot-session-v1');
+  };
+
+  // ─── App state ─────────────────────────────────────────────────────────
   const [state, setState] = useState<AppState>(mockState);
   const [backendReachable, setBackendReachable] = useState(false);
   const [phoneViewerReady, setPhoneViewerReady] = useState(false);
@@ -79,6 +148,7 @@ export default function HomePage() {
   const [browserCameraReady, setBrowserCameraReady] = useState(false);
   const [browserCameraError, setBrowserCameraError] = useState<string | null>(null);
   const [liveVideoAspectRatio, setLiveVideoAspectRatio] = useState<number | null>(null);
+  const [liveOverlayRefreshToken, setLiveOverlayRefreshToken] = useState<number>(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const analysisCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -457,7 +527,7 @@ export default function HomePage() {
         const canvas = analysisCanvasRef.current ?? document.createElement('canvas');
         analysisCanvasRef.current = canvas;
 
-        const targetWidth = 640;
+        const targetWidth = Math.min(1280, Math.max(960, video.videoWidth));
         const aspectRatio = video.videoHeight / Math.max(video.videoWidth, 1);
         canvas.width = targetWidth;
         canvas.height = Math.max(1, Math.round(targetWidth * aspectRatio));
@@ -468,7 +538,7 @@ export default function HomePage() {
         }
 
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.65));
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
         if (!blob) {
           throw new Error('Unable to encode analysis frame.');
         }
@@ -489,6 +559,35 @@ export default function HomePage() {
       window.clearInterval(timer);
     };
   }, [apiBase, phoneViewerReady, state.camera?.media_session?.session_id, state.camera?.source]);
+
+  useEffect(() => {
+    const overlayReady = Boolean(
+      state.overlay?.image_data_url ||
+      tasks.some((task) => task.id === state.active_job?.id && task.svg_content),
+    );
+
+    if (!state.camera?.online || !state.canvas?.detected || !overlayReady) {
+      setLiveOverlayRefreshToken(0);
+      return;
+    }
+
+    const refresh = () => {
+      setLiveOverlayRefreshToken(Date.now());
+    };
+
+    refresh();
+    const timer = window.setInterval(refresh, 850);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [
+    state.active_job?.id,
+    state.camera?.online,
+    state.canvas?.detected,
+    state.overlay?.image_data_url,
+    tasks,
+  ]);
 
   const applyCameraSource = async (source: CameraSource) => {
     setSourceTransitionTarget(source);
@@ -629,6 +728,16 @@ export default function HomePage() {
   const cameraFrameUrl = resolveMediaUrl(camera.latest_frame_url, apiBase) ?? (shouldShowFallbackCameraStream ? `${apiBase}/api/camera/stream` : null);
   const activeTaskRecord = tasks.find((task) => task.id === activeJob.id) ?? null;
   const activePreviewUrl = overlay.image_data_url ?? svgToDataUrl(activeTaskRecord?.svg_content ?? null);
+  const overlaySourceAvailable = Boolean(overlay.image_data_url || activeTaskRecord?.svg_content);
+  const liveCameraOverlayUrl =
+    liveOverlayRefreshToken > 0 && overlaySourceAvailable && canvas.detected
+      ? `${apiBase}/api/camera/overlay-preview?ts=${liveOverlayRefreshToken}`
+      : null;
+  const liveMarkerOverlayUrl =
+    liveOverlayRefreshToken > 0 &&
+    (camera.april_tag_detections.length > 0 || camera.canvas_border.detected)
+      ? `${apiBase}/api/camera/marker-overlay?ts=${liveOverlayRefreshToken}`
+      : null;
   const topStatus = useMemo(
     () => [
       { label: 'App', value: backendReachable ? 'Ready' : 'Starting' },
@@ -684,9 +793,39 @@ export default function HomePage() {
         : 'Camera Buddy';
   const featuredTasks = tasks.slice(0, 3);
 
+  // ─── Auth screen ──────────────────────────────────────────────────────
+  if (view === 'auth') {
+    return <AuthScreen onAuthenticated={handleAuthenticated} />;
+  }
+
+  // ─── Home screen ──────────────────────────────────────────────────────
+  if (view === 'home') {
+    return (
+      <HomeScreen
+        role={userRole}
+        userName={userName}
+        isRobotConnected={state.robot_connected}
+        classroomName={classroomName || undefined}
+        studentCount={studentCount}
+        onStartSession={(conceptId, starterPrompt, ageGroup) =>
+          handleStartSession(conceptId, starterPrompt, ageGroup)
+        }
+        onSignOut={handleSignOut}
+      />
+    );
+  }
+
+  // ─── Session ──────────────────────────────────────────────────────────
   return (
     <StudentDashboard
       topStatus={topStatus}
+      conceptId={selectedConceptId}
+      conceptTitle={selectedConceptTitle}
+      ageGroup={selectedAgeGroup}
+      studentName={userName}
+      apiBase={apiBase}
+      onConceptSelect={handleConceptSelect}
+      onBackToHome={() => setView('home')}
       operatorMode={operator.mock_mode ? 'Practice mode' : 'Live mode'}
       nextActionTitle={nextActionTitle}
       nextActionCopy={nextActionCopy}
@@ -706,13 +845,19 @@ export default function HomePage() {
       composing={composing}
       uploading={uploading}
       featuredTasks={featuredTasks}
-      overlayPreviewUrl={activePreviewUrl}
-      overlayPreviewLabel={overlay.source_name ?? activeJob.name ?? 'Overlay preview'}
+        overlayPreviewUrl={activePreviewUrl}
+        liveCameraOverlayUrl={liveCameraOverlayUrl}
+        liveMarkerOverlayUrl={liveMarkerOverlayUrl}
+        overlayPreviewLabel={overlay.source_name ?? activeJob.name ?? 'Overlay preview'}
       cameraFrameUrl={cameraFrameUrl}
       browserCameraReady={browserCameraReady}
       phoneViewerReady={phoneViewerReady}
       cameraSource={camera.source}
       liveVideoAspectRatio={liveVideoAspectRatio}
+      canvasDetected={canvas.detected}
+      aprilTagCount={camera.april_tag_detections.length}
+      aprilTagDetections={camera.april_tag_detections}
+      canvasBorder={camera.canvas_border}
       videoRef={videoRef}
       sourceSaving={sourceSaving}
       backendLinkCopied={backendLinkCopied}

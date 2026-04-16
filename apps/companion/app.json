@@ -47,7 +47,8 @@
           "cameraPermission": "Allow SketchBot Camera Buddy to use the camera for same-network robot tracking."
         }
       ],
-      "@config-plugins/react-native-webrtc"
+      "@config-plugins/react-native-webrtc",
+      "expo-audio"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

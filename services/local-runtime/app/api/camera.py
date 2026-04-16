@@ -14,6 +14,7 @@ from app.models.media import (
     RTCSignalStatusResponse,
 )
 from app.services.camera_service import camera_service
+from app.services.apriltag_service import apriltag_service
 from app.services.media_session_service import media_session_service
 from app.services.overlay_preview_service import overlay_preview_service
 from app.services.state_manager import state_manager
@@ -295,6 +296,43 @@ def get_camera_stream():
 @router.get('/overlay-preview')
 def get_overlay_preview():
     payload = overlay_preview_service.render_preview() or overlay_preview_service.latest_preview()
+    if payload:
+        return Response(content=payload, media_type='image/png')
+    return Response(status_code=204)
+
+
+@router.get('/marker-overlay')
+def get_marker_overlay():
+    payload = overlay_preview_service.render_marker_preview() or overlay_preview_service.latest_marker_preview()
+    if payload:
+        return Response(content=payload, media_type='image/png')
+    return Response(status_code=204)
+
+
+@router.get('/annotated-frame')
+def get_annotated_frame():
+    payload = overlay_preview_service.render_annotated_frame() or overlay_preview_service.latest_annotated_frame()
+    if payload:
+        return Response(content=payload, media_type='image/jpeg')
+    return Response(status_code=204)
+
+
+@router.get('/apriltag-debug')
+def get_apriltag_debug():
+    return apriltag_service.debug_snapshot()
+
+
+@router.get('/apriltag-debug/frame')
+def get_apriltag_debug_frame():
+    payload = apriltag_service.debug_frame()
+    if payload:
+        return Response(content=payload, media_type='image/jpeg')
+    return Response(status_code=204)
+
+
+@router.get('/apriltag-debug/normalized')
+def get_apriltag_debug_normalized_frame():
+    payload = apriltag_service.debug_normalized_frame()
     if payload:
         return Response(content=payload, media_type='image/png')
     return Response(status_code=204)
