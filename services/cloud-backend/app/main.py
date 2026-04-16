@@ -3,8 +3,9 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.platform import load_platform_data
+from app.core.platform import load_challenge_library, load_platform_data, load_robot_registry
 from app.core.settings import settings
+from app.routers import concepts
 
 app = FastAPI(title="SketchBot Cloud Backend", version="0.2.0")
 
@@ -16,6 +17,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(concepts.router)
 
 
 @app.get("/")
@@ -78,3 +81,34 @@ def platform_config() -> dict:
         "summary": platform["summary"],
         "support": platform["support"],
     }
+
+
+@app.get("/api/robots")
+def robot_registry() -> dict:
+    """Return all registered robot definitions."""
+    return load_robot_registry()
+
+
+@app.get("/api/robots/{robot_id}")
+def robot_detail(robot_id: str) -> dict:
+    """Return a single robot definition by ID."""
+    registry = load_robot_registry()
+    for robot in registry.get("robots", []):
+        if robot.get("id") == robot_id:
+            return robot
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail=f"Robot '{robot_id}' not found")
+
+
+@app.get("/api/challenges")
+def challenge_library() -> dict:
+    """Return all challenge packs."""
+    return load_challenge_library()
+
+
+@app.get("/api/challenges/{robot_id}")
+def challenges_for_robot(robot_id: str) -> dict:
+    """Return challenge packs for a specific robot."""
+    library = load_challenge_library()
+    packs = [p for p in library.get("packs", []) if p.get("robot_id") == robot_id]
+    return {"packs": packs}

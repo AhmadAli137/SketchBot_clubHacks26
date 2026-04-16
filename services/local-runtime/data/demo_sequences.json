@@ -1,0 +1,185 @@
+[
+  {
+    "id": "coord-system-axes",
+    "concept_id": "coord-systems",
+    "title": "Coordinate Axes",
+    "description": "Robot draws X and Y axes with labels, then marks the origin and a few sample points.",
+    "estimated_seconds": 20,
+    "steps": [
+      {
+        "step": 1,
+        "label": "Draw X axis",
+        "prompt": "draw a horizontal line from left to right across the center of the paper with a small arrowhead at the right end and the letter X near it",
+        "tutor_narration": "This horizontal line is the X axis. Every point to the right has a positive X value, and every point to the left has a negative X value."
+      },
+      {
+        "step": 2,
+        "label": "Draw Y axis",
+        "prompt": "draw a vertical line from bottom to top through the center of the paper with an arrowhead at the top and the letter Y near it",
+        "tutor_narration": "And this vertical line is the Y axis. Up is positive Y, down is negative Y. Together, these two axes create a coordinate grid."
+      },
+      {
+        "step": 3,
+        "label": "Mark origin",
+        "prompt": "draw a small circle at the exact center of the paper where the two axes cross, with the label 0,0 next to it",
+        "tutor_narration": "The point where the axes cross is called the origin — that is position (0, 0). Every other position on the paper is measured from here."
+      },
+      {
+        "step": 4,
+        "label": "Mark sample points",
+        "prompt": "draw three small dots on the paper at different positions and write coordinate labels next to each one like (100,50) (200,150) and (50,180)",
+        "tutor_narration": "These dots show three different positions. Each one has an X coordinate and a Y coordinate. The robot knows exactly where to go because of these numbers."
+      }
+    ]
+  },
+  {
+    "id": "bezier-vs-linear",
+    "concept_id": "path-planning",
+    "title": "Bezier vs Linear Paths",
+    "description": "Robot draws the same curve two ways — jagged straight segments versus a smooth Bezier — to show the difference.",
+    "estimated_seconds": 25,
+    "steps": [
+      {
+        "step": 1,
+        "label": "Jagged zigzag path",
+        "prompt": "draw a path across the paper that zigzags sharply between 6 points in a rough wave shape with very angular corners",
+        "tutor_narration": "This is what happens when a robot just connects points with straight lines. Notice how sharp and rough the turns are? Real machines don't like moving that way — it's jerky and slow."
+      },
+      {
+        "step": 2,
+        "label": "Smooth Bezier curve",
+        "prompt": "draw a smooth flowing S-curve across the paper that gently curves from left to right passing through the same general area as the zigzag above",
+        "tutor_narration": "Now watch this. The robot draws the exact same path, but using a Bezier curve. See how it flows smoothly? This is how race cars take corners, how airplanes turn, and how drawing robots draw."
+      }
+    ]
+  },
+  {
+    "id": "circle-from-triangles",
+    "concept_id": "geometry-drawing",
+    "title": "Circle from Polygons",
+    "description": "Robot draws a triangle, then a hexagon, then a 12-sided shape, then a circle — showing how polygons approach a circle.",
+    "estimated_seconds": 30,
+    "steps": [
+      {
+        "step": 1,
+        "label": "Triangle (3 sides)",
+        "prompt": "draw a large equilateral triangle centered in the middle of the paper",
+        "tutor_narration": "Three sides. Very obvious corners. This is as far from a circle as you can get."
+      },
+      {
+        "step": 2,
+        "label": "Hexagon (6 sides)",
+        "prompt": "draw a large regular hexagon centered in the middle of the paper at the same size as the triangle",
+        "tutor_narration": "Six sides. The corners are softer now. You can start to see the circle hiding inside."
+      },
+      {
+        "step": 3,
+        "label": "12-sided polygon",
+        "prompt": "draw a large regular 12-sided polygon centered in the middle of the paper",
+        "tutor_narration": "Twelve sides. Now it really starts to look round. Where are the corners?"
+      },
+      {
+        "step": 4,
+        "label": "60-sided polygon (circle)",
+        "prompt": "draw a large smooth circle centered in the middle of the paper",
+        "tutor_narration": "Sixty sides. At this point, you can not see the corners at all — it looks exactly like a circle. That is literally what a circle IS in the robot's math: a polygon with so many sides the corners disappear."
+      }
+    ]
+  },
+  {
+    "id": "sine-wave",
+    "concept_id": "trigonometry-motion",
+    "title": "Sine Wave",
+    "description": "Robot draws a sine wave across the paper while the tutor explains frequency and amplitude.",
+    "estimated_seconds": 18,
+    "steps": [
+      {
+        "step": 1,
+        "label": "Single sine wave",
+        "prompt": "draw one complete smooth sine wave across the full width of the paper with 2 complete cycles",
+        "tutor_narration": "This is a sine wave. The robot calculates each Y position using the formula Y equals sine of T. As T increases — that is, as we move right — the sine function smoothly goes up and down."
+      },
+      {
+        "step": 2,
+        "label": "Double frequency wave",
+        "prompt": "draw a sine wave across the paper with 4 complete cycles at the same amplitude as the first wave",
+        "tutor_narration": "I doubled the frequency. Now there are twice as many peaks in the same space. This is exactly how musical notes work — higher frequency means higher pitch. The robot is literally drawing sound."
+      }
+    ]
+  },
+  {
+    "id": "pid-overshoot",
+    "concept_id": "control-theory",
+    "title": "PID Control Demo",
+    "description": "Robot draws a wobbly overcorrecting line first, then a perfectly straight line to show good vs bad control.",
+    "estimated_seconds": 20,
+    "steps": [
+      {
+        "step": 1,
+        "label": "Bad control (overshoot)",
+        "prompt": "draw a horizontal line across the paper that oscillates wildly above and below the intended straight path like a snake gradually settling down",
+        "tutor_narration": "This is what happens with bad control tuning. The robot is trying to go straight, but it overcorrects — when it is too far up, it jerks down too hard, then overshoots the other way. This is called oscillation."
+      },
+      {
+        "step": 2,
+        "label": "Good control (tuned PID)",
+        "prompt": "draw a perfectly straight horizontal line across the paper",
+        "tutor_narration": "With properly tuned PID control, the robot draws a perfectly straight line. It still corrects itself constantly — but the corrections are exactly the right size. Proportional, Integral, Derivative: three numbers that make this possible."
+      }
+    ]
+  },
+  {
+    "id": "symmetry-mirror",
+    "concept_id": "geometry-drawing",
+    "title": "Reflection Symmetry",
+    "description": "Robot draws a shape, pauses, then draws its mirror image to demonstrate bilateral symmetry.",
+    "estimated_seconds": 22,
+    "steps": [
+      {
+        "step": 1,
+        "label": "Draw vertical axis",
+        "prompt": "draw a light vertical dashed line down the center of the paper",
+        "tutor_narration": "This is the axis of symmetry — the mirror line. Everything on the left will be reflected perfectly to the right."
+      },
+      {
+        "step": 2,
+        "label": "Draw left half",
+        "prompt": "draw half of a butterfly wing shape on the left side of the center vertical line",
+        "tutor_narration": "Here is the left half of our shape. Now watch — the robot will calculate the exact reflection of every point across that center line."
+      },
+      {
+        "step": 3,
+        "label": "Draw reflected right half",
+        "prompt": "draw the mirror image of a butterfly wing on the right side of the center line to complete the butterfly shape",
+        "tutor_narration": "The right half is the mathematical reflection of the left. For every point at X on the left, the mirror point is at negative X on the right. This is how architects design buildings, how engineers design jet engines, and how nature builds butterflies."
+      }
+    ]
+  },
+  {
+    "id": "grid-localization",
+    "concept_id": "computer-vision",
+    "title": "AprilTag Localization",
+    "description": "Robot demonstrates how it finds the paper using AprilTag markers at the corners.",
+    "estimated_seconds": 15,
+    "steps": [
+      {
+        "step": 1,
+        "label": "Mark tag positions",
+        "prompt": "draw four small squares at the four corners of the paper to represent AprilTag markers",
+        "tutor_narration": "These four squares represent the AprilTag markers printed on your paper. The robot camera can recognize these unique patterns from any angle."
+      },
+      {
+        "step": 2,
+        "label": "Draw canvas boundary",
+        "prompt": "draw a rectangle connecting the four corner markers to show the detected canvas boundary",
+        "tutor_narration": "Once the robot sees all four tags, it calculates the exact shape and position of the paper in 3D space. This is called homography — mapping between the camera image and the real world."
+      },
+      {
+        "step": 3,
+        "label": "Draw calibration cross",
+        "prompt": "draw a small cross at the exact center of the paper and a dot at each corner",
+        "tutor_narration": "Now the robot can place any drawing precisely on the paper — no matter where the paper is, what angle it is tilted, or how far away the camera is. This is the same technology used in augmented reality apps and self-driving cars."
+      }
+    ]
+  }
+]

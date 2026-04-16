@@ -32,6 +32,11 @@ import {
   registerGlobals,
 } from 'react-native-webrtc';
 
+import { colors } from './src/theme';
+import type { CameraBuddyPage } from './src/screens/types';
+import { SplashScreen } from './src/screens/SplashScreen';
+import { TutorPanel } from './src/screens/TutorPanel';
+
 const STORAGE_KEY = 'sketchbot-camera-buddy-room';
 const DEFAULT_PORT = '8787';
 
@@ -409,7 +414,7 @@ export default function App() {
   const [session, setSession] = useState<PhoneWebRTCSessionResponse | null>(null);
   const [localStreamUrl, setLocalStreamUrl] = useState<string | null>(null);
   const [cameraSurfaceMode, setCameraSurfaceMode] = useState<'scanner' | 'stream'>('scanner');
-  const [currentPage, setCurrentPage] = useState<'splash' | 'menu' | 'connect' | 'live'>('splash');
+  const [currentPage, setCurrentPage] = useState<CameraBuddyPage>('splash');
   const [scanFrame, setScanFrame] = useState<ScanFrame | null>(null);
   const [scannerLayout, setScannerLayout] = useState({ width: 0, height: 0 });
   const [previewViewport, setPreviewViewport] = useState({ width: 0, height: 0 });
@@ -1347,131 +1352,11 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={[styles.container, isLandscape ? styles.containerLandscape : null]}>
           {currentPage === 'splash' ? (
-            <View style={styles.splashScreen}>
-              <Animated.View
-                style={[
-                  styles.splashOrbA,
-                  {
-                    transform: [
-                      {
-                        translateY: splashFloatAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, -18],
-                        }),
-                      },
-                    ],
-                    opacity: splashPulseAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.24, 0.42],
-                    }),
-                  },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.splashOrbB,
-                  {
-                    transform: [
-                      {
-                        translateY: splashFloatAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, 12],
-                        }),
-                      },
-                    ],
-                    opacity: splashPulseAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.28, 0.5],
-                    }),
-                  },
-                ]}
-              />
-              <View style={styles.splashTopRow}>
-                <View style={styles.splashBadge}>
-                  <Text style={styles.splashBadgeText}>SketchBot</Text>
-                </View>
-                <View style={styles.splashMiniPill}>
-                  <Text style={styles.splashMiniPillText}>Companion</Text>
-                </View>
-              </View>
-              <Animated.View
-                style={[
-                  styles.splashDevice,
-                  {
-                    transform: [
-                      {
-                        translateY: splashFloatAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, -10],
-                        }),
-                      },
-                      {
-                        scale: splashPulseAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.98, 1.03],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <Animated.View
-                  style={[
-                    styles.splashDeviceGlow,
-                    {
-                      opacity: splashPulseAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.16, 0.3],
-                      }),
-                    },
-                  ]}
-                />
-                <Animated.View
-                  style={[
-                    styles.splashDeviceScreen,
-                    {
-                      transform: [
-                        {
-                          rotate: splashFloatAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ['-2deg', '2deg'],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  <View style={styles.splashDeviceChip} />
-                  <View style={styles.splashDeviceFrame}>
-                    <View style={[styles.splashDeviceCorner, styles.splashDeviceCornerTopLeft]} />
-                    <View style={[styles.splashDeviceCorner, styles.splashDeviceCornerTopRight]} />
-                    <View style={[styles.splashDeviceCorner, styles.splashDeviceCornerBottomLeft]} />
-                    <View style={[styles.splashDeviceCorner, styles.splashDeviceCornerBottomRight]} />
-                  </View>
-                </Animated.View>
-              </Animated.View>
-              <Text style={styles.splashTitle}>Camera Buddy</Text>
-              <Text style={styles.splashCopy}>Jump into the classroom, scan the code, and bring SketchBot to life with a bigger, brighter live camera view.</Text>
-              <View style={styles.splashFeatureRow}>
-                <View style={styles.splashFeaturePill}>
-                  <Text style={styles.splashFeaturePillText}>Fast QR join</Text>
-                </View>
-                <View style={styles.splashFeaturePill}>
-                  <Text style={styles.splashFeaturePillText}>Live camera</Text>
-                </View>
-                <View style={styles.splashFeaturePill}>
-                  <Text style={styles.splashFeaturePillText}>Touch zoom</Text>
-                </View>
-              </View>
-              <View style={styles.splashLoadingRow}>
-                <ActivityIndicator color="#7be0ff" />
-                <Text style={styles.splashLoadingText}>Setting up the companion experience...</Text>
-              </View>
-            </View>
+            <SplashScreen splashFloatAnim={splashFloatAnim} splashPulseAnim={splashPulseAnim} />
           ) : currentPage === 'menu' ? (
             <>
               <View style={styles.heroCard}>
@@ -1827,6 +1712,14 @@ export default function App() {
                       The live camera fills more of the screen automatically in landscape, and fullscreen opens right from the preview.
                     </Text>
                   </View>
+
+                  {cleanedBackendUrl ? (
+                    <TutorPanel
+                      backendUrl={cleanedBackendUrl}
+                      studentName={studentNames[0] || 'Student'}
+                      ageGroup="builder"
+                    />
+                  ) : null}
                 </View>
               </View>
             </>
@@ -1937,7 +1830,7 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#050816',
+    backgroundColor: colors.bg,
   },
   flex: {
     flex: 1,

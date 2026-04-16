@@ -1,4 +1,4 @@
-import type { RefObject, MutableRefObject, ChangeEvent, FormEvent, ReactNode } from 'react';
+import type { RefObject, MutableRefObject, ChangeEvent, FormEvent } from 'react';
 
 import type { AprilTagDetection, CanvasBorder, TaskRecord } from '@/lib/types';
 import type { AgeGroup, ConceptLayer } from '@/lib/concept-types';
@@ -22,10 +22,11 @@ export type StudentDashboardProps = {
   companionConnectionStatus: string;
   browserCameraStatus: string;
   companionBackendUrl: string;
+  classroomJoinCode: string;
   browserCameraReady: boolean;
   phoneViewerReady: boolean;
-  liveVideoAspectRatio: number | null;
   videoRef: RefObject<HTMLVideoElement | null>;
+  onVideoMount: (el: HTMLVideoElement | null) => void;
   sourceSaving: boolean;
   backendLinkCopied: boolean;
   cameraModeLabel: string;
@@ -53,6 +54,7 @@ export type StudentDashboardProps = {
   onBackToHome?: () => void;
   onActivateCompanionCamera: () => void;
   onActivateBrowserCamera: () => void;
+  onDeactivateCamera: () => void;
   onCopyBackendUrl: () => void;
   onPromptChange: (value: string) => void;
   onSubmitPrompt: (event: FormEvent) => void;
@@ -69,30 +71,19 @@ export type LearningHeaderProps = {
   topStatus: DashboardStatusItem[];
   showSimulator: boolean;
   showSystemStatus: boolean;
-  showCameraControls: boolean;
-  sourceSaving: boolean;
-  cameraSource: string;
-  browserCameraStatus: string;
-  companionConnectionStatus: string;
-  backendLinkCopied: boolean;
-  cameraBuddyQrUrl: string | null;
   onBackToHome?: () => void;
   onAgeGroupChange: (ageGroup: AgeGroup) => void;
   onOpenConceptMap: () => void;
+  onConceptSelect?: (conceptId: string, conceptTitle: string) => void;
   onToggleSystemStatus: () => void;
-  onToggleCameraControls: () => void;
-  onCloseCameraControls: () => void;
-  onActivateCompanionCamera: () => void;
-  onActivateBrowserCamera: () => void;
-  onCopyBackendUrl: () => void;
+  onClosePopover: () => void;
 };
 
 export type LearningStageProps = {
   showSimulator: boolean;
-  showLiveCameraShell: boolean;
   shouldMountVideo: boolean;
+  cameraConnecting: boolean;
   cameraFrameUrl: string | null;
-  liveVideoAspectRatio: number | null;
   cameraBuddyQrUrl: string | null;
   sourceSaving: boolean;
   backendLinkCopied: boolean;
@@ -100,16 +91,21 @@ export type LearningStageProps = {
   browserCameraStatus: string;
   companionConnectionStatus: string;
   cameraWaitingMessage: string | null;
+  cameraReady: boolean;
   canvasDetected: boolean;
+  classroomJoinCode: string;
   liveCameraOverlayUrl: string | null;
   liveMarkerOverlayUrl: string | null;
-  detectionSvg: ReactNode;
+  aprilTagDetections: AprilTagDetection[];
+  canvasBorder: CanvasBorder;
   videoRef: RefObject<HTMLVideoElement | null>;
+  onVideoMount: (el: HTMLVideoElement | null) => void;
   composing: boolean;
   featuredSvgContent: string | null;
   workspaceCameraRef: MutableRefObject<HTMLDivElement | null>;
   onActivateCompanionCamera: () => void;
   onActivateBrowserCamera: () => void;
+  onDeactivateCamera: () => void;
   onCopyBackendUrl: () => void;
 };
 
@@ -130,4 +126,6 @@ export type PromptComposerProps = {
   onBlockRun: (program: BlockProgram) => void;
   onBlockPreviewSvgChange: (svg: string | null) => void;
   onCodeSvgResult: (svg: string) => void;
+  showCodeFocus: boolean;
+  onToggleCodeFocus: () => void;
 };

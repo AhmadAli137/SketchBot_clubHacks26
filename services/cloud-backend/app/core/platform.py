@@ -6,6 +6,8 @@ from typing import Any
 
 from app.core.settings import settings
 
+_DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+
 
 DEFAULT_PLATFORM_DATA: dict[str, Any] = {
     "site": {
@@ -70,3 +72,24 @@ def _load_data_file(path: Path) -> dict[str, Any]:
 
 def load_platform_data() -> dict[str, Any]:
     return _load_data_file(settings.data_file)
+
+
+def _load_json_file(path: Path, default: Any) -> Any:
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return default
+
+
+def load_robot_registry() -> dict[str, Any]:
+    return _load_json_file(_DATA_DIR / "robots.json", {"robots": []})
+
+
+def load_challenge_library() -> dict[str, Any]:
+    return _load_json_file(_DATA_DIR / "challenges.json", {"packs": []})
+
+
+def load_concept_catalog() -> list[dict[str, Any]]:
+    return _load_json_file(_DATA_DIR / "concepts.json", [])

@@ -37,6 +37,15 @@ function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function classroomJoinCodeFromUrl(url: string) {
+  const data = new TextEncoder().encode(url);
+  let hash = 0;
+  for (const byte of data) {
+    hash = (hash * 31 + byte) >>> 0;
+  }
+  return String(100000 + (hash % 900000));
+}
+
 async function waitForIceGatheringComplete(pc: RTCPeerConnection) {
   if (pc.iceGatheringState === 'complete') {
     return;
@@ -67,6 +76,7 @@ export default function HomePage() {
   const { apiBase, wsBase } = useRuntimeConfig();
   const { pairingTargets } = useDesktopShell();
   const companionBackendUrl = useMemo(() => pairingTargets[0] ?? apiBase, [pairingTargets, apiBase]);
+  const classroomJoinCode = useMemo(() => classroomJoinCodeFromUrl(companionBackendUrl), [companionBackendUrl]);
 
   // ─── Auth / routing state ──────────────────────────────────────────────
   const [view, setView] = useState<AppView>('auth');
@@ -78,7 +88,7 @@ export default function HomePage() {
   // ─── Learning system state ─────────────────────────────────────────────
   const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null);
   const [selectedConceptTitle, setSelectedConceptTitle] = useState<string>('Free Draw');
-  const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>('explorer');
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>('builder');
   const [sessionStartPrompt, setSessionStartPrompt] = useState<string>('');
 
   // Load persisted session on mount
@@ -147,7 +157,6 @@ export default function HomePage() {
   const [webrtcIceServers, setWebrtcIceServers] = useState<RTCIceServerConfig[]>([]);
   const [browserCameraReady, setBrowserCameraReady] = useState(false);
   const [browserCameraError, setBrowserCameraError] = useState<string | null>(null);
-  const [liveVideoAspectRatio, setLiveVideoAspectRatio] = useState<number | null>(null);
   const [liveOverlayRefreshToken, setLiveOverlayRefreshToken] = useState<number>(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -157,6 +166,8 @@ export default function HomePage() {
   const browserUploadBusyRef = useRef(false);
   const browserStreamRef = useRef<MediaStream | null>(null);
   const phonePcRef = useRef<RTCPeerConnection | null>(null);
+  const phoneStreamRef = useRef<MediaStream | null>(null);
+  const phoneDisconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const viewerIceServers = useMemo(
     () => state.camera?.media_session?.ice_servers ?? webrtcIceServers,
@@ -305,31 +316,49 @@ export default function HomePage() {
         pc.ontrack = (event) => {
           const [stream] = event.streams;
           const targetStream = stream ?? new MediaStream([event.track]);
+          phoneStreamRef.current = targetStream;
 
           event.track.onunmute = () => {
-            if (cancelled || !videoRef.current) {
-              return;
-            }
-            videoRef.current.srcObject = targetStream;
-            void videoRef.current.play().catch(() => {});
+            if (cancelled) return;
             setPhoneViewerReady(true);
             setPhoneViewerError(null);
+            if (videoRef.current) {
+              videoRef.current.srcObject = targetStream;
+              void videoRef.current.play().catch(() => {});
+            }
           };
 
+          setPhoneViewerReady(true);
+          setPhoneViewerError(null);
           if (videoRef.current) {
             videoRef.current.srcObject = targetStream;
             void videoRef.current.play().catch(() => {});
           }
         };
 
+        const handleDisconnect = () => {
+          setPhoneViewerReady(false);
+          phoneStreamRef.current = null;
+          if (videoRef.current) videoRef.current.srcObject = null;
+          void fetch(`${apiBase}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
+          void refreshState();
+        };
+
         pc.onconnectionstatechange = () => {
+          if (phoneDisconnectTimerRef.current) {
+            clearTimeout(phoneDisconnectTimerRef.current);
+            phoneDisconnectTimerRef.current = null;
+          }
+
           if (pc.connectionState === 'connected') {
             void fetch(`${apiBase}/api/camera/phone-webrtc/viewer-live/${sessionId}`, { method: 'POST' });
-          } else if (pc.connectionState === 'failed') {
-            setPhoneViewerReady(false);
-            setPhoneViewerError('Phone WebRTC connection failed.');
-          } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
-            setPhoneViewerReady(false);
+          } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+            if (pc.connectionState === 'failed') {
+              setPhoneViewerError('Phone WebRTC connection failed.');
+            }
+            handleDisconnect();
+          } else if (pc.connectionState === 'disconnected') {
+            phoneDisconnectTimerRef.current = setTimeout(handleDisconnect, 3000);
           }
         };
 
@@ -372,11 +401,16 @@ export default function HomePage() {
     return () => {
       cancelled = true;
       abortController.abort();
+      if (phoneDisconnectTimerRef.current) {
+        clearTimeout(phoneDisconnectTimerRef.current);
+        phoneDisconnectTimerRef.current = null;
+      }
       const pc = phonePcRef.current;
       if (pc) {
         pc.close();
         phonePcRef.current = null;
       }
+      phoneStreamRef.current = null;
       setPhoneViewerReady(false);
       if (viewerStarted) {
         void fetch(`${apiBase}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
@@ -404,8 +438,8 @@ export default function HomePage() {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 960 },
-            height: { ideal: 540 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
             frameRate: { ideal: 20, max: 24 },
           },
           audio: false,
@@ -442,28 +476,6 @@ export default function HomePage() {
   }, [state.camera?.source]);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) {
-      return;
-    }
-
-    const updateAspectRatio = () => {
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        setLiveVideoAspectRatio(video.videoWidth / video.videoHeight);
-      }
-    };
-
-    updateAspectRatio();
-    video.addEventListener('loadedmetadata', updateAspectRatio);
-    video.addEventListener('resize', updateAspectRatio);
-
-    return () => {
-      video.removeEventListener('loadedmetadata', updateAspectRatio);
-      video.removeEventListener('resize', updateAspectRatio);
-    };
-  }, [state.camera?.source, phoneViewerReady, browserCameraReady]);
-
-  useEffect(() => {
     if (state.camera?.source !== 'browser-camera' || !browserCameraReady) {
       return;
     }
@@ -478,14 +490,16 @@ export default function HomePage() {
       try {
         const canvas = browserUploadCanvasRef.current ?? document.createElement('canvas');
         browserUploadCanvasRef.current = canvas;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        const targetWidth = Math.min(1280, Math.max(960, video.videoWidth));
+        const aspectRatio = video.videoHeight / Math.max(video.videoWidth, 1);
+        canvas.width = targetWidth;
+        canvas.height = Math.max(1, Math.round(targetWidth * aspectRatio));
         const context = canvas.getContext('2d');
         if (!context) {
           throw new Error('Camera canvas unavailable.');
         }
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.7));
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
         if (!blob) {
           throw new Error('Unable to encode camera frame.');
         }
@@ -615,6 +629,43 @@ export default function HomePage() {
   const activateBrowserCamera = async () => {
     await applyCameraSource('browser-camera');
   };
+
+  const deactivateCamera = async () => {
+    browserStreamRef.current?.getTracks().forEach((t) => t.stop());
+    browserStreamRef.current = null;
+    if (phoneDisconnectTimerRef.current) {
+      clearTimeout(phoneDisconnectTimerRef.current);
+      phoneDisconnectTimerRef.current = null;
+    }
+    const pc = phonePcRef.current;
+    if (pc) {
+      pc.close();
+      phonePcRef.current = null;
+    }
+    phoneStreamRef.current = null;
+    setPhoneViewerReady(false);
+    setBrowserCameraReady(false);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    await applyCameraSource('companion-camera');
+  };
+
+  const handleVideoMount = useCallback(
+    (el: HTMLVideoElement | null) => {
+      videoRef.current = el;
+      if (!el) return;
+      const source = state.camera?.source;
+      if (source === 'browser-camera' && browserStreamRef.current) {
+        el.srcObject = browserStreamRef.current;
+        void el.play().catch(() => {});
+      } else if (source === 'phone-webrtc' && phoneStreamRef.current) {
+        el.srcObject = phoneStreamRef.current;
+        void el.play().catch(() => {});
+      }
+    },
+    [state.camera?.source],
+  );
 
   const copyBackendUrl = async () => {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
@@ -853,16 +904,18 @@ export default function HomePage() {
       browserCameraReady={browserCameraReady}
       phoneViewerReady={phoneViewerReady}
       cameraSource={camera.source}
-      liveVideoAspectRatio={liveVideoAspectRatio}
       canvasDetected={canvas.detected}
       aprilTagCount={camera.april_tag_detections.length}
       aprilTagDetections={camera.april_tag_detections}
       canvasBorder={camera.canvas_border}
       videoRef={videoRef}
+      onVideoMount={handleVideoMount}
       sourceSaving={sourceSaving}
       backendLinkCopied={backendLinkCopied}
+      classroomJoinCode={classroomJoinCode}
       onActivateCompanionCamera={() => void activateCompanionCamera()}
       onActivateBrowserCamera={() => void activateBrowserCamera()}
+      onDeactivateCamera={() => void deactivateCamera()}
       onCopyBackendUrl={() => void copyBackendUrl()}
       onPromptChange={setPrompt}
       onSubmitPrompt={(event) => void submitPrompt(event)}

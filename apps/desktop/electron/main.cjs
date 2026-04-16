@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const http = require('http');
 const os = require('os');
@@ -343,6 +343,19 @@ ipcMain.handle('desktop:retry-launch', async () => {
 ipcMain.handle('desktop:get-pairing-targets', () => localPairingTargets());
 
 app.whenReady().then(async () => {
+  // Grant microphone (and camera) access so Web Speech API and camera features work.
+  // Electron denies all permission requests by default.
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allowed = ['media', 'microphone', 'camera', 'audioCapture', 'videoCapture'];
+    callback(allowed.includes(permission));
+  });
+
+  // Also required in newer Electron versions to pass the synchronous permission check.
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    const allowed = ['media', 'microphone', 'camera', 'audioCapture', 'videoCapture'];
+    return allowed.includes(permission);
+  });
+
   await createMainWindow();
 
   app.on('activate', async () => {

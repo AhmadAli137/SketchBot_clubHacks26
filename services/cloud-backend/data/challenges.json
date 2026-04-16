@@ -1,0 +1,313 @@
+{
+  "packs": [
+    {
+      "id": "sketchbot-core",
+      "robot_id": "sketchbot",
+      "name": "Getting Started",
+      "description": "Your first challenges with SketchBot. Learn how the robot moves, places lines, and reads the paper.",
+      "challenges": [
+        {
+          "id": "sketchbot-first-line",
+          "pack_id": "sketchbot-core",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "First Line",
+          "subtitle": "Make the robot draw its first mark",
+          "description": "Guide SketchBot to draw a single straight line across the paper. Simple — but it's the building block of everything.",
+          "subjects": ["art", "engineering"],
+          "difficulty": 1,
+          "estimated_minutes": 5,
+          "learning_objectives": [
+            "Understand how SketchBot reads the paper using markers",
+            "Learn how coordinates map to the physical page",
+            "Successfully complete a robot drawing action"
+          ],
+          "steps": [
+            {
+              "id": "step-setup",
+              "tutor_message": "Hi! I'm Sketch. Before I can draw, I need to see the paper. Can you make sure all four corner markers are visible to the camera?",
+              "student_prompt": "Make sure all four AprilTag markers are in the camera view.",
+              "completion_condition": "automatic",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-explain",
+              "tutor_message": "Those corner markers are like a map for me — they tell me exactly where the paper is, even if someone bumps the table. Pretty clever, right?",
+              "reflection_question": "Why do you think I need to know where all four corners are, and not just one?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 20
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Let's go! I'm going to draw a straight line across the middle of the page. Watch closely — you'll see my pen move in real time.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": { "prompt": "a single horizontal straight line across the center of the page" }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "We did it! That's your first SketchBot drawing. Notice how the line went edge-to-edge? That's because I measured the whole page first.",
+              "reflection_question": "If you tilted the paper slightly before I drew, what do you think would happen to the line?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-first-line",
+            "name": "First Mark",
+            "description": "Completed your first SketchBot drawing",
+            "icon": "✏️"
+          },
+          "prerequisite_challenge_ids": []
+        },
+        {
+          "id": "sketchbot-shape-up",
+          "pack_id": "sketchbot-core",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Shape Up",
+          "subtitle": "Draw a perfect square",
+          "description": "Guide SketchBot to draw a square. Discover what makes a shape 'perfect' and why right angles matter.",
+          "subjects": ["math", "art"],
+          "difficulty": 1,
+          "estimated_minutes": 8,
+          "learning_objectives": [
+            "Define what makes a square (equal sides, right angles)",
+            "Observe how robots use coordinates to draw geometric shapes",
+            "Connect geometric concepts to physical output"
+          ],
+          "steps": [
+            {
+              "id": "step-question",
+              "tutor_message": "Quick question before we draw — how many sides does a square have? And what's special about its corners?",
+              "reflection_question": "What's the difference between a square and a rectangle?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 15
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Perfect thinking! Now watch — I'm going to draw a square in the center of the page. I'll move in four directions: right, down, left, up.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": { "prompt": "a single centered square with equal sides" }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-measure",
+              "tutor_message": "Take a ruler and measure two sides of my square. Are they the same length? This is how you know the robot is working correctly!",
+              "student_prompt": "Measure two sides of the square with a ruler and compare.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "Great work! What did you find? A square's sides should all be within a millimeter of each other. Small errors creep in because I'm a physical robot — and that's totally okay!",
+              "reflection_question": "Why might a robot's square not be perfectly precise? What could cause tiny errors?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-shape-up",
+            "name": "Shape Maker",
+            "description": "Drew a perfect square with SketchBot",
+            "icon": "⬛"
+          },
+          "prerequisite_challenge_ids": ["sketchbot-first-line"]
+        }
+      ]
+    },
+    {
+      "id": "sketchbot-math-art",
+      "robot_id": "sketchbot",
+      "name": "Math Through Art",
+      "description": "Discover the hidden math in beautiful patterns. These challenges connect geometry, algebra, and number theory to real drawings.",
+      "challenges": [
+        {
+          "id": "sketchbot-fibonacci",
+          "pack_id": "sketchbot-math-art",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Nature's Secret Pattern",
+          "subtitle": "The Fibonacci spiral",
+          "description": "A number pattern from the 13th century shows up in sunflowers, seashells, and galaxies. Today SketchBot will draw it.",
+          "subjects": ["math", "art", "science"],
+          "difficulty": 3,
+          "estimated_minutes": 20,
+          "learning_objectives": [
+            "Understand the Fibonacci sequence and how it grows",
+            "Connect the number sequence to geometric squares and spirals",
+            "Observe the golden ratio in nature and art"
+          ],
+          "steps": [
+            {
+              "id": "step-intro",
+              "tutor_message": "Here's a mystery: 1, 1, 2, 3, 5, 8, 13, 21... what's the pattern? Each number is the sum of the two before it. This is called the Fibonacci sequence.",
+              "student_prompt": "What comes next in the sequence: 1, 1, 2, 3, 5, 8, 13, 21, ___?",
+              "reflection_question": "Try to guess: what do you think this number pattern has to do with drawing?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-squares",
+              "tutor_message": "Watch — I'm going to draw squares whose sides match the Fibonacci numbers: 1, 1, 2, 3, 5, 8... each new square fits perfectly next to the last ones.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": { "prompt": "Fibonacci rectangle grid: nested squares with side lengths 1, 1, 2, 3, 5, 8 arranged in the Fibonacci tiling pattern" }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-spiral",
+              "tutor_message": "Now the magic moment — I'll draw a curve through each square's corner. That curve is the Fibonacci spiral, and it appears everywhere in nature.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": { "prompt": "Fibonacci spiral: quarter-circle arcs connecting the corners of Fibonacci tiled squares, creating the golden spiral" }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-nature",
+              "tutor_message": "This exact spiral shows up in sunflower seeds, nautilus shells, pinecones, and even spiral galaxies. Math isn't just on paper — it's in everything.",
+              "reflection_question": "Can you think of something in nature that spirals outward? Why might a spiral be a good shape for a growing shell?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-fibonacci",
+            "name": "Nature's Mathematician",
+            "description": "Discovered the Fibonacci spiral with SketchBot",
+            "icon": "🌀"
+          },
+          "prerequisite_challenge_ids": ["sketchbot-shape-up"]
+        },
+        {
+          "id": "sketchbot-symmetry",
+          "pack_id": "sketchbot-math-art",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Mirror, Mirror",
+          "subtitle": "Lines of symmetry",
+          "description": "Explore how shapes can be folded perfectly in half. SketchBot will draw symmetrical patterns and you'll discover the hidden rules.",
+          "subjects": ["math", "art"],
+          "difficulty": 2,
+          "estimated_minutes": 12,
+          "learning_objectives": [
+            "Identify lines of symmetry in shapes",
+            "Understand reflective symmetry vs rotational symmetry",
+            "Design a symmetrical pattern"
+          ],
+          "steps": [
+            {
+              "id": "step-fold-test",
+              "tutor_message": "Imagine you could fold a shape perfectly in half and both sides match exactly. That fold line is called a line of symmetry. A circle has infinite of them — how many does a square have?",
+              "student_prompt": "Think about a square: how many ways can you fold it so both halves match perfectly?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-draw-butterfly",
+              "tutor_message": "Let me draw something with perfect symmetry. Watch both sides of the drawing — they should be mirror images of each other.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": { "prompt": "a simple symmetrical butterfly outline with a clear vertical line of symmetry" }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-test-symmetry",
+              "tutor_message": "Fold the paper along the butterfly's center line. Do the wings line up? That's symmetry you can physically test!",
+              "student_prompt": "Fold the paper along the center line of the drawing and check if both sides match.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-design",
+              "tutor_message": "Your turn to design! Tell me something that has symmetry — like a face, a star, or a snowflake — and I'll draw it.",
+              "student_prompt": "Type your idea for a symmetrical drawing below.",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-symmetry",
+            "name": "Symmetry Seeker",
+            "description": "Explored lines of symmetry with SketchBot",
+            "icon": "🦋"
+          },
+          "prerequisite_challenge_ids": ["sketchbot-shape-up"]
+        }
+      ]
+    },
+    {
+      "id": "sketchbot-creative",
+      "robot_id": "sketchbot",
+      "name": "Creative Studio",
+      "description": "Open-ended creative challenges. No right answers — just exploration, expression, and learning through making.",
+      "challenges": [
+        {
+          "id": "sketchbot-self-portrait",
+          "pack_id": "sketchbot-creative",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Robot Self-Portrait",
+          "subtitle": "How does a robot see itself?",
+          "description": "Ask SketchBot to draw its own self-portrait. Then discuss what a robot 'sees' versus what it 'thinks' it looks like.",
+          "subjects": ["art", "engineering", "coding"],
+          "difficulty": 2,
+          "estimated_minutes": 15,
+          "learning_objectives": [
+            "Explore the difference between AI-generated imagery and physical reality",
+            "Discuss how AI 'imagines' things it cannot directly perceive",
+            "Practice critiquing and giving feedback to an AI system"
+          ],
+          "steps": [
+            {
+              "id": "step-question",
+              "tutor_message": "Here's a fun question: I can draw anything you describe. But what if I try to draw *myself*? I've never seen my own body — only the paper in front of me. What do you think I'll come up with?",
+              "reflection_question": "What do you think SketchBot looks like? Describe it in a few words.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Okay — here's my best guess at what I look like! Remember, I've only ever seen paper and ink...",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": { "prompt": "a robot self-portrait: a simple friendly drawing robot with wheels, a pen arm, and a camera eye, seen from the side" }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-critique",
+              "tutor_message": "What do you think? Does it look like me? Compare my drawing to what you see in the room. I'm curious what I got wrong!",
+              "student_prompt": "Compare SketchBot's self-portrait to the real robot. What's accurate? What's missing or different?",
+              "reflection_question": "What would you add or change to make this portrait more accurate?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-your-portrait",
+              "tutor_message": "Now it's your turn — draw *me* on a piece of paper while I draw! Compare our versions when we're both done.",
+              "student_prompt": "Draw SketchBot on paper while it draws you. Compare results!",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-portrait",
+            "name": "Art Critic",
+            "description": "Explored AI imagination through robot self-portraiture",
+            "icon": "🎨"
+          },
+          "prerequisite_challenge_ids": ["sketchbot-first-line"]
+        }
+      ]
+    }
+  ]
+}

@@ -14,7 +14,7 @@ function applyTheme(mode: ThemeMode) {
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemeMode>('light');
+  const [theme, setTheme] = useState<ThemeMode>('dark');
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -25,9 +25,7 @@ export function ThemeToggle() {
     const nextTheme: ThemeMode =
       stored === 'dark' || stored === 'light'
         ? stored
-        : window.matchMedia?.('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light';
+        : 'dark'; // dark by default
 
     setTheme(nextTheme);
     applyTheme(nextTheme);

@@ -5,4 +5,6 @@ numpy
 opencv-python
 python-multipart
 openai
+anthropic
 Pillow
+python-dotenv

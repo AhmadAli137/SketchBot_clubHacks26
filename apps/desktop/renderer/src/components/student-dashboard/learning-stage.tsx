@@ -1,20 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Camera, QrCode } from 'lucide-react';
+import { ArrowLeft, Camera, QrCode, VideoOff } from 'lucide-react';
 
-import { SimulatorCanvas } from '@/components/simulator-canvas';
+import { SimPlayground } from '@/components/sim-playground';
+import { Button } from '@/components/ui/button';
 
 import type { LearningStageProps } from './types';
 
+type CameraPanelView = 'choose' | 'phone-qr';
+
 export function LearningStage({
   showSimulator,
-  showLiveCameraShell,
   shouldMountVideo,
+  cameraConnecting,
   cameraFrameUrl,
-  liveVideoAspectRatio,
   cameraBuddyQrUrl,
+  classroomJoinCode,
   sourceSaving,
   backendLinkCopied,
   cameraSource,
@@ -24,202 +27,315 @@ export function LearningStage({
   canvasDetected,
   liveCameraOverlayUrl,
   liveMarkerOverlayUrl,
-  detectionSvg,
+  aprilTagDetections,
+  canvasBorder,
   videoRef,
+  onVideoMount,
+  cameraReady,
   composing,
   featuredSvgContent,
   workspaceCameraRef,
   onActivateCompanionCamera,
   onActivateBrowserCamera,
+  onDeactivateCamera,
   onCopyBackendUrl,
 }: LearningStageProps) {
   const areaRef = useRef<HTMLDivElement | null>(null);
-  const [areaSize, setAreaSize] = useState({ width: 0, height: 0 });
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const [markerOverlayFailed, setMarkerOverlayFailed] = useState(false);
+  const [panelView, setPanelView] = useState<CameraPanelView>('choose');
+  const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
-    const node = areaRef.current;
-    if (!node) {
-      return;
+    if (!shouldMountVideo && !cameraReady && !cameraConnecting) {
+      setPanelView('choose');
     }
-
-    const update = () => {
-      setAreaSize({
-        width: node.clientWidth,
-        height: node.clientHeight,
-      });
-    };
-
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+  }, [shouldMountVideo, cameraReady, cameraConnecting]);
 
   useEffect(() => {
     setMarkerOverlayFailed(false);
   }, [liveMarkerOverlayUrl]);
 
-  const liveStageRect = useMemo(() => {
-    const width = areaSize.width;
-    const height = areaSize.height;
-    const aspectRatio = liveVideoAspectRatio && liveVideoAspectRatio > 0 ? liveVideoAspectRatio : 3 / 4;
+  const handleVideoRef = useCallback(
+    (el: HTMLVideoElement | null) => {
+      localVideoRef.current = el;
+      onVideoMount(el);
 
-    if (!width || !height) {
-      return null;
-    }
+      if (!el) {
+        setVideoDims(null);
+        return;
+      }
 
-    const containerAspectRatio = width / height;
-    if (containerAspectRatio > aspectRatio) {
-      const stageHeight = height;
-      const stageWidth = stageHeight * aspectRatio;
-      return {
-        left: (width - stageWidth) / 2,
-        top: 0,
-        width: stageWidth,
-        height: stageHeight,
+      const sync = () => {
+        if (el.videoWidth > 0 && el.videoHeight > 0) {
+          setVideoDims((prev) => {
+            if (prev && prev.w === el.videoWidth && prev.h === el.videoHeight) return prev;
+            return { w: el.videoWidth, h: el.videoHeight };
+          });
+        }
       };
-    }
 
-    const stageWidth = width;
-    const stageHeight = stageWidth / aspectRatio;
-    return {
-      left: 0,
-      top: (height - stageHeight) / 2,
-      width: stageWidth,
-      height: stageHeight,
-    };
-  }, [areaSize.height, areaSize.width, liveVideoAspectRatio]);
+      sync();
+      el.addEventListener('loadedmetadata', sync);
+      el.addEventListener('resize', sync);
+    },
+    [onVideoMount],
+  );
+
+  const showFeed = shouldMountVideo || (cameraReady && Boolean(cameraFrameUrl));
+
+  const hasActiveStream =
+    cameraReady &&
+    ((shouldMountVideo) || Boolean(cameraFrameUrl));
+
+  const cameraHelpText =
+    cameraSource === 'browser-camera'
+      ? browserCameraStatus
+      : companionConnectionStatus;
+
+  const statusDotClass = cameraReady ? 'live' : 'sim';
+
+  const sourceLabel =
+    cameraSource === 'phone-webrtc'
+      ? 'Camera Buddy (Phone)'
+      : cameraSource === 'browser-camera'
+        ? 'This Device'
+        : 'Camera';
+
+  const statusLabel = cameraReady
+    ? `${sourceLabel} — Live`
+    : (shouldMountVideo || cameraConnecting)
+      ? `Connecting ${sourceLabel}…`
+      : 'No camera';
 
   return (
     <div
       ref={(node) => {
         areaRef.current = node;
-        if (workspaceCameraRef) {
-          workspaceCameraRef.current = node;
-        }
+        if (workspaceCameraRef) workspaceCameraRef.current = node;
       }}
       className="learn-canvas-area"
     >
-      {showLiveCameraShell && (
-        <>
-          {liveStageRect && (
-            <div
-              style={{
-                position: 'absolute',
-                left: liveStageRect.left,
-                top: liveStageRect.top,
-                width: liveStageRect.width,
-                height: liveStageRect.height,
-                overflow: 'hidden',
-                background: '#050b16',
-              }}
-            >
-              {shouldMountVideo && (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'fill',
-                    background: '#050b16',
-                  }}
-                />
-              )}
-              {!shouldMountVideo && cameraFrameUrl && (
-                <Image src={cameraFrameUrl} alt="Camera feed" fill style={{ objectFit: 'fill' }} unoptimized />
-              )}
-              {liveCameraOverlayUrl && (
-                <Image
-                  src={liveCameraOverlayUrl}
-                  alt="Drawing overlay"
-                  fill
-                  style={{ objectFit: 'fill', pointerEvents: 'none' }}
-                  unoptimized
-                />
-              )}
-              {liveMarkerOverlayUrl && !markerOverlayFailed ? (
-                <img
-                  src={liveMarkerOverlayUrl}
-                  alt=""
-                  onError={() => setMarkerOverlayFailed(true)}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'fill',
-                    pointerEvents: 'none',
-                  }}
-                />
-              ) : (
-                detectionSvg
-              )}
-            </div>
-          )}
-          {!shouldMountVideo && !cameraFrameUrl && cameraWaitingMessage && (
-            <div className="learn-camera-waiting-card">
-              <div className="learn-camera-connect-eyebrow">Live camera</div>
-              <div className="learn-camera-connect-title">Connecting the camera feed</div>
-              <p className="learn-camera-connect-copy">{cameraWaitingMessage}</p>
-              {cameraSource === 'phone-webrtc' && cameraBuddyQrUrl && (
-                <div className="learn-camera-connect-qr-shell">
-                  <Image src={cameraBuddyQrUrl} alt="Camera Buddy QR code" width={176} height={176} unoptimized />
-                  <button type="button" className="btn-ghost" onClick={onCopyBackendUrl}>
-                    {backendLinkCopied ? 'Copied classroom link' : 'Copy classroom link'}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
       {showSimulator && (
-        <SimulatorCanvas
+        <SimPlayground
           svgContent={featuredSvgContent}
           isGenerating={composing}
           style={{ position: 'absolute', inset: 0 }}
         />
       )}
 
-      {showSimulator && (
-        <div className="learn-camera-connect-card">
-          <div className="learn-camera-connect-eyebrow">Camera Buddy</div>
-          <div className="learn-camera-connect-title">Connect a phone or tablet camera</div>
-          <p className="learn-camera-connect-copy">
-            Scan this code in Camera Buddy to go live, or use this device if you want the laptop camera instead.
-          </p>
-          <div className="learn-camera-connect-actions">
-            <button className="btn-cta" type="button" disabled={sourceSaving} onClick={onActivateCompanionCamera}>
-              <QrCode size={14} />
-              Use Camera Buddy
-            </button>
-            <button className="btn-ghost" type="button" disabled={sourceSaving} onClick={onActivateBrowserCamera}>
-              <Camera size={14} />
-              Use this device
-            </button>
-          </div>
-          <div className="learn-camera-connect-qr-shell">
-            {cameraBuddyQrUrl ? (
+      {/* ── Active video / image feed — fills the entire area ── */}
+      {showFeed && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            overflow: 'hidden',
+            background: '#050b16',
+          }}
+        >
+          {shouldMountVideo && (
+            <video
+              ref={handleVideoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                background: '#050b16',
+              }}
+            />
+          )}
+          {!shouldMountVideo && cameraFrameUrl && cameraReady && (
+            <Image src={cameraFrameUrl} alt="Camera feed" fill style={{ objectFit: 'contain' }} unoptimized />
+          )}
+          {liveCameraOverlayUrl && (
+            <Image
+              src={liveCameraOverlayUrl}
+              alt="Drawing overlay"
+              fill
+              style={{ objectFit: 'contain', pointerEvents: 'none' }}
+              unoptimized
+            />
+          )}
+          {liveMarkerOverlayUrl && !markerOverlayFailed ? (
+            <img
+              src={liveMarkerOverlayUrl}
+              alt=""
+              onError={() => setMarkerOverlayFailed(true)}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
+            />
+          ) : (aprilTagDetections.length > 0 || canvasBorder.detected) && (() => {
+            const vw = videoDims?.w ?? 1;
+            const vh = videoDims?.h ?? 1;
+            const sw = `${0.004 * vw}`;
+            return (
+              <svg
+                viewBox={`0 0 ${vw} ${vh}`}
+                preserveAspectRatio="xMidYMid meet"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  overflow: 'visible',
+                  pointerEvents: 'none',
+                }}
+              >
+                {aprilTagDetections.map((d) => (
+                  <polygon
+                    key={`tag-${d.tag_id}`}
+                    points={d.corners.map((c) => `${c.x * vw},${c.y * vh}`).join(' ')}
+                    fill="rgba(93,228,255,0.05)"
+                    stroke="rgba(93,228,255,0.85)"
+                    strokeWidth={sw}
+                    strokeLinejoin="round"
+                  />
+                ))}
+                {canvasBorder.detected && (
+                  <>
+                    <polygon
+                      points={canvasBorder.corners.map((c) => `${c.x * vw},${c.y * vh}`).join(' ')}
+                      fill="none"
+                      stroke="rgba(255,79,140,0.92)"
+                      strokeWidth={sw}
+                      strokeLinejoin="round"
+                    />
+                    {canvasBorder.corners.map((c, i) => (
+                      <circle
+                        key={`border-${i}`}
+                        cx={c.x * vw}
+                        cy={c.y * vh}
+                        r={0.012 * Math.max(vw, vh)}
+                        fill="rgba(255,79,140,0.9)"
+                        stroke="rgba(255,255,255,0.88)"
+                        strokeWidth={sw}
+                      />
+                    ))}
+                  </>
+                )}
+              </svg>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── Camera controls panel (visible in Live tab when no active stream) ── */}
+      {!showSimulator && !hasActiveStream && !shouldMountVideo && !cameraConnecting && (
+        <div className="live-camera-panel">
+          <div className="live-camera-panel-inner">
+            <div className="live-status-row">
+              <div className={`learn-sys-dot ${statusDotClass}`} />
+              <span className="live-status-label">{statusLabel}</span>
+            </div>
+
+            {/* ── Choose a source ── */}
+            {panelView === 'choose' && (
               <>
-                <Image src={cameraBuddyQrUrl} alt="Camera Buddy QR code" width={188} height={188} unoptimized />
-                <button type="button" className="btn-ghost" onClick={onCopyBackendUrl}>
-                  {backendLinkCopied ? 'Copied classroom link' : 'Copy classroom link'}
-                </button>
+                <div className="live-camera-panel-title">Connect a camera</div>
+                <div className="live-camera-panel-copy">
+                  Choose a camera source to see a live feed and enable paper detection.
+                </div>
+                <div className="live-camera-actions">
+                  <Button
+                    variant="primary"
+                    size="md"
+                    disabled={sourceSaving}
+                    onClick={() => setPanelView('phone-qr')}
+                    className="w-full"
+                  >
+                    <QrCode size={14} />
+                    Camera Buddy (Phone)
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    disabled={sourceSaving}
+                    onClick={onActivateBrowserCamera}
+                    className="w-full"
+                  >
+                    <Camera size={13} />
+                    This Device
+                  </Button>
+                </div>
               </>
-            ) : (
-              <div className="learn-camera-connect-qr-placeholder">Preparing Camera Buddy link…</div>
+            )}
+
+            {/* ── Camera Buddy QR view ── */}
+            {panelView === 'phone-qr' && (
+              <>
+                <button
+                  type="button"
+                  className="live-panel-back"
+                  onClick={() => setPanelView('choose')}
+                >
+                  <ArrowLeft size={13} />
+                  Back
+                </button>
+
+                <div className="live-camera-panel-title">Camera Buddy</div>
+                <div className="live-camera-panel-copy">
+                  Scan the QR code on your phone or enter the classroom code in the Camera Buddy app.
+                </div>
+
+                {cameraBuddyQrUrl && (
+                  <div className="live-camera-qr-block">
+                    <div className="live-camera-qr-row">
+                      <div style={{ padding: 8, borderRadius: 16, background: '#fff', flexShrink: 0 }}>
+                        <Image src={cameraBuddyQrUrl} alt="Camera Buddy QR" width={120} height={120} unoptimized />
+                      </div>
+                      <div className="live-camera-qr-meta">
+                        <div className="live-camera-qr-label">Classroom code</div>
+                        <div className="live-camera-qr-code">{classroomJoinCode}</div>
+                        <Button variant="ghost" size="sm" onClick={onCopyBackendUrl} title="Copy classroom link">
+                          {backendLinkCopied ? 'Copied!' : 'Copy link'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="live-camera-help">{companionConnectionStatus}</div>
+              </>
             )}
           </div>
-          <div className="learn-camera-connect-status">
-            {cameraSource === 'browser-camera' ? browserCameraStatus : companionConnectionStatus}
+        </div>
+      )}
+
+      {/* ── Connecting overlay (shows over the dark video while waiting) ── */}
+      {!showSimulator && (shouldMountVideo || cameraConnecting) && !cameraReady && (
+        <div className="live-connecting-overlay">
+          <div className="live-connecting-inner">
+            <div className={`learn-sys-dot ${statusDotClass}`} style={{ width: 8, height: 8 }} />
+            <span>Connecting {sourceLabel}…</span>
           </div>
+          <div className="live-connecting-help">{cameraWaitingMessage}</div>
+          {cameraSource === 'phone-webrtc' && cameraBuddyQrUrl && (
+            <div className="live-connecting-qr">
+              <Image src={cameraBuddyQrUrl} alt="QR" width={100} height={100} unoptimized style={{ borderRadius: 12 }} />
+              <div style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.1em' }}>{classroomJoinCode}</div>
+            </div>
+          )}
+          <Button variant="ghost" size="sm" onClick={onDeactivateCamera}>
+            <VideoOff size={12} />
+            Disconnect {sourceLabel}
+          </Button>
+        </div>
+      )}
+
+      {/* ── Active stream top-bar with status + disconnect ── */}
+      {!showSimulator && hasActiveStream && (
+        <div className="live-active-bar">
+          <div className="learn-sys-dot live" />
+          <span className="live-active-label">{sourceLabel} — Live</span>
+          <button type="button" className="live-disconnect-btn" onClick={onDeactivateCamera} title={`Disconnect ${sourceLabel}`}>
+            <VideoOff size={11} />
+            <span className="live-disconnect-label">Disconnect</span>
+          </button>
         </div>
       )}
 
@@ -242,15 +358,7 @@ export function LearningStage({
             backdropFilter: 'blur(8px)',
           }}
         >
-          <div
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: 'var(--green)',
-              boxShadow: '0 0 6px rgba(77,255,184,0.5)',
-            }}
-          />
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 6px rgba(77,255,184,0.5)' }} />
           Paper detected
         </div>
       )}

@@ -5,19 +5,18 @@ import { RefreshCw, Sparkles, Upload } from 'lucide-react';
 
 import { BlockEditor } from '@/components/block-editor';
 import { CodeEditor } from '@/components/code-editor';
-import { LAYER_META, type ConceptLayer } from '@/lib/concept-types';
 
 import type { PromptComposerProps } from './types';
 
 export function PromptComposer({
   interactionMode,
-  activeLayer,
   prompt,
   composing,
   uploading,
   featuredTasks,
   conceptId,
   apiBase,
+  showCodeFocus,
   onPromptChange,
   onSubmitPrompt,
   onUploadFile,
@@ -26,6 +25,7 @@ export function PromptComposer({
   onBlockRun,
   onBlockPreviewSvgChange,
   onCodeSvgResult,
+  onToggleCodeFocus,
 }: PromptComposerProps) {
   const handlePromptSubmit = (event: FormEvent) => {
     onSubmitPrompt(event);
@@ -33,38 +33,42 @@ export function PromptComposer({
 
   return (
     <div className="learn-prompt-bar">
-      <div className="learn-mode-row">
-        <span style={{ fontSize: '0.68rem', color: 'var(--muted)', fontWeight: 600, marginRight: 2 }}>Mode:</span>
-        {(['language', 'blocks', 'code'] as const).map((mode) => (
+      {/* Blocks / Code editor mode switcher — only shown when not in language mode */}
+      {interactionMode !== 'language' && (
+        <div className="learn-mode-row">
           <button
-            key={mode}
             type="button"
-            className={`learn-mode-tab ${interactionMode === mode ? 'active' : ''}`}
-            onClick={() => onInteractionModeChange(mode)}
+            className="learn-mode-tab"
+            onClick={() => onInteractionModeChange('language')}
           >
-            {mode === 'language' ? 'Language' : mode === 'blocks' ? 'Blocks' : 'Code'}
+            ← Prompt
           </button>
-        ))}
-
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-          {(['intuitive', 'structural', 'precise'] as ConceptLayer[]).map((layer) => (
-            <div
-              key={layer}
-              style={{
-                fontSize: '0.62rem',
-                padding: '2px 7px',
-                borderRadius: 999,
-                border: `1px solid ${activeLayer === layer ? 'rgba(93,228,255,0.35)' : 'var(--border)'}`,
-                color: activeLayer === layer ? 'var(--cyan)' : 'var(--muted)',
-                fontWeight: 700,
-                letterSpacing: '0.04em',
-              }}
+          <button
+            type="button"
+            className={`learn-mode-tab ${interactionMode === 'blocks' ? 'active' : ''}`}
+            onClick={() => onInteractionModeChange('blocks')}
+          >
+            Blocks
+          </button>
+          <button
+            type="button"
+            className={`learn-mode-tab ${interactionMode === 'code' ? 'active' : ''}`}
+            onClick={() => onInteractionModeChange('code')}
+          >
+            Code
+          </button>
+          {(interactionMode === 'blocks' || interactionMode === 'code') && (
+            <button
+              type="button"
+              className={`learn-mode-tab ${showCodeFocus ? 'active' : ''}`}
+              style={{ marginLeft: 'auto' }}
+              onClick={onToggleCodeFocus}
             >
-              {LAYER_META[layer].label}
-            </div>
-          ))}
+              {showCodeFocus ? 'Compact' : 'Expand'}
+            </button>
+          )}
         </div>
-      </div>
+      )}
 
       {interactionMode === 'language' && (
         <>
@@ -116,6 +120,10 @@ export function PromptComposer({
                   {task.name ?? task.prompt?.slice(0, 24) ?? 'Drawing'}
                 </button>
               ))}
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                <button type="button" className="learn-recent-chip" onClick={() => onInteractionModeChange('blocks')} title="Switch to block programming">Blocks</button>
+                <button type="button" className="learn-recent-chip" onClick={() => onInteractionModeChange('code')} title="Switch to code editor">Code</button>
+              </div>
             </div>
           )}
         </>

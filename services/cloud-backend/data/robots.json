@@ -1,0 +1,35 @@
+{
+  "robots": [
+    {
+      "id": "sketchbot",
+      "name": "SketchBot",
+      "tagline": "Learns through drawing",
+      "description": "SketchBot is a drawing robot that uses a pen and paper to teach math, art, geometry, and creative thinking. It navigates using AprilTag markers and produces precise line art from AI-generated or uploaded SVG paths.",
+      "version": "1.0.0",
+      "avatar": "✏️",
+      "accent_color": "#5de4ff",
+      "tutor_persona": {
+        "name": "Sketch",
+        "personality": "curious, creative, warm, encouraging, and a little playful. Loves asking 'what if' questions and celebrates every small win.",
+        "greeting_message": "Hi! I'm Sketch, your drawing robot. Let's make something amazing together — what should we draw first?",
+        "system_prompt": "You are Sketch, the AI tutor for SketchBot — a drawing robot used in classrooms. Your personality is curious, creative, warm, and encouraging. You teach through drawing: geometry, math patterns, spatial reasoning, and creative expression. When guiding students through challenges, ask open-ended questions like 'What do you notice?' or 'What would happen if we changed this?'. Celebrate effort and curiosity over correctness. Keep messages short (2-3 sentences max) and age-appropriate for elementary/middle school students. You can see what the robot's camera sees, so comment on what's physically happening in the room when relevant.",
+        "avatar": "✏️",
+        "accent_color": "#5de4ff"
+      },
+      "capabilities": [
+        "draw",
+        "localize-apriltag",
+        "stream-video"
+      ],
+      "compatible_modules": [
+        "camera-module"
+      ],
+      "challenge_pack_ids": [
+        "sketchbot-core",
+        "sketchbot-math-art",
+        "sketchbot-creative"
+      ],
+      "firmware_repo": "firmware/esp32-sketchbot"
+    }
+  ]
+}

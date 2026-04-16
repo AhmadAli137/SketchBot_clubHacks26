@@ -258,5 +258,165 @@
     "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <path d=\"M50 80 L70 40 L95 70 Q100 75 105 70 L130 40 L150 80 Q150 130 100 150 Q50 130 50 80 Z\" fill=\"none\" stroke=\"black\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <circle cx=\"78\" cy=\"95\" r=\"5\" fill=\"black\"/>\n  <circle cx=\"122\" cy=\"95\" r=\"5\" fill=\"black\"/>\n  <path d=\"M100 108 L94 118 L106 118 Z\" fill=\"black\"/>\n  <path d=\"M100 118 Q92 126 84 124\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M100 118 Q108 126 116 124\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M92 116 L58 110 M92 120 L58 120 M92 124 L58 130\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M108 116 L142 110 M108 120 L142 120 M108 124 L142 130\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>",
     "image_data_url": null,
     "path_count": 5
+  },
+  {
+    "id": "3d703270-08f5-4313-979c-c6557030bed4",
+    "name": "happy robot face",
+    "source_type": "prompt",
+    "prompt": "happy robot face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "e3097a73-405c-4530-99c8-a20990549f17",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "d8ff3cd2-253d-4f46-9a0f-215e6ceaf4ce",
+    "name": "code sketch",
+    "source_type": "code",
+    "prompt": "student code",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 297.0 210.0\" width=\"297.0\" height=\"210.0\">\n  <rect width=\"297.0\" height=\"210.0\" fill=\"white\"/>\n  <path d=\"M 0.00 210.00 L 10.00 200.00\" fill=\"none\" stroke=\"black\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 1
+  },
+  {
+    "id": "90619766-61b1-47d2-bca2-784110a9b23c",
+    "name": "coord-systems blocks",
+    "source_type": "blocks",
+    "prompt": "coord-systems",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 297.0 210.0\" width=\"297.0\" height=\"210.0\">\n  <rect width=\"297.0\" height=\"210.0\" fill=\"white\"/>\n  <path d=\"M 64.14 145.86 L 35.86 145.86 L 35.86 174.14 L 64.14 174.14 L 64.14 145.86\" fill=\"none\" stroke=\"black\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 1
+  },
+  {
+    "id": "33b05256-b5e7-4087-9a70-ba68e2e3dd89",
+    "name": "coord-systems blocks",
+    "source_type": "blocks",
+    "prompt": "coord-systems",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 297.0 210.0\" width=\"297.0\" height=\"210.0\">\n  <rect width=\"297.0\" height=\"210.0\" fill=\"white\"/>\n  <path d=\"M 64.14 145.86 L 35.86 145.86 L 35.86 174.14 L 64.14 174.14 L 64.14 145.86\" fill=\"none\" stroke=\"black\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 1
+  },
+  {
+    "id": "937fcdf5-edff-4a37-9884-2f44d2a36acd",
+    "name": "coord-systems blocks",
+    "source_type": "blocks",
+    "prompt": "coord-systems",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 297.0 210.0\" width=\"297.0\" height=\"210.0\">\n  <rect width=\"297.0\" height=\"210.0\" fill=\"white\"/>\n  <path d=\"M 50.00 160.00 L 70.00 160.00 L 70.00 145.00 L 90.00 145.00 L 90.00 130.00 L 110.00 130.00 L 110.00 115.00\" fill=\"none\" stroke=\"black\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 1
+  },
+  {
+    "id": "17f43a60-2e87-41d2-a570-0de23047f6f4",
+    "name": "coord-systems blocks",
+    "source_type": "blocks",
+    "prompt": "coord-systems",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 297.0 210.0\" width=\"297.0\" height=\"210.0\">\n  <rect width=\"297.0\" height=\"210.0\" fill=\"white\"/>\n  <path d=\"M 50.00 160.00 L 70.00 160.00 L 70.00 148.00 L 90.00 148.00 L 90.00 136.00 L 65.00 136.00 L 85.00 136.00 L 85.00 124.00 L 105.00 124.00 L 105.00 112.00 L 80.00 112.00\" fill=\"none\" stroke=\"black\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 1
+  },
+  {
+    "id": "1dd29efd-0ef5-470a-a48d-0d4c05c2fccf",
+    "name": "coord-systems sketch",
+    "source_type": "code",
+    "prompt": "coord-systems",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 297.0 210.0\" width=\"297.0\" height=\"210.0\">\n  <rect width=\"297.0\" height=\"210.0\" fill=\"white\"/>\n  <path d=\"M 50.00 160.00 L 247.00 160.00 L 247.00 50.00 L 50.00 50.00 L 50.00 160.00\" fill=\"none\" stroke=\"black\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 1
+  },
+  {
+    "id": "5dfe288c-0aed-4361-b200-2c6307ef249e",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "a9762535-d860-4e94-994c-89ddd7339abd",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "dd25622f-7371-4982-b098-4888f3296f1b",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "1008a043-2779-4f58-9aaa-368a2d49d6b2",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "b3bddf15-fc83-4b3b-8f98-43c3e94ca0c4",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "a23cc560-79bb-45aa-98cb-0ef21da76f3a",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "1ea11639-2509-467c-abfb-63de99639c83",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "2ddbc774-1d59-41f3-bb68-65570129fae4",
+    "name": "cat",
+    "source_type": "prompt",
+    "prompt": "cat",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <path d=\"M50 80 L70 40 L95 70 Q100 75 105 70 L130 40 L150 80 Q150 130 100 150 Q50 130 50 80 Z\" fill=\"none\" stroke=\"black\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <circle cx=\"78\" cy=\"95\" r=\"5\" fill=\"black\"/>\n  <circle cx=\"122\" cy=\"95\" r=\"5\" fill=\"black\"/>\n  <path d=\"M100 108 L94 118 L106 118 Z\" fill=\"black\"/>\n  <path d=\"M100 118 Q92 126 84 124\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M100 118 Q108 126 116 124\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M92 116 L58 110 M92 120 L58 120 M92 124 L58 130\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M108 116 L142 110 M108 120 L142 120 M108 124 L142 130\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 3
   }
 ]
