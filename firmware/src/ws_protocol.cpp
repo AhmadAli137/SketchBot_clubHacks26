@@ -85,21 +85,82 @@ void WsProtocol::handleInbound(const char *payload, int len, esp_websocket_clien
         bool ok = false;
         const char *message = "unsupported command";
         if (cJSON_IsString(name)) {
-            if (std::strcmp(name->valuestring, "ping") == 0 || std::strcmp(name->valuestring, "status") == 0) {
+            const char *n = name->valuestring;
+
+            if (std::strcmp(n, "ping") == 0 || std::strcmp(n, "status") == 0) {
                 ok = true;
                 message = "pong";
-            } else if (std::strcmp(name->valuestring, "home") == 0) {
+
+            } else if (std::strcmp(n, "home") == 0) {
                 ok = robot.home();
                 message = ok ? "home complete" : "home failed";
-            } else if (std::strcmp(name->valuestring, "pen_up") == 0) {
+
+            } else if (std::strcmp(n, "pen_up") == 0) {
                 ok = robot.penUp();
-                message = ok ? "pen up complete" : "pen up failed";
-            } else if (std::strcmp(name->valuestring, "pen_down") == 0) {
+                message = ok ? "pen up" : "pen up failed";
+
+            } else if (std::strcmp(n, "pen_down") == 0) {
                 ok = robot.penDown();
-                message = ok ? "pen down complete" : "pen down failed";
-            } else if (std::strcmp(name->valuestring, "stop") == 0) {
+                message = ok ? "pen down" : "pen down failed";
+
+            } else if (std::strcmp(n, "stop") == 0) {
                 ok = robot.stop();
-                message = ok ? "stop complete" : "stop failed";
+                message = ok ? "stopped" : "stop failed";
+
+            } else if (std::strcmp(n, "move_forward") == 0) {
+                cJSON *args      = cJSON_GetObjectItem(root, "args");
+                float mm         = 0.0f;
+                float speed_mm_s = 60.0f;
+                if (args) {
+                    cJSON *jmm = cJSON_GetObjectItem(args, "mm");
+                    cJSON *jsp = cJSON_GetObjectItem(args, "speed_mm_s");
+                    if (cJSON_IsNumber(jmm)) mm = (float)jmm->valuedouble;
+                    if (cJSON_IsNumber(jsp)) speed_mm_s = (float)jsp->valuedouble;
+                }
+                ok = robot.moveForward(mm, speed_mm_s);
+                message = ok ? "ok" : "move failed";
+
+            } else if (std::strcmp(n, "move_backward") == 0) {
+                cJSON *args      = cJSON_GetObjectItem(root, "args");
+                float mm         = 0.0f;
+                float speed_mm_s = 60.0f;
+                if (args) {
+                    cJSON *jmm = cJSON_GetObjectItem(args, "mm");
+                    cJSON *jsp = cJSON_GetObjectItem(args, "speed_mm_s");
+                    if (cJSON_IsNumber(jmm)) mm = (float)jmm->valuedouble;
+                    if (cJSON_IsNumber(jsp)) speed_mm_s = (float)jsp->valuedouble;
+                }
+                ok = robot.moveBackward(mm, speed_mm_s);
+                message = ok ? "ok" : "move failed";
+
+            } else if (std::strcmp(n, "rotate") == 0) {
+                cJSON *args     = cJSON_GetObjectItem(root, "args");
+                float degrees   = 0.0f;
+                float speed_dps = 90.0f;
+                if (args) {
+                    cJSON *jdeg = cJSON_GetObjectItem(args, "degrees");
+                    cJSON *jsp  = cJSON_GetObjectItem(args, "speed_dps");
+                    if (cJSON_IsNumber(jdeg)) degrees   = (float)jdeg->valuedouble;
+                    if (cJSON_IsNumber(jsp))  speed_dps = (float)jsp->valuedouble;
+                }
+                ok = robot.rotate(degrees, speed_dps);
+                message = ok ? "ok" : "rotate failed";
+
+            } else if (std::strcmp(n, "go_to") == 0) {
+                cJSON *args      = cJSON_GetObjectItem(root, "args");
+                float x_mm       = 0.0f;
+                float y_mm       = 0.0f;
+                float speed_mm_s = 60.0f;
+                if (args) {
+                    cJSON *jx  = cJSON_GetObjectItem(args, "x_mm");
+                    cJSON *jy  = cJSON_GetObjectItem(args, "y_mm");
+                    cJSON *jsp = cJSON_GetObjectItem(args, "speed_mm_s");
+                    if (cJSON_IsNumber(jx))  x_mm       = (float)jx->valuedouble;
+                    if (cJSON_IsNumber(jy))  y_mm       = (float)jy->valuedouble;
+                    if (cJSON_IsNumber(jsp)) speed_mm_s = (float)jsp->valuedouble;
+                }
+                ok = robot.goTo(x_mm, y_mm, speed_mm_s);
+                message = ok ? "ok" : "go_to failed";
             }
         }
         sendCommandResult(ws, cJSON_IsString(commandId) ? commandId->valuestring : "unknown", ok, message);

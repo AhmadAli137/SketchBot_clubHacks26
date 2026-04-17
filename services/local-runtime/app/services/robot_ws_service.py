@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from typing import Any
@@ -22,6 +23,9 @@ class RobotWebSocketService:
         self.websocket: WebSocket | None = None
         self.robot_id: str | None = None
         self.last_heartbeat_at: float | None = None
+        # Agent support — command result signalling
+        self._command_result_event: asyncio.Event = asyncio.Event()
+        self._last_command_result: dict[str, Any] | None = None
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -95,6 +99,9 @@ class RobotWebSocketService:
             state.robot.active_command_id = msg.command_id
             state.robot_status = 'ready' if msg.ok else 'fault'
             state_manager.add_event(msg.message or f'Command result: {msg.command_id} ok={msg.ok}')
+            # Signal any waiting agent
+            self._last_command_result = {'ok': msg.ok, 'command_id': msg.command_id, 'message': msg.message}
+            self._command_result_event.set()
             return
 
         if message_type == 'fault':
@@ -111,9 +118,20 @@ class RobotWebSocketService:
             state_manager.add_event(f'Robot log [{msg.level}]: {msg.message}')
             return
 
+    async def wait_for_command_result(self, timeout: float = 30.0) -> dict[str, Any]:
+        """Block until the robot acknowledges the last command or timeout expires."""
+        try:
+            await asyncio.wait_for(self._command_result_event.wait(), timeout=timeout)
+            return self._last_command_result or {'ok': False, 'message': 'no result received'}
+        except asyncio.TimeoutError:
+            return {'ok': False, 'message': f'command timed out after {timeout}s'}
+
     async def send_command(self, name: str, args: dict[str, Any] | None = None, command_id: str | None = None) -> bool:
         if self.websocket is None:
             return False
+        # Reset result event before sending
+        self._command_result_event.clear()
+        self._last_command_result = None
         payload = {
             'type': 'command',
             'command_id': command_id or f'cmd-{int(time.time() * 1000)}',

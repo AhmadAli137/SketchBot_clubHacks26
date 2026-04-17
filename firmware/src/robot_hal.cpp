@@ -1,79 +1,351 @@
 #include "robot_hal.h"
 
+#include <cmath>
+#include <cstring>
+
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "led_strip.h"
 
 #include "app_config.h"
 
-namespace {
 static const char *TAG = "robot_hal";
 
-static_assert(STATUS_LED_R_ORDER_INDEX < 3, "STATUS_LED_R_ORDER_INDEX must be 0..2");
-static_assert(STATUS_LED_G_ORDER_INDEX < 3, "STATUS_LED_G_ORDER_INDEX must be 0..2");
-static_assert(STATUS_LED_B_ORDER_INDEX < 3, "STATUS_LED_B_ORDER_INDEX must be 0..2");
-}  // namespace
+// ─── Static ISR trampolines ────────────────────────────────────────────────────
+
+void IRAM_ATTR RobotHal::leftEncoderISR(void *arg) {
+    auto *self = static_cast<RobotHal *>(arg);
+    self->encLeft_++;
+}
+void IRAM_ATTR RobotHal::rightEncoderISR(void *arg) {
+    auto *self = static_cast<RobotHal *>(arg);
+    self->encRight_++;
+}
+
+// ─── init ──────────────────────────────────────────────────────────────────────
 
 void RobotHal::init() {
-    if (initialized_) {
-        return;
-    }
+    if (initialized_) return;
 
-    led_strip_config_t strip_config = {};
-    strip_config.strip_gpio_num = static_cast<gpio_num_t>(STATUS_LED_DATA_GPIO);
-    strip_config.max_leds = 1;
+    // ── Status LED ───────────────────────────────────────────────────────────
+    led_strip_config_t strip_cfg = {};
+    strip_cfg.strip_gpio_num = static_cast<gpio_num_t>(STATUS_LED_DATA_GPIO);
+    strip_cfg.max_leds = 1;
+    led_strip_rmt_config_t rmt_cfg = {};
+    rmt_cfg.resolution_hz = 10 * 1000 * 1000;
+    led_strip_new_rmt_device(&strip_cfg, &rmt_cfg, &statusLed_);
+    setStatusLed(false, false, false);
 
-    led_strip_rmt_config_t rmt_config = {};
-    rmt_config.resolution_hz = 10 * 1000 * 1000;
-    rmt_config.flags.with_dma = false;
+    // ── Motor direction GPIO ─────────────────────────────────────────────────
+    gpio_config_t io = {};
+    io.mode = GPIO_MODE_OUTPUT;
+    io.pin_bit_mask = (1ULL << MOTOR_L_IN1_GPIO) | (1ULL << MOTOR_L_IN2_GPIO)
+                    | (1ULL << MOTOR_R_IN1_GPIO) | (1ULL << MOTOR_R_IN2_GPIO);
+    gpio_config(&io);
+    motorStop();
 
-    esp_err_t err = led_strip_new_rmt_device(&strip_config, &rmt_config, &statusLed_);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Status LED init failed: %s", esp_err_to_name(err));
-        return;
-    }
+    // ── Motor PWM (LEDC) ─────────────────────────────────────────────────────
+    ledc_timer_config_t ledc_timer = {};
+    ledc_timer.speed_mode       = LEDC_LOW_SPEED_MODE;
+    ledc_timer.timer_num        = MOTOR_LEDC_TIMER;
+    ledc_timer.duty_resolution  = MOTOR_LEDC_RES;
+    ledc_timer.freq_hz          = MOTOR_LEDC_FREQ_HZ;
+    ledc_timer.clk_cfg          = LEDC_AUTO_CLK;
+    ledc_timer_config(&ledc_timer);
+
+    ledc_channel_config_t lch = {};
+    lch.speed_mode = LEDC_LOW_SPEED_MODE;
+    lch.intr_type  = LEDC_INTR_DISABLE;
+    lch.timer_sel  = MOTOR_LEDC_TIMER;
+    lch.duty       = 0;
+    lch.hpoint     = 0;
+
+    lch.channel    = MOTOR_L_LEDC_CH;
+    lch.gpio_num   = MOTOR_L_PWM_GPIO;
+    ledc_channel_config(&lch);
+
+    lch.channel    = MOTOR_R_LEDC_CH;
+    lch.gpio_num   = MOTOR_R_PWM_GPIO;
+    ledc_channel_config(&lch);
+
+    // ── Pen servo (MCPWM, 50 Hz) ─────────────────────────────────────────────
+    mcpwm_timer_config_t pen_timer_cfg = {};
+    pen_timer_cfg.group_id      = 0;
+    pen_timer_cfg.clk_src       = MCPWM_TIMER_CLK_SRC_DEFAULT;
+    pen_timer_cfg.resolution_hz = 1000000;    // 1 µs tick
+    pen_timer_cfg.count_mode    = MCPWM_TIMER_COUNT_MODE_UP;
+    pen_timer_cfg.period_ticks  = 20000;      // 20 ms → 50 Hz
+    mcpwm_new_timer(&pen_timer_cfg, &penTimer_);
+
+    mcpwm_operator_config_t pen_oper_cfg = {};
+    pen_oper_cfg.group_id = 0;
+    mcpwm_new_operator(&pen_oper_cfg, &penOper_);
+    mcpwm_operator_connect_timer(penOper_, penTimer_);
+
+    mcpwm_comparator_config_t pen_cmpr_cfg = {};
+    pen_cmpr_cfg.flags.update_cmp_on_tez = true;
+    mcpwm_new_comparator(penOper_, &pen_cmpr_cfg, &penCmpr_);
+
+    mcpwm_generator_config_t pen_gen_cfg = {};
+    pen_gen_cfg.gen_gpio_num = PEN_SERVO_GPIO;
+    mcpwm_new_generator(penOper_, &pen_gen_cfg, &penGen_);
+
+    mcpwm_generator_set_action_on_timer_event(
+        penGen_,
+        MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH));
+    mcpwm_generator_set_action_on_compare_event(
+        penGen_,
+        MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, penCmpr_, MCPWM_GEN_ACTION_LOW));
+
+    mcpwm_timer_enable(penTimer_);
+    mcpwm_timer_start_stop(penTimer_, MCPWM_TIMER_START_NO_STOP);
+
+    setPenPulse(PEN_UP_US);
+
+    // ── Encoder interrupts ───────────────────────────────────────────────────
+#ifdef SKETCHBOT_USE_ENCODERS
+    gpio_config_t enc_io = {};
+    enc_io.mode         = GPIO_MODE_INPUT;
+    enc_io.pull_up_en   = GPIO_PULLUP_ENABLE;
+    enc_io.intr_type    = GPIO_INTR_POSEDGE;
+    enc_io.pin_bit_mask = (1ULL << ENC_L_A_GPIO) | (1ULL << ENC_R_A_GPIO);
+    gpio_config(&enc_io);
+
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(static_cast<gpio_num_t>(ENC_L_A_GPIO), leftEncoderISR,  this);
+    gpio_isr_handler_add(static_cast<gpio_num_t>(ENC_R_A_GPIO), rightEncoderISR, this);
+#endif
 
     initialized_ = true;
-    setStatusLed(false, false, false);
+    ESP_LOGI(TAG, "RobotHal initialised");
 }
 
-bool RobotHal::home() { return true; }
-bool RobotHal::penUp() { return true; }
-bool RobotHal::penDown() { return true; }
-bool RobotHal::stop() { return true; }
+// ─── Internal motor helpers ────────────────────────────────────────────────────
+
+void RobotHal::motorStop() {
+    gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN1_GPIO), 0);
+    gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN2_GPIO), 0);
+    gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN1_GPIO), 0);
+    gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN2_GPIO), 0);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, MOTOR_L_LEDC_CH, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, MOTOR_L_LEDC_CH);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, MOTOR_R_LEDC_CH, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, MOTOR_R_LEDC_CH);
+    isMoving_ = false;
+}
+
+// leftDuty / rightDuty: –255..255 (negative = backward)
+void RobotHal::motorDrive(int leftDuty, int rightDuty) {
+    // Left
+    if (leftDuty >= 0) {
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN1_GPIO), 1);
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN2_GPIO), 0);
+    } else {
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN1_GPIO), 0);
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN2_GPIO), 1);
+        leftDuty = -leftDuty;
+    }
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, MOTOR_L_LEDC_CH, std::min(leftDuty, 255));
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, MOTOR_L_LEDC_CH);
+
+    // Right
+    if (rightDuty >= 0) {
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN1_GPIO), 1);
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN2_GPIO), 0);
+    } else {
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN1_GPIO), 0);
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN2_GPIO), 1);
+        rightDuty = -rightDuty;
+    }
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, MOTOR_R_LEDC_CH, std::min(rightDuty, 255));
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, MOTOR_R_LEDC_CH);
+
+    isMoving_ = true;
+}
+
+void RobotHal::setPenPulse(uint32_t pulse_us) {
+    if (penCmpr_) {
+        mcpwm_comparator_set_compare_value(penCmpr_, pulse_us);
+    }
+}
+
+// ─── Pen ──────────────────────────────────────────────────────────────────────
+
+bool RobotHal::penUp() {
+    setPenPulse(PEN_UP_US);
+    penIsDown_ = false;
+    vTaskDelay(pdMS_TO_TICKS(250));
+    ESP_LOGI(TAG, "pen up");
+    return true;
+}
+
+bool RobotHal::penDown() {
+    setPenPulse(PEN_DOWN_US);
+    penIsDown_ = true;
+    vTaskDelay(pdMS_TO_TICKS(250));
+    ESP_LOGI(TAG, "pen down");
+    return true;
+}
+
+// ─── Stop ─────────────────────────────────────────────────────────────────────
+
+bool RobotHal::stop() {
+    motorStop();
+    ESP_LOGI(TAG, "stop");
+    return true;
+}
+
+// ─── Home ─────────────────────────────────────────────────────────────────────
+// Stub: drive backward at low speed for 2 s to reach a physical stop, then zero pose.
+// Replace with AprilTag-based homing once the camera pipeline is integrated.
+
+bool RobotHal::home() {
+    ESP_LOGI(TAG, "homing...");
+    penUp();
+    int duty = SPEED_TO_DUTY(40.0f);
+    motorDrive(-duty, -duty);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    motorStop();
+    posX_mm_    = 0.0f;
+    posY_mm_    = 0.0f;
+    headingDeg_ = 0.0f;
+    homed_      = true;
+    ESP_LOGI(TAG, "homed — pose zeroed");
+    return true;
+}
+
+// ─── Move forward ─────────────────────────────────────────────────────────────
+
+bool RobotHal::moveForward(float mm, float speed_mm_s) {
+    if (!initialized_) return false;
+    speed_mm_s = std::max(10.0f, std::min(speed_mm_s, 200.0f));
+    int duty = (int)SPEED_TO_DUTY(speed_mm_s);
+    int lDuty = (mm > 0) ? duty : -duty;
+    int rDuty = (mm > 0) ? duty : -duty;
+
+    isMoving_ = true;
+
+#ifdef SKETCHBOT_USE_ENCODERS
+    int32_t targetCounts = (int32_t)(std::abs(mm) / MM_PER_COUNT);
+    encLeft_ = 0; encRight_ = 0;
+    motorDrive(lDuty, rDuty);
+    int64_t deadlineUs = esp_timer_get_time() + 10000000LL; // 10 s safety
+    while ((encLeft_ + encRight_) / 2 < targetCounts) {
+        if (esp_timer_get_time() > deadlineUs) break;
+        vTaskDelay(1);
+    }
+#else
+    // Timed fallback
+    uint32_t ms = (uint32_t)(std::abs(mm) / speed_mm_s * 1000.0f);
+    motorDrive(lDuty, rDuty);
+    vTaskDelay(pdMS_TO_TICKS(ms));
+#endif
+
+    motorStop();
+
+    // Update dead-reckoning pose
+    float rad = headingDeg_ * (float)M_PI / 180.0f;
+    posX_mm_ += mm * std::cos(rad);
+    posY_mm_ += mm * std::sin(rad);
+
+    ESP_LOGI(TAG, "moveForward %.1f mm → pose (%.1f, %.1f) hdg %.1f", mm, posX_mm_, posY_mm_, headingDeg_);
+    return true;
+}
+
+bool RobotHal::moveBackward(float mm, float speed_mm_s) {
+    return moveForward(-mm, speed_mm_s);
+}
+
+// ─── Rotate ───────────────────────────────────────────────────────────────────
+
+bool RobotHal::rotate(float degrees, float speed_dps) {
+    if (!initialized_) return false;
+    speed_dps = std::max(10.0f, std::min(speed_dps, 360.0f));
+
+    // Arc length each wheel travels for this rotation
+    float arcMm     = std::abs(degrees) / 360.0f * (float)M_PI * WHEEL_BASE_MM;
+    float speed_mm_s = (WHEEL_BASE_MM / 2.0f) * speed_dps * (float)M_PI / 180.0f;
+    int duty = (int)SPEED_TO_DUTY(speed_mm_s);
+
+    // CW (positive): left fwd, right bwd
+    int lDuty = (degrees > 0) ?  duty : -duty;
+    int rDuty = (degrees > 0) ? -duty :  duty;
+
+    isMoving_ = true;
+
+#ifdef SKETCHBOT_USE_ENCODERS
+    int32_t targetCounts = (int32_t)(arcMm / MM_PER_COUNT);
+    encLeft_ = 0; encRight_ = 0;
+    motorDrive(lDuty, rDuty);
+    int64_t deadlineUs = esp_timer_get_time() + 8000000LL; // 8 s safety
+    while ((encLeft_ + encRight_) / 2 < targetCounts) {
+        if (esp_timer_get_time() > deadlineUs) break;
+        vTaskDelay(1);
+    }
+#else
+    uint32_t ms = (uint32_t)(arcMm / speed_mm_s * 1000.0f);
+    motorDrive(lDuty, rDuty);
+    vTaskDelay(pdMS_TO_TICKS(ms));
+#endif
+
+    motorStop();
+    headingDeg_ = std::fmod(headingDeg_ + degrees + 360.0f, 360.0f);
+    ESP_LOGI(TAG, "rotate %.1f° → heading %.1f°", degrees, headingDeg_);
+    return true;
+}
+
+// ─── Go-to ────────────────────────────────────────────────────────────────────
+
+bool RobotHal::goTo(float x_mm, float y_mm, float speed_mm_s) {
+    float dx = x_mm - posX_mm_;
+    float dy = y_mm - posY_mm_;
+    float dist = std::sqrt(dx * dx + dy * dy);
+    if (dist < 1.0f) return true;  // already there
+
+    float targetHeading = std::atan2(dy, dx) * 180.0f / (float)M_PI;
+    float turn = targetHeading - headingDeg_;
+    while (turn >  180.0f) turn -= 360.0f;
+    while (turn < -180.0f) turn += 360.0f;
+
+    if (std::abs(turn) > 1.0f) {
+        if (!rotate(turn)) return false;
+    }
+    return moveForward(dist, speed_mm_s);
+}
+
+// ─── Telemetry ────────────────────────────────────────────────────────────────
 
 RobotTelemetry RobotHal::telemetry() const {
-    return {};
+    RobotTelemetry t;
+    t.x_mm        = posX_mm_;
+    t.y_mm        = posY_mm_;
+    t.heading_deg = headingDeg_;
+    t.pen_down    = penIsDown_;
+    t.moving      = isMoving_;
+    t.homed       = homed_;
+    return t;
 }
+
+// ─── Status LED ───────────────────────────────────────────────────────────────
 
 void RobotHal::setStatusConnected(bool connected) {
     connected_ = connected;
-    if (connected_) {
-        setStatusLed(false, true, false);
-    } else {
-        setStatusLed(false, false, false);
-    }
+    setStatusLed(false, connected, false);
 }
 
 void RobotHal::setStatusLed(bool red, bool green, bool blue) const {
-    if (!initialized_ || statusLed_ == nullptr) {
-        return;
-    }
-
-    const uint8_t input[3] = {
-        static_cast<uint8_t>(red ? 255 : 0),
+    if (!initialized_ || statusLed_ == nullptr) return;
+    const uint8_t inp[3] = {
+        static_cast<uint8_t>(red   ? 255 : 0),
         static_cast<uint8_t>(green ? 255 : 0),
-        static_cast<uint8_t>(blue ? 255 : 0),
+        static_cast<uint8_t>(blue  ? 255 : 0),
     };
-    const uint8_t phys_r = input[STATUS_LED_R_ORDER_INDEX];
-    const uint8_t phys_g = input[STATUS_LED_G_ORDER_INDEX];
-    const uint8_t phys_b = input[STATUS_LED_B_ORDER_INDEX];
-
-    esp_err_t err = led_strip_set_pixel(statusLed_, 0, phys_r, phys_g, phys_b);
-    if (err == ESP_OK) {
-        err = led_strip_refresh(statusLed_);
-    }
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Status LED update failed: %s", esp_err_to_name(err));
-    }
+    esp_err_t err = led_strip_set_pixel(statusLed_, 0,
+        inp[STATUS_LED_R_ORDER_INDEX],
+        inp[STATUS_LED_G_ORDER_INDEX],
+        inp[STATUS_LED_B_ORDER_INDEX]);
+    if (err == ESP_OK) led_strip_refresh(statusLed_);
 }
