@@ -1,16 +1,33 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Settings } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Settings, Flame, Trophy } from 'lucide-react';
 
 import { getConceptPreviews, type ConceptPreview } from '@/lib/concept-catalog';
 import { AGE_GROUP_META, type AgeGroup } from '@/lib/concept-types';
-import { getStudentProgress, incrementSessions, setAgeGroup, updateStudentProfile } from '@/lib/progress-store';
+import {
+  getStudentProgress,
+  incrementSessions,
+  setAgeGroup,
+  updateStudentProfile,
+  getProgressSummary,
+} from '@/lib/progress-store';
 import { Button } from '@/components/ui/button';
 
 import type { AuthRole } from './auth-screen';
 
 const CONCEPT_PREVIEWS: ConceptPreview[] = getConceptPreviews();
+
+type LeaderboardEntry = {
+  rank: number;
+  student_name: string;
+  xp: number;
+  level: number;
+  level_name: string;
+  level_emoji: string;
+  badge_count: number;
+  streak_days: number;
+};
 
 type HomeScreenProps = {
   role: AuthRole;
@@ -18,6 +35,7 @@ type HomeScreenProps = {
   isRobotConnected: boolean;
   classroomName?: string;
   studentCount?: number;
+  apiBase?: string;
   onStartSession: (conceptId?: string, starterPrompt?: string, ageGroup?: AgeGroup) => void;
   onSignOut: () => void;
 };
@@ -28,6 +46,7 @@ export function HomeScreen({
   isRobotConnected,
   classroomName,
   studentCount,
+  apiBase = '',
   onStartSession,
   onSignOut,
 }: HomeScreenProps) {
@@ -35,6 +54,39 @@ export function HomeScreen({
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profile, setProfile] = useState({ avatar: '🤖', favorite_color: 'var(--cyan)', bio: '' });
   const [showAllTopics, setShowAllTopics] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  const syncAndFetchLeaderboard = useCallback(async () => {
+    if (!apiBase || !userName) return;
+    try {
+      const summary = getProgressSummary(userName);
+      if (summary) {
+        await fetch(`${apiBase}/api/progress/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            student_name: userName,
+            xp: summary.xp,
+            level: summary.level,
+            level_name: summary.levelName,
+            level_emoji: summary.levelEmoji,
+            badge_count: summary.badges.length,
+            streak_days: summary.streak.current_streak_days,
+            drawings_count: summary.drawingCount,
+            concepts_started: summary.conceptsStarted,
+            concepts_mastered: summary.conceptsMastered,
+          }),
+        });
+      }
+      const res = await fetch(`${apiBase}/api/progress/leaderboard`);
+      if (res.ok) {
+        const data = await res.json();
+        setLeaderboard(data.leaderboard ?? []);
+      }
+    } catch {
+      // Network error — leaderboard unavailable
+    }
+  }, [apiBase, userName]);
 
   useEffect(() => {
     if (!userName) {
@@ -52,7 +104,9 @@ export function HomeScreen({
     } catch {
       // Ignore localStorage parse failures and keep the default group.
     }
-  }, [userName]);
+
+    syncAndFetchLeaderboard();
+  }, [userName, syncAndFetchLeaderboard]);
 
   const handleStart = (concept: ConceptPreview | null) => {
     if (userName) {
@@ -84,6 +138,11 @@ export function HomeScreen({
 
     return getStudentProgress(userName, ageGroup);
   }, [role, userName, ageGroup]);
+
+  const gamification = useMemo(() => {
+    if (!userName) return null;
+    return getProgressSummary(userName);
+  }, [userName, studentProgress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const studentStats = useMemo(() => {
     if (!studentProgress) {
@@ -149,14 +208,38 @@ export function HomeScreen({
                   <div className="student-profile-avatar" style={{ background: profile.favorite_color }}>
                     {profile.avatar}
                   </div>
-                  <div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="student-profile-name">{userName}</div>
-                    <div className="student-profile-subtitle">{AGE_GROUP_META[ageGroup].emoji} {AGE_GROUP_META[ageGroup].label}</div>
+                    <div className="student-profile-subtitle">
+                      {gamification
+                        ? `${gamification.levelEmoji} Lv.${gamification.level} ${gamification.levelName}`
+                        : `${AGE_GROUP_META[ageGroup].emoji} ${AGE_GROUP_META[ageGroup].label}`}
+                    </div>
                   </div>
+                  {gamification && gamification.streak.current_streak_days > 0 && (
+                    <div className="home-streak-badge" title={`${gamification.streak.current_streak_days}-day streak`}>
+                      <Flame size={14} />
+                      <span>{gamification.streak.current_streak_days}</span>
+                    </div>
+                  )}
                 </div>
-                <p className="student-profile-bio">
-                  {profile.bio || 'Customize your avatar, set a goal, and watch your progress grow.'}
-                </p>
+
+                {gamification && (
+                  <div className="home-xp-section">
+                    <div className="home-xp-header">
+                      <span className="home-xp-amount">{gamification.xp} XP</span>
+                      <span className="home-xp-next">
+                        {gamification.level < 12
+                          ? `${gamification.nextXP - gamification.xp} XP to Lv.${gamification.level + 1}`
+                          : 'Max level!'}
+                      </span>
+                    </div>
+                    <div className="home-xp-track">
+                      <div className="home-xp-fill" style={{ width: `${Math.round(gamification.progress * 100)}%` }} />
+                    </div>
+                  </div>
+                )}
+
                 <div className="student-profile-stats">
                   <div>
                     <strong>{studentStats.sessions}</strong>
@@ -168,11 +251,11 @@ export function HomeScreen({
                   </div>
                   <div>
                     <strong>{studentStats.conceptsStarted}</strong>
-                    <span>Concepts started</span>
+                    <span>Concepts</span>
                   </div>
                   <div>
                     <strong>{studentStats.drawings}</strong>
-                    <span>Drawings saved</span>
+                    <span>Drawings</span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -181,6 +264,36 @@ export function HomeScreen({
                   </Button>
                 </div>
               </div>
+
+              {leaderboard.length > 1 && (
+                <div className="home-leaderboard">
+                  <div className="home-leaderboard-title">
+                    <Trophy size={14} />
+                    <span>Classroom Leaderboard</span>
+                  </div>
+                  <div className="home-leaderboard-list">
+                    {leaderboard.slice(0, 8).map((entry) => (
+                      <div
+                        key={entry.student_name}
+                        className={`home-leaderboard-row ${entry.student_name === userName ? 'is-me' : ''}`}
+                      >
+                        <span className="home-lb-rank">#{entry.rank}</span>
+                        <span className="home-lb-name">{entry.student_name}</span>
+                        <span className="home-lb-level">{entry.level_emoji} Lv.{entry.level}</span>
+                        {entry.streak_days > 0 && (
+                          <span className="home-lb-streak">
+                            <Flame size={10} />
+                            {entry.streak_days}
+                          </span>
+                        )}
+                        <span className="home-lb-xp">
+                          {entry.student_name === userName ? `${entry.xp} XP` : `${entry.badge_count} badges`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
 
             <div className="home-hero-section">

@@ -17,14 +17,14 @@ import { CANVAS_W, CANVAS_H, normTo3D } from '@/lib/sim-path-utils';
 // ─── Paper materials ──────────────────────────────────────────────────────────
 
 const PAPER_MAT = new THREE.MeshStandardMaterial({
-  color: '#f0ede6',
-  roughness: 0.88,
-  metalness: 0.0,
+  color: '#f4f0e8',
+  roughness: 0.82,
+  metalness: 0.02,
 });
 
 const PAPER_BORDER_MAT = new THREE.MeshStandardMaterial({
-  color: '#d4cfc5',
-  roughness: 0.9,
+  color: '#c8c2b6',
+  roughness: 0.88,
   metalness: 0,
 });
 
@@ -53,6 +53,7 @@ function NativeLine({
       color,
       opacity,
       transparent: opacity < 1,
+      depthWrite: opacity >= 0.99,
     });
     return new THREE.Line(geo, mat);
   }, [points, color, opacity]);
@@ -136,8 +137,8 @@ function InkLine({ points, active = false }: { points: SimPoint[]; active?: bool
   return (
     <NativeLine
       points={pts}
-      color={active ? '#5de4ff' : '#7de8ff'}
-      opacity={active ? 1 : 0.75}
+      color={active ? '#7cf0ff' : '#5bc8e8'}
+      opacity={active ? 1 : 0.82}
     />
   );
 }
@@ -160,6 +161,11 @@ export function CanvasSurface({ settledLines, activeLine, showGrid = true }: Pro
       {/* Paper surface */}
       <mesh position={[0, 0, 0]} receiveShadow material={PAPER_MAT}>
         <boxGeometry args={[CANVAS_W, 0.016, CANVAS_H]} />
+      </mesh>
+
+      {/* Paper edge highlight */}
+      <mesh position={[0, 0.0105, 0]} material={PAPER_BORDER_MAT}>
+        <boxGeometry args={[CANVAS_W + 0.006, 0.004, CANVAS_H + 0.006]} />
       </mesh>
 
       {/* Thin border/shadow around paper */}

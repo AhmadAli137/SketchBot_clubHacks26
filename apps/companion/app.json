@@ -48,8 +48,7 @@
         }
       ],
       "@config-plugins/react-native-webrtc",
-      "expo-audio",
-      "expo-speech"
+      "expo-audio"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

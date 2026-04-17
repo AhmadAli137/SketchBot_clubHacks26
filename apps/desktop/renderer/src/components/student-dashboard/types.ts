@@ -5,7 +5,7 @@ import type { AgeGroup, ConceptLayer } from '@/lib/concept-types';
 import type { BlockProgram } from '@/components/block-editor';
 
 export type DashboardStatusItem = { label: string; value: string };
-export type InteractionMode = 'language' | 'blocks' | 'code';
+export type InteractionMode = 'blocks' | 'code';
 
 export type StudentDashboardProps = {
   topStatus: DashboardStatusItem[];
@@ -71,6 +71,14 @@ export type LearningHeaderProps = {
   topStatus: DashboardStatusItem[];
   showSimulator: boolean;
   showSystemStatus: boolean;
+  studentName?: string;
+  xp?: number;
+  level?: number;
+  levelName?: string;
+  levelEmoji?: string;
+  xpProgress?: number;
+  nextXP?: number;
+  streakDays?: number;
   onBackToHome?: () => void;
   onAgeGroupChange: (ageGroup: AgeGroup) => void;
   onOpenConceptMap: () => void;

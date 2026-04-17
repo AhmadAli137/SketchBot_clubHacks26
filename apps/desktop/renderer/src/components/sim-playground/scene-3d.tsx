@@ -13,7 +13,7 @@
 
 import { useMemo, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid } from '@react-three/drei';
+import { ContactShadows, Grid, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
 import { RobotGantry } from './robot-gantry';
@@ -53,6 +53,18 @@ function NativeLine({
 
 // ─── AprilTag reference marker ────────────────────────────────────────────────
 
+/** Fixed checkerboard bits — avoids Math.random() flicker between frames. */
+const APRIL_DOT_OFFSETS: [number, number, string][] = [
+  [-0.055, -0.055, '#111'],
+  [0, -0.055, '#f5f0e6'],
+  [0.055, -0.055, '#111'],
+  [-0.055, 0, '#f5f0e6'],
+  [0.055, 0, '#111'],
+  [-0.055, 0.055, '#111'],
+  [0, 0.055, '#111'],
+  [0.055, 0.055, '#f5f0e6'],
+];
+
 function AprilTagMarker({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
@@ -66,17 +78,12 @@ function AprilTagMarker({ position }: { position: [number, number, number] }) {
         <planeGeometry args={[0.21, 0.21]} />
         <meshStandardMaterial color="#f5f0e6" roughness={0.85} />
       </mesh>
-      {/* Unique pattern dots (decorative) */}
-      {([-0.055, 0, 0.055] as const).map((dx) =>
-        ([-0.055, 0, 0.055] as const).map((dz) =>
-          (dx !== 0 || dz !== 0) ? (
-            <mesh key={`${dx}-${dz}`} position={[dx, 0.004, dz]} rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[0.03, 0.03]} />
-              <meshStandardMaterial color={Math.random() > 0.5 ? '#111' : '#f5f0e6'} roughness={0.85} />
-            </mesh>
-          ) : null,
-        ),
-      )}
+      {APRIL_DOT_OFFSETS.map(([dx, dz, col], i) => (
+        <mesh key={i} position={[dx, 0.004, dz]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.03, 0.03]} />
+          <meshStandardMaterial color={col} roughness={0.85} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -188,36 +195,59 @@ function SceneContent({
 }) {
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={0.55} color="#b8c8e8" />
+      <color attach="background" args={['#060a18']} />
+      <fog attach="fog" args={['#060a18', 14, 38]} />
+
+      {/* Lighting — warm key + cool fill for readable depth */}
+      <hemisphereLight args={['#6a8ab8', '#121520', 0.42]} />
+      <ambientLight intensity={0.38} color="#c8d4f0" />
       <directionalLight
-        position={[4, 8, 3]}
-        intensity={1.4}
-        color="#e8f0ff"
+        position={[4.5, 9, 4]}
+        intensity={1.55}
+        color="#fff5eb"
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-far={20}
-        shadow-camera-left={-5}
-        shadow-camera-right={5}
-        shadow-camera-top={5}
-        shadow-camera-bottom={-5}
+        shadow-bias={-0.00025}
+        shadow-normalBias={0.02}
+        shadow-camera-far={22}
+        shadow-camera-left={-6}
+        shadow-camera-right={6}
+        shadow-camera-top={6}
+        shadow-camera-bottom={-6}
       />
-      <pointLight position={[-3, 4, -2]} intensity={0.6} color="#5de4ff" />
-      <pointLight position={[3, 2, 3]} intensity={0.3} color="#8060ff" />
+      <directionalLight position={[-5, 5, -4]} intensity={0.35} color="#a8c8ff" />
+      <pointLight position={[-3, 4, -2]} intensity={0.55} color="#5de4ff" />
+      <pointLight position={[3.5, 2.2, 3]} intensity={0.28} color="#9080ff" />
+
+      {/* Ground plane — grounds shadows and grid */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.018, 0]} receiveShadow>
+        <planeGeometry args={[40, 40]} />
+        <meshStandardMaterial color="#080c18" roughness={0.92} metalness={0.05} />
+      </mesh>
+
+      <ContactShadows
+        position={[0, -0.015, 0]}
+        opacity={0.45}
+        scale={24}
+        blur={2.8}
+        far={5}
+        color="#000000"
+      />
 
       {/* Floor grid */}
       {showGrid && (
         <Grid
-          position={[0, -0.01, 0]}
+          position={[0, -0.008, 0]}
           args={[20, 20]}
           cellSize={0.5}
-          cellThickness={0.4}
-          cellColor="#2a3050"
+          cellThickness={0.35}
+          cellColor="#283050"
           sectionSize={2}
-          sectionThickness={0.8}
-          sectionColor="#3a4570"
-          fadeDistance={18}
-          fadeStrength={1.5}
+          sectionThickness={0.65}
+          sectionColor="#3d4a78"
+          fadeDistance={20}
+          fadeStrength={1.65}
+          infiniteGrid
           followCamera={false}
         />
       )}
@@ -286,12 +316,16 @@ export function Scene3D({
     <Canvas
       className={className}
       shadows
-      camera={{ position: [5, 4, 5], fov: 45, near: 0.1, far: 60 }}
-      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.85 }}
-      style={{ width: '100%', height: '100%', background: '#050816' }}
+      camera={{ position: [5.2, 4.2, 5.2], fov: 42, near: 0.1, far: 60 }}
+      gl={{
+        antialias: true,
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 0.92,
+        powerPreference: 'high-performance',
+      }}
+      style={{ width: '100%', height: '100%', background: '#060a18' }}
       onCreated={({ gl }) => {
-        // Avoid “white blank” clears during init / resize.
-        gl.setClearColor(new THREE.Color('#050816'), 1);
+        gl.setClearColor(new THREE.Color('#060a18'), 1);
       }}
     >
       <SceneContent

@@ -2,8 +2,17 @@
 
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Lightbulb, Mic, MicOff, RefreshCw, RotateCcw, Send, Square, TrendingUp, Volume2, VolumeX } from 'lucide-react';
+import { ArrowRight, Download, Lightbulb, Mic, MicOff, RefreshCw, RotateCcw, Send, Square, TrendingUp, Volume2, VolumeX, WifiOff, X } from 'lucide-react';
 import { AGE_GROUP_META, LAYER_META, type AgeGroup, type ConceptLayer } from '@/lib/concept-types';
+import { concatFloat32, pcmToWavBlob, resamplePcmTo16k } from '@/lib/audio-utils';
+import { useLocalWhisper } from '@/lib/use-local-whisper';
+import {
+  TUTOR_VOICES,
+  DEFAULT_TUTOR_VOICE,
+  loadSavedVoice,
+  saveVoice,
+  type TutorVoice,
+} from '@/lib/tutor-voices';
 import {
   BADGE_DEFINITIONS,
   applyTutorEvaluation,
@@ -34,6 +43,7 @@ type TutorPanelProps = {
   pathCount?: number;
   backendReachable: boolean;
   onLayerChange: (layer: ConceptLayer) => void;
+  onXPChange?: () => void;
 };
 
 type EvaluationNotice = {
@@ -43,6 +53,10 @@ type EvaluationNotice = {
   nextLayerAvailable: ConceptLayer | null;
   awardedBadges: string[];
   mastered: boolean;
+  xpAwarded: number;
+  leveledUp: boolean;
+  newLevel: number;
+  scoreDetails?: { score: number; creativity: number; concept_alignment: number; complexity: number };
 };
 
 const LAYERS: ConceptLayer[] = ['intuitive', 'structural', 'precise'];
@@ -51,142 +65,745 @@ function genId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-// ─── Voice input via MediaRecorder + Whisper ─────────────────────────────────
-// Web Speech API doesn't work in Electron (requires Google's proprietary
-// speech service bundled with Chrome, not available in Electron/Chromium).
-// Instead: record with MediaRecorder → POST audio blob → backend Whisper.
+// ─── Voice input: direct PCM capture + Whisper ───────────────────────────────
+//
+// Electron has no usable Web Speech API, so we ship our own voice pipeline.
+// We capture raw Float32 PCM via Web Audio (MediaStreamSource → ScriptProcessor)
+// instead of MediaRecorder, for two reasons:
+//
+//   1. Live partials: we can transcribe the accumulated samples mid-recording
+//      without needing a well-formed WebM/Opus container. decodeAudioData of
+//      an unfinished MediaRecorder chunk is flaky; raw Float32 never is.
+//   2. Fewer formats: one in-memory PCM buffer feeds both the local Whisper
+//      worker and (after WAV encoding) the server-side OpenAI upload.
+//
+// The stream is resampled to 16 kHz (Whisper's expected rate) before being
+// sent to the local worker. Partials fire every 1.5 s on the running buffer
+// once the local model is ready.
 
-function useVoiceInput(onTranscript: (text: string) => void, apiBase: string) {
+type VoiceInputOptions = {
+  localWhisper: ReturnType<typeof useLocalWhisper>;
+  backendReachable: boolean;
+  /** `null` = not yet probed; `true`/`false` = latest known status. */
+  backendSttAvailable: boolean | null;
+  /** Called whenever the backend STT should be flagged unavailable at runtime. */
+  onBackendSttUnavailable?: () => void;
+  /** Called when a live partial transcript is ready during recording. */
+  onPartialTranscript?: (text: string) => void;
+};
+
+const MAX_RECORDING_MS = 30_000;
+/**
+ * Max audio window (native sample rate) fed into local Whisper for *partial*
+ * transcriptions. Longer audio = slower inference. Final transcription on
+ * stop still uses the full buffer for accuracy.
+ */
+const PARTIAL_WINDOW_SECONDS = 12;
+
+function useVoiceInput(
+  onTranscript: (text: string) => void,
+  apiBase: string,
+  options: VoiceInputOptions,
+) {
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const [usedLocal, setUsedLocal] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  // Audio graph refs — kept out of state because they change during capture.
   const streamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
+  const pcmChunksRef = useRef<Float32Array[]>([]);
+  const nativeRateRef = useRef<number>(48_000);
+
+  const partialTimerRef = useRef<number | null>(null);
+  const partialInFlightRef = useRef(false);
+  const recordingRef = useRef(false);
+  const startTimestampRef = useRef<number>(0);
+  const elapsedTimerRef = useRef<number | null>(null);
+  const autoStopTimerRef = useRef<number | null>(null);
+
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  const apiBaseRef = useRef(apiBase);
+  apiBaseRef.current = apiBase;
+
+  const onTranscriptRef = useRef(onTranscript);
+  onTranscriptRef.current = onTranscript;
+
+  const stopPartialTimer = useCallback(() => {
+    if (partialTimerRef.current !== null) {
+      window.clearInterval(partialTimerRef.current);
+      partialTimerRef.current = null;
+    }
+  }, []);
+
+  const stopElapsedTimer = useCallback(() => {
+    if (elapsedTimerRef.current !== null) {
+      window.clearInterval(elapsedTimerRef.current);
+      elapsedTimerRef.current = null;
+    }
+    if (autoStopTimerRef.current !== null) {
+      window.clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+  }, []);
+
+  /** Tear down the audio graph and release the mic. Safe to call multiple times. */
+  const teardownAudioGraph = useCallback(() => {
+    try { processorNodeRef.current?.disconnect(); } catch { /* noop */ }
+    try { sourceNodeRef.current?.disconnect(); } catch { /* noop */ }
+    try { audioCtxRef.current?.close(); } catch { /* noop */ }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+
+    processorNodeRef.current = null;
+    sourceNodeRef.current = null;
+    audioCtxRef.current = null;
+    streamRef.current = null;
+  }, []);
+
+  /**
+   * Snapshot the currently buffered PCM as a 16 kHz Float32Array. Pass
+   * `windowSeconds` to limit to the tail of the buffer (used for partials so
+   * long recordings don't grind Whisper to a halt).
+   */
+  const snapshotPcm16k = useCallback(async (windowSeconds?: number): Promise<Float32Array> => {
+    const native = concatFloat32(pcmChunksRef.current);
+    if (native.length === 0) return native;
+    const rate = nativeRateRef.current;
+    const limit = windowSeconds && windowSeconds > 0
+      ? Math.min(native.length, Math.floor(rate * windowSeconds))
+      : native.length;
+    const slice = native.subarray(native.length - limit);
+    return resamplePcmTo16k(slice, rate);
+  }, []);
+
+  const runPartial = useCallback(async () => {
+    const { localWhisper } = optionsRef.current;
+    if (!localWhisper.isReady) return;
+    if (partialInFlightRef.current) return;
+    if (!recordingRef.current) return;
+    const bufferedSamples = pcmChunksRef.current.reduce((s, c) => s + c.length, 0);
+    if (bufferedSamples < nativeRateRef.current * 0.6) return;
+
+    partialInFlightRef.current = true;
+    try {
+      // Bounded window keeps partial latency flat regardless of utterance
+      // length. We still show the previous partial in the UI while this runs,
+      // so the student never sees a regression.
+      const pcm = await snapshotPcm16k(PARTIAL_WINDOW_SECONDS);
+      if (!recordingRef.current) return;
+      if (pcm.length < 16_000 * 0.4) return;
+      const text = await localWhisper.transcribe(pcm);
+      if (!recordingRef.current) return;
+      const trimmed = text?.trim();
+      if (trimmed) {
+        optionsRef.current.onPartialTranscript?.(trimmed);
+      }
+    } catch (err) {
+      console.debug('[VoiceInput] partial transcription skipped:', err);
+    } finally {
+      partialInFlightRef.current = false;
+    }
+  }, [snapshotPcm16k]);
+
+  const finalizeAndTranscribe = useCallback(async () => {
+    setIsTranscribing(true);
+    try {
+      const { localWhisper, backendReachable, backendSttAvailable, onBackendSttUnavailable } = optionsRef.current;
+      const pcm16k = await snapshotPcm16k();
+      if (pcm16k.length === 0) return;
+
+      const backendUsable =
+        backendReachable &&
+        backendSttAvailable !== false &&
+        Boolean(apiBaseRef.current);
+
+      const tryLocal = async () => {
+        if (!localWhisper.isReady) return false;
+        setUsedLocal(true);
+        // Final transcription uses the full buffer — partial's sliding
+        // window was just for latency, here we want accuracy.
+        const text = await localWhisper.transcribe(pcm16k);
+        if (text?.trim()) onTranscriptRef.current(text.trim());
+        return true;
+      };
+
+      if (!backendUsable) {
+        if (!(await tryLocal())) {
+          console.warn('[VoiceInput] no transcription path available (local model not ready yet)');
+        }
+        return;
+      }
+
+      try {
+        setUsedLocal(false);
+        const wav = pcmToWavBlob(pcm16k, 16_000);
+        const fd = new FormData();
+        fd.append('audio', wav, 'recording.wav');
+        const res = await fetch(`${apiBaseRef.current}/api/tutor/transcribe`, {
+          method: 'POST',
+          body: fd,
+        });
+
+        if (!res.ok) {
+          let errInfo = '';
+          try {
+            const errBody = (await res.json()) as { error?: string };
+            errInfo = errBody.error ?? '';
+          } catch { /* body may not be JSON */ }
+          console.warn('[VoiceInput] backend transcribe returned', res.status, errInfo);
+          onBackendSttUnavailable?.();
+          await tryLocal();
+          return;
+        }
+
+        const data = (await res.json()) as { text?: string; error?: string };
+        const text = data.text?.trim();
+        if (text) {
+          onTranscriptRef.current(text);
+        } else {
+          await tryLocal();
+        }
+      } catch (err) {
+        console.warn('[VoiceInput] backend transcription failed, trying local:', err);
+        onBackendSttUnavailable?.();
+        await tryLocal();
+      }
+    } catch (err) {
+      console.warn('[VoiceInput] transcription failed:', err);
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [snapshotPcm16k]);
 
   const stopListening = useCallback(() => {
-    if (recorderRef.current?.state === 'recording') {
-      recorderRef.current.stop(); // triggers onstop → sends to backend
-    }
+    if (!recordingRef.current) return;
+    recordingRef.current = false;
+    stopPartialTimer();
+    stopElapsedTimer();
     setIsListening(false);
-  }, []);
+    setElapsedMs(0);
+
+    // Tear the audio graph down before transcribing so the mic indicator
+    // turns off immediately.
+    teardownAudioGraph();
+    void finalizeAndTranscribe();
+  }, [finalizeAndTranscribe, stopElapsedTimer, stopPartialTimer, teardownAudioGraph]);
+
+  /** Cancel recording without firing transcription. Used for the "clear" button. */
+  const cancelListening = useCallback(() => {
+    if (!recordingRef.current) return;
+    recordingRef.current = false;
+    stopPartialTimer();
+    stopElapsedTimer();
+    setIsListening(false);
+    setElapsedMs(0);
+    setIsTranscribing(false);
+    pcmChunksRef.current = [];
+    teardownAudioGraph();
+  }, [stopElapsedTimer, stopPartialTimer, teardownAudioGraph]);
 
   const startListening = useCallback(async () => {
+    if (recordingRef.current) return;
+
+    // Kick off the local model download early so it's ready for the next
+    // utterance (or available as a fallback if the backend fails).
+    const { localWhisper } = optionsRef.current;
+    if (localWhisper.status === 'idle') {
+      try { localWhisper.loadModel(); } catch { /* noop */ }
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+      });
       streamRef.current = stream;
-      chunksRef.current = [];
+      pcmChunksRef.current = [];
 
-      // Pick a supported MIME type
-      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(
-        (m) => MediaRecorder.isTypeSupported(m),
-      ) ?? '';
+      const AudioCtx: typeof AudioContext =
+        (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext!;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+      nativeRateRef.current = ctx.sampleRate || 48_000;
 
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const source = ctx.createMediaStreamSource(stream);
+      sourceNodeRef.current = source;
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+      // ScriptProcessorNode is deprecated but ubiquitous and requires no
+      // separate worklet file — good tradeoff for a local desktop app.
+      const bufferSize = 4096;
+      const processor = ctx.createScriptProcessor(bufferSize, 1, 1);
+      processorNodeRef.current = processor;
+      processor.onaudioprocess = (e) => {
+        if (!recordingRef.current) return;
+        const input = e.inputBuffer.getChannelData(0);
+        // Must copy — the buffer is recycled by the Web Audio graph.
+        pcmChunksRef.current.push(new Float32Array(input));
       };
 
-      recorder.onstop = async () => {
-        // Always release the mic
-        stream.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
+      source.connect(processor);
+      // Connecting to destination is required in some browsers to pump the
+      // graph even though we don't want to hear ourselves — a muted gain
+      // keeps it silent without dropping events.
+      const muted = ctx.createGain();
+      muted.gain.value = 0;
+      processor.connect(muted);
+      muted.connect(ctx.destination);
 
-        if (chunksRef.current.length === 0) return;
-        setIsTranscribing(true);
-        try {
-          const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
-          const fd = new FormData();
-          fd.append('audio', blob, 'recording.webm');
-
-          const res = await fetch(`${apiBase}/api/tutor/transcribe`, {
-            method: 'POST',
-            body: fd,
-          });
-          if (res.ok) {
-            const data = (await res.json()) as { text?: string };
-            if (data.text?.trim()) onTranscript(data.text.trim());
-          }
-        } catch (err) {
-          console.warn('[VoiceInput] transcription failed:', err);
-        } finally {
-          setIsTranscribing(false);
-        }
-      };
-
-      recorderRef.current = recorder;
-      recorder.start();
+      recordingRef.current = true;
       setIsListening(true);
+      startTimestampRef.current = Date.now();
+      setElapsedMs(0);
+
+      stopPartialTimer();
+      stopElapsedTimer();
+      // Faster partials (every 800 ms) combined with the sliding window
+      // keeps inference cheap but the feedback frequent.
+      partialTimerRef.current = window.setInterval(() => {
+        void runPartial();
+      }, 800);
+      elapsedTimerRef.current = window.setInterval(() => {
+        if (!recordingRef.current) return;
+        setElapsedMs(Date.now() - startTimestampRef.current);
+      }, 200);
+      autoStopTimerRef.current = window.setTimeout(() => {
+        // Hard cap the utterance to keep Whisper fast and avoid runaway mics.
+        console.info('[VoiceInput] hit 30s cap — auto-stopping');
+        stopListening();
+      }, MAX_RECORDING_MS);
     } catch (err) {
       console.warn('[VoiceInput] mic access failed:', err);
+      recordingRef.current = false;
       setIsListening(false);
+      setElapsedMs(0);
+      teardownAudioGraph();
     }
-  }, [apiBase, onTranscript]);
+  }, [runPartial, stopElapsedTimer, stopListening, stopPartialTimer, teardownAudioGraph]);
 
-  // Cleanup on unmount
   useEffect(() => () => {
-    recorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-  }, []);
+    recordingRef.current = false;
+    stopPartialTimer();
+    stopElapsedTimer();
+    teardownAudioGraph();
+  }, [stopElapsedTimer, stopPartialTimer, teardownAudioGraph]);
 
-  return { isListening, isTranscribing, startListening, stopListening };
+  return {
+    isListening,
+    isTranscribing,
+    usedLocal,
+    elapsedMs,
+    maxMs: MAX_RECORDING_MS,
+    startListening,
+    stopListening,
+    cancelListening,
+  };
 }
 
 // ─── Text-to-speech hook ──────────────────────────────────────────────────────
+//
+// Primary path: backend streams MP3 from ElevenLabs (character voices like
+// Mark/Lori). Fallback: Web Speech API when backend is unreachable.
+//
+// We support *chunked* playback: instead of waiting for the full tutor
+// message before calling ElevenLabs (which means waiting for ~100 tokens of
+// streamed text AND then a full MP3 synthesis), we split the message into
+// sentence chunks as they stream in and queue each chunk independently.
+// The first audible word therefore lands within a few hundred ms of the
+// first sentence being complete.
 
-function useTTS() {
-  const [enabled, setEnabled] = useState(false);
+const TTS_ENABLED_STORAGE_KEY = 'sketchbot.tutor.ttsEnabled';
+
+/**
+ * Max characters sent to TTS per tutor reply (one stream or one-shot).
+ * Short prompts and quick answers stay under this; long explainers are
+ * read aloud only up to this point — the rest stays on-screen to save
+ * ElevenLabs / API usage.
+ */
+const TTS_MAX_SPOKEN_CHARS = 420;
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^[-*] /gm, '')
+    .replace(/\n+/g, ' ')
+    .trim();
+}
+
+/**
+ * Split a (possibly still-streaming) block of text into complete sentence
+ * chunks plus a tail of "not yet terminated" text. Callers keep appending to
+ * the message and we emit chunks as their terminators arrive.
+ *
+ * Returns `{ chunks, rest }` where `rest` is the suffix without a sentence
+ * terminator yet.
+ */
+function splitIntoSentences(text: string): { chunks: string[]; rest: string } {
+  if (!text) return { chunks: [], rest: '' };
+  const chunks: string[] = [];
+  // Match up to a sentence-ending punctuation followed by whitespace or EOS.
+  // Keep the punctuation with the chunk.
+  const re = /[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g;
+  const pieces = text.match(re) ?? [];
+  for (const piece of pieces) {
+    const trimmed = piece.trim();
+    if (!trimmed) continue;
+    if (/[.!?]$/.test(trimmed)) {
+      chunks.push(trimmed);
+    } else {
+      return { chunks, rest: trimmed };
+    }
+  }
+  return { chunks, rest: '' };
+}
+
+/** Fit `text` into at most `maxLen` characters, preferring a word boundary. */
+function fitTtsSegment(text: string, maxLen: number): string {
+  const t = text.trim();
+  if (maxLen <= 0 || !t) return '';
+  if (t.length <= maxLen) return t;
+  let s = t.slice(0, maxLen);
+  const lastSpace = s.lastIndexOf(' ');
+  if (lastSpace > maxLen * 0.45 && lastSpace > 0) {
+    s = s.slice(0, lastSpace);
+  }
+  return s.trimEnd();
+}
+
+type TTSOptions = {
+  apiBase: string;
+  backendReachable: boolean;
+};
+
+type QueueItem = {
+  id: number;
+  text: string;
+  ageGroup: AgeGroup;
+  /** Pre-fetched MP3 blob URL (primed during streaming for minimum latency). */
+  primedUrl?: string | null;
+  primePromise?: Promise<string | null>;
+};
+
+function useTTS({ apiBase, backendReachable }: TTSOptions) {
+  const [enabled, setEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem(TTS_ENABLED_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [voice, setVoiceState] = useState<TutorVoice>(() => loadSavedVoice());
   const [speaking, setSpeaking] = useState(false);
-  const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
-  const speak = useCallback((text: string, ageGroup: AgeGroup) => {
-    if (!enabled || !supported) return;
-    window.speechSynthesis.cancel();
+  const supported =
+    typeof window !== 'undefined' && ('speechSynthesis' in window || true); // backend path always possible
 
-    // Strip markdown so the voice reads cleanly
-    const cleaned = text
-      .replace(/```[\s\S]*?```/g, '')
-      .replace(/\*\*([^*]+)\*\*/g, '$1')
-      .replace(/\*([^*]+)\*/g, '$1')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/^[-*] /gm, '')
-      .replace(/\n+/g, ' ')
-      .trim();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentBlobUrlRef = useRef<string | null>(null);
 
+  // Playback queue state. queueRef holds items not yet played. We serialize
+  // via a running boolean + on-ended handler rather than a Promise chain so
+  // cancellation is instant.
+  const queueRef = useRef<QueueItem[]>([]);
+  const streamBufferRef = useRef<string>('');
+  const streamActiveRef = useRef<boolean>(false);
+  const isProcessingRef = useRef<boolean>(false);
+  const cancelTokenRef = useRef<number>(0);
+  const itemIdRef = useRef<number>(0);
+  /** Characters already committed to TTS this turn (streaming or one-shot). */
+  const ttsSpokenCharsRef = useRef<number>(0);
+  /** Leftover streaming text without a sentence terminator yet. */
+  const cleanedPendingRef = useRef<string>('');
+
+  // Stable references to the hook config so queue drain uses the latest
+  // values even when captured inside long-lived closures.
+  const optsRef = useRef({ enabled, apiBase, backendReachable, voice });
+  optsRef.current = { enabled, apiBase, backendReachable, voice };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!audioRef.current) {
+      const audio = new Audio();
+      audio.preload = 'auto';
+      audio.addEventListener('play', () => setSpeaking(true));
+      audio.addEventListener('pause', () => {
+        // Only clear "speaking" when the pause wasn't caused by a queue advance.
+        if (queueRef.current.length === 0 && !isProcessingRef.current) setSpeaking(false);
+      });
+      audio.addEventListener('error', () => setSpeaking(false));
+      audioRef.current = audio;
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TTS_ENABLED_STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, [enabled]);
+
+  /**
+   * Kick off the MP3 fetch for a queue item before it's actually played.
+   * This is the key to low-latency chunked playback: while sentence N is
+   * playing, N+1 is already being synthesized by ElevenLabs.
+   */
+  const primeItem = useCallback((item: QueueItem, token: number) => {
+    if (item.primePromise) return item.primePromise;
+    const { apiBase: base, backendReachable: reachable, voice: v } = optsRef.current;
+    if (!reachable || !base) {
+      item.primedUrl = null;
+      return Promise.resolve(null);
+    }
+    item.primePromise = (async () => {
+      try {
+        const response = await fetch(`${base}/api/tutor/speak`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: item.text, voice: v.id, provider: 'elevenlabs' }),
+        });
+        if (token !== cancelTokenRef.current) return null;
+        if (!response.ok) {
+          console.warn('[TTS] prime returned', response.status);
+          return null;
+        }
+        const blob = await response.blob();
+        if (token !== cancelTokenRef.current) return null;
+        const url = URL.createObjectURL(blob);
+        item.primedUrl = url;
+        return url;
+      } catch (err) {
+        if (token === cancelTokenRef.current) console.warn('[TTS] prime failed', err);
+        return null;
+      }
+    })();
+    return item.primePromise;
+  }, []);
+
+  const processQueue = useCallback(async () => {
+    if (isProcessingRef.current) return;
+    if (queueRef.current.length === 0) return;
+    isProcessingRef.current = true;
+    const myToken = cancelTokenRef.current;
+
+    try {
+      while (queueRef.current.length > 0 && myToken === cancelTokenRef.current) {
+        const item = queueRef.current.shift()!;
+        // Prime the *next* item in parallel so its MP3 is ready by the time
+        // this one finishes playing.
+        if (queueRef.current[0]) primeItem(queueRef.current[0], myToken);
+
+        const url = await (item.primePromise ?? primeItem(item, myToken));
+        if (myToken !== cancelTokenRef.current) return;
+
+        if (!url) {
+          // No backend / error: fall back to Web Speech for this chunk.
+          await new Promise<void>((resolve) => {
+            if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+              resolve();
+              return;
+            }
+            const utter = new SpeechSynthesisUtterance(item.text);
+            utter.rate = item.ageGroup === 'explorer' ? 0.88 : item.ageGroup === 'builder' ? 0.94 : 1.0;
+            utter.pitch = item.ageGroup === 'explorer' ? 1.15 : 1.0;
+            utter.onend = () => resolve();
+            utter.onerror = () => resolve();
+            try { window.speechSynthesis.speak(utter); } catch { resolve(); }
+          });
+          continue;
+        }
+
+        // Play MP3 and await its `ended` event.
+        const audio = audioRef.current;
+        if (!audio) {
+          URL.revokeObjectURL(url);
+          continue;
+        }
+        await new Promise<void>((resolve) => {
+          const cleanup = () => {
+            audio.removeEventListener('ended', onEnded);
+            audio.removeEventListener('error', onEnded);
+            if (currentBlobUrlRef.current === url) currentBlobUrlRef.current = null;
+            URL.revokeObjectURL(url);
+          };
+          const onEnded = () => { cleanup(); resolve(); };
+          audio.addEventListener('ended', onEnded);
+          audio.addEventListener('error', onEnded);
+          currentBlobUrlRef.current = url;
+          audio.src = url;
+          audio.load();
+          audio.play().catch(() => { cleanup(); resolve(); });
+        });
+        if (myToken !== cancelTokenRef.current) return;
+      }
+    } finally {
+      isProcessingRef.current = false;
+      if (queueRef.current.length === 0) setSpeaking(false);
+    }
+  }, [primeItem]);
+
+  const cancelAll = useCallback(() => {
+    cancelTokenRef.current += 1;
+    streamActiveRef.current = false;
+    streamBufferRef.current = '';
+
+    // Clean up primed URLs sitting in the queue.
+    for (const q of queueRef.current) {
+      if (q.primedUrl) URL.revokeObjectURL(q.primedUrl);
+    }
+    queueRef.current = [];
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      try { audioRef.current.currentTime = 0; } catch { /* ignore */ }
+      audioRef.current.src = '';
+    }
+    if (currentBlobUrlRef.current) {
+      URL.revokeObjectURL(currentBlobUrlRef.current);
+      currentBlobUrlRef.current = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    isProcessingRef.current = false;
+    ttsSpokenCharsRef.current = 0;
+    setSpeaking(false);
+  }, []);
+
+  const enqueue = useCallback((text: string, ageGroup: AgeGroup) => {
+    const cleaned = stripMarkdown(text);
     if (!cleaned) return;
+    if (!optsRef.current.enabled) return;
 
-    const utterance = new SpeechSynthesisUtterance(cleaned);
-    utterance.rate = ageGroup === 'explorer' ? 0.88 : ageGroup === 'builder' ? 0.94 : 1.0;
-    utterance.pitch = ageGroup === 'explorer' ? 1.15 : 1.0;
-    utterance.volume = 1;
+    const used = ttsSpokenCharsRef.current;
+    if (used >= TTS_MAX_SPOKEN_CHARS) return;
+    const remaining = TTS_MAX_SPOKEN_CHARS - used;
+    const segment = fitTtsSegment(cleaned, remaining);
+    if (!segment) return;
+    ttsSpokenCharsRef.current += segment.length;
 
-    // Prefer a friendly voice
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find((v) =>
-      /Google|Samantha|Karen|Susan|Moira|Tessa/i.test(v.name),
-    );
-    if (preferred) utterance.voice = preferred;
+    const item: QueueItem = { id: ++itemIdRef.current, text: segment, ageGroup };
+    queueRef.current.push(item);
+    setSpeaking(true);
+    // Prime the first item immediately so it's ready to play with ~no extra delay.
+    if (queueRef.current.length === 1) primeItem(item, cancelTokenRef.current);
+    void processQueue();
+  }, [primeItem, processQueue]);
 
-    utterance.onstart = () => setSpeaking(true);
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
+  /** One-shot: stop whatever is currently speaking, then speak `text`. */
+  const speak = useCallback((text: string, ageGroup: AgeGroup) => {
+    const cleaned = stripMarkdown(text);
+    if (!cleaned) return;
+    cancelAll();
+    if (!optsRef.current.enabled) return;
 
-    window.speechSynthesis.speak(utterance);
-  }, [enabled, supported]);
+    // For one-shots, split into sentences too so very long messages still
+    // start speaking quickly.
+    const { chunks, rest } = splitIntoSentences(cleaned);
+    const toEnqueue = [...chunks];
+    if (rest) toEnqueue.push(rest);
+    for (const piece of toEnqueue) {
+      enqueue(piece, ageGroup);
+      if (ttsSpokenCharsRef.current >= TTS_MAX_SPOKEN_CHARS) break;
+    }
+    // Offline path: `processQueue` speaks each queued chunk via Web Speech
+    // when the backend MP3 prime fails — no separate full-text utterance.
+  }, [cancelAll, enqueue]);
+
+  /**
+   * Streaming mode: call `streamBegin()` when tutor starts, `streamFeed()`
+   * whenever the message grows, `streamEnd()` when streaming closes. New
+   * complete sentences are auto-enqueued as they arrive.
+   */
+  const streamBegin = useCallback(() => {
+    cancelAll();
+    cleanedPendingRef.current = '';
+    if (!optsRef.current.enabled) return;
+    streamActiveRef.current = true;
+    streamBufferRef.current = '';
+  }, [cancelAll]);
+
+  const streamFeed = useCallback((fullText: string, ageGroup: AgeGroup) => {
+    if (!streamActiveRef.current) return;
+    if (!optsRef.current.enabled) return;
+    const cleaned = stripMarkdown(fullText);
+    // Find the delta vs. what we've already processed.
+    const buffered = streamBufferRef.current;
+    if (cleaned.length <= buffered.length) return;
+    if (!cleaned.startsWith(buffered)) {
+      // Stream diverged (e.g. token rewrite); reset from scratch but don't
+      // re-speak what already played.
+      streamBufferRef.current = cleaned;
+      return;
+    }
+    const delta = cleaned.slice(buffered.length);
+    // Accumulate the delta and split on sentence terminators. Anything
+    // without a terminator is left pending for the next feed.
+    const pending = (cleanedPendingRef.current ?? '') + delta;
+    const { chunks, rest } = splitIntoSentences(pending);
+    cleanedPendingRef.current = rest;
+    streamBufferRef.current = cleaned;
+    // Only speak sentences that are at least a few words long — avoids
+    // the "H." / "Oh." mid-token artifacts.
+    for (const chunk of chunks) {
+      if (ttsSpokenCharsRef.current >= TTS_MAX_SPOKEN_CHARS) break;
+      if (chunk.split(/\s+/).length >= 2) {
+        enqueue(chunk, ageGroup);
+      } else {
+        // Prepend stubby chunk to the pending buffer so it joins the next one.
+        cleanedPendingRef.current = chunk + ' ' + (cleanedPendingRef.current ?? '');
+      }
+    }
+  }, [enqueue]);
+
+  const streamEnd = useCallback((ageGroup: AgeGroup) => {
+    if (!streamActiveRef.current) return;
+    streamActiveRef.current = false;
+    const tail = (cleanedPendingRef.current ?? '').trim();
+    cleanedPendingRef.current = '';
+    if (tail) enqueue(tail, ageGroup);
+  }, [enqueue]);
 
   const stopSpeaking = useCallback(() => {
-    if (supported) window.speechSynthesis.cancel();
-    setSpeaking(false);
-  }, [supported]);
+    cancelAll();
+  }, [cancelAll]);
 
   const toggle = useCallback(() => {
     setEnabled((prev) => {
-      if (prev && supported) window.speechSynthesis.cancel();
+      if (prev) cancelAll();
       return !prev;
     });
-  }, [supported]);
+  }, [cancelAll]);
 
-  return { enabled, speaking, supported, speak, stopSpeaking, toggle };
+  const setVoice = useCallback((nextVoice: TutorVoice) => {
+    setVoiceState(nextVoice);
+    saveVoice(nextVoice);
+    cancelAll();
+  }, [cancelAll]);
+
+  useEffect(() => () => { cancelAll(); }, [cancelAll]);
+
+  return {
+    enabled,
+    speaking,
+    supported,
+    voice,
+    setVoice,
+    speak,
+    streamBegin,
+    streamFeed,
+    streamEnd,
+    stopSpeaking,
+    toggle,
+  };
 }
 
 // ─── Tutor intro messages (offline fallback / first-load) ─────────────────────
@@ -219,6 +836,7 @@ export function TutorPanel({
   pathCount,
   backendReachable,
   onLayerChange,
+  onXPChange,
 }: TutorPanelProps) {
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [studentInput, setStudentInput] = useState('');
@@ -227,17 +845,115 @@ export function TutorPanel({
   const [evaluationNotice, setEvaluationNotice] = useState<EvaluationNotice | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const prevConceptRef = useRef<string | null>(null);
-  const prevLayerRef = useRef<ConceptLayer>('intuitive');
+  /** `undefined` = effect has never run yet (distinguishes from `conceptId === null`). */
+  const prevConceptRef = useRef<string | null | undefined>(undefined);
+  const prevLayerRef = useRef<ConceptLayer | undefined>(undefined);
   const lastEvaluatedKeyRef = useRef<string | null>(null);
   const lastSpokenMsgRef = useRef<string | null>(null);
+  const streamSpokeItRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const tts = useTTS();
-  const speech = useVoiceInput((transcript) => {
-    setStudentInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }, apiBase);
+  const tts = useTTS({ apiBase, backendReachable });
+  const [showVoicePicker, setShowVoicePicker] = useState(false);
+  const voicePickerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showVoicePicker) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (voicePickerRef.current && target && !voicePickerRef.current.contains(target)) {
+        setShowVoicePicker(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowVoicePicker(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showVoicePicker]);
+  const localWhisper = useLocalWhisper();
+
+  // Server-side STT availability: `null` until probed, then `true`/`false`.
+  // Re-probes whenever the backend becomes reachable again.
+  const [backendSttAvailable, setBackendSttAvailable] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!backendReachable || !apiBase) {
+      setBackendSttAvailable(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/tutor/transcribe/status`);
+        if (cancelled) return;
+        if (!res.ok) { setBackendSttAvailable(false); return; }
+        const data = (await res.json()) as { available?: boolean };
+        setBackendSttAvailable(Boolean(data.available));
+      } catch {
+        if (!cancelled) setBackendSttAvailable(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [backendReachable, apiBase]);
+
+  // Remembers the input text at the moment recording started, so we can
+  // render "<existing> <partial>" while live partials stream in without
+  // clobbering what the student already typed.
+  const baseInputOnRecordRef = useRef('');
+  const [partialTranscript, setPartialTranscript] = useState('');
+
+  const speech = useVoiceInput(
+    (transcript) => {
+      const base = baseInputOnRecordRef.current;
+      setStudentInput(base ? `${base} ${transcript}` : transcript);
+      baseInputOnRecordRef.current = '';
+      setPartialTranscript('');
+      setTimeout(() => inputRef.current?.focus(), 50);
+    },
+    apiBase,
+    {
+      localWhisper,
+      backendReachable,
+      backendSttAvailable,
+      onBackendSttUnavailable: () => setBackendSttAvailable(false),
+      onPartialTranscript: (text) => setPartialTranscript(text),
+    },
+  );
+
+  // Capture the existing input when recording starts so partials layer on top
+  // of it.
+  useEffect(() => {
+    if (speech.isListening) {
+      baseInputOnRecordRef.current = studentInput;
+      setPartialTranscript('');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speech.isListening]);
+
+  // Eagerly prefetch the offline voice model. It's required for live
+  // partials even when the backend path is healthy (partials always run
+  // locally), and it acts as the fallback if the backend path fails. We
+  // give the UI a brief idle moment before kicking off the ~150 MB
+  // download so it doesn't fight initial concept loads for bandwidth.
+  useEffect(() => {
+    if (localWhisper.status !== 'idle') return;
+    const t = window.setTimeout(() => {
+      if (localWhisper.status === 'idle') localWhisper.loadModel();
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [localWhisper]);
+
+  // Live preview: show the streamed partial below whatever the student had in
+  // the input before they started speaking.
+  const inputDisplayValue = speech.isListening && partialTranscript
+    ? (baseInputOnRecordRef.current
+        ? `${baseInputOnRecordRef.current} ${partialTranscript}`
+        : partialTranscript)
+    : studentInput;
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -246,11 +962,22 @@ export function TutorPanel({
     }
   }, [messages]);
 
-  // TTS — speak the most recent tutor message once streaming ends
+  // TTS streaming is wired directly into streamTutorMessage (via
+  // tts.streamBegin / tts.streamFeed / tts.streamEnd) so sentences are
+  // spoken as they arrive instead of waiting for the whole message.
+  // This effect just handles the non-streamed case (e.g. offline fallback
+  // greeting that's appended in one shot).
   useEffect(() => {
     const last = messages.at(-1);
     if (!last || last.role !== 'tutor' || last.isStreaming) return;
     if (last.content === lastSpokenMsgRef.current) return;
+    if (streamSpokeItRef.current) {
+      // The streaming path handled this one. Just mark as spoken so we
+      // don't fire again if the component re-renders.
+      streamSpokeItRef.current = false;
+      lastSpokenMsgRef.current = last.content;
+      return;
+    }
     lastSpokenMsgRef.current = last.content;
     tts.speak(last.content, ageGroup);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -258,8 +985,14 @@ export function TutorPanel({
 
   // Send tutor message when concept or layer changes
   useEffect(() => {
-    const conceptChanged = conceptId !== prevConceptRef.current;
-    const layerChanged = activeLayer !== prevLayerRef.current;
+    // First paint: `prevConceptRef` is `undefined`, so we always load a greeting
+    // once. Without this, `conceptId === null` and `activeLayer === 'intuitive'`
+    // looks like "no change" vs initial `null`/`intuitive` refs and the effect
+    // bails out forever — leaving an empty feed stuck on "Connecting to tutor…".
+    const conceptChanged =
+      prevConceptRef.current === undefined || conceptId !== prevConceptRef.current;
+    const layerChanged =
+      prevLayerRef.current === undefined || activeLayer !== prevLayerRef.current;
     prevConceptRef.current = conceptId;
     prevLayerRef.current = activeLayer;
 
@@ -345,7 +1078,20 @@ export function TutorPanel({
             passed?: boolean;
             feedback?: string;
             suggest_next_layer?: boolean;
+            score?: number;
+            creativity?: number;
+            concept_alignment?: number;
+            complexity?: number;
           };
+
+          const scoreDetails = (typeof evaluation.score === 'number')
+            ? {
+                score: evaluation.score,
+                creativity: evaluation.creativity ?? 50,
+                concept_alignment: evaluation.concept_alignment ?? 50,
+                complexity: evaluation.complexity ?? 50,
+              }
+            : undefined;
 
           const result =
             conceptId && studentName
@@ -355,6 +1101,7 @@ export function TutorPanel({
                   activeLayer,
                   Boolean(evaluation.passed),
                   Boolean(evaluation.suggest_next_layer),
+                  scoreDetails,
                 )
               : null;
 
@@ -367,7 +1114,12 @@ export function TutorPanel({
               nextLayerAvailable: result.next_layer_available,
               awardedBadges: result.awarded_badges,
               mastered: result.newly_mastered || result.snapshot.mastered,
+              xpAwarded: result.xpAwarded,
+              leveledUp: result.leveledUp,
+              newLevel: result.newLevel,
+              scoreDetails: result.scoreDetails,
             });
+            onXPChange?.();
           }
         } catch {
           setEvaluationNotice({
@@ -377,6 +1129,9 @@ export function TutorPanel({
             nextLayerAvailable: null,
             awardedBadges: [],
             mastered: false,
+            xpAwarded: 0,
+            leveledUp: false,
+            newLevel: 1,
           });
         }
       })();
@@ -388,11 +1143,13 @@ export function TutorPanel({
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setIsSending(false);
-    // Mark any in-progress message as complete
+    // Stop pending TTS chunks too so we don't keep speaking after the user
+    // cancels the stream. Any sentences already queued will play out.
+    tts.stopSpeaking();
     setMessages((prev) =>
       prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
     );
-  }, []);
+  }, [tts]);
 
   const clearConversation = useCallback(() => {
     stopStreaming();
@@ -417,6 +1174,11 @@ export function TutorPanel({
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+
+    // Start the chunked TTS pipeline: sentences will be spoken as soon as
+    // they're complete, not after the whole message finishes streaming.
+    tts.streamBegin();
+    streamSpokeItRef.current = true;
 
     try {
       const res = await fetch(`${apiBase}/api/tutor/message`, {
@@ -466,6 +1228,7 @@ export function TutorPanel({
                       : m,
                   ),
                 );
+                tts.streamFeed(accumulated, ageGroup);
               } else if (msg.type === 'done') {
                 // Stream finished — mark complete
                 setMessages((prev) =>
@@ -473,6 +1236,7 @@ export function TutorPanel({
                     m.id === tutorMsgId ? { ...m, isStreaming: false } : m,
                   ),
                 );
+                tts.streamEnd(ageGroup);
                 return;
               }
               // msg.type === 'error' falls through to the catch below on next iteration
@@ -489,15 +1253,19 @@ export function TutorPanel({
           m.id === tutorMsgId ? { ...m, isStreaming: false } : m,
         ),
       );
+      tts.streamEnd(ageGroup);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         // User stopped the stream — just mark it done, keep whatever was received
         setMessages((prev) =>
           prev.map((m) => (m.id === tutorMsgId ? { ...m, isStreaming: false } : m)),
         );
+        tts.streamEnd(ageGroup);
         return;
       }
       // Network/other error — replace placeholder with offline fallback
+      streamSpokeItRef.current = false; // let the main effect speak the fallback greeting
+      tts.stopSpeaking();
       setMessages((prev) =>
         prev.map((m) =>
           m.id === tutorMsgId
@@ -560,6 +1328,7 @@ export function TutorPanel({
         touchConcept(studentName, conceptId, nextLayer);
         awardBadge(studentName, 'went-deeper');
         setProgressSnapshot(getConceptProgressSnapshot(studentName, conceptId));
+        onXPChange?.();
       }
       setEvaluationNotice(null);
       onLayerChange(nextLayer);
@@ -597,6 +1366,55 @@ export function TutorPanel({
           >
             <RotateCcw size={13} />
           </button>
+          {/* Voice picker (Mark / Lori) */}
+          <div className="tutor-voice-picker" ref={voicePickerRef}>
+            <button
+              type="button"
+              className={`tutor-icon-btn ${showVoicePicker ? 'active' : ''}`}
+              onClick={() => setShowVoicePicker((v) => !v)}
+              title={`Voice: ${tts.voice.label}`}
+              aria-label="Choose Sketch's voice"
+              aria-haspopup="menu"
+              aria-expanded={showVoicePicker}
+            >
+              <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>{tts.voice.emoji}</span>
+            </button>
+            {showVoicePicker && (
+              <div className="tutor-voice-menu" role="menu">
+                <div className="tutor-voice-menu-header">Sketch's voice</div>
+                {TUTOR_VOICES.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={tts.voice.id === option.id}
+                    className={`tutor-voice-option ${tts.voice.id === option.id ? 'active' : ''}`}
+                    onClick={() => {
+                      tts.setVoice(option);
+                      setShowVoicePicker(false);
+                      if (!tts.enabled) tts.toggle();
+                      // Re-speak the latest tutor message so the student hears a sample.
+                      const last = messages.at(-1);
+                      if (last && last.role === 'tutor' && !last.isStreaming) {
+                        lastSpokenMsgRef.current = null;
+                        setTimeout(() => tts.speak(last.content, ageGroup), 50);
+                      }
+                    }}
+                  >
+                    <span className="tutor-voice-emoji">{option.emoji}</span>
+                    <span className="tutor-voice-meta">
+                      <span className="tutor-voice-label">{option.label}</span>
+                      <span className="tutor-voice-desc">{option.description}</span>
+                    </span>
+                    {tts.voice.id === option.id && <span className="tutor-voice-check">✓</span>}
+                  </button>
+                ))}
+                <div className="tutor-voice-menu-footer">
+                  Powered by ElevenLabs
+                </div>
+              </div>
+            )}
+          </div>
           {tts.supported && (
             <button
               type="button"
@@ -695,6 +1513,44 @@ export function TutorPanel({
                 : 'Keep exploring'}
           </div>
           <div className="tutor-evaluation-copy">{evaluationNotice.feedback}</div>
+
+          {evaluationNotice.scoreDetails && (
+            <div className="score-breakdown">
+              <div className="score-breakdown-header">
+                <span className="score-breakdown-overall">{evaluationNotice.scoreDetails.score}</span>
+                <span className="score-breakdown-label">Overall Score</span>
+              </div>
+              {([
+                { key: 'creativity', label: 'Creativity', color: 'var(--pink)' },
+                { key: 'concept_alignment', label: 'Concept Fit', color: 'var(--blue)' },
+                { key: 'complexity', label: 'Complexity', color: 'var(--violet)' },
+              ] as const).map(({ key, label, color }) => (
+                <div key={key} className="score-bar-row">
+                  <span className="score-bar-label">{label}</span>
+                  <div className="score-bar-track">
+                    <div
+                      className="score-bar-fill"
+                      style={{
+                        width: `${evaluationNotice.scoreDetails![key]}%`,
+                        backgroundColor: color,
+                      }}
+                    />
+                  </div>
+                  <span className="score-bar-value">{evaluationNotice.scoreDetails![key]}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {evaluationNotice.xpAwarded > 0 && (
+            <div className="eval-xp-award">
+              <span className="eval-xp-badge">+{evaluationNotice.xpAwarded} XP</span>
+              {evaluationNotice.leveledUp && (
+                <span className="eval-level-up">Level {evaluationNotice.newLevel}!</span>
+              )}
+            </div>
+          )}
+
           {evaluationNotice.awardedBadges.length > 0 && (
             <div className="tutor-evaluation-badges">
               {evaluationNotice.awardedBadges.map((badgeId) => {
@@ -716,38 +1572,170 @@ export function TutorPanel({
         </div>
       )}
 
-      {/* Student reply input */}
-      {(speech.isListening || speech.isTranscribing) && (
-        <div className="tutor-listening-bar">
-          <span className="tutor-listening-dot" />
-          {speech.isTranscribing ? 'Transcribing…' : 'Listening… click mic to send'}
+      {/* Offline voice model status */}
+      {(!backendReachable || backendSttAvailable === false) && localWhisper.status === 'idle' && (
+        <div className="tutor-whisper-bar">
+          <WifiOff size={12} />
+          <span>
+            {backendReachable && backendSttAvailable === false
+              ? 'Server voice off — use the offline model.'
+              : 'Backend offline — voice unavailable.'}
+          </span>
+          <button
+            type="button"
+            className="tutor-whisper-download-btn"
+            onClick={localWhisper.loadModel}
+          >
+            <Download size={11} />
+            Download offline model
+          </button>
         </div>
       )}
+      {localWhisper.isLoading && (
+        <div className="tutor-whisper-bar">
+          <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} />
+          <span>
+            {localWhisper.status === 'downloading'
+              ? `Downloading voice model… ${localWhisper.progress}%`
+              : 'Loading voice model…'}
+          </span>
+          {localWhisper.status === 'downloading' && (
+            <div className="tutor-whisper-progress">
+              <div
+                className="tutor-whisper-progress-fill"
+                style={{ width: `${localWhisper.progress}%` }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      {localWhisper.status === 'error' && (
+        <div className="tutor-whisper-bar error">
+          <span>Offline model failed to load.</span>
+          <button
+            type="button"
+            className="tutor-whisper-download-btn"
+            onClick={localWhisper.loadModel}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Student reply input */}
+      {(speech.isListening || speech.isTranscribing) && (() => {
+        let statusLabel: React.ReactNode;
+        if (speech.isTranscribing) {
+          statusLabel = speech.usedLocal ? 'Transcribing locally…' : 'Transcribing…';
+        } else if (partialTranscript) {
+          statusLabel = (
+            <>
+              <span style={{ opacity: 0.7, marginRight: 6, flexShrink: 0 }}>Listening…</span>
+              <span className="tutor-listening-partial">&ldquo;{partialTranscript}&rdquo;</span>
+            </>
+          );
+        } else if (localWhisper.isLoading) {
+          statusLabel = `Listening… (voice model ${
+            localWhisper.status === 'downloading' ? `${localWhisper.progress}%` : 'loading'
+          })`;
+        } else if (!localWhisper.isReady) {
+          statusLabel = 'Listening… (waiting for voice model)';
+        } else {
+          statusLabel = 'Listening… click mic to send';
+        }
+
+        const remainingSec = Math.max(0, Math.ceil((speech.maxMs - speech.elapsedMs) / 1000));
+        const pct = Math.min(100, (speech.elapsedMs / speech.maxMs) * 100);
+
+        return (
+          <div className="tutor-listening-bar">
+            <span className="tutor-listening-dot" />
+            <div className="tutor-listening-text">{statusLabel}</div>
+            {speech.isListening && (
+              <>
+                <span className={`tutor-listening-timer ${remainingSec <= 5 ? 'warn' : ''}`}>
+                  {remainingSec}s
+                </span>
+                <button
+                  type="button"
+                  className="tutor-listening-cancel"
+                  onClick={() => { speech.cancelListening(); setPartialTranscript(''); }}
+                  title="Cancel (discard)"
+                  aria-label="Cancel recording"
+                >
+                  <X size={12} />
+                </button>
+              </>
+            )}
+            {speech.isListening && (
+              <span
+                className="tutor-listening-progress"
+                style={{ width: `${pct}%` }}
+                aria-hidden
+              />
+            )}
+          </div>
+        );
+      })()}
       <div className="tutor-input-row">
         <button
           type="button"
           className={`tutor-mic-btn ${speech.isListening ? 'recording' : ''} ${speech.isTranscribing ? 'transcribing' : ''}`}
           onClick={speech.isListening ? speech.stopListening : () => void speech.startListening()}
           disabled={speech.isTranscribing || isSending}
-          title={speech.isListening ? 'Stop recording & send' : 'Hold to speak'}
+          title={(() => {
+            if (speech.isListening) return 'Stop recording & send';
+            if (backendReachable && backendSttAvailable !== false) return 'Hold to speak';
+            if (localWhisper.isReady) return 'Speak (offline voice model)';
+            if (localWhisper.isLoading) return 'Loading offline voice model…';
+            return 'Tap to speak (will download offline voice model)';
+          })()}
           aria-label={speech.isListening ? 'Stop voice input' : 'Start voice input'}
         >
           {speech.isTranscribing ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : speech.isListening ? <MicOff size={14} /> : <Mic size={14} />}
+          {((!backendReachable || backendSttAvailable === false) && localWhisper.isReady) && (
+            <span className="tutor-mic-offline-badge" title="Using offline voice model" />
+          )}
         </button>
-        <textarea
-          ref={inputRef}
-          className="tutor-input"
-          placeholder={speech.isListening ? 'Listening…' : 'Reply to Sketch…'}
-          value={studentInput}
-          rows={1}
-          onChange={(e) => setStudentInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              void handleSend();
-            }
-          }}
-        />
+        <div className="tutor-input-wrap">
+          <textarea
+            ref={inputRef}
+            className="tutor-input"
+            placeholder={speech.isListening ? 'Listening…' : 'Reply to Sketch…'}
+            value={inputDisplayValue}
+            rows={1}
+            readOnly={speech.isListening && Boolean(partialTranscript)}
+            onChange={(e) => {
+              if (speech.isListening) return;
+              setStudentInput(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void handleSend();
+              }
+            }}
+          />
+          {(inputDisplayValue.length > 0 || partialTranscript) && !isSending && (
+            <button
+              type="button"
+              className="tutor-input-clear"
+              title="Clear prompt"
+              aria-label="Clear prompt"
+              onClick={() => {
+                if (speech.isListening) {
+                  speech.cancelListening();
+                }
+                setStudentInput('');
+                setPartialTranscript('');
+                baseInputOnRecordRef.current = '';
+                setTimeout(() => inputRef.current?.focus(), 20);
+              }}
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
         <button
           type="button"
           className="tutor-send-btn"

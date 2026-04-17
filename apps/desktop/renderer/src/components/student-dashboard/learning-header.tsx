@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { ArrowLeft, ChevronDown, Map } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Map, Flame } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,14 @@ export function LearningHeader({
   topStatus,
   showSimulator,
   showSystemStatus,
+  studentName,
+  xp = 0,
+  level = 1,
+  levelName = 'Doodler',
+  levelEmoji = '✏️',
+  xpProgress = 0,
+  nextXP = 50,
+  streakDays = 0,
   onBackToHome,
   onAgeGroupChange,
   onOpenConceptMap,
@@ -127,6 +135,25 @@ export function LearningHeader({
                 </button>
               ))}
             </div>
+          )}
+        </div>
+
+        <div className="learn-header-divider" />
+
+        <div className="gamification-bar" title={`Level ${level}: ${levelName} — ${xp} XP (${Math.round(xpProgress * 100)}% to next)`}>
+          <span className="gamification-level-badge">
+            <span className="gamification-level-emoji">{levelEmoji}</span>
+            <span className="gamification-level-num">Lv.{level}</span>
+          </span>
+          <div className="gamification-xp-track">
+            <div className="gamification-xp-fill" style={{ width: `${Math.round(xpProgress * 100)}%` }} />
+          </div>
+          <span className="gamification-xp-label">{xp} XP</span>
+          {streakDays > 0 && (
+            <span className={`gamification-streak ${streakDays >= 7 ? 'hot' : ''} ${streakDays >= 14 ? 'blazing' : ''}`} title={`${streakDays}-day streak!`}>
+              <Flame size={13} />
+              <span className="gamification-streak-num">{streakDays}</span>
+            </span>
           )}
         </div>
 

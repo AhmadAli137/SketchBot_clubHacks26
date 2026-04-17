@@ -8,3 +8,4 @@ openai
 anthropic
 Pillow
 python-dotenv
+httpx

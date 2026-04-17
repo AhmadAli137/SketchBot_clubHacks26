@@ -12,8 +12,18 @@ import { LearningStage } from '@/components/student-dashboard/learning-stage';
 import { PromptComposer } from '@/components/student-dashboard/prompt-composer';
 import { SimPlayground } from '@/components/sim-playground';
 import type { StudentDashboardProps } from '@/components/student-dashboard/types';
-import type { AgeGroup, ConceptLayer } from '@/lib/concept-types';
-import { awardBadge, saveDrawing } from '@/lib/progress-store';
+import type { AgeGroup, ConceptLayer, InputMode } from '@/lib/concept-types';
+import {
+  awardBadge,
+  saveDrawing,
+  getStudentXPInfo,
+  getStreakInfo,
+  updateStreak,
+  recordInputModeUsed,
+  scheduleProgressSync,
+  setProgressSyncApiBase,
+} from '@/lib/progress-store';
+import { LevelUpCelebration, useXPToast } from '@/components/gamification';
 
 export function StudentDashboard({
   topStatus,
@@ -67,7 +77,7 @@ export function StudentDashboard({
   const [showConceptMap, setShowConceptMap] = useState(false);
   const [celebrationBadge, setCelebrationBadge] = useState<{ emoji: string; name: string } | null>(null);
   const [lastSubmittedPrompt, setLastSubmittedPrompt] = useState<string | null>(null);
-  const [interactionMode, setInteractionMode] = useState<'language' | 'blocks' | 'code'>('language');
+  const [interactionMode, setInteractionMode] = useState<'blocks' | 'code'>('blocks');
   const [codeGeneratedSvg, setCodeGeneratedSvg] = useState<string | null>(null);
   const [blockPreviewSvg, setBlockPreviewSvg] = useState<string | null>(null);
   const [cameraBuddyQrUrl, setCameraBuddyQrUrl] = useState<string | null>(null);
@@ -81,6 +91,90 @@ export function StudentDashboard({
   const [secondaryTab, setSecondaryTab] = useState<WorkspaceTab | null>(null);
   const [showPromptGallery, setShowPromptGallery] = useState(false);
   const workspaceCameraRef = useRef<HTMLDivElement | null>(null);
+
+  // Confirmation flow: a newly-generated drawing must be approved by the
+  // student before the simulator actually starts drawing it.
+  const [approvedSvg, setApprovedSvg] = useState<string | null>(null);
+  const [pendingTask, setPendingTask] = useState<{ svg: string; label: string } | null>(null);
+  const awaitingResultRef = useRef(false);
+  const hasInitializedSvgRef = useRef(false);
+
+  const [gamificationData, setGamificationData] = useState<{
+    xp: number; level: number; levelName: string; levelEmoji: string; progress: number; nextXP: number; streakDays: number;
+  }>({ xp: 0, level: 1, levelName: 'Doodler', levelEmoji: '✏️', progress: 0, nextXP: 50, streakDays: 0 });
+
+  const xpToast = useXPToast();
+
+  const [levelUpData, setLevelUpData] = useState<null | {
+    newLevel: number;
+    levelName: string;
+    levelEmoji: string;
+    previousXP: number;
+    newXP: number;
+    xpAwarded: number;
+  }>(null);
+
+  const prevXPRef = useRef<number>(0);
+  const prevLevelRef = useRef<number>(1);
+
+  const refreshGamification = (opts?: { reason?: string; emoji?: string; silent?: boolean }) => {
+    if (!studentName) return;
+    const xpInfo = getStudentXPInfo(studentName);
+    const streakInfo = getStreakInfo(studentName);
+    if (xpInfo) {
+      const previousXP = prevXPRef.current;
+      const previousLevel = prevLevelRef.current;
+      const xpDelta = xpInfo.xp - previousXP;
+
+      setGamificationData({
+        xp: xpInfo.xp,
+        level: xpInfo.level,
+        levelName: xpInfo.levelName,
+        levelEmoji: xpInfo.levelEmoji,
+        progress: xpInfo.progress,
+        nextXP: xpInfo.nextXP,
+        streakDays: streakInfo?.current_streak_days ?? 0,
+      });
+
+      if (!opts?.silent && xpDelta > 0 && previousXP > 0) {
+        xpToast.push(xpDelta, { reason: opts?.reason, emoji: opts?.emoji ?? '⭐' });
+      }
+
+      if (xpInfo.level > previousLevel && previousLevel >= 1 && previousXP > 0) {
+        setLevelUpData({
+          newLevel: xpInfo.level,
+          levelName: xpInfo.levelName,
+          levelEmoji: xpInfo.levelEmoji,
+          previousXP,
+          newXP: xpInfo.xp,
+          xpAwarded: xpDelta,
+        });
+      }
+
+      prevXPRef.current = xpInfo.xp;
+      prevLevelRef.current = xpInfo.level;
+
+      scheduleProgressSync(studentName);
+    }
+  };
+
+  useEffect(() => {
+    setProgressSyncApiBase(apiBase || null);
+  }, [apiBase]);
+
+  useEffect(() => {
+    if (studentName) {
+      const streakResult = updateStreak(studentName);
+      refreshGamification({ silent: true });
+      if (streakResult && streakResult.xpAwarded > 0) {
+        xpToast.push(streakResult.xpAwarded, {
+          reason: `🔥 ${streakResult.current}-day streak`,
+          emoji: '🔥',
+        });
+        refreshGamification({ silent: true });
+      }
+    }
+  }, [studentName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setAgeGroup(ageGroupProp);
@@ -129,9 +223,10 @@ export function StudentDashboard({
     }
 
     setCelebrationBadge({ emoji: '✏️', name: 'First Drawing' });
+    refreshGamification();
     const timeout = window.setTimeout(() => setCelebrationBadge(null), 3200);
     return () => window.clearTimeout(timeout);
-  }, [cameraReady, studentName]);
+  }, [cameraReady, studentName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasLiveCamera =
     cameraReady &&
@@ -206,22 +301,62 @@ export function StudentDashboard({
   };
 
 
+  const trackInputMode = (mode: InputMode) => {
+    if (!studentName) return;
+    const newBadges = recordInputModeUsed(studentName, mode);
+    if (newBadges.length > 0) {
+      refreshGamification({ silent: true });
+    }
+  };
+
   const handlePromptSubmit = (event: FormEvent) => {
     setLastSubmittedPrompt(prompt);
+    awaitingResultRef.current = true;
+    trackInputMode('language');
     onSubmitPrompt(event);
   };
 
-  // When switching to blocks/code, reveal the programming tab automatically
-  const handleInteractionModeChange = (mode: 'language' | 'blocks' | 'code') => {
+  const handleInteractionModeChange = (mode: 'blocks' | 'code') => {
     setInteractionMode(mode);
-    if (mode !== 'language') {
-      setPrimaryTab('programming');
+    setPrimaryTab('programming');
+    trackInputMode(mode);
+  };
+
+  // Watch for newly generated SVG content. On the very first non-null value
+  // (initial load or restored state), auto-approve silently. After that, every
+  // change requires explicit confirmation from the student.
+  useEffect(() => {
+    if (!featuredSvgContent) return;
+    if (featuredSvgContent === approvedSvg) return;
+    if (pendingTask && pendingTask.svg === featuredSvgContent) return;
+
+    if (!hasInitializedSvgRef.current && !awaitingResultRef.current) {
+      setApprovedSvg(featuredSvgContent);
+      hasInitializedSvgRef.current = true;
+      return;
     }
+
+    setPendingTask({
+      svg: featuredSvgContent,
+      label: lastSubmittedPrompt?.trim() || 'your new drawing',
+    });
+    awaitingResultRef.current = false;
+    hasInitializedSvgRef.current = true;
+  }, [featuredSvgContent, approvedSvg, pendingTask, lastSubmittedPrompt]);
+
+  const confirmPendingTask = () => {
+    if (!pendingTask) return;
+    setApprovedSvg(pendingTask.svg);
+    setPendingTask(null);
+  };
+
+  const dismissPendingTask = () => {
+    setPendingTask(null);
   };
 
   const renderWorkspace = (tab: WorkspaceTab) => {
     if (tab === 'simulator') {
-      return <SimPlayground svgContent={featuredSvgContent} isGenerating={composing} style={{ position: 'absolute', inset: 0 }} />;
+      return <SimPlayground svgContent={approvedSvg} isGenerating={composing || Boolean(pendingTask)} style={{ position: 'absolute', inset: 0 }} />;
     }
 
     if (tab === 'live') {
@@ -248,7 +383,7 @@ export function StudentDashboard({
           videoRef={videoRef}
           onVideoMount={onVideoMount}
           composing={composing}
-          featuredSvgContent={featuredSvgContent}
+          featuredSvgContent={approvedSvg}
           workspaceCameraRef={workspaceCameraRef}
           onActivateCompanionCamera={() => {
             setForceSimulator(false);
@@ -290,8 +425,10 @@ export function StudentDashboard({
           onBlockRun={handleBlockRun}
           onBlockPreviewSvgChange={setBlockPreviewSvg}
           onCodeSvgResult={(svg) => {
+            awaitingResultRef.current = true;
             setCodeGeneratedSvg(svg);
             setLastSubmittedPrompt('code execution result');
+            trackInputMode('code');
           }}
           onToggleCodeFocus={() => setShowCodeFocus((value) => !value)}
         />
@@ -300,6 +437,8 @@ export function StudentDashboard({
   };
 
   const handleBlockRun = async (program: BlockProgram) => {
+    awaitingResultRef.current = true;
+    trackInputMode('blocks');
     try {
       const response = await fetch(`${apiBase}/api/block-runner/run`, {
         method: 'POST',
@@ -343,7 +482,8 @@ export function StudentDashboard({
       concept_id: conceptId ?? undefined,
       layer: activeLayer,
     });
-  }, [cameraReady, activeJobName, studentName, conceptId, activeLayer]);
+    refreshGamification();
+  }, [cameraReady, activeJobName, studentName, conceptId, activeLayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="app-shell learning-app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -356,6 +496,14 @@ export function StudentDashboard({
         topStatus={topStatus}
         showSimulator={showSimulator}
         showSystemStatus={showSystemStatus}
+        studentName={studentName}
+        xp={gamificationData.xp}
+        level={gamificationData.level}
+        levelName={gamificationData.levelName}
+        levelEmoji={gamificationData.levelEmoji}
+        xpProgress={gamificationData.progress}
+        nextXP={gamificationData.nextXP}
+        streakDays={gamificationData.streakDays}
         onBackToHome={onBackToHome}
         onAgeGroupChange={setAgeGroup}
         onOpenConceptMap={() => setShowConceptMap(true)}
@@ -481,20 +629,10 @@ export function StudentDashboard({
               <input type="file" accept=".svg,image/*" onChange={onUploadFile} style={{ display: 'none' }} />
               📎
             </label>
-            {interactionMode === 'language' ? (
-              <>
-                <button type="button" className="floating-prompt-mode-btn" onClick={() => handleInteractionModeChange('blocks')} title="Block editor">Blocks</button>
-                <button type="button" className="floating-prompt-mode-btn" onClick={() => handleInteractionModeChange('code')} title="Code editor">Code</button>
-              </>
-            ) : (
-              <button type="button" className="floating-prompt-mode-btn active" onClick={() => handleInteractionModeChange('language')} title="Back to text prompt">
-                {interactionMode === 'blocks' ? '⬛ Blocks' : '</> Code'} ✕
-              </button>
-            )}
             <button
               type="submit"
               className="floating-prompt-submit"
-              disabled={composing || uploading || !prompt.trim() || interactionMode !== 'language'}
+              disabled={composing || uploading || !prompt.trim()}
             >
               {composing ? '⏳' : '▶ Generate'}
             </button>
@@ -545,12 +683,13 @@ export function StudentDashboard({
         {tutorCollapsed ? (
           <button
             type="button"
-            className="tutor-drawer-handle"
+            className={`tutor-drawer-handle ${pendingTask ? 'has-notification' : ''}`}
             onClick={() => setTutorCollapsed(false)}
-            title="Open Sketch tutor"
+            title={pendingTask ? 'Sketch has a drawing ready!' : 'Open Sketch tutor'}
             aria-label="Open Sketch tutor"
           >
             🤖
+            {pendingTask && <span className="tutor-drawer-badge" aria-hidden="true">1</span>}
           </button>
         ) : null}
 
@@ -577,10 +716,45 @@ export function StudentDashboard({
               pathCount={featuredTasks[0]?.path_count ?? 0}
               backendReachable={backendReachable}
               onLayerChange={setActiveLayer}
+              onXPChange={refreshGamification}
             />
           </div>
         </div>
       </div>
+
+      {pendingTask && (
+        <div className="sketch-notify-card" role="dialog" aria-live="polite" aria-labelledby="sketch-notify-title">
+          <div className="sketch-notify-avatar" aria-hidden="true">🤖</div>
+          <div className="sketch-notify-body">
+            <div className="sketch-notify-header">
+              <span className="sketch-notify-name">Sketch</span>
+              <span className="sketch-notify-tag">new drawing</span>
+            </div>
+            <div id="sketch-notify-title" className="sketch-notify-title">
+              I finished <em>{pendingTask.label}</em>!
+            </div>
+            <div className="sketch-notify-copy">
+              Ready for me to start drawing it in the simulator?
+            </div>
+            <div className="sketch-notify-actions">
+              <button type="button" className="sketch-notify-btn ghost" onClick={dismissPendingTask}>
+                Not yet
+              </button>
+              <button type="button" className="sketch-notify-btn primary" onClick={confirmPendingTask}>
+                ▶ Start drawing
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="sketch-notify-dismiss"
+            onClick={dismissPendingTask}
+            aria-label="Dismiss notification"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {showConceptMap && (
         <ConceptMap
@@ -614,6 +788,17 @@ export function StudentDashboard({
           </div>
         </div>
       )}
+
+      <LevelUpCelebration
+        show={Boolean(levelUpData)}
+        newLevel={levelUpData?.newLevel ?? 1}
+        levelName={levelUpData?.levelName ?? ''}
+        levelEmoji={levelUpData?.levelEmoji ?? '✨'}
+        previousXP={levelUpData?.previousXP ?? 0}
+        newXP={levelUpData?.newXP ?? 0}
+        xpAwarded={levelUpData?.xpAwarded ?? 0}
+        onDismiss={() => setLevelUpData(null)}
+      />
     </div>
   );
 }

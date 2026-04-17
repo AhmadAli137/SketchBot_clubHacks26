@@ -14,6 +14,7 @@ export function SiteHeader() {
       </div>
       <nav className="site-nav">
         <Link href="/">Overview</Link>
+        <Link href="/pricing">Pricing</Link>
         <Link href="/portal">Portal</Link>
         {CLERK_ENABLED ? (
           <>

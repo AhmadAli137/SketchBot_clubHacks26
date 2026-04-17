@@ -44,11 +44,31 @@ export function TopView({ settledLines, activeLine, penPos, isAnimating, width, 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = width;
-    canvas.height = height;
+    const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2);
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // ── Clear ──
-    ctx.fillStyle = '#050816';
+    // ── Panel backdrop ──
+    const bg = ctx.createLinearGradient(0, 0, width, height);
+    bg.addColorStop(0, '#0a1430');
+    bg.addColorStop(0.45, '#060a18');
+    bg.addColorStop(1, '#04060f');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+
+    // Subtle vignette
+    const vignette = ctx.createRadialGradient(
+      width * 0.5,
+      height * 0.45,
+      Math.min(width, height) * 0.15,
+      width * 0.5,
+      height * 0.5,
+      Math.max(width, height) * 0.75,
+    );
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.35)');
+    ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, width, height);
 
     // ── Compute paper rect (letterboxed) ──
@@ -63,15 +83,34 @@ export function TopView({ settledLines, activeLine, penPos, isAnimating, width, 
     const paperLeft = (width - paperW) / 2;
     const paperTop = (height - paperH) / 2;
 
-    // ── Paper background ──
-    ctx.fillStyle = '#eeeae0';
-    ctx.shadowColor = 'rgba(0,0,0,0.4)';
-    ctx.shadowBlur = 12;
-    ctx.fillRect(paperLeft, paperTop, paperW, paperH);
+    // ── Paper background (rounded) ──
+    const cornerR = Math.min(10, paperW * 0.02);
+    ctx.fillStyle = '#f2eee6';
+    ctx.shadowColor = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 4;
+    ctx.beginPath();
+    ctx.roundRect(paperLeft, paperTop, paperW, paperH, cornerR);
+    ctx.fill();
     ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
 
-    // ── Paper grid ──
-    ctx.strokeStyle = 'rgba(100,120,200,0.18)';
+    // Inner warm lift
+    const inner = ctx.createLinearGradient(paperLeft, paperTop, paperLeft + paperW, paperTop + paperH);
+    inner.addColorStop(0, 'rgba(255,255,255,0.14)');
+    inner.addColorStop(0.5, 'rgba(255,255,255,0)');
+    inner.addColorStop(1, 'rgba(180,170,150,0.06)');
+    ctx.fillStyle = inner;
+    ctx.beginPath();
+    ctx.roundRect(paperLeft, paperTop, paperW, paperH, cornerR);
+    ctx.fill();
+
+    // ── Paper grid (clipped to rounded sheet) ──
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(paperLeft, paperTop, paperW, paperH, cornerR);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(95, 115, 190, 0.16)';
     ctx.lineWidth = 0.5;
     const gridCols = 6;
     const gridRows = 4;
@@ -89,11 +128,14 @@ export function TopView({ settledLines, activeLine, penPos, isAnimating, width, 
       ctx.lineTo(paperLeft + paperW, y);
       ctx.stroke();
     }
+    ctx.restore();
 
     // ── Paper border ──
-    ctx.strokeStyle = 'rgba(140,130,110,0.5)';
+    ctx.strokeStyle = 'rgba(120,110,95,0.45)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(paperLeft, paperTop, paperW, paperH);
+    ctx.beginPath();
+    ctx.roundRect(paperLeft, paperTop, paperW, paperH, cornerR);
+    ctx.stroke();
 
     // ── AprilTag corners ──
     const tagSize = Math.min(paperW, paperH) * 0.07;
@@ -150,8 +192,8 @@ export function TopView({ settledLines, activeLine, penPos, isAnimating, width, 
         const p = toPixel(line[i], paperLeft, paperTop, paperW, paperH);
         ctx.lineTo(p.px, p.py);
       }
-      ctx.strokeStyle = 'rgba(93,228,255,0.65)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(100, 220, 255, 0.72)';
+      ctx.lineWidth = 1.65;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.stroke();
@@ -166,10 +208,10 @@ export function TopView({ settledLines, activeLine, penPos, isAnimating, width, 
         const p = toPixel(activeLine[i], paperLeft, paperTop, paperW, paperH);
         ctx.lineTo(p.px, p.py);
       }
-      ctx.strokeStyle = 'rgba(93,228,255,1)';
-      ctx.lineWidth = 2.2;
-      ctx.shadowColor = 'rgba(93,228,255,0.6)';
-      ctx.shadowBlur = 6;
+      ctx.strokeStyle = 'rgba(124, 240, 255, 1)';
+      ctx.lineWidth = 2.35;
+      ctx.shadowColor = 'rgba(93,228,255,0.55)';
+      ctx.shadowBlur = 8;
       ctx.stroke();
       ctx.shadowBlur = 0;
     }

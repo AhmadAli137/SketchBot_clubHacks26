@@ -1,13 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, ArrowRight } from 'lucide-react';
+import { X, ArrowRight, Lock, Star } from 'lucide-react';
 
 import { getConceptMapNodes } from '@/lib/concept-catalog';
 import type { AgeGroup } from '@/lib/concept-types';
-import { getConceptProgressSnapshot, getNodeStatus } from '@/lib/progress-store';
+import { getConceptProgressSnapshot, getNodeStatus, getStudentXPInfo, LEVEL_CURVE } from '@/lib/progress-store';
 
 const CONCEPT_NODES = getConceptMapNodes();
+
+const LAYER_LEVEL_GATES: Record<string, number> = {
+  structural: 3,
+  precise: 5,
+};
 
 type ConceptMapProps = {
   studentName: string;
@@ -16,12 +21,13 @@ type ConceptMapProps = {
   onClose: () => void;
 };
 
-type NodeStatus = 'locked' | 'available' | 'touched' | 'mastered';
+type NodeStatus = 'locked' | 'available' | 'touched' | 'almost-mastered' | 'mastered';
 
 const STATUS_STYLES: Record<NodeStatus, { border: string; glow: string; badge: string; labelColor: string }> = {
   locked: { border: 'var(--border)', glow: 'none', badge: 'Locked', labelColor: 'var(--muted)' },
   available: { border: 'rgba(93,228,255,0.3)', glow: 'none', badge: 'New', labelColor: 'var(--text)' },
   touched: { border: 'rgba(59,130,246,0.6)', glow: '0 0 18px rgba(59,130,246,0.25)', badge: 'In progress', labelColor: 'var(--cyan)' },
+  'almost-mastered': { border: 'rgba(245,158,11,0.6)', glow: '0 0 24px rgba(245,158,11,0.35)', badge: 'Almost there!', labelColor: '#f59e0b' },
   mastered: { border: 'rgba(245,158,11,0.8)', glow: '0 0 22px rgba(245,158,11,0.3)', badge: 'Mastered', labelColor: '#f59e0b' },
 };
 
@@ -39,8 +45,12 @@ export function ConceptMap({ studentName, ageGroup, onConceptSelect, onClose }: 
   const [nodeStatuses, setNodeStatuses] = useState<Record<string, NodeStatus>>({});
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [studentLevel, setStudentLevel] = useState(1);
 
   useEffect(() => {
+    const xpInfo = getStudentXPInfo(studentName);
+    if (xpInfo) setStudentLevel(xpInfo.level);
+
     const statuses: Record<string, NodeStatus> = {};
     const rawStatuses: Record<string, 'locked' | 'touched' | 'mastered'> = {};
 
@@ -50,8 +60,16 @@ export function ConceptMap({ studentName, ageGroup, onConceptSelect, onClose }: 
 
     CONCEPT_NODES.forEach((node) => {
       const rawStatus = rawStatuses[node.id];
-      if (rawStatus === 'touched' || rawStatus === 'mastered') {
-        statuses[node.id] = rawStatus;
+      if (rawStatus === 'mastered') {
+        statuses[node.id] = 'mastered';
+        return;
+      }
+      if (rawStatus === 'touched') {
+        const snapshot = getConceptProgressSnapshot(studentName, node.id);
+        const completedLayers = snapshot
+          ? (['intuitive', 'structural', 'precise'] as const).filter((l) => snapshot.layer_progress[l] === 'completed').length
+          : 0;
+        statuses[node.id] = completedLayers >= 2 ? 'almost-mastered' : 'touched';
         return;
       }
 
@@ -133,12 +151,22 @@ export function ConceptMap({ studentName, ageGroup, onConceptSelect, onClose }: 
             const isHovered = hovered === node.id;
             const isSelected = selected === node.id;
             const isLocked = status === 'locked';
+            const isAlmostMastered = status === 'almost-mastered';
+
+            const snapshot = status === 'touched' || status === 'almost-mastered'
+              ? getConceptProgressSnapshot(studentName, node.id)
+              : null;
+            const nextUncompletedLayer = snapshot
+              ? (['intuitive', 'structural', 'precise'] as const).find((l) => snapshot.layer_progress[l] !== 'completed')
+              : null;
+            const gateLevel = nextUncompletedLayer ? LAYER_LEVEL_GATES[nextUncompletedLayer] : undefined;
+            const isLevelGated = gateLevel !== undefined && studentLevel < gateLevel;
 
             return (
               <button
                 key={node.id}
                 type="button"
-                className="concept-map-node"
+                className={`concept-map-node ${isAlmostMastered ? 'almost-mastered-pulse' : ''}`}
                 style={{
                   left: `${node.x}%`,
                   top: `${node.y}%`,
@@ -170,10 +198,23 @@ export function ConceptMap({ studentName, ageGroup, onConceptSelect, onClose }: 
                   <span
                     className="concept-node-badge"
                     style={{
-                      color: status === 'mastered' ? '#f59e0b' : status === 'touched' ? '#3b82f6' : 'var(--muted)',
+                      color: status === 'mastered' ? '#f59e0b'
+                        : status === 'almost-mastered' ? '#f59e0b'
+                        : status === 'touched' ? '#3b82f6'
+                        : 'var(--muted)',
                     }}
                   >
                     {styles.badge}
+                  </span>
+                )}
+                {isLocked && (
+                  <span className="concept-node-lock">
+                    <Lock size={10} />
+                  </span>
+                )}
+                {isLevelGated && !isLocked && (
+                  <span className="concept-node-level-gate" title={`Recommended at Level ${gateLevel}`}>
+                    Lv.{gateLevel}
                   </span>
                 )}
               </button>
@@ -271,6 +312,28 @@ export function ConceptMap({ studentName, ageGroup, onConceptSelect, onClose }: 
                 </span>
               </div>
             )}
+
+            {selectedStatus === 'touched' || selectedStatus === 'almost-mastered' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                {(() => {
+                  const nextLayer = selectedProgress
+                    ? (['intuitive', 'structural', 'precise'] as const).find((l) => selectedProgress.layer_progress[l] !== 'completed')
+                    : null;
+                  const gate = nextLayer ? LAYER_LEVEL_GATES[nextLayer] : undefined;
+                  if (!gate) return null;
+                  return studentLevel >= gate ? (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--green)', fontWeight: 700 }}>
+                      <Star size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
+                      You&rsquo;re ready for the {nextLayer} layer!
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>
+                      Reach Lv.{gate} to unlock the recommended {nextLayer} path
+                    </span>
+                  );
+                })()}
+              </div>
+            ) : null}
 
             {selectedNode.prerequisites.length > 0 && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>

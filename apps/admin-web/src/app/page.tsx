@@ -15,7 +15,10 @@ export default function HomePage() {
           sign-in, downloads, updates, and support.
         </p>
         <div className="cta-row">
-          <Link className="btn primary" href="/portal">
+          <Link className="btn primary" href="/pricing">
+            See pricing
+          </Link>
+          <Link className="btn" href="/portal">
             Open teacher portal
           </Link>
           <Link className="btn" href="/sign-in">

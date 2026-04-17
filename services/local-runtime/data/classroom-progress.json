@@ -1,0 +1,16 @@
+{
+  "students": {
+    "Noah": {
+      "student_name": "Noah",
+      "xp": 185,
+      "level": 3,
+      "level_name": "Artist",
+      "level_emoji": "\ud83c\udfa8",
+      "badge_count": 6,
+      "streak_days": 2,
+      "drawings_count": 8,
+      "concepts_started": 3,
+      "concepts_mastered": 0
+    }
+  }
+}

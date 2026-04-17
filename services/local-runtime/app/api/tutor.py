@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
+import traceback
 
 from fastapi import APIRouter, UploadFile, File
+
+logger = logging.getLogger("sketchbot.tutor")
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -91,7 +95,7 @@ async def tutor_evaluate(req: TutorEvaluateRequest) -> dict:
     """
     Non-streaming: evaluate whether a student's drawing demonstrates
     concept mastery for the active layer.
-    Returns: { passed: bool, feedback: str, suggest_next_layer: bool }
+    Returns: { passed, score, creativity, concept_alignment, complexity, feedback, suggest_next_layer }
     """
     return await tutor_service.evaluate(
         student_name=req.student_name,
@@ -116,16 +120,236 @@ def tutor_status() -> dict:
     return {"available": tutor_service.is_available()}
 
 
+# ─── Text-to-speech ──────────────────────────────────────────────────────────
+#
+# Providers supported:
+#   • ElevenLabs (preferred when ELEVENLABS_API_KEY is set) — used for kid-
+#     friendly character voices like "Mark" and "Lori" via voice IDs.
+#   • OpenAI TTS (fallback) — uses built-in voice names (alloy, echo, ...).
+
+# OpenAI's built-in voice palette. Any `voice` value in this set routes to
+# OpenAI regardless of whether ElevenLabs is configured.
+_OPENAI_TTS_VOICES = {"alloy", "echo", "fable", "onyx", "nova", "shimmer"}
+
+# Convenience aliases → ElevenLabs voice IDs.
+# These are the two character voices exposed to students in the UI.
+_ELEVENLABS_VOICE_ALIASES: dict[str, str] = {
+    "mark": "UgBBYS2sOqTuMpoF3BR0",
+    "lori": "TbMNBJ27fH2U0VgpSNko",
+}
+
+
+class TutorSpeakRequest(BaseModel):
+    text: str
+    # Voice identifier. May be:
+    #   • an ElevenLabs voice ID (20-char id)
+    #   • an alias ("mark", "lori")
+    #   • an OpenAI voice name (alloy | echo | fable | onyx | nova | shimmer)
+    voice: str = "mark"
+    # Optional explicit provider override: "elevenlabs" | "openai"
+    provider: str | None = None
+    speed: float = Field(default=1.0, ge=0.5, le=2.0)
+    # ElevenLabs voice settings (ignored for OpenAI).
+    stability: float = Field(default=0.5, ge=0.0, le=1.0)
+    similarity_boost: float = Field(default=0.8, ge=0.0, le=1.0)
+    style: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+def _resolve_tts_provider(req: TutorSpeakRequest) -> tuple[str, str]:
+    """Return (provider, resolved_voice) for a speech request.
+
+    Resolution order:
+      1. Explicit `provider` field wins.
+      2. Voice in OpenAI palette → openai.
+      3. ELEVENLABS_API_KEY present → elevenlabs.
+      4. Fallback → openai.
+    """
+    raw = (req.voice or "").strip()
+    alias = _ELEVENLABS_VOICE_ALIASES.get(raw.lower())
+    has_elevenlabs = bool(os.environ.get("ELEVENLABS_API_KEY", ""))
+
+    if req.provider == "elevenlabs":
+        return "elevenlabs", alias or raw
+    if req.provider == "openai":
+        return "openai", raw or "alloy"
+    if raw.lower() in _OPENAI_TTS_VOICES:
+        return "openai", raw.lower()
+    if alias:
+        return "elevenlabs", alias
+    if has_elevenlabs and raw:
+        return "elevenlabs", raw
+    return "openai", raw or "alloy"
+
+
+async def _tts_elevenlabs(req: TutorSpeakRequest, voice_id: str) -> StreamingResponse:
+    """Stream MP3 audio from the ElevenLabs text-to-speech REST API."""
+    import httpx
+    from fastapi.responses import JSONResponse
+
+    api_key = os.environ.get("ELEVENLABS_API_KEY", "")
+    if not api_key:
+        return JSONResponse(
+            {"error": "ELEVENLABS_API_KEY not configured"}, status_code=503
+        )
+
+    model_id = os.environ.get("ELEVENLABS_MODEL_ID", "eleven_turbo_v2_5")
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
+    headers = {
+        "xi-api-key": api_key,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+    }
+    payload = {
+        "text": req.text,
+        "model_id": model_id,
+        "voice_settings": {
+            "stability": req.stability,
+            "similarity_boost": req.similarity_boost,
+            "style": req.style,
+            "use_speaker_boost": True,
+        },
+    }
+
+    client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
+
+    try:
+        request = client.build_request("POST", url, json=payload, headers=headers)
+        response = await client.send(request, stream=True)
+    except httpx.HTTPError as exc:
+        await client.aclose()
+        return JSONResponse({"error": f"elevenlabs request failed: {exc}"}, status_code=502)
+
+    if response.status_code >= 400:
+        body = (await response.aread()).decode(errors="replace")
+        await response.aclose()
+        await client.aclose()
+        return JSONResponse(
+            {"error": "elevenlabs error", "status": response.status_code, "detail": body[:500]},
+            status_code=response.status_code if response.status_code < 600 else 502,
+        )
+
+    async def stream_audio():
+        try:
+            async for chunk in response.aiter_bytes(4096):
+                if chunk:
+                    yield chunk
+        finally:
+            await response.aclose()
+            await client.aclose()
+
+    return StreamingResponse(
+        stream_audio(),
+        media_type="audio/mpeg",
+        headers={
+            "Cache-Control": "no-store",
+            "X-TTS-Provider": "elevenlabs",
+            "X-TTS-Voice": voice_id,
+        },
+    )
+
+
+async def _tts_openai(req: TutorSpeakRequest, voice: str) -> StreamingResponse:
+    """Stream MP3 audio from OpenAI's TTS endpoint."""
+    from fastapi.responses import JSONResponse
+
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        return JSONResponse({"error": "OPENAI_API_KEY not configured"}, status_code=503)
+
+    try:
+        import openai
+        client = openai.AsyncOpenAI(api_key=api_key)
+
+        response = await client.audio.speech.create(
+            model="tts-1",
+            voice=voice if voice in _OPENAI_TTS_VOICES else "alloy",
+            input=req.text,
+            speed=req.speed,
+            response_format="mp3",
+        )
+
+        async def stream_audio():
+            async for chunk in response.response.aiter_bytes(1024):
+                yield chunk
+
+        return StreamingResponse(
+            stream_audio(),
+            media_type="audio/mpeg",
+            headers={
+                "Cache-Control": "public, max-age=86400",
+                "X-TTS-Provider": "openai",
+                "X-TTS-Voice": voice,
+            },
+        )
+
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@router.post("/speak")
+async def tutor_speak(req: TutorSpeakRequest) -> StreamingResponse:
+    """Generate speech audio. Routes to ElevenLabs or OpenAI based on voice/provider."""
+    provider, resolved_voice = _resolve_tts_provider(req)
+    if provider == "elevenlabs":
+        return await _tts_elevenlabs(req, resolved_voice)
+    return await _tts_openai(req, resolved_voice)
+
+
+@router.get("/voices")
+def tutor_voices() -> dict:
+    """List voice options exposed to the UI."""
+    elevenlabs_ready = bool(os.environ.get("ELEVENLABS_API_KEY", ""))
+    openai_ready = bool(os.environ.get("OPENAI_API_KEY", ""))
+    return {
+        "elevenlabs_ready": elevenlabs_ready,
+        "openai_ready": openai_ready,
+        "voices": [
+            {
+                "id": "UgBBYS2sOqTuMpoF3BR0",
+                "alias": "mark",
+                "label": "Mark",
+                "description": "Friendly, upbeat guy voice",
+                "provider": "elevenlabs",
+                "available": elevenlabs_ready,
+            },
+            {
+                "id": "TbMNBJ27fH2U0VgpSNko",
+                "alias": "lori",
+                "label": "Lori",
+                "description": "Warm, encouraging woman voice",
+                "provider": "elevenlabs",
+                "available": elevenlabs_ready,
+            },
+        ],
+    }
+
+
+@router.get("/transcribe/status")
+def tutor_transcribe_status() -> dict:
+    """Whether server-side (OpenAI Whisper) transcription is available."""
+    return {"available": bool(os.environ.get("OPENAI_API_KEY", ""))}
+
+
 @router.post("/transcribe")
-async def tutor_transcribe(audio: UploadFile = File(...)) -> dict:
+async def tutor_transcribe(audio: UploadFile = File(...)):
     """
     Transcribe voice input using OpenAI Whisper.
     Accepts any audio format MediaRecorder produces (webm, ogg, etc.).
-    Returns: { text: str }
+    Returns 503 when OPENAI_API_KEY is not configured so the client
+    can gracefully fall back to local transcription.
     """
+    from fastapi.responses import JSONResponse
+
     api_key = os.environ.get("OPENAI_API_KEY", "")
     if not api_key:
-        return {"text": ""}
+        return JSONResponse(
+            {
+                "error": "OPENAI_API_KEY not configured",
+                "text": "",
+                "fallback": "local",
+            },
+            status_code=503,
+        )
 
     try:
         import openai
@@ -133,8 +357,20 @@ async def tutor_transcribe(audio: UploadFile = File(...)) -> dict:
 
         audio_bytes = await audio.read()
         suffix = ".webm"
-        if audio.filename:
-            suffix = "." + audio.filename.rsplit(".", 1)[-1]
+        if audio.filename and "." in audio.filename:
+            suffix = "." + audio.filename.rsplit(".", 1)[-1].lower()
+        # Whisper accepts: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg, flac.
+        if suffix not in {".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm", ".ogg", ".flac"}:
+            suffix = ".webm"
+
+        logger.info(
+            "tutor.transcribe: filename=%s content_type=%s bytes=%d suffix=%s",
+            audio.filename, audio.content_type, len(audio_bytes), suffix,
+        )
+
+        if len(audio_bytes) < 128:
+            # Browser sometimes fires onstop with essentially no data.
+            return {"text": ""}
 
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(audio_bytes)
@@ -147,9 +383,18 @@ async def tutor_transcribe(audio: UploadFile = File(...)) -> dict:
                     file=f,
                     language="en",
                 )
-            return {"text": result.text}
+            text = getattr(result, "text", "") or ""
+            logger.info("tutor.transcribe: ok chars=%d", len(text))
+            return {"text": text}
         finally:
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     except Exception as exc:  # noqa: BLE001
-        return {"text": "", "error": str(exc)}
+        logger.error("tutor.transcribe failed: %s\n%s", exc, traceback.format_exc())
+        return JSONResponse(
+            {"text": "", "error": f"{type(exc).__name__}: {exc}"},
+            status_code=500,
+        )

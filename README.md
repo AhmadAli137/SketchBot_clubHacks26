@@ -75,5 +75,12 @@ npm run cloud-backend:dev
 - `services/local-runtime` runs locally with the desktop app
 - `apps/companion` runs in Expo Go or as a packaged mobile app
 - `apps/companion` assumes the same local network as the desktop app
-- `apps/admin-web` deploys to Vercel
-- `services/cloud-backend` deploys to Render or a similar Python host
+- `apps/admin-web` deploys to Vercel at `sketch-bot-club-hacks26.vercel.app`
+- `services/cloud-backend` deploys to Render at `sketchbot-backend.onrender.com`
+
+The legacy `webapp/` folder (browser-only operator UI) and the legacy
+robot-control backend have both been retired. Their hosted deployments
+are being repurposed: Vercel now serves `apps/admin-web` and Render now
+serves `services/cloud-backend`. See
+[`docs/deployment/vercel-render.md`](docs/deployment/vercel-render.md)
+for the exact dashboard steps to repoint each project.

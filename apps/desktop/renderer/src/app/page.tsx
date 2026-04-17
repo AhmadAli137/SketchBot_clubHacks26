@@ -858,6 +858,7 @@ export default function HomePage() {
         isRobotConnected={state.robot_connected}
         classroomName={classroomName || undefined}
         studentCount={studentCount}
+        apiBase={apiBase}
         onStartSession={(conceptId, starterPrompt, ageGroup) =>
           handleStartSession(conceptId, starterPrompt, ageGroup)
         }

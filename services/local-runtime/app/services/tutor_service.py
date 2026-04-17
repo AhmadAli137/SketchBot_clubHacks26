@@ -275,11 +275,16 @@ class TutorService:
         """
         Non-streaming: evaluate whether a student's drawing demonstrates
         understanding of the concept at the current layer.
-        Returns: { passed: bool, feedback: str, suggest_next_layer: bool }
+        Returns: { passed, score, creativity, concept_alignment, complexity,
+                   feedback, suggest_next_layer }
         """
         if self._client is None:
             return {
                 "passed": True,
+                "score": 75,
+                "creativity": 70,
+                "concept_alignment": 80,
+                "complexity": 65,
                 "feedback": "Great work! Keep exploring.",
                 "suggest_next_layer": False,
             }
@@ -288,24 +293,38 @@ class TutorService:
         concept_ctx = _build_concept_context(concept_id, layer)
 
         session = _get_session(student_name, concept_id)
-        recent_history = _trim_history(list(session.history))[-6:]  # last 3 turns for context
+        recent_history = _trim_history(list(session.history))[-6:]
 
         eval_prompt = (
             f"A student named {student_name} just submitted a drawing.\n"
             f"Their prompt was: \"{drawing_prompt}\"\n"
             f"The drawing produced {path_count} distinct path segment(s).\n\n"
             "Based on the concept, the active layer, and the conversation history, "
-            "evaluate whether this drawing demonstrates meaningful engagement with the concept.\n\n"
-            "Consider: Did the prompt show understanding of the core idea? "
-            "Does the path count suggest a simple or complex drawing? "
-            "Is the student ready to go deeper?\n\n"
+            "evaluate this drawing across multiple dimensions.\n\n"
+            "Score each dimension from 0 to 100:\n"
+            "- **score**: Overall quality (0-100)\n"
+            "- **creativity**: Originality and inventiveness of the prompt and approach (0-100)\n"
+            "- **concept_alignment**: How well the drawing demonstrates understanding of the concept (0-100)\n"
+            "- **complexity**: Sophistication of the drawing — path count, structure, detail (0-100)\n\n"
+            "Also determine:\n"
+            "- **passed**: true if score >= 50 and the student shows meaningful engagement\n"
+            "- **feedback**: 1-2 sentences of age-appropriate encouragement\n"
+            "- **suggest_next_layer**: true if the student is clearly ready for a deeper challenge\n\n"
             "Reply with ONLY valid JSON, no extra text:\n"
-            '{"passed": true, "feedback": "1–2 sentence encouragement", "suggest_next_layer": false}'
+            "{"
+            '"passed": true, '
+            '"score": 75, '
+            '"creativity": 70, '
+            '"concept_alignment": 80, '
+            '"complexity": 65, '
+            '"feedback": "Nice work!", '
+            '"suggest_next_layer": false'
+            "}"
         )
 
         msg = await self._client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=256,
+            max_tokens=300,
             system=[
                 {
                     "type": "text",
@@ -325,15 +344,29 @@ class TutorService:
         )
 
         raw = msg.content[0].text.strip() if msg.content else ""
-        # Strip markdown code fences if Claude wrapped the JSON
         if raw.startswith("```"):
             raw = raw.split("```")[1].lstrip("json").strip()
 
         try:
-            return json.loads(raw)
+            result = json.loads(raw)
+            for key in ("score", "creativity", "concept_alignment", "complexity"):
+                if key not in result or not isinstance(result[key], (int, float)):
+                    result[key] = 50
+                result[key] = max(0, min(100, int(result[key])))
+            if "passed" not in result:
+                result["passed"] = result.get("score", 50) >= 50
+            if "feedback" not in result:
+                result["feedback"] = "Keep exploring!"
+            if "suggest_next_layer" not in result:
+                result["suggest_next_layer"] = False
+            return result
         except json.JSONDecodeError:
             return {
                 "passed": True,
+                "score": 50,
+                "creativity": 50,
+                "concept_alignment": 50,
+                "complexity": 50,
                 "feedback": raw or "Keep exploring — you're making progress!",
                 "suggest_next_layer": False,
             }

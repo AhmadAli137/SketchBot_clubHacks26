@@ -66,6 +66,24 @@ export type ConceptProgress = {
   last_visited: string;     // ISO timestamp
 };
 
+export type ScoreRecord = {
+  concept_id: string;
+  layer: ConceptLayer;
+  score: number;
+  creativity: number;
+  concept_alignment: number;
+  complexity: number;
+  timestamp: string;
+};
+
+export type StreakData = {
+  current_streak_days: number;
+  longest_streak_days: number;
+  last_active_date: string;
+};
+
+export type InputMode = 'language' | 'blocks' | 'code';
+
 export type StudentProgress = {
   student_name: string;
   age_group: AgeGroup;
@@ -76,6 +94,13 @@ export type StudentProgress = {
   badges: string[];
   drawings: DrawingRecord[];
   total_sessions: number;
+  xp: number;
+  level: number;
+  scores: ScoreRecord[];
+  streaks: StreakData;
+  used_input_modes?: InputMode[];
+  lessons_completed?: number;
+  quizzes_correct?: number;
   created_at: string;
   updated_at: string;
 };

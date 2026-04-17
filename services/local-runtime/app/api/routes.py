@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api import block_runner, camera, code_runner, compose, demo, health, jobs, robot, sim, state, tutor, upload, views, webrtc, ws
+from app.api import block_runner, camera, code_runner, compose, demo, health, jobs, lessons, progress, robot, sim, state, tutor, upload, views, webrtc, ws
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -16,5 +16,7 @@ api_router.include_router(robot.router, tags=["robot"])
 api_router.include_router(upload.router, tags=["upload"])
 api_router.include_router(ws.router, tags=["ws"])
 api_router.include_router(tutor.router)
+api_router.include_router(lessons.router)
+api_router.include_router(progress.router)
 api_router.include_router(code_runner.router)
 api_router.include_router(block_runner.router)

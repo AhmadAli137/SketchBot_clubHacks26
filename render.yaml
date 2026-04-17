@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: sketchbot-cloud-backend
+    name: sketchbot-backend
     runtime: python
     rootDir: services/cloud-backend
     plan: starter
@@ -9,7 +9,9 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: PORT
-        value: "8010"
       - key: CLOUD_CORS_ORIGIN_REGEX
         value: ^https://.*\.vercel\.app$
+      - key: CLOUD_CORS_ORIGINS
+        sync: false
+      - key: SKETCHBOT_CLOUD_DATA_FILE
+        sync: false

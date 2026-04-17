@@ -36,6 +36,7 @@ import { colors } from './src/theme';
 import type { CameraBuddyPage } from './src/screens/types';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { TutorPanel } from './src/screens/TutorPanel';
+import { StudentProgressBadge } from './src/screens/StudentProgressBadge';
 
 const STORAGE_KEY = 'sketchbot-camera-buddy-room';
 const DEFAULT_PORT = '8787';
@@ -1712,6 +1713,13 @@ export default function App() {
                       The live camera fills more of the screen automatically in landscape, and fullscreen opens right from the preview.
                     </Text>
                   </View>
+
+                  {cleanedBackendUrl && studentNames[0] ? (
+                    <StudentProgressBadge
+                      backendUrl={cleanedBackendUrl}
+                      studentName={studentNames[0]}
+                    />
+                  ) : null}
 
                   {cleanedBackendUrl ? (
                     <TutorPanel

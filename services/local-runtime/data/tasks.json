@@ -418,5 +418,105 @@
     "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <path d=\"M50 80 L70 40 L95 70 Q100 75 105 70 L130 40 L150 80 Q150 130 100 150 Q50 130 50 80 Z\" fill=\"none\" stroke=\"black\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <circle cx=\"78\" cy=\"95\" r=\"5\" fill=\"black\"/>\n  <circle cx=\"122\" cy=\"95\" r=\"5\" fill=\"black\"/>\n  <path d=\"M100 108 L94 118 L106 118 Z\" fill=\"black\"/>\n  <path d=\"M100 118 Q92 126 84 124\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M100 118 Q108 126 116 124\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M92 116 L58 110 M92 120 L58 120 M92 124 L58 130\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <path d=\"M108 116 L142 110 M108 120 L142 120 M108 124 L142 130\" fill=\"none\" stroke=\"black\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>",
     "image_data_url": null,
     "path_count": 3
+  },
+  {
+    "id": "18787ec0-534a-4088-93f4-16296b621cf9",
+    "name": "simple dog face",
+    "source_type": "prompt",
+    "prompt": "simple dog face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
+  },
+  {
+    "id": "f08e632b-ceb6-48bb-878a-f7b809059c8e",
+    "name": "A cute puppy face",
+    "source_type": "prompt",
+    "prompt": "A cute puppy face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 6
+  },
+  {
+    "id": "53cf445d-68d5-4f18-a3af-62105a4d720f",
+    "name": "A cute puppy face",
+    "source_type": "prompt",
+    "prompt": "A cute puppy face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 6
+  },
+  {
+    "id": "43e2a8fa-8d31-4f42-83ae-2b94c572a719",
+    "name": "A c",
+    "source_type": "prompt",
+    "prompt": "A c",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 4
+  },
+  {
+    "id": "a720a232-cfcc-442f-a2a1-249a69a0147f",
+    "name": "A cute puppy face",
+    "source_type": "prompt",
+    "prompt": "A cute puppy face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 6
+  },
+  {
+    "id": "83f255d0-a905-47e7-abea-91224750a473",
+    "name": "A cute puppy face",
+    "source_type": "prompt",
+    "prompt": "A cute puppy face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 6
+  },
+  {
+    "id": "6ce5bd2b-dcb7-46f4-ae4e-98eaee617785",
+    "name": "A cute puppy face",
+    "source_type": "prompt",
+    "prompt": "A cute puppy face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 6
+  },
+  {
+    "id": "76704700-d052-4304-9265-fec0d7636291",
+    "name": "A cute puppy face",
+    "source_type": "prompt",
+    "prompt": "A cute puppy face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 6
+  },
+  {
+    "id": "c0e26362-8328-4f62-a7b1-591e01a458c1",
+    "name": "a cute puppy face",
+    "source_type": "prompt",
+    "prompt": "a cute puppy face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"60\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <path d=\"M100 55 L100 145\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M55 100 L145 100\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 6
+  },
+  {
+    "id": "3d7271e5-9718-489d-9ef3-e61f5f22e549",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
   }
 ]

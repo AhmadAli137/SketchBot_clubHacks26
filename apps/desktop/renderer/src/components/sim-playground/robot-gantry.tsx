@@ -21,6 +21,13 @@ import { CANVAS_W, CANVAS_H } from '@/lib/sim-path-utils';
 const S = 0.25; // global scale factor (1/4 of original)
 
 const CHASSIS_MAT = new THREE.MeshStandardMaterial({ color: '#1a1a22', roughness: 0.65, metalness: 0.2 });
+const ACCENT_MAT = new THREE.MeshStandardMaterial({
+  color: '#1e3a48',
+  emissive: '#2a6080',
+  emissiveIntensity: 0.35,
+  roughness: 0.45,
+  metalness: 0.35,
+});
 const WHEEL_RUBBER = new THREE.MeshStandardMaterial({ color: '#1c1c1c', roughness: 0.92, metalness: 0.05 });
 const WHEEL_HUB = new THREE.MeshStandardMaterial({ color: '#f5c800', roughness: 0.55, metalness: 0.15 });
 const MOTOR_MAT = new THREE.MeshStandardMaterial({ color: '#c8c8d0', roughness: 0.4, metalness: 0.7 });
@@ -111,6 +118,10 @@ export function RobotGantry({ penPos, isAnimating, penDown = true }: Props) {
       {/* Chassis */}
       <mesh position={[0, 0.35 * S, 0]} material={CHASSIS_MAT} castShadow receiveShadow>
         <boxGeometry args={[1.5 * S, 0.22 * S, 1.2 * S]} />
+      </mesh>
+      {/* Cyan edge strip (flush with chassis top) */}
+      <mesh position={[0, (0.35 + 0.11 + 0.006) * S, 0]} material={ACCENT_MAT} castShadow>
+        <boxGeometry args={[1.52 * S, 0.012 * S, 1.22 * S]} />
       </mesh>
 
       {/* Bottom plate */}

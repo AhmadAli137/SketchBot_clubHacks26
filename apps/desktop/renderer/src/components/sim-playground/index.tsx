@@ -22,9 +22,26 @@ import { useSimAnimation } from '@/lib/use-sim-animation';
 const Scene3D = dynamic(() => import('./scene-3d').then((m) => ({ default: m.Scene3D })), {
   ssr: false,
   loading: () => (
-    <div style={{ width: '100%', height: '100%', background: '#050816', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: 'rgba(93,228,255,0.5)', fontSize: '0.8rem', fontFamily: 'monospace' }}>
-        Loading 3D engine…
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        background: 'radial-gradient(ellipse 90% 70% at 50% 25%, #0c1838 0%, #060a18 55%, #03050c 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        style={{
+          color: 'rgba(140, 210, 255, 0.65)',
+          fontSize: '0.78rem',
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          fontFamily: 'ui-monospace, monospace',
+        }}
+      >
+        Loading 3D…
       </div>
     </div>
   ),

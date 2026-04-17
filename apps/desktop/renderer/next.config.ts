@@ -8,6 +8,18 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   outputFileTracingRoot: path.join(__dirname, '..', '..', '..'),
+
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Prevent Node-only ONNX runtime from being bundled in the browser
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'sharp$': false,
+        'onnxruntime-node$': false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
