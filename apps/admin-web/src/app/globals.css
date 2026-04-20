@@ -255,15 +255,7 @@ body::before {
 
 .nav-cta { display: flex; align-items: center; gap: 10px; }
 
-/* ─── Hero ───────────────────────────────────────────────────────────────── */
-.hero-section {
-  padding-top: calc(var(--nav-h) + 80px);
-  padding-bottom: 100px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-  z-index: 1;
-}
+/* ─── Hero (legacy centred styles kept for badge/orbs/proof) ────────────── */
 
 .hero-badge {
   display: inline-flex;
@@ -2444,4 +2436,328 @@ body::before {
 .app-badge-chip-real {
   background: rgba(107,124,255,0.1); border: 1px solid rgba(107,124,255,0.2);
   border-radius: 99px; padding: 4px 12px; font-size: 0.76rem; font-weight: 600;
+}
+
+/* ─── Hero split (marketing layout) ─────────────────────────────────────── */
+.hero-section {
+  padding-top: calc(var(--nav-h) + 72px);
+  padding-bottom: 80px;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.hero-inner {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 64px;
+  align-items: center;
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.hero-title { margin-bottom: 20px; text-align: left; }
+
+.hero-sub {
+  max-width: 560px;
+  margin: 0 0 36px;
+  text-align: left;
+}
+
+.hero-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+.btn-lg {
+  padding: 15px 30px;
+  font-size: 1rem;
+}
+
+.hero-spark-side {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@media (max-width: 1024px) {
+  .hero-inner { grid-template-columns: 1fr 340px; gap: 40px; }
+}
+@media (max-width: 860px) {
+  .hero-inner { grid-template-columns: 1fr; gap: 48px; }
+  .hero-copy  { align-items: center; }
+  .hero-title, .hero-sub { text-align: center; }
+  .hero-sub   { max-width: 100%; margin: 0 auto 32px; }
+  .hero-cta-row { justify-content: center; }
+  .hero-proof { justify-content: center; }
+  .hero-chips { justify-content: center; }
+  .hero-spark-side { order: -1; }
+}
+
+/* ─── 3D Demo scene ──────────────────────────────────────────────────────── */
+.demo-scene-root {
+  width: 100%;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #050816;
+  box-shadow: var(--shadow-xl), 0 0 60px rgba(93,228,255,0.07);
+}
+
+.demo-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 14px 0;
+  border-bottom: 1px solid rgba(110,129,255,0.12);
+  background: rgba(5,8,22,0.95);
+  overflow-x: auto;
+}
+
+.demo-tab {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-bottom: none;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.demo-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.demo-tab.active {
+  color: var(--cyan);
+  background: rgba(93,228,255,0.08);
+  border-color: rgba(93,228,255,0.18);
+}
+
+.demo-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 480px;
+}
+
+@media (max-width: 768px) {
+  .demo-canvas-wrap { height: 320px; }
+}
+
+.demo-overlay-info {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  z-index: 10;
+  pointer-events: none;
+  max-width: 340px;
+}
+
+.demo-overlay-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 99px;
+  border: 1px solid;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.demo-overlay-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #eef4ff;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.7);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.demo-overlay-sub {
+  font-size: 0.82rem;
+  color: rgba(149,166,199,0.85);
+  line-height: 1.5;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.6);
+  margin-bottom: 10px;
+}
+
+.demo-overlay-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.demo-overlay-tag {
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 99px;
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(238,244,255,0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.demo-live-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: rgba(5,8,22,0.75);
+  border: 1px solid rgba(77,255,184,0.25);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #4dffb8;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  letter-spacing: 0.03em;
+}
+
+.demo-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4dffb8;
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+/* ─── Lesson step mockup (Spark section) ─────────────────────────────────── */
+.lesson-mockup {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg), 0 0 40px rgba(93,228,255,0.06);
+}
+
+.lesson-mock-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(110,129,255,0.12);
+  background: rgba(5,8,22,0.6);
+}
+
+.lesson-mock-step-rail {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.lesson-mock-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  flex: 1;
+  position: relative;
+}
+.lesson-mock-step + .lesson-mock-step::before {
+  content: '';
+  position: absolute;
+  left: -50%;
+  top: 8px;
+  width: 100%;
+  height: 1px;
+  background: rgba(110,129,255,0.18);
+}
+.lesson-mock-step.done { color: #4dffb8; }
+.lesson-mock-step.active { color: #5de4ff; font-weight: 700; }
+
+.lesson-mock-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(110,129,255,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  position: relative;
+  z-index: 1;
+  background: var(--surface-2);
+}
+.lesson-mock-step.done .lesson-mock-dot { background: #4dffb8; border-color: #4dffb8; color: #050816; }
+.lesson-mock-step.active .lesson-mock-dot { border-color: #5de4ff; background: rgba(93,228,255,0.15); }
+
+.lesson-mock-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lesson-mock-spark {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.lesson-mock-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(255,184,77,0.12);
+  border: 1px solid rgba(255,184,77,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.lesson-mock-bubble {
+  flex: 1;
+  background: rgba(5,8,22,0.7);
+  border: 1px solid rgba(93,228,255,0.2);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(238,244,255,0.9);
+}
+
+.lesson-mock-challenge {
+  background: rgba(107,124,255,0.06);
+  border: 1px solid rgba(107,124,255,0.18);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.lesson-mock-ch-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #6b7cff;
+  margin-bottom: 4px;
+}
+.lesson-mock-ch-hint {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.lesson-mock-xp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lesson-mock-xp-pill {
+  background: rgba(77,255,184,0.12);
+  border: 1px solid rgba(77,255,184,0.25);
+  border-radius: 99px;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #4dffb8;
 }

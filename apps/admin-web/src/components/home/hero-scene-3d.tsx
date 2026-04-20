@@ -376,57 +376,76 @@ function SceneContent({ scene }: { scene: SceneType }) {
   );
 }
 
-// ─── Label for current scene ──────────────────────────────────────────────────
-const SCENE_LABELS: Record<SceneType, { title: string; sub: string }> = {
-  maze:      { title: 'Maze Marathon',       sub: 'Navigate to the goal' },
-  sumo:      { title: 'Sumo Arena',          sub: 'Push the opponent out' },
-  cones:     { title: 'Cone Gauntlet',       sub: 'Slalom through obstacles' },
-  waypoints: { title: 'Path Planning',       sub: 'Follow the waypoints' },
-  drawing:   { title: 'Geometry Drawing',    sub: 'Trace with real math' },
+// ─── Scene metadata ───────────────────────────────────────────────────────────
+const SCENE_META: Record<SceneType, { title: string; sub: string; concept: string; color: string; tags: string[] }> = {
+  maze:      { title: 'Maze Marathon',    sub: 'Robot navigates a maze using coordinate transforms and dead-reckoning odometry', concept: 'Coordinate Systems', color: '#4dffb8', tags: ['Explorer', 'Builder', 'Engineer'] },
+  sumo:      { title: 'Sumo Arena',       sub: 'Two robots compete using sensor fusion and reactive control strategies',          concept: 'Control Theory',      color: '#ff4fd8', tags: ['Builder', 'Engineer'] },
+  cones:     { title: 'Cone Gauntlet',   sub: 'Slalom through obstacles using path planning and real-time obstacle avoidance',   concept: 'Path Planning',       color: '#ffc96b', tags: ['Builder', 'Engineer'] },
+  waypoints: { title: 'Path Planning',   sub: 'Student places waypoints on the grid — robot follows the Bezier-interpolated path', concept: 'Path Planning',     color: '#5de4ff', tags: ['Explorer', 'Builder', 'Engineer'] },
+  drawing:   { title: 'Geometry Drawing', sub: 'SketchBot traces parametric curves — sin/cos in action on real paper',           concept: 'Geometry & Trig',     color: '#a855f7', tags: ['Explorer', 'Builder', 'Engineer'] },
 };
 
 // ─── Exported component ───────────────────────────────────────────────────────
 export function HeroScene3D() {
   const [sceneIdx, setSceneIdx] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(true);
   const scene = SCENES[sceneIdx % SCENES.length]!;
-  const label = SCENE_LABELS[scene];
+  const meta  = SCENE_META[scene];
 
   useEffect(() => {
-    const id = setInterval(() => setSceneIdx(i => i + 1), 5000);
+    if (!autoPlay) return;
+    const id = setInterval(() => setSceneIdx(i => i + 1), 6000);
     return () => clearInterval(id);
-  }, []);
+  }, [autoPlay]);
+
+  function select(i: number) { setSceneIdx(i); setAutoPlay(false); }
 
   return (
-    <div className="hero-scene-wrap">
-      {/* Three.js canvas */}
-      <Canvas
-        gl={{ alpha: false, antialias: true, powerPreference: 'high-performance' }}
-        shadows={{ type: THREE.PCFShadowMap as unknown as THREE.ShadowMapType }}
-        dpr={[1, 1.5]}
-        camera={{ position: CAM_POS[scene], fov: 46 }}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-      >
-        <Suspense fallback={null}>
-          <SceneContent scene={scene} />
-        </Suspense>
-      </Canvas>
-
-      {/* Overlay: bottom-left label */}
-      <div className="hero-scene-label">
-        <div className="hero-scene-label-title">{label.title}</div>
-        <div className="hero-scene-label-sub">{label.sub}</div>
-      </div>
-
-      {/* Scene dots */}
-      <div className="hero-scene-dots">
+    <div className="demo-scene-root">
+      {/* Scene selector tabs */}
+      <div className="demo-tabs">
         {SCENES.map((s, i) => (
           <button
             key={s}
-            className={`hero-scene-dot${i === sceneIdx % SCENES.length ? ' active' : ''}`}
-            onClick={() => setSceneIdx(i)}
-            aria-label={SCENE_LABELS[s].title}
-          />
+            className={`demo-tab${i === sceneIdx % SCENES.length ? ' active' : ''}`}
+            onClick={() => select(i)}
+          >
+            {{ maze: '🌀 Maze', sumo: '🥊 Sumo', cones: '🚧 Cones', waypoints: '📍 Waypoints', drawing: '✏️ Drawing' }[s]}
+          </button>
         ))}
+      </div>
+
+      {/* Canvas */}
+      <div className="demo-canvas-wrap">
+        <Canvas
+          gl={{ alpha: false, antialias: true, powerPreference: 'high-performance' }}
+          shadows={{ type: THREE.PCFShadowMap as unknown as THREE.ShadowMapType }}
+          dpr={[1, 1.5]}
+          camera={{ position: CAM_POS[scene], fov: 46 }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+        >
+          <Suspense fallback={null}>
+            <SceneContent scene={scene} />
+          </Suspense>
+        </Canvas>
+
+        {/* Bottom-left: challenge info */}
+        <div className="demo-overlay-info">
+          <div className="demo-overlay-chip" style={{ background: `${meta.color}22`, borderColor: `${meta.color}44`, color: meta.color }}>
+            {meta.concept}
+          </div>
+          <div className="demo-overlay-title">{meta.title}</div>
+          <div className="demo-overlay-sub">{meta.sub}</div>
+          <div className="demo-overlay-tags">
+            {meta.tags.map(t => <span key={t} className="demo-overlay-tag">{t}</span>)}
+          </div>
+        </div>
+
+        {/* Top-right: live indicator */}
+        <div className="demo-live-badge">
+          <span className="demo-live-dot" />
+          Live sim
+        </div>
       </div>
     </div>
   );
