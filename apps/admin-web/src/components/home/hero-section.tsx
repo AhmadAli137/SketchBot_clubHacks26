@@ -1,150 +1,127 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
-
 import { SparkRobot } from '@/components/spark-robot';
 
-const SCENES = [
-  { scene: 0, speech: "Hi! I'm Spark — your AI robotics tutor!" },
-  { scene: 1, speech: 'Let me show you how robots think...' },
-  { scene: 2, speech: 'You solved it! That\'s kinematics!' },
-  { scene: 3, speech: "You're a natural engineer — keep going!" },
+const HeroScene3D = dynamic(
+  () => import('./hero-scene-3d').then(m => ({ default: m.HeroScene3D })),
+  { ssr: false },
+);
+
+const SPEECHES = [
+  "Hi! I'm Spark — your AI robotics tutor!",
+  "Let me show you how robots think...",
+  "You solved it! That's kinematics!",
+  "You're a natural engineer — keep going!",
 ] as const;
 
-const BG_KEYS = ['welcome', 'guide', 'celebrate', 'adapt'] as const;
-
 export function HeroSection() {
-  const [sceneIdx, setSceneIdx] = useState(0);
+  const [speechIdx, setSpeechIdx] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => setSceneIdx(i => (i + 1) % SCENES.length), 4000);
+    const id = setInterval(() => setSpeechIdx(i => (i + 1) % SPEECHES.length), 4000);
     return () => clearInterval(id);
   }, []);
 
-  const current = SCENES[sceneIdx];
-
   return (
-    <section className="hero-section hero-split">
-      <div className="hero-orbs">
-        <div className="hero-orb hero-orb-1" />
-        <div className="hero-orb hero-orb-2" />
-        <div className="hero-orb hero-orb-3" />
-      </div>
+    <section className="hero-full">
+      {/* Left: 3D scene */}
+      <div className="hero-scene-col">
+        <HeroScene3D />
 
-      <div className="container hero-split-inner">
-        {/* ── Left: text ── */}
-        <div className="hero-text-col">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="hero-badge">
-              <span className="hero-badge-dot" />
-              AI-powered robotics education — now in classrooms
-            </div>
-          </motion.div>
-
+        {/* Text overlay bottom-left */}
+        <div className="hero-text-overlay">
           <motion.h1
-            className="display-1 hero-title"
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            style={{ textAlign: 'left', marginBottom: 20 }}
-          >
-            The robot that teaches{' '}
-            <span className="grad-text">kids to think</span>{' '}
-            like engineers
-          </motion.h1>
-
-          <motion.p
-            className="body-lg"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            style={{ maxWidth: 500, marginBottom: 36 }}
-          >
-            SketchBot draws on paper while its AI tutor — Spark — explains
-            the engineering behind every stroke. Words, blocks, or Python:
-            every age learns their way.
-          </motion.p>
-
-          <motion.div
-            className="hero-cta"
+            className="hero-overlay-title"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.32 }}
-            style={{ justifyContent: 'flex-start' }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
-            <Link href="/sign-up" className="btn btn-primary">
-              Start for free
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </Link>
-            <Link href="/pricing" className="btn btn-outline">See pricing</Link>
-            <Link href="#demo" className="btn btn-ghost" style={{ fontSize: '0.9rem' }}>Watch demo ↓</Link>
-          </motion.div>
-
-          {/* Social proof */}
+            Learn robotics <span className="hero-overlay-accent">by doing</span>
+          </motion.h1>
+          <motion.p
+            className="hero-overlay-sub"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+          >
+            Real robots. Real code. Real challenges.
+          </motion.p>
           <motion.div
-            className="hero-proof"
+            className="hero-chips"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.55 }}
+            transition={{ delay: 0.35 }}
           >
-            <div className="hero-proof-avatars">
-              {['🧒', '👧', '🧑‍💻', '👩‍🏫', '🧑‍🔬'].map((e, i) => (
-                <span key={i} className="hero-proof-avatar" style={{ zIndex: 5 - i }}>{e}</span>
-              ))}
-            </div>
-            <span className="hero-proof-text">Loved by students &amp; teachers everywhere</span>
+            <span className="hero-chip">⚙️ Real hardware</span>
+            <span className="hero-chip">🏆 Compete &amp; win</span>
+            <span className="hero-chip">✨ AI Tutor</span>
           </motion.div>
         </div>
+      </div>
 
-        {/* ── Right: Spark ── */}
+      {/* Right: Spark + CTAs */}
+      <div className="hero-cta-col">
+        {/* Spark */}
         <motion.div
-          className="hero-spark-col"
-          initial={{ opacity: 0, scale: 0.88, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.85, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className="hero-spark-wrap"
+          initial={{ opacity: 0, scale: 0.88 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="hero-spark-stage">
-            {/* Animated background per scene */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={BG_KEYS[current.scene]}
-                className={`hero-spark-bg spark3d-bg--${BG_KEYS[current.scene]}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.7 }}
-                aria-hidden
-              />
-            </AnimatePresence>
+          <SparkRobot mode="3d" size="lg" scene={speechIdx % 4} showSpeech={SPEECHES[speechIdx]} speechKey={speechIdx} />
+        </motion.div>
 
-            <SparkRobot
-              mode="3d"
-              size="xl"
-              scene={current.scene}
-              showSpeech={current.speech}
-              speechKey={sceneIdx}
-            />
+        <motion.div
+          className="hero-spark-name"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <span className="hero-spark-label">Spark</span>
+          <span className="hero-spark-tag">AI TUTOR</span>
+        </motion.div>
 
-            {/* Scene dot indicators */}
-            <div className="hero-spark-dots">
-              {SCENES.map((_, i) => (
-                <button
-                  key={i}
-                  className={`hero-spark-dot${i === sceneIdx ? ' active' : ''}`}
-                  onClick={() => setSceneIdx(i)}
-                  aria-label={`Scene ${i + 1}`}
-                />
-              ))}
+        {/* CTA panel */}
+        <motion.div
+          className="hero-panel"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="hero-panel-label">HOW DO YOU WANT TO PLAY?</div>
+
+          <Link href="/sign-up" className="hero-option">
+            <div className="hero-option-icon">✨</div>
+            <div className="hero-option-text">
+              <div className="hero-option-title">Just Play</div>
+              <div className="hero-option-sub">Sandbox mode — free draw, no account needed.</div>
             </div>
-          </div>
+            <div className="hero-option-arrow">→</div>
+          </Link>
+
+          <Link href="/sign-up" className="hero-option">
+            <div className="hero-option-icon">🎓</div>
+            <div className="hero-option-text">
+              <div className="hero-option-title">Personal Tutor</div>
+              <div className="hero-option-sub">AI lessons with Spark, XP, badges, progress sync.</div>
+            </div>
+            <div className="hero-option-arrow">→</div>
+          </Link>
+
+          <Link href="/sign-in" className="hero-option">
+            <div className="hero-option-icon">👥</div>
+            <div className="hero-option-text">
+              <div className="hero-option-title">Join a Class</div>
+              <div className="hero-option-sub">Enter your teacher&apos;s room code.</div>
+            </div>
+            <div className="hero-option-arrow">→</div>
+          </Link>
+
+          <Link href="/sign-in" className="hero-teacher-link">I&apos;m a Teacher →</Link>
         </motion.div>
       </div>
     </section>
