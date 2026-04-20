@@ -67,6 +67,10 @@ export type LessonStep = {
   bot_emotion?: BotEmotion;
   camera_move?: CameraMove;
   transitions?: StepTransition;
+  /** Human-readable phase label shown in the step rail (e.g. "Wall Follow", "Final Run"). */
+  phase?: string;
+  /** XP awarded on completing this step (shown as a hint in the rail). Overrides default per-type value. */
+  xp_reward?: number;
 };
 
 // ─── Lesson Plan ─────────────────────────────────────────────────────────────

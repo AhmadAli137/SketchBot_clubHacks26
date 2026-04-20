@@ -1128,6 +1128,10 @@ export function TutorPanel({
 
   // Send tutor message when concept or layer changes
   useEffect(() => {
+    // Wait for auth check to settle before firing — avoids a 401 because the
+    // Supabase session hasn't been read yet on first render.
+    if (cloudAuthToken === undefined) return;
+
     // Wait for a real concept before firing — avoids a "free-draw" greeting that
     // immediately gets replaced when the actual conceptId loads (double greeting bug).
     if (conceptId === null && prevConceptRef.current !== undefined) return;
@@ -1178,7 +1182,7 @@ export function TutorPanel({
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conceptId, activeLayer, sessionActorRole]);
+  }, [conceptId, activeLayer, sessionActorRole, cloudAuthToken === undefined]);
 
   useEffect(() => {
     hintsUsedRef.current = 0;

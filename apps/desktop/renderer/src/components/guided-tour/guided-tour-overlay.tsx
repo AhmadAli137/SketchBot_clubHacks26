@@ -139,8 +139,9 @@ function ClickCursor({ spot }: { spot: SpotRect }) {
         <circle cx="20" cy="20" r="6" fill="white" fillOpacity="0.95" />
         {/* Ripple rings */}
         <motion.circle
-          cx="20" cy="20" r="16"
+          cx="20" cy="20"
           stroke="rgba(93,228,255,0.8)" strokeWidth="2" fill="none"
+          initial={{ r: 16, opacity: 0.8 }}
           animate={{ r: [16, 26], opacity: [0.8, 0] }}
           transition={{ duration: 1.2, repeat: Infinity }}
         />

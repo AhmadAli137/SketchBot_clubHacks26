@@ -22,6 +22,7 @@ const GAMIFICATION_XP = {
 } as const;
 
 function getRailLabel(step: LessonStep, narrationsSoFar: number): string {
+  if (step.phase) return step.phase;
   switch (step.type) {
     case 'narration': return narrationsSoFar === 0 ? 'Intro' : 'Concept';
     case 'reveal':    return 'Reveal';
@@ -34,6 +35,7 @@ function getRailLabel(step: LessonStep, narrationsSoFar: number): string {
 }
 
 function getRailXP(step: LessonStep): number | null {
+  if (step.xp_reward !== undefined) return step.xp_reward;
   return (GAMIFICATION_XP as Record<string, number>)[step.type] ?? null;
 }
 

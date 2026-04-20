@@ -226,11 +226,11 @@ function BackgroundLerper({ targetColor }: { targetColor: string }) {
 
 // ─── Concept-specific prop layer ──────────────────────────────────────────────
 
-function ConceptArenaProps({ env }: { env: ConceptEnvironment }) {
+function ConceptArenaProps({ env, skipCones = false }: { env: ConceptEnvironment; skipCones?: boolean }) {
   const { arenaType, cones, walls, waypoints, sumoRingRadius } = env;
   return (
     <group>
-      {cones?.map((c, i) => <TrafficCone key={i} {...c} />)}
+      {!skipCones && cones?.map((c, i) => <TrafficCone key={i} {...c} />)}
       {walls?.map((w, i) => <MazeWall key={i} {...w} />)}
       {waypoints?.map((wp, i) => <WaypointProp key={i} x={wp.x} z={wp.z} color={wp.color} />)}
       {arenaType === 'sumo' && sumoRingRadius && <SumoRing radius={sumoRingRadius} />}
@@ -292,7 +292,7 @@ function SceneContent({ settledLines, activeLine, penPos, isAnimating, showGrid,
       )}
 
       {/* Concept-specific arena props */}
-      <ConceptArenaProps env={env} />
+      <ConceptArenaProps env={env} skipCones={simMode === 'cone-ring'} />
 
       {/* Robot/simulation — drawing or autonomous */}
       {isDrawingMode ? (

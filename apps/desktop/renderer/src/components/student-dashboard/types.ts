@@ -53,6 +53,8 @@ export type StudentDashboardProps = {
   apiBase?: string;
   /** Set when the session was started from lesson-planning flow. */
   lessonPlanActive?: boolean;
+  /** Drives which UI surfaces are shown. 'sandbox' = free draw, prompt bar visible. */
+  appMode?: 'sandbox' | 'tutor' | 'classroom';
   /** Classroom policy from teacher profile (student sessions only). */
   classroomRestrictions?: ClassroomProfile['restrictions'];
   /** Signed-in role from desktop auth (for UI policy). */

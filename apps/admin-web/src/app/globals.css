@@ -2397,6 +2397,16 @@ body::before {
 }
 .app-mode-tab.active { background: rgba(93,228,255,0.1); border-color: rgba(93,228,255,0.2); color: #5de4ff; }
 
+/* ─── Spark Bot Avatar (matches desktop BotAvatar) ─────────────────────── */
+.spark-avatar-shell {
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(93, 228, 255, 0.2);
+  backdrop-filter: blur(10px);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.spark-avatar-emoji { line-height: 1; }
+
 .app-code-block {
   background: #050816; border: 1px solid rgba(107,124,255,0.2);
   border-radius: 8px; padding: 10px 12px; font-family: monospace; font-size: 0.76rem;

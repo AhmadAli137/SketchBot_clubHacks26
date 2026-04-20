@@ -66,6 +66,7 @@ export function StudentDashboard({
   studentName = '',
   apiBase = '',
   lessonPlanActive = false,
+  appMode = 'sandbox',
   classroomRestrictions,
   userRole = 'student',
   onConceptSelect,
@@ -674,7 +675,8 @@ export function StudentDashboard({
           ) : null}
         </div>
 
-        {/* Floating prompt bar */}
+        {/* Floating prompt bar — sandbox/free-draw mode only */}
+        {appMode === 'sandbox' && (
         <div className="floating-prompt-bar" data-tour="session-prompt">
           <form
             className="floating-prompt-form"
@@ -769,6 +771,7 @@ export function StudentDashboard({
             </div>
           )}
         </div>
+        )}{/* end floating-prompt-bar conditional */}
         </div>{/* end workspace-column */}
 
         {tutorCollapsed ? (

@@ -1,110 +1,158 @@
 'use client';
 
 /**
- * ChallengeSimulation — autonomous 3D robot simulations per concept.
- * Each concept gets a completely different robot behaviour, not just a drawing robot.
+ * ChallengeSimulation — physics-driven 3D robot simulations per concept.
  *
- * Drawing robot (RobotGantry) is only used for geometry-drawing and coord-systems.
- * All other concepts get concept-appropriate motion with useFrame animations.
+ * Physics: custom 2D rigid-body system (physics-2d.ts) running in useFrame.
+ * Robots can't phase through walls. Cones fly on impact. Wheels spin correctly.
+ * Sumo bots push and recoil. Maze walls block with realistic slide+bounce.
  */
 
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import {
+  PhysicsBody,
+  resolveCircleCircle,
+  resolveCircleAABB,
+  constrainToRing,
+  tankWheelSpeeds,
+  angDiff,
+  type WallRect,
+} from './physics-2d';
+import { getEnvironment } from '@/lib/concept-environments';
 
-// ─── Which sim mode for each concept ─────────────────────────────────────────
+// ─── Sim mode selector ────────────────────────────────────────────────────────
 
 export type SimMode =
-  | 'drawing'       // RobotGantry + paper (default for drawing concepts)
-  | 'sumo'          // Two robots fighting on ring
-  | 'cone-ring'     // Robot weaving between cones
-  | 'maze'          // Robot navigating maze walls
-  | 'waypoint'      // Robot visiting waypoints in sequence
-  | 'circle-dance'  // Robot driving sine/circle curves
-  | 'pid-approach'; // Robot oscillating toward target (PID visualization)
+  | 'drawing'
+  | 'sumo'
+  | 'cone-ring'
+  | 'maze'
+  | 'waypoint'
+  | 'circle-dance'
+  | 'pid-approach';
 
 export function getSimMode(conceptId: string | null | undefined): SimMode {
   switch (conceptId) {
-    case 'sumo-arena': return 'sumo';
+    case 'sumo-arena':         return 'sumo';
     case 'cone-ring-gauntlet': return 'cone-ring';
-    case 'maze-marathon': return 'maze';
-    case 'path-planning': return 'waypoint';
-    case 'trigonometry-motion': return 'circle-dance';
-    case 'control-theory': return 'pid-approach';
-    // Drawing concepts use the standard RobotGantry
+    case 'maze-marathon':      return 'maze';
+    case 'path-planning':      return 'waypoint';
+    case 'trigonometry-motion':return 'circle-dance';
+    case 'control-theory':     return 'pid-approach';
     case 'geometry-drawing':
     case 'coord-systems':
-    default:
-      return 'drawing';
+    default:                   return 'drawing';
   }
 }
 
-// ─── Shared materials ─────────────────────────────────────────────────────────
+// ─── Physical constants ───────────────────────────────────────────────────────
 
-const mkMat = (color: string, emissive?: string, roughness = 0.65, metalness = 0.2) =>
-  new THREE.MeshStandardMaterial({
-    color, roughness, metalness,
+const S = 0.25;                    // robot scale (matches RobotGantry)
+const ROBOT_RADIUS  = 0.20;        // collision circle for standard bot
+const SUMO_RADIUS   = 0.25;        // collision circle for sumo bot
+const CONE_RADIUS   = 0.072;       // cone base physics radius
+const WHEEL_R       = 0.28 * S;    // = 0.07 — wheel rolling radius
+const HALF_WB       = 0.78 * S;    // = 0.195 — half-wheelbase
+
+// ─── Shared materials (created once at module level) ─────────────────────────
+
+function mkMat(color: string, emissive?: string, roughness = 0.65, metalness = 0.2) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness,
+    metalness,
     emissive: emissive ? new THREE.Color(emissive) : undefined,
     emissiveIntensity: emissive ? 0.25 : 0,
   });
+}
 
-const CHASSIS_MAT = mkMat('#1a1a22');
-const ACCENT_MAT = mkMat('#1e3a48', '#2a6080', 0.45, 0.35);
-const WHEEL_RUBBER = mkMat('#1c1c1c', undefined, 0.92, 0.05);
-const WHEEL_HUB_DEFAULT = mkMat('#f5c800', undefined, 0.55, 0.15);
-const WHEEL_HUB_RED = mkMat('#ff2040', undefined, 0.55, 0.15);
-const WHEEL_HUB_BLUE = mkMat('#2060ff', undefined, 0.55, 0.15);
-const CASTER_MAT = mkMat('#c8d0dc', undefined, 0.12, 0.9);
-const MOTOR_MAT = mkMat('#c8c8d0', undefined, 0.4, 0.7);
-
-// Sumo-specific: heavy ramming plate
-const SUMO_RAM_MAT = mkMat('#222230', '#3030a0', 0.5, 0.6);
-const SUMO_SCRAPE_MAT = mkMat('#888898', undefined, 0.3, 0.8);
-
-// Maze-specific: sensor arms
-const SENSOR_ARM_MAT = mkMat('#102818', '#005520', 0.6, 0.3);
-const SENSOR_TIP_MAT = new THREE.MeshStandardMaterial({
-  color: '#00ff66', emissive: new THREE.Color('#00ff66'), emissiveIntensity: 0.9,
-  roughness: 0.2,
+const CHASSIS_MAT      = mkMat('#1a1a22');
+const ACCENT_MAT       = mkMat('#1e3a48', '#2a6080', 0.45, 0.35);
+const WHEEL_RUBBER     = mkMat('#1c1c1c', undefined, 0.92, 0.05);
+const WHEEL_HUB_DEF    = mkMat('#f5c800', undefined, 0.55, 0.15);
+const WHEEL_HUB_RED    = mkMat('#ff2040', undefined, 0.55, 0.15);
+const WHEEL_HUB_BLUE   = mkMat('#2060ff', undefined, 0.55, 0.15);
+const CASTER_MAT       = mkMat('#c8d0dc', undefined, 0.12, 0.9);
+const MOTOR_MAT        = mkMat('#c8c8d0', undefined, 0.4,  0.7);
+const SUMO_RAM_MAT     = mkMat('#222230', '#3030a0', 0.5, 0.6);
+const SUMO_SCRAPE_MAT  = mkMat('#888898', undefined, 0.3, 0.8);
+const SENSOR_ARM_MAT   = mkMat('#102818', '#005520', 0.6, 0.3);
+const SENSOR_TIP_MAT   = new THREE.MeshStandardMaterial({
+  color: '#00ff66', emissive: new THREE.Color('#00ff66'), emissiveIntensity: 0.9, roughness: 0.2,
 });
+const CONE_BASE_MAT    = mkMat('#111111', undefined, 0.9, 0.05);
+const CONE_BODY_MAT    = new THREE.MeshStandardMaterial({
+  color: '#ff5500', emissive: new THREE.Color('#ff3300'), emissiveIntensity: 0.2, roughness: 0.6,
+});
+const CONE_BAND_MAT    = mkMat('#ffffff', undefined, 0.5, 0.1);
 
-const S = 0.25; // same scale factor as RobotGantry
+// ─── Wheel (with rolling animation) ──────────────────────────────────────────
 
-// ─── Wheel component ──────────────────────────────────────────────────────────
+type WheelProps = {
+  side: 1 | -1;
+  hubMat?: THREE.Material;
+  rollGroupRef?: React.RefObject<THREE.Group | null>;
+};
 
-function Wheel({ side, hubMat = WHEEL_HUB_DEFAULT }: { side: 1 | -1; hubMat?: THREE.Material }) {
+function Wheel({ side, hubMat = WHEEL_HUB_DEF, rollGroupRef }: WheelProps) {
+  // Fallback ref so the component always has a valid ref even if no parent
+  const localRef = useRef<THREE.Group>(null);
+  const activeRef = rollGroupRef ?? localRef;
   return (
     <group position={[side * 0.78 * S, 0.28 * S, 0.15 * S]}>
-      <mesh rotation={[0, 0, Math.PI / 2]} material={WHEEL_RUBBER} castShadow>
-        <cylinderGeometry args={[0.28 * S, 0.28 * S, 0.10 * S, 20]} />
-      </mesh>
-      <mesh rotation={[0, 0, Math.PI / 2]} material={hubMat} castShadow>
-        <cylinderGeometry args={[0.14 * S, 0.14 * S, 0.06 * S, 14]} />
-      </mesh>
-      <mesh position={[side * 0.09 * S, 0, 0]} rotation={[0, 0, Math.PI / 2]} material={MOTOR_MAT}>
+      {/*
+        Outer group aligns the cylinder axis to X (Rz = PI/2).
+        Inner group (activeRef) is rotated around its local Y each frame —
+        since parent transformed Y to world-X, this gives correct rolling spin.
+      */}
+      <group rotation={[0, 0, Math.PI / 2]}>
+        <group ref={activeRef}>
+          <mesh material={WHEEL_RUBBER} castShadow>
+            <cylinderGeometry args={[0.28 * S, 0.28 * S, 0.10 * S, 20]} />
+          </mesh>
+          <mesh material={hubMat} castShadow>
+            <cylinderGeometry args={[0.14 * S, 0.14 * S, 0.06 * S, 14]} />
+          </mesh>
+        </group>
+      </group>
+      {/* Motor housing — static, does not spin */}
+      <mesh
+        position={[side * 0.09 * S, 0, 0]}
+        rotation={[0, 0, Math.PI / 2]}
+        material={MOTOR_MAT}
+      >
         <cylinderGeometry args={[0.10 * S, 0.10 * S, 0.14 * S, 12]} />
       </mesh>
     </group>
   );
 }
 
-// ─── Competition differential-drive bot (no pen arm) ─────────────────────────
+// ─── DifferentialBot (with exposed wheel roll refs) ───────────────────────────
 
 type BotVariant = 'standard' | 'sumo' | 'maze-scout';
+
+type DifferentialBotProps = {
+  color?: 'default' | 'red' | 'blue';
+  variant?: BotVariant;
+  glowRef?: React.RefObject<THREE.PointLight | null>;
+  lRollRef?: React.RefObject<THREE.Group | null>;
+  rRollRef?: React.RefObject<THREE.Group | null>;
+};
 
 function DifferentialBot({
   color = 'default',
   variant = 'standard',
-  wheelRotRef,
   glowRef,
-}: {
-  color?: 'default' | 'red' | 'blue';
-  variant?: BotVariant;
-  wheelRotRef?: React.RefObject<{ l: number; r: number }>;
-  glowRef?: React.RefObject<THREE.PointLight | null>;
-}) {
-  const hubMat = color === 'red' ? WHEEL_HUB_RED : color === 'blue' ? WHEEL_HUB_BLUE : WHEEL_HUB_DEFAULT;
+  lRollRef,
+  rRollRef,
+}: DifferentialBotProps) {
+  const hubMat = color === 'red' ? WHEEL_HUB_RED : color === 'blue' ? WHEEL_HUB_BLUE : WHEEL_HUB_DEF;
   const glowColor = color === 'red' ? '#ff4060' : color === 'blue' ? '#4080ff' : '#5de4ff';
+  const cW = variant === 'sumo' ? 1.8 * S : 1.5 * S;
+  const cH = variant === 'sumo' ? 0.26 * S : 0.22 * S;
+  const cD = variant === 'sumo' ? 1.5 * S : 1.2 * S;
 
   return (
     <group>
@@ -114,58 +162,40 @@ function DifferentialBot({
         material={variant === 'sumo' ? SUMO_RAM_MAT : CHASSIS_MAT}
         castShadow receiveShadow
       >
-        <boxGeometry args={[
-          variant === 'sumo' ? 1.8 * S : 1.5 * S,
-          variant === 'sumo' ? 0.26 * S : 0.22 * S,
-          variant === 'sumo' ? 1.5 * S : 1.2 * S,
-        ]} />
+        <boxGeometry args={[cW, cH, cD]} />
       </mesh>
 
-      {/* Accent top stripe */}
+      {/* Top accent stripe */}
       <mesh position={[0, (0.35 + 0.11 + 0.006) * S, 0]} material={ACCENT_MAT} castShadow>
-        <boxGeometry args={[
-          variant === 'sumo' ? 1.82 * S : 1.52 * S,
-          0.012 * S,
-          variant === 'sumo' ? 1.52 * S : 1.22 * S,
-        ]} />
+        <boxGeometry args={[cW + 0.02 * S, 0.012 * S, cD + 0.02 * S]} />
       </mesh>
 
-      {/* Sumo ramming plate (front wedge) */}
+      {/* Sumo ram plate */}
       {variant === 'sumo' && (
         <>
           <mesh position={[0, 0.18 * S, -0.85 * S]} material={SUMO_SCRAPE_MAT} castShadow>
             <boxGeometry args={[1.7 * S, 0.08 * S, 0.22 * S]} />
           </mesh>
-          {/* Angled front wedge */}
           <mesh position={[0, 0.09 * S, -0.72 * S]} rotation={[0.35, 0, 0]} material={SUMO_RAM_MAT}>
             <boxGeometry args={[1.6 * S, 0.05 * S, 0.28 * S]} />
           </mesh>
         </>
       )}
 
-      {/* Maze scout sensor arms */}
+      {/* Maze-scout sensor arms */}
       {variant === 'maze-scout' && (
         <>
-          {/* Left arm */}
-          <group position={[-0.72 * S, 0.42 * S, -0.4 * S]} rotation={[0, -0.6, 0]}>
-            <mesh material={SENSOR_ARM_MAT}>
-              <boxGeometry args={[0.04 * S, 0.04 * S, 0.5 * S]} />
-            </mesh>
-            <mesh position={[0, 0, -0.28 * S]} material={SENSOR_TIP_MAT}>
-              <sphereGeometry args={[0.04 * S, 8, 6]} />
-            </mesh>
-            <pointLight position={[0, 0, -0.3 * S]} color="#00ff66" intensity={0.4} distance={0.3} />
-          </group>
-          {/* Right arm */}
-          <group position={[0.72 * S, 0.42 * S, -0.4 * S]} rotation={[0, 0.6, 0]}>
-            <mesh material={SENSOR_ARM_MAT}>
-              <boxGeometry args={[0.04 * S, 0.04 * S, 0.5 * S]} />
-            </mesh>
-            <mesh position={[0, 0, -0.28 * S]} material={SENSOR_TIP_MAT}>
-              <sphereGeometry args={[0.04 * S, 8, 6]} />
-            </mesh>
-            <pointLight position={[0, 0, -0.3 * S]} color="#00ff66" intensity={0.4} distance={0.3} />
-          </group>
+          {([[-1, -0.6], [1, 0.6]] as [number, number][]).map(([sx, ry]) => (
+            <group key={sx} position={[sx * 0.72 * S, 0.42 * S, -0.4 * S]} rotation={[0, ry, 0]}>
+              <mesh material={SENSOR_ARM_MAT}>
+                <boxGeometry args={[0.04 * S, 0.04 * S, 0.5 * S]} />
+              </mesh>
+              <mesh position={[0, 0, -0.28 * S]} material={SENSOR_TIP_MAT}>
+                <sphereGeometry args={[0.04 * S, 8, 6]} />
+              </mesh>
+              <pointLight position={[0, 0, -0.3 * S]} color="#00ff66" intensity={0.4} distance={0.3} />
+            </group>
+          ))}
         </>
       )}
 
@@ -174,11 +204,11 @@ function DifferentialBot({
         <boxGeometry args={[1.4 * S, 0.04 * S, 1.1 * S]} />
       </mesh>
 
-      {/* Wheels */}
-      <Wheel side={-1} hubMat={hubMat} />
-      <Wheel side={1} hubMat={hubMat} />
+      {/* Wheels — left side=-1, right side=1 */}
+      <Wheel side={-1} hubMat={hubMat} rollGroupRef={lRollRef} />
+      <Wheel side={1}  hubMat={hubMat} rollGroupRef={rRollRef} />
 
-      {/* Front caster */}
+      {/* Front caster ball */}
       <group position={[0, 0.10 * S, -0.50 * S]}>
         <mesh material={CHASSIS_MAT}>
           <boxGeometry args={[0.18 * S, 0.10 * S, 0.14 * S]} />
@@ -188,102 +218,179 @@ function DifferentialBot({
         </mesh>
       </group>
 
-      {/* Glow point light under chassis */}
+      {/* Under-chassis glow */}
       <pointLight ref={glowRef} position={[0, 0.05, 0]} color={glowColor} intensity={0.4} distance={0.7} decay={2} />
     </group>
   );
 }
 
+// ─── Physics cone visual ──────────────────────────────────────────────────────
+
+/** Single cone mesh. Position/rotation driven from physics body in useFrame. */
+function PhysicsCone({ groupRef, scale = 1 }: {
+  groupRef: React.Ref<THREE.Group | null>;
+  scale?: number;
+}) {
+  return (
+    <group ref={groupRef} scale={scale}>
+      <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} material={CONE_BASE_MAT} castShadow>
+        <cylinderGeometry args={[0.09, 0.09, 0.016, 16]} />
+      </mesh>
+      <mesh position={[0, 0.14, 0]} material={CONE_BODY_MAT} castShadow>
+        <coneGeometry args={[0.06, 0.26, 16]} />
+      </mesh>
+      <mesh position={[0, 0.08, 0]} material={CONE_BAND_MAT}>
+        <cylinderGeometry args={[0.065, 0.065, 0.03, 16]} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Wheel roll helper ────────────────────────────────────────────────────────
+
+function applyWheelRoll(
+  lRef: React.RefObject<THREE.Group | null>,
+  rRef: React.RefObject<THREE.Group | null>,
+  body: PhysicsBody,
+  dt: number,
+): void {
+  const speeds = tankWheelSpeeds(body.forwardSpeed(), body.angVel, HALF_WB);
+  if (lRef.current) lRef.current.rotation.y += (speeds.left  / WHEEL_R) * dt;
+  if (rRef.current) rRef.current.rotation.y += (speeds.right / WHEEL_R) * dt;
+}
+
 // ─── SUMO FIGHT ───────────────────────────────────────────────────────────────
 
 export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
-  const botRef = useRef<THREE.Group>(null);
-  const oppRef = useRef<THREE.Group>(null);
-  const glowA = useRef<THREE.PointLight>(null);
-  const glowB = useRef<THREE.PointLight>(null);
-  // State machine: 0=orbit, 1=charge, 2=clinch, 3=retreat
-  const stateRef = useRef(0);
-  const timerRef = useRef(0);
+  const botGrp  = useRef<THREE.Group>(null);
+  const oppGrp  = useRef<THREE.Group>(null);
+  const glowA   = useRef<THREE.PointLight>(null);
+  const glowB   = useRef<THREE.PointLight>(null);
+  const lRollA  = useRef<THREE.Group>(null);
+  const rRollA  = useRef<THREE.Group>(null);
+  const lRollB  = useRef<THREE.Group>(null);
+  const rRollB  = useRef<THREE.Group>(null);
+
+  // Physics bodies
+  const botBody = useRef<PhysicsBody | null>(null);
+  const oppBody = useRef<PhysicsBody | null>(null);
+
+  // Sumo AI state machine: 0=seek, 1=charge, 2=push, 3=escape
+  const botState  = useRef(0);
+  const oppState  = useRef(0);
+  const botTimer  = useRef(0);
+  const oppTimer  = useRef(0);
+
+  useEffect(() => {
+    botBody.current = new PhysicsBody(0, ringRadius * 0.6, {
+      mass: 2.5, radius: SUMO_RADIUS, restitution: 0.35, linDamp: 1.8, angDamp: 3.0,
+    });
+    oppBody.current = new PhysicsBody(0, -ringRadius * 0.6, {
+      angle: Math.PI, mass: 2.5, radius: SUMO_RADIUS, restitution: 0.35, linDamp: 1.8, angDamp: 3.0,
+    });
+    botState.current = 0; oppState.current = 0;
+    botTimer.current = 0; oppTimer.current = 0;
+    return () => { botBody.current = null; oppBody.current = null; };
+  }, [ringRadius]);
 
   useFrame(({ clock }, dt) => {
+    const bot = botBody.current;
+    const opp = oppBody.current;
+    if (!bot || !opp) return;
     const t = clock.elapsedTime;
-    timerRef.current += dt;
 
-    // State transitions
-    if (stateRef.current === 0 && timerRef.current > 2.5 + Math.sin(t * 0.3) * 1) {
-      stateRef.current = 1; timerRef.current = 0; // orbit → charge
-    } else if (stateRef.current === 1 && timerRef.current > 0.6) {
-      stateRef.current = 2; timerRef.current = 0; // charge → clinch
-    } else if (stateRef.current === 2 && timerRef.current > 0.9) {
-      stateRef.current = 3; timerRef.current = 0; // clinch → retreat
-    } else if (stateRef.current === 3 && timerRef.current > 0.7) {
-      stateRef.current = 0; timerRef.current = 0; // retreat → orbit
+    const MAX_ANG = 3.2;
+    const FMAX    = 6.0;
+    const FMAX_SUMO = 9.0;
+    const EDGE_WARN = ringRadius * 0.82;
+
+    // ── Bot AI ──
+    botTimer.current += dt;
+    const toBotDist  = Math.hypot(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z);
+    const botEdgeDist = Math.hypot(bot.pos.x, bot.pos.z);
+    if (botEdgeDist > EDGE_WARN) {
+      botState.current = 3; botTimer.current = 0; // force escape when near edge
+    }
+    if (botState.current === 0 && botTimer.current > 1.5) {
+      botState.current = 1; botTimer.current = 0;
+    } else if (botState.current === 1 && toBotDist < (SUMO_RADIUS * 2 + 0.05)) {
+      botState.current = 2; botTimer.current = 0;
+    } else if (botState.current === 2 && botTimer.current > 0.7) {
+      botState.current = 0; botTimer.current = 0;
+    } else if (botState.current === 3 && botTimer.current > 0.55) {
+      botState.current = 0; botTimer.current = 0;
     }
 
-    const phase = stateRef.current;
+    const botDesiredHeading = botState.current === 3
+      ? Math.atan2(-bot.pos.x, -bot.pos.z) // face center to escape
+      : Math.atan2(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z);
 
-    // Player bot position (yellow)
-    let bx = 0, bz = 0, bAngle = 0;
-    if (phase === 0) {
-      const a = t * 0.9;
-      bx = Math.cos(a) * (ringRadius * 0.62);
-      bz = Math.sin(a) * (ringRadius * 0.62);
-      bAngle = -a + Math.PI / 2;
-    } else if (phase === 1) {
-      const chargeT = Math.min(timerRef.current / 0.6, 1);
-      bx = THREE.MathUtils.lerp(Math.cos(t * 0.9) * ringRadius * 0.62, 0, chargeT);
-      bz = THREE.MathUtils.lerp(Math.sin(t * 0.9) * ringRadius * 0.62, 0, chargeT);
-      bAngle = Math.atan2(-bz, -bx) + Math.PI;
-    } else if (phase === 2) {
-      bx = Math.sin(timerRef.current * 3) * 0.04;
-      bz = -Math.abs(Math.sin(timerRef.current * 5)) * 0.08;
-      bAngle = 0;
-    } else {
-      const retreatT = Math.min(timerRef.current / 0.7, 1);
-      bx = THREE.MathUtils.lerp(0, -Math.cos(t * 0.9) * ringRadius * 0.6, retreatT);
-      bz = THREE.MathUtils.lerp(0, -Math.sin(t * 0.9) * ringRadius * 0.6, retreatT);
-      bAngle = Math.PI;
+    const botAngErr  = angDiff(botDesiredHeading, bot.angle);
+    const botAngTgt  = Math.max(-MAX_ANG, Math.min(MAX_ANG, botAngErr * 4.5));
+    bot.applyTorque((botAngTgt - bot.angVel) * bot.mass * 0.9, dt);
+
+    const botAligned = Math.abs(botAngErr) < 0.55;
+    if (botState.current === 3) {
+      const bfd = bot.forwardDir();
+      bot.applyForce(-bfd.x * FMAX, -bfd.z * FMAX, dt); // reverse out
+    } else if (botAligned) {
+      const fmag = botState.current === 1 ? FMAX_SUMO : (botState.current === 2 ? FMAX_SUMO * 1.1 : FMAX * 0.4);
+      const bfd = bot.forwardDir();
+      bot.applyForce(bfd.x * fmag, bfd.z * fmag, dt);
     }
 
-    // Opponent bot (red) — orbits opposite, pauses during clinch
-    let ox = 0, oz = 0, oAngle = 0;
-    const oppA = t * 0.7 + Math.PI + Math.sin(t * 0.4) * 0.3;
-    if (phase <= 1) {
-      ox = Math.cos(oppA) * (ringRadius * 0.58);
-      oz = Math.sin(oppA) * (ringRadius * 0.58);
-      oAngle = -oppA + Math.PI / 2;
-    } else if (phase === 2) {
-      ox = Math.sin(timerRef.current * 3 + Math.PI) * 0.04;
-      oz = 0.06 + Math.sin(timerRef.current * 4) * 0.03;
-      oAngle = Math.PI;
-    } else {
-      ox = Math.cos(oppA) * (ringRadius * 0.55);
-      oz = Math.sin(oppA) * (ringRadius * 0.55);
-      oAngle = -oppA + Math.PI / 2;
+    // ── Opponent AI (simpler: always seek) ──
+    oppTimer.current += dt;
+    const oppEdgeDist = Math.hypot(opp.pos.x, opp.pos.z);
+    if (oppEdgeDist > EDGE_WARN) {
+      oppState.current = 1; oppTimer.current = 0;
+    }
+    const oppTarget = oppState.current === 1
+      ? { x: -opp.pos.x * 0.5, z: -opp.pos.z * 0.5 }
+      : { x: bot.pos.x, z: bot.pos.z };
+    const oppHeading  = Math.atan2(oppTarget.x - opp.pos.x, oppTarget.z - opp.pos.z);
+    const oppAngErr   = angDiff(oppHeading, opp.angle);
+    const oppAngTgt   = Math.max(-MAX_ANG, Math.min(MAX_ANG, oppAngErr * 3.8));
+    opp.applyTorque((oppAngTgt - opp.angVel) * opp.mass * 0.85, dt);
+    if (Math.abs(oppAngErr) < 0.65) {
+      const ofd = opp.forwardDir();
+      opp.applyForce(ofd.x * FMAX * 0.85, ofd.z * FMAX * 0.85, dt);
+    }
+    if (oppTimer.current > 2.2) { oppState.current = 0; oppTimer.current = 0; }
+
+    // ── Physics step ──
+    bot.integrate(dt);
+    opp.integrate(dt);
+    resolveCircleCircle(bot, opp);
+    constrainToRing(bot, ringRadius);
+    constrainToRing(opp, ringRadius);
+
+    // ── Mesh update ──
+    if (botGrp.current) {
+      botGrp.current.position.set(bot.pos.x, 0, bot.pos.z);
+      botGrp.current.rotation.y = bot.angle;
+    }
+    if (oppGrp.current) {
+      oppGrp.current.position.set(opp.pos.x, 0, opp.pos.z);
+      oppGrp.current.rotation.y = opp.angle;
     }
 
-    if (botRef.current) {
-      botRef.current.position.set(bx, 0, bz);
-      botRef.current.rotation.y = bAngle;
-    }
-    if (oppRef.current) {
-      oppRef.current.position.set(ox, 0, oz);
-      oppRef.current.rotation.y = oAngle;
-    }
+    // ── Wheel animation ──
+    applyWheelRoll(lRollA, rRollA, bot, dt);
+    applyWheelRoll(lRollB, rRollB, opp, dt);
 
-    // Pulse glow during charge
-    const chargeIntensity = phase === 1 ? 1.2 + Math.sin(t * 20) * 0.4 : 0.4;
-    if (glowA.current) glowA.current.intensity = chargeIntensity;
-    if (glowB.current) glowB.current.intensity = phase === 2 ? 0.8 + Math.sin(t * 15) * 0.3 : 0.4;
+    // ── Charge glow pulse ──
+    if (glowA.current) glowA.current.intensity = botState.current === 1 ? 1.2 + Math.sin(t * 22) * 0.4 : 0.4;
+    if (glowB.current) glowB.current.intensity = oppState.current === 1 ? 1.0 + Math.sin(t * 18) * 0.4 : 0.4;
   });
 
   return (
     <group>
-      <group ref={botRef}>
-        <DifferentialBot color="default" variant="sumo" glowRef={glowA} />
+      <group ref={botGrp}>
+        <DifferentialBot color="default" variant="sumo" glowRef={glowA} lRollRef={lRollA} rRollRef={rRollA} />
       </group>
-      <group ref={oppRef}>
-        <DifferentialBot color="red" variant="sumo" glowRef={glowB} />
+      <group ref={oppGrp}>
+        <DifferentialBot color="red" variant="sumo" glowRef={glowB} lRollRef={lRollB} rRollRef={rRollB} />
       </group>
     </group>
   );
@@ -291,109 +398,242 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
 
 // ─── CONE RING RUN ────────────────────────────────────────────────────────────
 
-export function ConeRingRun() {
-  const botRef = useRef<THREE.Group>(null);
-  const trailRefs = useRef<THREE.Mesh[]>([]);
+// Matches the ringCones() calls in concept-environments.ts for cone-ring-gauntlet
+function buildConeRing() {
+  const rings: { count: number; radius: number; scale: number }[] = [
+    { count: 14, radius: 1.55, scale: 1.00 },
+    { count: 10, radius: 1.05, scale: 0.80 },
+    { count:  6, radius: 0.55, scale: 0.60 },
+    { count:  3, radius: 0.22, scale: 0.40 },
+  ];
+  return rings.flatMap(({ count, radius, scale }) =>
+    Array.from({ length: count }, (_, i) => {
+      const angle = (i / count) * Math.PI * 2;
+      return { x: Math.cos(angle) * radius, z: Math.sin(angle) * radius, scale };
+    }),
+  );
+}
 
-  // Pre-compute a figure-8 weaving path through inner + outer cones
-  const path = useMemo(() => {
-    const pts: [number, number][] = [];
-    const outerR = 1.15;
-    const innerR = 0.6;
-    for (let i = 0; i <= 360; i += 3) {
-      const angle = (i / 360) * Math.PI * 2;
-      // Weave between outer and inner by alternating based on cone count (8 outer, 4 inner)
-      const wave = Math.sin(angle * 6) * 0.25;
-      const r = THREE.MathUtils.lerp(innerR + 0.1, outerR - 0.1, (wave + 0.25) / 0.5 + 0.15);
-      pts.push([Math.cos(angle) * r, Math.sin(angle) * r]);
-    }
-    return pts;
+const CONE_RING_DEFS = buildConeRing(); // 33 cones, generated once at module level
+
+// Spline path the robot follows — weaves inward then outward
+function buildRobotPath(): [number, number][] {
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= 360; i += 4) {
+    const angle = (i / 360) * Math.PI * 2;
+    const wave = Math.sin(angle * 5) * 0.28;
+    const r = 0.85 + wave;
+    pts.push([Math.cos(angle) * r, Math.sin(angle) * r]);
+  }
+  return pts;
+}
+const ROBOT_PATH = buildRobotPath();
+
+export function ConeRingRun() {
+  const botGrp  = useRef<THREE.Group>(null);
+  const lRoll   = useRef<THREE.Group>(null);
+  const rRoll   = useRef<THREE.Group>(null);
+  const glowRef = useRef<THREE.PointLight>(null);
+
+  // One THREE.Group ref per cone — used to update their transforms from physics
+  const coneGrpsRef = useRef<(THREE.Group | null)[]>([]);
+
+  // Physics bodies
+  const botBody    = useRef<PhysicsBody | null>(null);
+  const coneBodies = useRef<PhysicsBody[]>([]);
+
+  useEffect(() => {
+    botBody.current = new PhysicsBody(ROBOT_PATH[0][0], ROBOT_PATH[0][1], {
+      mass: 1.8, radius: ROBOT_RADIUS, restitution: 0.22, linDamp: 1.5, angDamp: 2.8,
+    });
+    coneBodies.current = CONE_RING_DEFS.map(
+      ({ x, z }) => new PhysicsBody(x, z, {
+        mass: 0.18, radius: CONE_RADIUS, restitution: 0.42, linDamp: 3.5, angDamp: 4.2,
+        isDynamic: true,
+      }),
+    );
+    return () => {
+      botBody.current = null;
+      coneBodies.current = [];
+    };
   }, []);
 
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime * 0.4; // lap speed
-    const idx = Math.floor((t % 1) * path.length) % path.length;
-    const nextIdx = (idx + 1) % path.length;
-    const frac = ((t % 1) * path.length) % 1;
+  const pathIdxRef = useRef(0);
 
-    const x = THREE.MathUtils.lerp(path[idx][0], path[nextIdx][0], frac);
-    const z = THREE.MathUtils.lerp(path[idx][1], path[nextIdx][1], frac);
+  useFrame((_, dt) => {
+    const bot = botBody.current;
+    if (!bot) return;
 
-    const nx = path[nextIdx][0] - path[idx][0];
-    const nz = path[nextIdx][1] - path[idx][1];
-    const heading = Math.atan2(nx, nz);
+    // ── Path-following spring force ──
+    const target = ROBOT_PATH[pathIdxRef.current % ROBOT_PATH.length];
+    const dx = target[0] - bot.pos.x;
+    const dz = target[1] - bot.pos.z;
+    const dist = Math.hypot(dx, dz);
 
-    if (botRef.current) {
-      botRef.current.position.set(x, 0, z);
-      botRef.current.rotation.y = heading;
+    if (dist < 0.08) {
+      pathIdxRef.current = (pathIdxRef.current + 1) % ROBOT_PATH.length;
+    } else {
+      // Spring toward path point + heading alignment
+      const desiredHeading = Math.atan2(dx, dz);
+      const angErr  = angDiff(desiredHeading, bot.angle);
+      const angTgt  = Math.max(-3.5, Math.min(3.5, angErr * 5.0));
+      bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
+      const aligned = Math.abs(angErr) < 0.5;
+      if (aligned) {
+        const fd = bot.forwardDir();
+        bot.applyForce(fd.x * 3.5, fd.z * 3.5, dt);
+      }
     }
+
+    bot.integrate(dt);
+
+    // ── Robot-cone collisions ──
+    for (const cone of coneBodies.current) {
+      cone.integrate(dt);
+      resolveCircleCircle(bot, cone);
+    }
+
+    // ── Update robot mesh ──
+    if (botGrp.current) {
+      botGrp.current.position.set(bot.pos.x, 0, bot.pos.z);
+      botGrp.current.rotation.y = bot.angle;
+    }
+    applyWheelRoll(lRoll, rRoll, bot, dt);
+    if (glowRef.current) glowRef.current.intensity = 0.4 + bot.forwardSpeed() * 0.4;
+
+    // ── Update cone meshes ──
+    coneBodies.current.forEach((cone, i) => {
+      const grp = coneGrpsRef.current[i];
+      if (!grp) return;
+      grp.position.set(cone.pos.x, 0, cone.pos.z);
+      grp.rotation.y = cone.angle;
+      // Tilt toward velocity direction when moving
+      const spd = Math.hypot(cone.vel.x, cone.vel.z);
+      if (!cone.sleeping && spd > 0.02) {
+        const tilt = Math.min(spd * 1.4, 0.75);
+        const tx = (cone.vel.z / spd) * tilt;
+        const tz = (-cone.vel.x / spd) * tilt;
+        grp.rotation.x += (tx - grp.rotation.x) * 0.2;
+        grp.rotation.z += (tz - grp.rotation.z) * 0.2;
+      } else {
+        // Settle upright
+        grp.rotation.x *= 0.9;
+        grp.rotation.z *= 0.9;
+      }
+    });
   });
 
   return (
-    <group ref={botRef}>
-      <DifferentialBot color="default" variant="standard" />
-    </group>
+    <>
+      {/* Physics cones */}
+      {CONE_RING_DEFS.map((def, i) => (
+        <PhysicsCone
+          key={i}
+          scale={def.scale}
+          groupRef={el => { coneGrpsRef.current[i] = el; }}
+        />
+      ))}
+      {/* Robot */}
+      <group ref={botGrp}>
+        <DifferentialBot color="default" variant="standard" glowRef={glowRef} lRollRef={lRoll} rRollRef={rRoll} />
+      </group>
+    </>
   );
 }
 
 // ─── MAZE RUN ─────────────────────────────────────────────────────────────────
 
-const MAZE_PATH: [number, number][] = [
+// Waypoints the robot follows — match the maze graph structure in concept-environments
+const MAZE_WAYPOINTS: [number, number][] = [
   [-1.1, -1.1],
   [-1.1, -0.3],
   [-0.3, -0.3],
-  [-0.3, 0.3],
-  [0.3, 0.3],
-  [0.3, -0.6],
-  [0.8, -0.6],
-  [0.8, 0.9],
-  [0, 0.9],
-  [0, 1.1],
-  [1.1, 1.1],
+  [-0.3,  0.3],
+  [ 0.3,  0.3],
+  [ 0.3, -0.6],
+  [ 0.8, -0.6],
+  [ 0.8,  0.9],
+  [ 0.0,  0.9],
+  [ 0.0,  1.1],
+  [ 1.1,  1.1],
 ];
 
 export function MazeRun() {
-  const botRef = useRef<THREE.Group>(null);
-  const sensorL = useRef<THREE.PointLight>(null);
-  const sensorR = useRef<THREE.PointLight>(null);
-  const segRef = useRef(0);
-  const segTRef = useRef(0);
+  const botGrp    = useRef<THREE.Group>(null);
+  const sensorL   = useRef<THREE.PointLight>(null);
+  const sensorR   = useRef<THREE.PointLight>(null);
+  const lRoll     = useRef<THREE.Group>(null);
+  const rRoll     = useRef<THREE.Group>(null);
+
+  const botBody   = useRef<PhysicsBody | null>(null);
+  const segRef    = useRef(0);
+
+  // Build wall rects once from the environment data (exact same walls as the visual renderer)
+  const walls = useMemo<WallRect[]>(() => {
+    const envWalls = getEnvironment('maze-marathon').walls ?? [];
+    return envWalls.map(w => ({
+      x: w.x, z: w.z, w: w.width, d: w.depth, rot: w.rotation,
+    }));
+  }, []);
+
+  useEffect(() => {
+    botBody.current = new PhysicsBody(MAZE_WAYPOINTS[0][0], MAZE_WAYPOINTS[0][1], {
+      mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.18, linDamp: 2.2, angDamp: 3.8,
+    });
+    segRef.current = 0;
+    return () => { botBody.current = null; };
+  }, []);
 
   useFrame(({ clock }, dt) => {
-    const speed = 0.55; // units/sec
-    segTRef.current += dt * speed;
-    const seg = segRef.current;
-    const from = MAZE_PATH[seg];
-    const to = MAZE_PATH[(seg + 1) % MAZE_PATH.length];
-    const segLen = Math.hypot(to[0] - from[0], to[1] - from[1]);
-
-    if (segTRef.current >= segLen) {
-      segTRef.current -= segLen;
-      segRef.current = (seg + 1) % MAZE_PATH.length;
-    }
-
-    const pct = Math.min(segTRef.current / segLen, 1);
-    const x = THREE.MathUtils.lerp(from[0], to[0], pct);
-    const z = THREE.MathUtils.lerp(from[1], to[1], pct);
-    const heading = Math.atan2(to[0] - from[0], to[1] - from[1]);
-
-    if (botRef.current) {
-      botRef.current.position.set(x, 0, z);
-      botRef.current.rotation.y = heading;
-    }
-
-    // Pulse sensor lights
+    const bot = botBody.current;
+    if (!bot) return;
     const t = clock.elapsedTime;
+
+    // ── Path-following ──
+    const target = MAZE_WAYPOINTS[segRef.current];
+    const dx = target[0] - bot.pos.x;
+    const dz = target[1] - bot.pos.z;
+    const dist = Math.hypot(dx, dz);
+
+    if (dist < 0.07) {
+      segRef.current = (segRef.current + 1) % MAZE_WAYPOINTS.length;
+    } else {
+      const desiredHeading = Math.atan2(dx, dz);
+      const angErr = angDiff(desiredHeading, bot.angle);
+      const angTgt = Math.max(-3.8, Math.min(3.8, angErr * 5.5));
+      bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
+      if (Math.abs(angErr) < 0.45) {
+        const fd = bot.forwardDir();
+        const speed = 2.4 * Math.max(0, 1 - Math.abs(angErr));
+        bot.applyForce(fd.x * speed, fd.z * speed, dt);
+      }
+    }
+
+    // ── Physics integration ──
+    bot.integrate(dt);
+
+    // ── Wall collisions ──
+    for (const wall of walls) {
+      resolveCircleAABB(bot, wall);
+    }
+
+    // ── Mesh update ──
+    if (botGrp.current) {
+      botGrp.current.position.set(bot.pos.x, 0, bot.pos.z);
+      botGrp.current.rotation.y = bot.angle;
+    }
+    applyWheelRoll(lRoll, rRoll, bot, dt);
+
+    // ── Pulse sensor lights ──
     if (sensorL.current) sensorL.current.intensity = 0.5 + Math.sin(t * 4) * 0.2;
     if (sensorR.current) sensorR.current.intensity = 0.5 + Math.sin(t * 4 + Math.PI) * 0.2;
   });
 
   return (
-    <group ref={botRef}>
-      <DifferentialBot color="blue" variant="maze-scout" />
-      {/* Extra sensor glow point lights */}
+    <group ref={botGrp}>
+      <DifferentialBot color="blue" variant="maze-scout" lRollRef={lRoll} rRollRef={rRoll} />
       <pointLight ref={sensorL} position={[-0.18, 0.12, -0.18]} color="#00ff66" intensity={0.5} distance={0.4} />
-      <pointLight ref={sensorR} position={[0.18, 0.12, -0.18]} color="#00ff66" intensity={0.5} distance={0.4} />
+      <pointLight ref={sensorR} position={[ 0.18, 0.12, -0.18]} color="#00ff66" intensity={0.5} distance={0.4} />
     </group>
   );
 }
@@ -401,103 +641,143 @@ export function MazeRun() {
 // ─── WAYPOINT CHASE ───────────────────────────────────────────────────────────
 
 const WAYPOINTS: [number, number][] = [
-  [-1.0, -0.8],
-  [0.2, -1.0],
-  [1.0, -0.2],
-  [0.6, 0.8],
-  [-0.5, 0.9],
+  [-1.0, -0.8], [0.2, -1.0], [1.0, -0.2], [0.6, 0.8], [-0.5, 0.9],
 ];
 
 export function WaypointChase() {
-  const botRef = useRef<THREE.Group>(null);
-  const targetRef = useRef(0);
-  const pauseRef = useRef(0);
-  const posRef = useRef(new THREE.Vector2(WAYPOINTS[0][0], WAYPOINTS[0][1]));
-  const glowRef = useRef<THREE.PointLight>(null);
+  const botGrp    = useRef<THREE.Group>(null);
+  const glowRef   = useRef<THREE.PointLight>(null);
+  const lRoll     = useRef<THREE.Group>(null);
+  const rRoll     = useRef<THREE.Group>(null);
+
+  const botBody   = useRef<PhysicsBody | null>(null);
+  const targetIdx = useRef(0);
+  const pauseRef  = useRef(0);
+
+  useEffect(() => {
+    botBody.current = new PhysicsBody(WAYPOINTS[0][0], WAYPOINTS[0][1], {
+      mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 2.0, angDamp: 3.5,
+    });
+    targetIdx.current = 0; pauseRef.current = 0;
+    return () => { botBody.current = null; };
+  }, []);
 
   useFrame(({ clock }, dt) => {
+    const bot = botBody.current;
+    if (!bot) return;
+
     if (pauseRef.current > 0) {
       pauseRef.current -= dt;
-      // Celebrate spin at waypoint
-      if (botRef.current) botRef.current.rotation.y += dt * 4;
+      if (botGrp.current) botGrp.current.rotation.y += dt * 4;
       if (glowRef.current) glowRef.current.intensity = 1.2 + Math.sin(clock.elapsedTime * 10) * 0.5;
+      bot.vel.x = 0; bot.vel.z = 0; bot.angVel = 0;
       return;
     }
 
-    const target = WAYPOINTS[targetRef.current];
-    const dx = target[0] - posRef.current.x;
-    const dz = target[1] - posRef.current.y;
+    const target = WAYPOINTS[targetIdx.current];
+    const dx = target[0] - bot.pos.x;
+    const dz = target[1] - bot.pos.z;
     const dist = Math.hypot(dx, dz);
 
-    if (dist < 0.06) {
-      pauseRef.current = 0.8; // pause at waypoint
-      targetRef.current = (targetRef.current + 1) % WAYPOINTS.length;
+    if (dist < 0.07) {
+      pauseRef.current = 0.75;
+      targetIdx.current = (targetIdx.current + 1) % WAYPOINTS.length;
       return;
     }
 
-    const speed = 0.7;
-    const step = Math.min(dist, speed * dt);
-    posRef.current.x += (dx / dist) * step;
-    posRef.current.y += (dz / dist) * step;
-
-    if (botRef.current) {
-      botRef.current.position.set(posRef.current.x, 0, posRef.current.y);
-      botRef.current.rotation.y = Math.atan2(dx, dz);
+    const desiredHeading = Math.atan2(dx, dz);
+    const angErr = angDiff(desiredHeading, bot.angle);
+    const angTgt = Math.max(-3.5, Math.min(3.5, angErr * 5));
+    bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
+    if (Math.abs(angErr) < 0.5) {
+      const fd = bot.forwardDir();
+      bot.applyForce(fd.x * 3.0, fd.z * 3.0, dt);
     }
+
+    bot.integrate(dt);
+
+    if (botGrp.current) {
+      botGrp.current.position.set(bot.pos.x, 0, bot.pos.z);
+      botGrp.current.rotation.y = bot.angle;
+    }
+    applyWheelRoll(lRoll, rRoll, bot, dt);
     if (glowRef.current) glowRef.current.intensity = 0.4;
   });
 
   return (
-    <group ref={botRef}>
-      <DifferentialBot color="default" variant="standard" glowRef={glowRef} />
+    <group ref={botGrp}>
+      <DifferentialBot color="default" variant="standard" glowRef={glowRef} lRollRef={lRoll} rRollRef={rRoll} />
     </group>
   );
 }
 
 // ─── CIRCLE / TRIG DANCE ──────────────────────────────────────────────────────
 
-export function CircleDance() {
-  const botRef = useRef<THREE.Group>(null);
-  // Leave a visible trail of small markers
-  const trailRef = useRef<{ x: number; z: number }[]>([]);
-  const trailMeshRefs = useRef<(THREE.Mesh | null)[]>([]);
-  const TRAIL_LEN = 40;
+const TRAIL_LEN = 40;
 
-  // Initialize trail meshes as invisible
-  const trailMeshes = useMemo(() => {
-    return Array.from({ length: TRAIL_LEN }, (_, i) => {
+export function CircleDance() {
+  const botGrp  = useRef<THREE.Group>(null);
+  const lRoll   = useRef<THREE.Group>(null);
+  const rRoll   = useRef<THREE.Group>(null);
+  const botBody = useRef<PhysicsBody | null>(null);
+  const trailBuf = useRef<{ x: number; z: number }[]>([]);
+
+  const trailMeshes = useMemo(() =>
+    Array.from({ length: TRAIL_LEN }, (_, i) => {
       const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(0.025, 6, 4),
         new THREE.MeshStandardMaterial({
-          color: '#7040ff', emissive: new THREE.Color('#7040ff'), emissiveIntensity: 0.6,
-          transparent: true, opacity: (i / TRAIL_LEN) * 0.7,
+          color: '#7040ff',
+          emissive: new THREE.Color('#7040ff'),
+          emissiveIntensity: 0.6,
+          transparent: true,
+          opacity: (i / TRAIL_LEN) * 0.7,
         }),
       );
       mesh.visible = false;
       return mesh;
+    }),
+  []);
+
+  useEffect(() => {
+    botBody.current = new PhysicsBody(0.3, 0, {
+      mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 1.2, angDamp: 2.5,
     });
+    trailBuf.current = [];
+    return () => { botBody.current = null; };
   }, []);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, dt) => {
     const t = clock.elapsedTime;
-
-    // Spiral in/out: radius oscillates between 0.3 and 0.9
     const phase = (t * 0.3) % (Math.PI * 2);
     const r = 0.3 + 0.6 * (0.5 + 0.5 * Math.sin(phase));
     const angle = t * 1.4;
+    const targetX = Math.cos(angle) * r;
+    const targetZ = Math.sin(angle) * r;
 
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
+    const bot = botBody.current;
+    if (!bot) return;
 
-    if (botRef.current) {
-      botRef.current.position.set(x, 0, z);
-      botRef.current.rotation.y = -angle + Math.PI / 2;
+    // Strong spring toward target point
+    const dx = targetX - bot.pos.x;
+    const dz = targetZ - bot.pos.z;
+    bot.applyForce(dx * 18, dz * 18, dt);
+    bot.integrate(dt);
+
+    // Heading follows velocity
+    const spd = Math.hypot(bot.vel.x, bot.vel.z);
+    if (spd > 0.05) bot.angle = Math.atan2(bot.vel.x, bot.vel.z);
+
+    if (botGrp.current) {
+      botGrp.current.position.set(bot.pos.x, 0, bot.pos.z);
+      botGrp.current.rotation.y = bot.angle;
     }
+    applyWheelRoll(lRoll, rRoll, bot, dt);
 
     // Trail
-    trailRef.current.push({ x, z });
-    if (trailRef.current.length > TRAIL_LEN) trailRef.current.shift();
-    trailRef.current.forEach((p, i) => {
+    trailBuf.current.push({ x: bot.pos.x, z: bot.pos.z });
+    if (trailBuf.current.length > TRAIL_LEN) trailBuf.current.shift();
+    trailBuf.current.forEach((p, i) => {
       const mesh = trailMeshes[i];
       if (mesh) {
         mesh.position.set(p.x, 0.04, p.z);
@@ -510,8 +790,8 @@ export function CircleDance() {
   return (
     <>
       {trailMeshes.map((mesh, i) => <primitive key={i} object={mesh} />)}
-      <group ref={botRef}>
-        <DifferentialBot color="blue" variant="standard" />
+      <group ref={botGrp}>
+        <DifferentialBot color="blue" variant="standard" lRollRef={lRoll} rRollRef={rRoll} />
       </group>
     </>
   );
@@ -519,86 +799,87 @@ export function CircleDance() {
 
 // ─── PID APPROACH ─────────────────────────────────────────────────────────────
 
+const TARGET_X = 0.8;
+const Kp = 3.5, Ki = 0.4, Kd = 1.8;
+
 export function PIDApproach() {
-  const botRef = useRef<THREE.Group>(null);
-  const xRef = useRef(-1.0); // starting position
-  const vRef = useRef(0);    // velocity
-  const glowRef = useRef<THREE.PointLight>(null);
+  const botGrp         = useRef<THREE.Group>(null);
+  const glowRef        = useRef<THREE.PointLight>(null);
+  const targetMarker   = useRef<THREE.Mesh>(null);
+  const lRoll          = useRef<THREE.Group>(null);
+  const rRoll          = useRef<THREE.Group>(null);
 
-  // Target marker
-  const targetMarkerRef = useRef<THREE.Mesh>(null);
+  const botBody    = useRef<PhysicsBody | null>(null);
+  const integralR  = useRef(0);
+  const prevErrR   = useRef(0);
+  const resetTick  = useRef(0);
 
-  const TARGET_X = 0.8;
-  const Kp = 3.5;
-  const Ki = 0.4;
-  const Kd = 1.8;
-  const integralRef = useRef(0);
-  const prevErrRef = useRef(0);
-  const resetRef = useRef(0);
+  useEffect(() => {
+    botBody.current = new PhysicsBody(-1.0, 0, {
+      mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 0.8, angDamp: 2.0,
+      angle: -Math.PI / 2, // face right
+    });
+    integralR.current = 0; prevErrR.current = 0; resetTick.current = 0;
+    return () => { botBody.current = null; };
+  }, []);
 
   useFrame(({ clock }, dt) => {
-    resetRef.current += dt;
-    // Reset every 8 seconds to show repeated approach
-    if (resetRef.current > 8) {
-      resetRef.current = 0;
-      xRef.current = -1.0;
-      vRef.current = 0;
-      integralRef.current = 0;
-      prevErrRef.current = 0;
+    const bot = botBody.current;
+    if (!bot) return;
+
+    resetTick.current += dt;
+    if (resetTick.current > 8) {
+      resetTick.current = 0;
+      bot.pos.x = -1.0; bot.pos.z = 0;
+      bot.vel.x = 0; bot.vel.z = 0;
+      bot.angle = -Math.PI / 2;
+      integralR.current = 0; prevErrR.current = 0;
     }
 
-    const err = TARGET_X - xRef.current;
-    integralRef.current += err * dt;
-    const derivative = (err - prevErrRef.current) / dt;
-    prevErrRef.current = err;
+    // PID controller in X dimension
+    const err = TARGET_X - bot.pos.x;
+    integralR.current += err * dt;
+    const derivative = (err - prevErrR.current) / Math.max(dt, 0.001);
+    prevErrR.current = err;
 
-    const force = Kp * err + Ki * integralRef.current + Kd * derivative;
-    // Clamp force and add damping
-    const clampedForce = Math.max(-4, Math.min(4, force));
-    vRef.current = vRef.current * 0.92 + clampedForce * dt;
-    xRef.current += vRef.current * dt;
+    const rawForce = Kp * err + Ki * integralR.current + Kd * derivative;
+    const force = Math.max(-5, Math.min(5, rawForce));
 
-    if (botRef.current) {
-      botRef.current.position.set(xRef.current, 0, 0);
-      // Face right (toward target)
-      botRef.current.rotation.y = xRef.current < TARGET_X ? -Math.PI / 2 : Math.PI / 2;
+    bot.applyForce(force, 0, dt);
+    bot.integrate(dt);
+
+    // Keep on Z=0 rail
+    bot.pos.z = 0; bot.vel.z = 0;
+    bot.angle = bot.vel.x > 0 ? -Math.PI / 2 : Math.PI / 2;
+
+    if (botGrp.current) {
+      botGrp.current.position.set(bot.pos.x, 0, bot.pos.z);
+      botGrp.current.rotation.y = bot.angle;
     }
+    applyWheelRoll(lRoll, rRoll, bot, dt);
 
-    // Target marker pulse
-    if (targetMarkerRef.current) {
-      const m = targetMarkerRef.current.material as THREE.MeshStandardMaterial;
+    if (targetMarker.current) {
+      const m = targetMarker.current.material as THREE.MeshStandardMaterial;
       m.emissiveIntensity = 0.4 + Math.sin(clock.elapsedTime * 3) * 0.2;
     }
-
-    if (glowRef.current) {
-      glowRef.current.intensity = Math.abs(vRef.current) * 0.8 + 0.2;
-    }
+    if (glowRef.current) glowRef.current.intensity = Math.abs(bot.forwardSpeed()) * 0.8 + 0.2;
   });
 
   return (
     <>
-      {/* Target marker post */}
       <group position={[TARGET_X, 0, 0]}>
         <mesh position={[0, 0.25, 0]}>
           <cylinderGeometry args={[0.015, 0.015, 0.5, 8]} />
           <meshStandardMaterial color="#303040" />
         </mesh>
-        <mesh ref={targetMarkerRef} position={[0, 0.5, 0]}>
+        <mesh ref={targetMarker} position={[0, 0.5, 0]}>
           <sphereGeometry args={[0.06, 12, 10]} />
           <meshStandardMaterial color="#ff4060" emissive={new THREE.Color('#ff4060')} emissiveIntensity={0.4} />
         </mesh>
         <pointLight position={[0, 0.5, 0]} color="#ff4060" intensity={0.5} distance={0.8} />
       </group>
-
-      {/* Error line (visual distance indicator) */}
-      <mesh position={[TARGET_X / 2 + 0.0, 0.005, 0]} rotation={[0, 0, 0]}>
-        <boxGeometry args={[Math.abs(TARGET_X - (-1.0)), 0.008, 0.008]} />
-        <meshStandardMaterial color="#ff4060" transparent opacity={0.3} />
-      </mesh>
-
-      {/* Bot */}
-      <group ref={botRef}>
-        <DifferentialBot color="default" variant="standard" glowRef={glowRef} />
+      <group ref={botGrp}>
+        <DifferentialBot color="default" variant="standard" glowRef={glowRef} lRollRef={lRoll} rRollRef={rRoll} />
       </group>
     </>
   );
@@ -606,17 +887,12 @@ export function PIDApproach() {
 
 // ─── Top-level selector ───────────────────────────────────────────────────────
 
-type ChallengeSimProps = {
-  mode: SimMode;
-  sumoRingRadius?: number;
-};
-
-export function ChallengeSim({ mode, sumoRingRadius = 1.2 }: ChallengeSimProps) {
-  if (mode === 'sumo') return <SumoFight ringRadius={sumoRingRadius} />;
-  if (mode === 'cone-ring') return <ConeRingRun />;
-  if (mode === 'maze') return <MazeRun />;
-  if (mode === 'waypoint') return <WaypointChase />;
+export function ChallengeSim({ mode, sumoRingRadius = 1.2 }: { mode: SimMode; sumoRingRadius?: number }) {
+  if (mode === 'sumo')         return <SumoFight ringRadius={sumoRingRadius} />;
+  if (mode === 'cone-ring')    return <ConeRingRun />;
+  if (mode === 'maze')         return <MazeRun />;
+  if (mode === 'waypoint')     return <WaypointChase />;
   if (mode === 'circle-dance') return <CircleDance />;
   if (mode === 'pid-approach') return <PIDApproach />;
-  return null; // 'drawing' — handled by parent (RobotGantry)
+  return null;
 }

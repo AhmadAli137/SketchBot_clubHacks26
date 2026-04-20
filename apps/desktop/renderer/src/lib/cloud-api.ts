@@ -14,13 +14,19 @@ export const CLOUD_API_URL =
  * Returns the current Supabase access token (auto-refreshed).
  * Returns null if Supabase is not configured (dev without auth).
  */
-export function useCloudAuthToken(): string | null {
-  const [token, setToken] = useState<string | null>(null);
+/**
+ * Returns the Supabase access token, or null when no session exists.
+ * Returns `undefined` while the initial session check is in flight — callers
+ * should treat `undefined` as "not yet ready" and defer requests until it resolves.
+ */
+export function useCloudAuthToken(): string | null | undefined {
+  // undefined = session check pending; null = no session; string = token
+  const [token, setToken] = useState<string | null | undefined>(undefined);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    if (!supabase) { setToken(null); return; }
 
     const refresh = async () => {
       const { data } = await supabase.auth.getSession();
@@ -46,7 +52,7 @@ export function useCloudAuthToken(): string | null {
  * Build headers for a cloud API request.
  * Includes Authorization if a token is available.
  */
-export function cloudHeaders(token: string | null): HeadersInit {
+export function cloudHeaders(token: string | null | undefined): HeadersInit {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

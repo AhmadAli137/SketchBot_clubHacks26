@@ -11,6 +11,7 @@ except ModuleNotFoundError:
     anthropic = None  # type: ignore[assignment]
 
 from app.services.tutor_service import _load_concepts, _get_concept, _build_concept_context
+from app.services.course_curricula import get_static_curriculum, ROBOT_LAB_CONCEPT_IDS
 
 _LESSON_CACHE_DIR = Path(os.environ.get("SKETCHBOT_DATA_DIR") or (Path(__file__).parent.parent / "data")) / "lesson-plans"
 
@@ -106,6 +107,10 @@ class LessonService:
         age_group: str = "builder",
         force_regenerate: bool = False,
     ) -> dict:
+        # Robot Lab concepts always use static hand-authored curricula
+        if concept_id in ROBOT_LAB_CONCEPT_IDS:
+            return get_static_curriculum(concept_id, age_group)  # type: ignore[return-value]
+
         if not force_regenerate:
             cached = self.get_cached(concept_id, layer, age_group)
             if cached:

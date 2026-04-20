@@ -15,7 +15,8 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url?.trim() || !anonKey?.trim()) {
+  const keyOk = anonKey?.trim().startsWith('eyJ') && !anonKey.includes('placeholder');
+  if (!url?.trim() || !keyOk) {
     browserClient = null;
     return null;
   }
