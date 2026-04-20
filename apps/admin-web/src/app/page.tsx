@@ -1,16 +1,11 @@
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { Reveal, RevealGroup } from '@/components/reveal';
 import { HeroSection } from '@/components/home/hero-section';
 import { AppPreview } from '@/components/home/app-preview';
-
-const HeroScene3D = dynamic(
-  () => import('@/components/home/hero-scene-3d').then(m => ({ default: m.HeroScene3D })),
-  { ssr: false },
-);
+import { HeroScene3DClient as HeroScene3D } from '@/components/home/hero-scene-3d-client';
 
 export default function HomePage() {
   return (
