@@ -2,8 +2,6 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type SparkPose = 'idle' | 'wave' | 'celebrate' | 'think' | 'point' | 'thumbsup' | 'surprised' | 'sad';
 export type SparkSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -17,7 +15,8 @@ type SceneConfig = {
   bgKey: string; propEmoji: string; propLeft: string; propTop: number; propScale: number; glowColor: string;
   lUpperR: number[]; lUpperDur: number; lLowerR: number[]; lLowerDur: number;
   rUpperR: number[]; rUpperDur: number; rLowerR: number[]; rLowerDur: number;
-  bodyY: number[]; bodyDur: number; bodyRotateZ?: number[]; headRotateZ?: number[]; headRotateY?: number[]; headDur: number;
+  bodyY: number[]; bodyDur: number; bodyRotateZ?: number[];
+  headRotateZ?: number[]; headRotateY?: number[]; headDur: number;
   eyeHappy: boolean; chestBg: string; particleA: string; particleB: string;
   floaters: { emoji: string; x: number; y: number; delay: number; dur?: number }[];
 };
@@ -25,58 +24,51 @@ type SceneConfig = {
 const SCENES: SceneConfig[] = [
   {
     bgKey: 'welcome', propEmoji: '✨', propLeft: 'calc(50% + 88px)', propTop: 60, propScale: 1.8, glowColor: '#5de4ff',
-    lUpperR: [0, -62, -70, -62, -70, -62, 0], lUpperDur: 0.92,
-    lLowerR: [0, -28, -40, -28, -40, -28, 0], lLowerDur: 0.92,
+    lUpperR: [0, -62, -70, -62, -70, -62, 0], lUpperDur: 0.92, lLowerR: [0, -28, -40, -28, -40, -28, 0], lLowerDur: 0.92,
     rUpperR: [8, 4, 8], rUpperDur: 3.8, rLowerR: [-8, -4, -8], rLowerDur: 3.8,
-    bodyY: [0, -14, 0], bodyDur: 3.6, bodyRotateZ: [0, 2, -1, 0],
-    headRotateZ: [0, 6, -4, 2, 0], headDur: 3.6,
+    bodyY: [0, -14, 0], bodyDur: 3.6, bodyRotateZ: [0, 2, -1, 0], headRotateZ: [0, 6, -4, 2, 0], headDur: 3.6,
     eyeHappy: false, chestBg: 'linear-gradient(135deg,#3b82f6,#5de4ff)', particleA: '#5de4ff', particleB: '#a855f7',
-    floaters: [
-      { emoji: '✨', x: 9, y: 15, delay: 0.2, dur: 2.8 }, { emoji: '💫', x: 80, y: 28, delay: 0.6, dur: 3.2 },
-      { emoji: '⭐', x: 56, y: 6, delay: 1.0, dur: 3.6 }, { emoji: '🌟', x: 18, y: 72, delay: 0.4, dur: 2.6 },
-      { emoji: '💙', x: 72, y: 70, delay: 0.8, dur: 3.0 },
-    ],
+    floaters: [{ emoji: '✨', x: 9, y: 15, delay: 0.2, dur: 2.8 }, { emoji: '💫', x: 80, y: 28, delay: 0.6, dur: 3.2 }, { emoji: '⭐', x: 56, y: 6, delay: 1.0, dur: 3.6 }, { emoji: '🌟', x: 18, y: 72, delay: 0.4, dur: 2.6 }, { emoji: '💙', x: 72, y: 70, delay: 0.8, dur: 3.0 }],
   },
   {
     bgKey: 'guide', propEmoji: '🗺️', propLeft: 'calc(50% - 138px)', propTop: 130, propScale: 2.2, glowColor: '#6b7cff',
     lUpperR: [5, 8, 5], lUpperDur: 3.6, lLowerR: [-10, -6, -10], lLowerDur: 3.6,
     rUpperR: [-28, -25, -28], rUpperDur: 2.4, rLowerR: [-18, -14, -18], rLowerDur: 2.4,
-    bodyY: [0, -12, 0], bodyDur: 4.2,
-    headRotateY: [0, 10, 2, -4, 0], headDur: 4.8,
+    bodyY: [0, -12, 0], bodyDur: 4.2, headRotateY: [0, 10, 2, -4, 0], headDur: 4.8,
     eyeHappy: false, chestBg: 'linear-gradient(135deg,#6b7cff,#a855f7)', particleA: '#6b7cff', particleB: '#5de4ff',
-    floaters: [
-      { emoji: '🔵', x: 8, y: 36, delay: 0.1, dur: 3.4 }, { emoji: '🟣', x: 82, y: 20, delay: 0.5, dur: 2.9 },
-      { emoji: '📡', x: 70, y: 65, delay: 0.9, dur: 3.1 }, { emoji: '⚙️', x: 16, y: 74, delay: 0.3, dur: 3.6 },
-    ],
+    floaters: [{ emoji: '🔵', x: 8, y: 36, delay: 0.1, dur: 3.4 }, { emoji: '🟣', x: 82, y: 20, delay: 0.5, dur: 2.9 }, { emoji: '📡', x: 70, y: 65, delay: 0.9, dur: 3.1 }, { emoji: '⚙️', x: 16, y: 74, delay: 0.3, dur: 3.6 }],
   },
   {
     bgKey: 'celebrate', propEmoji: '🏆', propLeft: 'calc(50% - 22px)', propTop: 28, propScale: 2.6, glowColor: '#ffc96b',
-    lUpperR: [-68, -75, -68, -75, -68], lUpperDur: 0.48,
-    lLowerR: [-30, -42, -30, -42, -30], lLowerDur: 0.48,
-    rUpperR: [-68, -75, -68, -75, -68], rUpperDur: 0.48,
-    rLowerR: [-30, -42, -30, -42, -30], rLowerDur: 0.48,
-    bodyY: [0, -24, -8, -24, 0], bodyDur: 0.96, bodyRotateZ: [0, -4, 4, -2, 0],
-    headRotateZ: [0, -10, 10, -6, 0], headDur: 0.96,
+    lUpperR: [-68, -75, -68, -75, -68], lUpperDur: 0.48, lLowerR: [-30, -42, -30, -42, -30], lLowerDur: 0.48,
+    rUpperR: [-68, -75, -68, -75, -68], rUpperDur: 0.48, rLowerR: [-30, -42, -30, -42, -30], rLowerDur: 0.48,
+    bodyY: [0, -24, -8, -24, 0], bodyDur: 0.96, bodyRotateZ: [0, -4, 4, -2, 0], headRotateZ: [0, -10, 10, -6, 0], headDur: 0.96,
     eyeHappy: true, chestBg: 'linear-gradient(135deg,#ffc96b,#ff9f40)', particleA: '#ffc96b', particleB: '#ff4fd8',
-    floaters: [
-      { emoji: '🎉', x: 5, y: 10, delay: 0, dur: 2.4 }, { emoji: '⭐', x: 80, y: 8, delay: 0.25, dur: 2.8 },
-      { emoji: '🎊', x: 12, y: 64, delay: 0.5, dur: 2.6 }, { emoji: '✨', x: 74, y: 60, delay: 0.75, dur: 3.0 },
-      { emoji: '🎈', x: 42, y: 3, delay: 0.4, dur: 3.2 }, { emoji: '🏅', x: 62, y: 14, delay: 0.6, dur: 2.5 },
-    ],
+    floaters: [{ emoji: '🎉', x: 5, y: 10, delay: 0, dur: 2.4 }, { emoji: '⭐', x: 80, y: 8, delay: 0.25, dur: 2.8 }, { emoji: '🎊', x: 12, y: 64, delay: 0.5, dur: 2.6 }, { emoji: '✨', x: 74, y: 60, delay: 0.75, dur: 3.0 }, { emoji: '🎈', x: 42, y: 3, delay: 0.4, dur: 3.2 }, { emoji: '🏅', x: 62, y: 14, delay: 0.6, dur: 2.5 }],
   },
   {
     bgKey: 'adapt', propEmoji: '⚡', propLeft: 'calc(50% + 82px)', propTop: 155, propScale: 2.0, glowColor: '#4dffb8',
     lUpperR: [5, 8, 5], lUpperDur: 3.2, lLowerR: [-8, -4, -8], lLowerDur: 3.2,
     rUpperR: [-52, -50, -52], rUpperDur: 2.6, rLowerR: [22, 26, 22], rLowerDur: 2.6,
-    bodyY: [0, -14, 0], bodyDur: 3.8,
-    headRotateZ: [0, 4, -3, 0], headDur: 4.2,
+    bodyY: [0, -14, 0], bodyDur: 3.8, headRotateZ: [0, 4, -3, 0], headDur: 4.2,
     eyeHappy: true, chestBg: 'linear-gradient(135deg,#4dffb8,#1bb7d2)', particleA: '#4dffb8', particleB: '#6b7cff',
-    floaters: [
-      { emoji: '💡', x: 10, y: 26, delay: 0.1, dur: 3.0 }, { emoji: '🚀', x: 80, y: 16, delay: 0.45, dur: 2.8 },
-      { emoji: '⚙️', x: 64, y: 68, delay: 0.8, dur: 3.4 }, { emoji: '🌈', x: 20, y: 72, delay: 0.35, dur: 2.6 },
-    ],
+    floaters: [{ emoji: '💡', x: 10, y: 26, delay: 0.1, dur: 3.0 }, { emoji: '🚀', x: 80, y: 16, delay: 0.45, dur: 2.8 }, { emoji: '⚙️', x: 64, y: 68, delay: 0.8, dur: 3.4 }, { emoji: '🌈', x: 20, y: 72, delay: 0.35, dur: 2.6 }],
   },
 ];
+
+export function SparkSceneBackground({ scene }: { scene: number }) {
+  const cfg = SCENES[scene % SCENES.length] ?? SCENES[0];
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={cfg.bgKey}
+        className={`spark3d-scene-bg spark3d-bg--${cfg.bgKey}`}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.65 }} aria-hidden
+      />
+    </AnimatePresence>
+  );
+}
 
 function KinematicArm({ side, upperR, upperDur, lowerR, lowerDur }: {
   side: 'left' | 'right'; upperR: number[]; upperDur: number; lowerR: number[]; lowerDur: number;
@@ -178,8 +170,8 @@ function Spark3D({ showSpeech, speechKey, size = 'xl', scene = 0 }: Omit<Spark3D
               <div className="spark3d-visor-reflect" />
               {cfg.eyeHappy ? (
                 <>
-                  <div className="spark3d-eye-arc spark3d-eye-arc--l" />
-                  <div className="spark3d-eye-arc spark3d-eye-arc--r" />
+                  <div className="spark3d-eye-arc" />
+                  <div className="spark3d-eye-arc" />
                 </>
               ) : (
                 <>
@@ -188,14 +180,18 @@ function Spark3D({ showSpeech, speechKey, size = 'xl', scene = 0 }: Omit<Spark3D
                     animate={{ scaleY: [1, 1, 0.06, 1], scaleX: [1, 1, 1.35, 1] }}
                     transition={{ duration: 4.5, repeat: Infinity, times: blinkTimes }}
                   >
-                    <div className="spark3d-eye-iris" /><div className="spark3d-eye-pupil" /><div className="spark3d-eye-spec" />
+                    <div className="spark3d-eye-iris" />
+                    <div className="spark3d-eye-pupil" />
+                    <div className="spark3d-eye-spec" />
                   </motion.div>
                   <motion.div
                     className="spark3d-eye spark3d-eye--right"
                     animate={{ scaleY: [1, 1, 0.06, 1], scaleX: [1, 1, 1.35, 1] }}
                     transition={{ duration: 4.5, repeat: Infinity, times: blinkTimes, delay: 0.07 }}
                   >
-                    <div className="spark3d-eye-iris" /><div className="spark3d-eye-pupil" /><div className="spark3d-eye-spec" />
+                    <div className="spark3d-eye-iris" />
+                    <div className="spark3d-eye-pupil" />
+                    <div className="spark3d-eye-spec" />
                   </motion.div>
                 </>
               )}
@@ -210,7 +206,9 @@ function Spark3D({ showSpeech, speechKey, size = 'xl', scene = 0 }: Omit<Spark3D
           animate={{ scaleX: [1, 1.022, 1], scaleY: [1, 0.978, 1] }}
           transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <div className="spark3d-body-spec" /><div className="spark3d-body-shine" /><div className="spark3d-body-seam" />
+          <div className="spark3d-body-spec" />
+          <div className="spark3d-body-shine" />
+          <div className="spark3d-body-seam" />
           <AnimatePresence mode="wait">
             <motion.div
               key={`chest-${cfg.bgKey}`}
@@ -223,15 +221,19 @@ function Spark3D({ showSpeech, speechKey, size = 'xl', scene = 0 }: Omit<Spark3D
               <div className="spark3d-chest-ring" />
             </motion.div>
           </AnimatePresence>
-          <div className="spark3d-body-rim-l" /><div className="spark3d-body-rim-r" />
+          <div className="spark3d-body-rim-l" />
+          <div className="spark3d-body-rim-r" />
           <div className="spark3d-shoulder-socket spark3d-shoulder-socket--l" />
           <div className="spark3d-shoulder-socket spark3d-shoulder-socket--r" />
         </motion.div>
 
         {[
-          { s: 5, x: -62, y: 38, dur: 2.6, d: 0.0 }, { s: 4, x: 70, y: 28, dur: 3.1, d: 0.5 },
-          { s: 6, x: -50, y: 90, dur: 2.2, d: 0.9 }, { s: 3, x: 64, y: 86, dur: 3.4, d: 0.3 },
-          { s: 5, x: 4, y: 18, dur: 2.8, d: 1.1 }, { s: 4, x: -30, y: 132, dur: 3.0, d: 0.7 },
+          { s: 5, x: -62, y: 38, dur: 2.6, d: 0.0 },
+          { s: 4, x: 70,  y: 28, dur: 3.1, d: 0.5 },
+          { s: 6, x: -50, y: 90, dur: 2.2, d: 0.9 },
+          { s: 3, x: 64,  y: 86, dur: 3.4, d: 0.3 },
+          { s: 5, x: 4,   y: 18, dur: 2.8, d: 1.1 },
+          { s: 4, x: -30, y: 132, dur: 3.0, d: 0.7 },
         ].map((p, i) => (
           <motion.div
             key={i}
@@ -290,9 +292,13 @@ function SparkSVG({ pose = 'idle', size = 'md' }: { pose: SparkPose; size: Spark
       <ellipse cx="60" cy="148" rx="28" ry="5" fill="#1a3a6a" fillOpacity="0.18" />
       <ellipse cx="60" cy="110" rx="28" ry="22" fill={`url(#bg-${pose})`} stroke="#90b8e8" strokeWidth="1" filter={`url(#ds-${pose})`} />
       <ellipse cx="52" cy="100" rx="10" ry="6" fill="white" fillOpacity="0.35" />
-      <circle cx="60" cy="112" r="6" fill={body} fillOpacity="0.9" /><circle cx="60" cy="112" r="4" fill={accent} /><circle cx="60" cy="112" r="3" fill="white" fillOpacity="0.6" />
-      <path d={leftArm[pose]} stroke={fill} strokeWidth="8" strokeLinecap="round" /><path d={leftArm[pose]} stroke="#90b8e8" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-      <path d={rightArm[pose]} stroke={fill} strokeWidth="8" strokeLinecap="round" /><path d={rightArm[pose]} stroke="#90b8e8" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+      <circle cx="60" cy="112" r="6" fill={body} fillOpacity="0.9" />
+      <circle cx="60" cy="112" r="4" fill={accent} />
+      <circle cx="60" cy="112" r="3" fill="white" fillOpacity="0.6" />
+      <path d={leftArm[pose]} stroke={fill} strokeWidth="8" strokeLinecap="round" />
+      <path d={leftArm[pose]} stroke="#90b8e8" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+      <path d={rightArm[pose]} stroke={fill} strokeWidth="8" strokeLinecap="round" />
+      <path d={rightArm[pose]} stroke="#90b8e8" strokeWidth="1.5" strokeLinecap="round" fill="none" />
       <ellipse cx="60" cy="52" rx="32" ry="36" fill={`url(#hg-${pose})`} stroke="#c0d8f5" strokeWidth="1" filter={`url(#ds-${pose})`} />
       <ellipse cx="48" cy="36" rx="14" ry="10" fill="white" fillOpacity="0.5" transform="rotate(-20 48 36)" />
       <rect x="22" y="46" width="5" height="14" rx="2.5" fill={fill} stroke="#90b8e8" strokeWidth="0.8" />
@@ -300,13 +306,28 @@ function SparkSVG({ pose = 'idle', size = 'md' }: { pose: SparkPose; size: Spark
       <rect x="32" y="44" width="56" height="22" rx="6" fill={visor} />
       <rect x="33" y="45" width="54" height="5" rx="3" fill="white" fillOpacity="0.06" />
       {(pose === 'celebrate' || pose === 'thumbsup') ? (
-        <><path d="M38,55 Q45,46 52,55" stroke={accent} strokeWidth="4" strokeLinecap="round" filter={`url(#eg-${pose})`} /><path d="M68,55 Q75,46 82,55" stroke={accent} strokeWidth="4" strokeLinecap="round" filter={`url(#eg-${pose})`} /></>
+        <>
+          <path d="M38,55 Q45,46 52,55" stroke={accent} strokeWidth="4" strokeLinecap="round" filter={`url(#eg-${pose})`} />
+          <path d="M68,55 Q75,46 82,55" stroke={accent} strokeWidth="4" strokeLinecap="round" filter={`url(#eg-${pose})`} />
+        </>
       ) : pose === 'sad' ? (
-        <><path d="M38,53 Q45,58 52,53" stroke={accent} strokeWidth="3.5" strokeLinecap="round" /><path d="M68,53 Q75,58 82,53" stroke={accent} strokeWidth="3.5" strokeLinecap="round" /></>
+        <>
+          <path d="M38,53 Q45,58 52,53" stroke={accent} strokeWidth="3.5" strokeLinecap="round" />
+          <path d="M68,53 Q75,58 82,53" stroke={accent} strokeWidth="3.5" strokeLinecap="round" />
+        </>
+      ) : pose === 'think' ? (
+        <>
+          <circle cx="45" cy="53" r="7" fill={accent} fillOpacity="0.9" filter={`url(#eg-${pose})`} />
+          <path d="M68,53 Q75,49 82,53" stroke={accent} strokeWidth="3.5" strokeLinecap="round" />
+        </>
       ) : (
         <>
-          <circle cx="45" cy="53" r="7.5" fill={accent} fillOpacity="0.15" /><circle cx="45" cy="53" r="6" fill={accent} fillOpacity="0.9" filter={`url(#eg-${pose})`} /><circle cx="43" cy="51" r="2" fill="white" fillOpacity="0.7" />
-          <circle cx="75" cy="53" r="7.5" fill={accent} fillOpacity="0.15" /><circle cx="75" cy="53" r="6" fill={accent} fillOpacity="0.9" filter={`url(#eg-${pose})`} /><circle cx="73" cy="51" r="2" fill="white" fillOpacity="0.7" />
+          <circle cx="45" cy="53" r="7.5" fill={accent} fillOpacity="0.15" />
+          <circle cx="45" cy="53" r="6" fill={accent} fillOpacity="0.9" filter={`url(#eg-${pose})`} />
+          <circle cx="43" cy="51" r="2" fill="white" fillOpacity="0.7" />
+          <circle cx="75" cy="53" r="7.5" fill={accent} fillOpacity="0.15" />
+          <circle cx="75" cy="53" r="6" fill={accent} fillOpacity="0.9" filter={`url(#eg-${pose})`} />
+          <circle cx="73" cy="51" r="2" fill="white" fillOpacity="0.7" />
         </>
       )}
     </svg>
@@ -315,11 +336,13 @@ function SparkSVG({ pose = 'idle', size = 'md' }: { pose: SparkPose; size: Spark
 
 export function SparkRobot(props: SparkProps) {
   if (props.mode === '3d') {
-    return <Spark3D showSpeech={props.showSpeech} speechKey={props.speechKey} size={props.size} scene={props.scene} />;
+    const { mode: _m, ...rest } = props;
+    return <Spark3D {...rest} />;
   }
+  const { mode: _m, pose = 'idle', size = 'md', className } = props;
   return (
-    <div className={`spark2d-wrap ${props.className ?? ''}`} style={{ display: 'inline-flex' }}>
-      <SparkSVG pose={props.pose ?? 'idle'} size={props.size ?? 'md'} />
+    <div className={`spark2d-wrap${className ? ` ${className}` : ''}`}>
+      <SparkSVG pose={pose} size={size} />
     </div>
   );
 }
