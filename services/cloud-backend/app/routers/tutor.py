@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.auth import require_auth
 from app.core.settings import settings
+from app.routers.subscriptions import check_credits, deduct_credits
 from app.services.tutor_service import tutor_service
 
 router = APIRouter(prefix="/api/tutor", tags=["tutor"])
@@ -32,8 +33,19 @@ class TutorMessageRequest(BaseModel):
 
 
 @router.post("/message")
-async def tutor_message(body: TutorMessageRequest, _user: AuthUser):
+async def tutor_message(body: TutorMessageRequest, user: AuthUser):
+    # Credit gate: check before streaming
+    has_credits, remaining = check_credits(user["id"])
+    if not has_credits:
+        async def no_credits():
+            yield f"data: {json.dumps({'type': 'error', 'message': f'You have used all your AI credits for this month (0 remaining). Upgrade your plan at aibotics.app/pricing to continue.'})}\n\n"
+        return StreamingResponse(no_credits(), media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    user_id = user["id"]
+
     async def event_stream():
+        tokens_sent = 0
         try:
             async for chunk in tutor_service.stream_message(
                 student_name=body.student_name,
@@ -46,8 +58,11 @@ async def tutor_message(body: TutorMessageRequest, _user: AuthUser):
                 drawing_prompt=body.drawing_prompt,
                 path_count=body.path_count,
             ):
+                tokens_sent += 1
                 yield f"data: {json.dumps({'type': 'token', 'text': chunk})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            # Deduct 1 credit per successful tutor interaction
+            deduct_credits(user_id, 1)
+            yield f"data: {json.dumps({'type': 'done', 'credits_remaining': max(0, remaining - 1)})}\n\n"
         except Exception as exc:
             yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
 

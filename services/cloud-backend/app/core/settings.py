@@ -42,5 +42,16 @@ class Settings:
         # Set SKIP_AUTH=true in local dev to bypass JWT validation
         self.skip_auth = os.getenv("SKIP_AUTH", "").strip().lower() in ("1", "true", "yes")
 
+        # Stripe — payment processing (optional; paywall stubs work without it)
+        self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY", "")
+        self.stripe_webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+        self.stripe_price_home_monthly = os.getenv("STRIPE_PRICE_HOME_MONTHLY", "")
+        self.stripe_price_home_annual = os.getenv("STRIPE_PRICE_HOME_ANNUAL", "")
+        self.stripe_price_classroom_monthly = os.getenv("STRIPE_PRICE_CLASSROOM_MONTHLY", "")
+        self.stripe_price_classroom_annual = os.getenv("STRIPE_PRICE_CLASSROOM_ANNUAL", "")
+        self.stripe_price_school_monthly = os.getenv("STRIPE_PRICE_SCHOOL_MONTHLY", "")
+        self.stripe_price_school_annual = os.getenv("STRIPE_PRICE_SCHOOL_ANNUAL", "")
+        self.app_url = os.getenv("APP_URL", "https://aibotics.app")
+
 
 settings = Settings()

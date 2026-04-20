@@ -89,6 +89,9 @@ export type LearningHeaderProps = {
   nextXP?: number;
   streakDays?: number;
   sparks?: number;
+  creditsRemaining?: number;
+  monthlyCredits?: number;
+  planTier?: string;
   /** Small avatar (emoji or robot) next to the menu when signed in as a student. */
   profileAvatar?: ReactNode;
   onBackToHome?: () => void;

@@ -33,6 +33,8 @@ import { StudentProfileAvatar } from '@/components/student-profile-avatar';
 import { LevelUpCelebration, useXPToast } from '@/components/gamification';
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { canUpload } from '@/lib/classroom-restrictions';
+import { useEntitlements } from '@/lib/use-entitlements';
+import { PaywallOverlay } from '@/components/paywall-overlay';
 
 export function StudentDashboard({
   topStatus,
@@ -94,6 +96,8 @@ export function StudentDashboard({
   const [celebrationBadge, setCelebrationBadge] = useState<{ emoji: string; name: string } | null>(null);
   const [lastSubmittedPrompt, setLastSubmittedPrompt] = useState<string | null>(null);
   const difficultyLevel = studentName ? (getDifficultyLevel(studentName) ?? ageGroupProp) : ageGroupProp;
+  const { entitlements, refresh: refreshEntitlements } = useEntitlements(userRole !== 'guest');
+  const [paywallVisible, setPaywallVisible] = useState(false);
   const [interactionMode, setInteractionMode] = useState<'rules' | 'blocks' | 'code'>(
     difficultyLevel === 'explorer' ? 'rules' : 'blocks',
   );
@@ -589,6 +593,9 @@ export function StudentDashboard({
         nextXP={gamificationData.nextXP}
         streakDays={gamificationData.streakDays}
         sparks={studentName ? getSparks(studentName) : 0}
+        creditsRemaining={entitlements?.credits_remaining}
+        monthlyCredits={entitlements?.monthly_credits}
+        planTier={entitlements?.tier}
         profileAvatar={
           studentName ? (
             <StudentProfileAvatar
@@ -913,6 +920,14 @@ export function StudentDashboard({
         xpAwarded={levelUpData?.xpAwarded ?? 0}
         onDismiss={() => setLevelUpData(null)}
       />
+
+      {paywallVisible && entitlements && (
+        <PaywallOverlay
+          entitlements={entitlements}
+          feature="AI Tutor"
+          onDismiss={() => { setPaywallVisible(false); void refreshEntitlements(); }}
+        />
+      )}
     </div>
   );
 }

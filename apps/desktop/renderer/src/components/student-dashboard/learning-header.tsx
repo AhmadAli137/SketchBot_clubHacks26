@@ -31,6 +31,9 @@ export function LearningHeader({
   nextXP = 50,
   streakDays = 0,
   sparks = 0,
+  creditsRemaining,
+  monthlyCredits,
+  planTier,
   profileAvatar,
   onBackToHome,
   onAgeGroupChange,
@@ -245,6 +248,16 @@ export function LearningHeader({
               {sparks}
             </motion.span>
           </button>
+        )}
+
+        {creditsRemaining !== undefined && monthlyCredits !== undefined && (
+          <div
+            className={`header-credits-pill ${creditsRemaining <= 0 ? 'depleted' : creditsRemaining < monthlyCredits * 0.15 ? 'low' : ''}`}
+            title={`${creditsRemaining} of ${monthlyCredits} AI credits remaining this month${planTier ? ` · ${planTier} plan` : ''}`}
+          >
+            <span>🤖</span>
+            <span>{creditsRemaining < 0 ? '∞' : creditsRemaining}</span>
+          </div>
         )}
 
         <Button
