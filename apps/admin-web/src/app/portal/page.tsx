@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { Reveal, RevealGroup } from '@/components/reveal';
-import { CLOUD_BACKEND_URL } from '@/lib/config';
+import { CLOUD_API_URL as CLOUD_BACKEND_URL } from '@/lib/config';
 
 type PortalSummary = {
   organization_count: number;
