@@ -2,11 +2,13 @@
 
 import { BlockEditor } from '@/components/block-editor';
 import { CodeEditor } from '@/components/code-editor';
+import { NLRulesEditor } from '@/components/nl-rules-editor';
 
 import type { PromptComposerProps } from './types';
 
 export function PromptComposer({
   interactionMode,
+  difficultyLevel,
   composing,
   conceptId,
   apiBase,
@@ -15,6 +17,7 @@ export function PromptComposer({
   onBlockRun,
   onBlockPreviewSvgChange,
   onCodeSvgResult,
+  onRulesRun,
   onToggleCodeFocus,
   activeLayer: _activeLayer,
   prompt: _prompt,
@@ -25,34 +28,58 @@ export function PromptComposer({
   onUploadFile: _onUploadFile,
   onLoadTask: _onLoadTask,
 }: PromptComposerProps) {
+  // Explorer mode: rules tab only — no code or blocks
+  const isExplorer = difficultyLevel === 'explorer';
+
+  // Ensure interactionMode is valid for this difficulty level
+  const effectiveMode = isExplorer ? 'rules' : (interactionMode === 'rules' ? 'blocks' : interactionMode);
+
   return (
     <div className="learn-prompt-bar" data-tour="session-prompt-composer">
       <div className="learn-mode-row">
-        <button
-          type="button"
-          className={`learn-mode-tab ${interactionMode === 'blocks' ? 'active' : ''}`}
-          onClick={() => onInteractionModeChange('blocks')}
-        >
-          ⬛ Blocks
-        </button>
-        <button
-          type="button"
-          className={`learn-mode-tab ${interactionMode === 'code' ? 'active' : ''}`}
-          onClick={() => onInteractionModeChange('code')}
-        >
-          {'</>'} Code
-        </button>
-        <button
-          type="button"
-          className={`learn-mode-tab ${showCodeFocus ? 'active' : ''}`}
-          style={{ marginLeft: 'auto' }}
-          onClick={onToggleCodeFocus}
-        >
-          {showCodeFocus ? 'Compact' : 'Expand'}
-        </button>
+        {isExplorer ? (
+          <button
+            type="button"
+            className="learn-mode-tab active"
+          >
+            🎛️ Rules
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className={`learn-mode-tab ${effectiveMode === 'blocks' ? 'active' : ''}`}
+              onClick={() => onInteractionModeChange('blocks')}
+            >
+              ⬛ Blocks
+            </button>
+            <button
+              type="button"
+              className={`learn-mode-tab ${effectiveMode === 'code' ? 'active' : ''}`}
+              onClick={() => onInteractionModeChange('code')}
+            >
+              {'</>'} Code
+            </button>
+          </>
+        )}
+
+        {!isExplorer && (
+          <button
+            type="button"
+            className={`learn-mode-tab ${showCodeFocus ? 'active' : ''}`}
+            style={{ marginLeft: 'auto' }}
+            onClick={onToggleCodeFocus}
+          >
+            {showCodeFocus ? 'Compact' : 'Expand'}
+          </button>
+        )}
       </div>
 
-      {interactionMode === 'blocks' && (
+      {isExplorer && (
+        <NLRulesEditor onRun={onRulesRun} isRunning={composing} />
+      )}
+
+      {!isExplorer && effectiveMode === 'blocks' && (
         <BlockEditor
           conceptId={conceptId}
           onRunProgram={onBlockRun}
@@ -61,7 +88,7 @@ export function PromptComposer({
         />
       )}
 
-      {interactionMode === 'code' && (
+      {!isExplorer && effectiveMode === 'code' && (
         <CodeEditor apiBase={apiBase} conceptId={conceptId} onSvgResult={onCodeSvgResult} />
       )}
     </div>

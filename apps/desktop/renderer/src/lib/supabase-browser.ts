@@ -20,7 +20,7 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
     browserClient = null;
     return null;
   }
-  browserClient = createClient(url.trim(), anonKey.trim(), {
+  browserClient = createClient(url.trim(), anonKey!.trim(), {
     auth: {
       persistSession: true,
       autoRefreshToken: true,

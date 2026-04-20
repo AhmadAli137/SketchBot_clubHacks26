@@ -22,6 +22,7 @@ import {
   getSparks,
   getStreakInfo,
   getStudentProgress,
+  getDifficultyLevel,
   updateStreak,
   recordInputModeUsed,
   scheduleProgressSync,
@@ -92,7 +93,10 @@ export function StudentDashboard({
   const [showConceptMap, setShowConceptMap] = useState(false);
   const [celebrationBadge, setCelebrationBadge] = useState<{ emoji: string; name: string } | null>(null);
   const [lastSubmittedPrompt, setLastSubmittedPrompt] = useState<string | null>(null);
-  const [interactionMode, setInteractionMode] = useState<'blocks' | 'code'>('blocks');
+  const difficultyLevel = studentName ? (getDifficultyLevel(studentName) ?? ageGroupProp) : ageGroupProp;
+  const [interactionMode, setInteractionMode] = useState<'rules' | 'blocks' | 'code'>(
+    difficultyLevel === 'explorer' ? 'rules' : 'blocks',
+  );
   const [codeGeneratedSvg, setCodeGeneratedSvg] = useState<string | null>(null);
   const [blockPreviewSvg, setBlockPreviewSvg] = useState<string | null>(null);
   const [cameraBuddyQrUrl, setCameraBuddyQrUrl] = useState<string | null>(null);
@@ -347,11 +351,11 @@ export function StudentDashboard({
     onSubmitPrompt(event);
   };
 
-  const handleInteractionModeChange = (mode: 'blocks' | 'code') => {
+  const handleInteractionModeChange = (mode: 'rules' | 'blocks' | 'code') => {
     setInteractionMode(mode);
     setPrimaryTab('programming');
     setBlockRunnerNotice(null);
-    trackInputMode(mode);
+    if (mode !== 'rules') trackInputMode(mode);
   };
 
   // Watch for newly generated SVG content. On the very first non-null value
@@ -457,6 +461,7 @@ export function StudentDashboard({
         )}
         <PromptComposer
           interactionMode={interactionMode}
+          difficultyLevel={difficultyLevel}
           activeLayer={activeLayer}
           prompt={prompt}
           composing={composing}
@@ -477,6 +482,18 @@ export function StudentDashboard({
             setCodeGeneratedSvg(svg);
             setLastSubmittedPrompt('code execution result');
             trackInputMode('code');
+          }}
+          onRulesRun={async (rules) => {
+            setBlockRunnerNotice(null);
+            try {
+              await fetch(`${apiBase}/api/block-runner/rules`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ concept_id: conceptId, rules }),
+              });
+            } catch {
+              setBlockRunnerNotice('Could not send rules to the robot. Is the runtime running?');
+            }
           }}
           onToggleCodeFocus={() => setShowCodeFocus((value) => !value)}
         />

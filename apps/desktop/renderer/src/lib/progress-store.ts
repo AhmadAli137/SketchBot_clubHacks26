@@ -153,6 +153,7 @@ function migrateProgress(raw: StudentProgress): StudentProgress {
   if (!Array.isArray(raw.used_input_modes)) raw.used_input_modes = [];
   if (typeof raw.lessons_completed !== 'number') raw.lessons_completed = 0;
   if (typeof raw.quizzes_correct !== 'number') raw.quizzes_correct = 0;
+  // difficulty_level is intentionally left undefined if not set (triggers onboarding)
   if (raw.profile_avatar_kind !== 'emoji' && raw.profile_avatar_kind !== 'robot') {
     raw.profile_avatar_kind = 'emoji';
   }
@@ -339,6 +340,23 @@ export function getStudentProgress(name: string, ageGroup: AgeGroup): StudentPro
   ensureStudent(store, name, ageGroup);
   save(store);
   return store[name];
+}
+
+export function getDifficultyLevel(name: string): AgeGroup | null {
+  const store = load();
+  const student = store[name];
+  if (!student) return null;
+  return student.difficulty_level ?? null;
+}
+
+export function setDifficultyLevel(name: string, level: AgeGroup): void {
+  const store = load();
+  if (!store[name]) return;
+  migrateProgress(store[name]);
+  store[name].difficulty_level = level;
+  store[name].age_group = level; // keep age_group in sync for tutor context
+  store[name].updated_at = now();
+  save(store);
 }
 
 export function setAgeGroup(name: string, ageGroup: AgeGroup): void {

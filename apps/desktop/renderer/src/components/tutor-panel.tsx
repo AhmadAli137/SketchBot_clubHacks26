@@ -996,7 +996,7 @@ export function TutorPanel({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const cloudAuthToken = useCloudAuthToken();
-  const tts = useTTS({ apiBase, cloudApiBase: CLOUD_API_URL, authToken: cloudAuthToken, backendReachable });
+  const tts = useTTS({ apiBase, cloudApiBase: CLOUD_API_URL, authToken: cloudAuthToken ?? null, backendReachable });
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const voicePickerRef = useRef<HTMLDivElement | null>(null);
 

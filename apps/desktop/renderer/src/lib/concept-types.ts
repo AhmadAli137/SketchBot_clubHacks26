@@ -92,6 +92,8 @@ export type ProfileAvatarKind = 'emoji' | 'robot';
 export type StudentProgress = {
   student_name: string;
   age_group: AgeGroup;
+  /** Difficulty tier chosen during onboarding. Undefined = onboarding not yet completed. */
+  difficulty_level?: AgeGroup;
   avatar?: string;
   /** When `robot`, show `RobotAvatarPreset` with `robot_preset` + `favorite_color`. */
   profile_avatar_kind?: ProfileAvatarKind;

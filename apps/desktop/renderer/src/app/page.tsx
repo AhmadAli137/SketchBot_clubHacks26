@@ -8,6 +8,7 @@ import { AiboticsLogo } from '@/components/aibotics-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { AuthScreen, type AuthResult, type AuthRole } from '@/components/auth-screen';
 import { PlanPicker } from '@/components/onboarding/plan-picker';
+import { DifficultyPicker } from '@/components/onboarding/difficulty-picker';
 import { SessionBanner } from '@/components/classroom/session-banner';
 import { TeacherDashboard } from '@/components/classroom/teacher-dashboard';
 import { GuidedTourProvider } from '@/components/guided-tour/guided-tour-provider';
@@ -26,6 +27,7 @@ import type {
 } from '@/lib/types';
 import type { AgeGroup } from '@/lib/concept-types';
 import { signOutAuth } from '@/lib/account-storage';
+import { getDifficultyLevel, setDifficultyLevel, getStudentProgress } from '@/lib/progress-store';
 import { loadClassroomProfile, saveClassroomProfile } from '@/lib/classroom-profile';
 import { getClassSession, setClassSession, type ClassSession } from '@/lib/session-store';
 import { canUpload, canUseFreeDraw, isConceptAllowed } from '@/lib/classroom-restrictions';
@@ -33,7 +35,7 @@ import type { ClassroomProfile } from '@/lib/platform-types';
 import type { StartSessionOptions } from '@/components/home-screen';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
-type AppView = 'plan' | 'auth' | 'home' | 'session';
+type AppView = 'plan' | 'auth' | 'difficulty-onboarding' | 'home' | 'session';
 
 function svgToDataUrl(svg: string | null | undefined) {
   if (!svg) return null;
@@ -132,7 +134,8 @@ export default function HomePage() {
         setUserEmail(typeof saved.email === 'string' ? saved.email : '');
         // Restore to home if previously authenticated, skip plan picker
         const restoredView = saved.view === 'session' ? 'home' : saved.view;
-        setView(restoredView === 'plan' || restoredView === 'auth' ? 'plan' : restoredView);
+        const safeViews: AppView[] = ['home', 'session'];
+        setView(safeViews.includes(restoredView as AppView) ? (restoredView as AppView) : 'plan');
       }
       const profile = loadClassroomProfile();
       setClassroomName(profile.classroomName);
@@ -148,12 +151,21 @@ export default function HomePage() {
     setUserRole(role);
     setUserName(name);
     setUserEmail(email ?? '');
-    setView('home');
-    // Sync class session state in case PlanPicker just stored one
     setActiveClassSession(getClassSession());
+
+    // Students who haven't chosen a difficulty level go to onboarding first
+    let nextView: AppView = 'home';
+    if (role === 'student' && name.trim()) {
+      // Ensure student record exists before checking difficulty
+      getStudentProgress(name, 'builder');
+      const diffLevel = getDifficultyLevel(name);
+      if (!diffLevel) nextView = 'difficulty-onboarding';
+    }
+
+    setView(nextView);
     localStorage.setItem(
       'sketchbot-session-v1',
-      JSON.stringify({ role, name, view: 'home', email: email ?? undefined, authSource }),
+      JSON.stringify({ role, name, view: nextView, email: email ?? undefined, authSource }),
     );
     if (role === 'teacher' && name.trim()) {
       const p = loadClassroomProfile();
@@ -162,6 +174,18 @@ export default function HomePage() {
         saveClassroomProfile(p);
       }
     }
+  };
+
+  const handleDifficultyComplete = (level: AgeGroup) => {
+    if (userName) {
+      setDifficultyLevel(userName, level);
+      setSelectedAgeGroup(level);
+    }
+    setView('home');
+    localStorage.setItem(
+      'sketchbot-session-v1',
+      JSON.stringify({ role: userRole, name: userName, view: 'home', email: userEmail || undefined }),
+    );
   };
 
   const handleClassroomSaved = useCallback((p: ClassroomProfile) => {
@@ -960,7 +984,7 @@ export default function HomePage() {
 
   // ─── Auth / home / session with shared motion shell ───────────────────
   return (
-    <GuidedTourProvider activeView={view === 'plan' ? 'auth' : view} userRole={userRole} lessonActive={lessonPlanActive}>
+    <GuidedTourProvider activeView={view === 'plan' || view === 'difficulty-onboarding' ? 'auth' : view as 'auth' | 'home' | 'session'} userRole={userRole} lessonActive={lessonPlanActive}>
       <AnimatePresence mode="wait">
         {view === 'plan' && (!musicReady || launchState.phase === 'starting') && (
           <motion.div
@@ -1041,6 +1065,22 @@ export default function HomePage() {
               onAuthenticated={handleAuthenticated}
               onBack={() => setView('plan')}
               authMode={authMode}
+            />
+          </motion.div>
+        )}
+        {view === 'difficulty-onboarding' && (
+          <motion.div
+            key="difficulty-onboarding"
+            className="min-h-[100dvh]"
+            variants={viewVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={viewTransition}
+          >
+            <DifficultyPicker
+              studentName={userName}
+              onComplete={handleDifficultyComplete}
             />
           </motion.div>
         )}

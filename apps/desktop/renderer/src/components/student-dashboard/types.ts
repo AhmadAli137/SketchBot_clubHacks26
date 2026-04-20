@@ -6,7 +6,7 @@ import type { AgeGroup, ConceptLayer } from '@/lib/concept-types';
 import type { BlockProgram } from '@/components/block-editor';
 
 export type DashboardStatusItem = { label: string; value: string };
-export type InteractionMode = 'blocks' | 'code';
+export type InteractionMode = 'rules' | 'blocks' | 'code';
 
 export type StudentDashboardProps = {
   topStatus: DashboardStatusItem[];
@@ -131,6 +131,7 @@ export type LearningStageProps = {
 
 export type PromptComposerProps = {
   interactionMode: InteractionMode;
+  difficultyLevel?: AgeGroup;
   activeLayer: ConceptLayer;
   prompt: string;
   composing: boolean;
@@ -146,6 +147,15 @@ export type PromptComposerProps = {
   onBlockRun: (program: BlockProgram) => void | Promise<void>;
   onBlockPreviewSvgChange: (svg: string | null) => void;
   onCodeSvgResult: (svg: string) => void;
+  onRulesRun?: (rules: RuleSet) => void | Promise<void>;
   showCodeFocus: boolean;
   onToggleCodeFocus: () => void;
 };
+
+export type Rule = {
+  id: string;
+  trigger: string;
+  action: string;
+};
+
+export type RuleSet = Rule[];
