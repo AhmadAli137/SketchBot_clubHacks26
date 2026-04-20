@@ -59,13 +59,9 @@ const HALF_WB       = 0.78 * S;    // = 0.195 — half-wheelbase
 // ─── Shared materials (created once at module level) ─────────────────────────
 
 function mkMat(color: string, emissive?: string, roughness = 0.65, metalness = 0.2) {
-  return new THREE.MeshStandardMaterial({
-    color,
-    roughness,
-    metalness,
-    emissive: emissive ? new THREE.Color(emissive) : undefined,
-    emissiveIntensity: emissive ? 0.25 : 0,
-  });
+  const mat = new THREE.MeshStandardMaterial({ color, roughness, metalness });
+  if (emissive) { mat.emissive = new THREE.Color(emissive); mat.emissiveIntensity = 0.25; }
+  return mat;
 }
 
 const CHASSIS_MAT      = mkMat('#1a1a22');

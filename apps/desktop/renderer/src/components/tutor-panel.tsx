@@ -1392,8 +1392,18 @@ export function TutorPanel({
                 );
                 tts.streamEnd(ageGroup);
                 return;
+              } else if (msg.type === 'error') {
+                // Backend signalled an error — show offline fallback rather than empty bubble
+                tts.stopSpeaking();
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === tutorMsgId
+                      ? { ...m, content: getOfflineGreeting(studentName, ageGroup, conceptTitle || 'this concept'), isStreaming: false }
+                      : m,
+                  ),
+                );
+                return;
               }
-              // msg.type === 'error' falls through to the catch below on next iteration
             } catch {
               // Ignore malformed events
             }
