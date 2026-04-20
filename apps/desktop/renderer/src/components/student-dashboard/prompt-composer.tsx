@@ -16,9 +16,17 @@ export function PromptComposer({
   onBlockPreviewSvgChange,
   onCodeSvgResult,
   onToggleCodeFocus,
+  activeLayer: _activeLayer,
+  prompt: _prompt,
+  uploading: _uploading,
+  featuredTasks: _featuredTasks,
+  onPromptChange: _onPromptChange,
+  onSubmitPrompt: _onSubmitPrompt,
+  onUploadFile: _onUploadFile,
+  onLoadTask: _onLoadTask,
 }: PromptComposerProps) {
   return (
-    <div className="learn-prompt-bar">
+    <div className="learn-prompt-bar" data-tour="session-prompt-composer">
       <div className="learn-mode-row">
         <button
           type="button"

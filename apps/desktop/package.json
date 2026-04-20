@@ -1,8 +1,8 @@
 {
-  "name": "sketchbot-desktop",
-  "version": "0.1.0",
-  "description": "Local-first SketchBot operator desktop app",
-  "author": "SketchBot",
+  "name": "aibotics-desktop",
+  "version": "1.0.0",
+  "description": "AI-Tutored Robotics Platform",
+  "author": "Aibotics",
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
@@ -21,8 +21,9 @@
     "wait-on": "^8.0.5"
   },
   "build": {
-    "appId": "com.sketchbot.desktop",
-    "productName": "SketchBot Desktop",
+    "appId": "com.aibotics.desktop",
+    "productName": "Aibotics",
+    "icon": "electron/icon.ico",
     "directories": {
       "output": "dist"
     },
@@ -41,6 +42,10 @@
         "to": "local-runtime/data"
       },
       {
+        "from": "../../services/local-runtime/.venv",
+        "to": "local-runtime/.venv"
+      },
+      {
         "from": "../../services/local-runtime/requirements.txt",
         "to": "local-runtime/requirements.txt"
       }
@@ -55,8 +60,7 @@
       ]
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
       "perMachine": false
     }
   }

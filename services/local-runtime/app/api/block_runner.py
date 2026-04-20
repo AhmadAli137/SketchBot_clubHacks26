@@ -192,7 +192,13 @@ def run_block_program(req: BlockRunRequest) -> BlockRunResponse:
 
     svg, path_count = _run_program(req.program)
     if not svg or path_count == 0:
-        return BlockRunResponse(ok=False, message="The block program ran, but it did not produce a drawable path.")
+        return BlockRunResponse(
+            ok=False,
+            message=(
+                "No ink on the canvas yet. Add drawing blocks (Draw Line, Draw Shape) or at least two Move/Move By "
+                "steps so the pen traces a visible path—a single Move To only places the pen at one point."
+            ),
+        )
 
     task_name = _publish_block_result(svg=svg, path_count=path_count, concept_id=req.concept_id)
     return BlockRunResponse(

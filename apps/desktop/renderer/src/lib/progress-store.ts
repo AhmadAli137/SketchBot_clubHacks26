@@ -10,10 +10,13 @@ import type {
   DrawingRecord,
   InputMode,
   LayerProgress,
+  ProfileAvatarKind,
   ScoreRecord,
   StreakData,
   StudentProgress,
 } from './concept-types';
+
+import { rollChest, SPARK_RATES, CHESTS } from './game-economy';
 
 const STORAGE_KEY = 'sketchbot-progress-v1';
 const LAYER_ORDER: ConceptLayer[] = ['intuitive', 'structural', 'precise'];
@@ -116,6 +119,8 @@ function defaultProgress(name: string, ageGroup: AgeGroup): StudentProgress {
     student_name: name,
     age_group: ageGroup,
     avatar: DEFAULT_AVATAR,
+    profile_avatar_kind: 'emoji',
+    robot_preset: 'orbit',
     favorite_color: DEFAULT_FAVORITE_COLOR,
     bio: '',
     concepts: {},
@@ -124,6 +129,9 @@ function defaultProgress(name: string, ageGroup: AgeGroup): StudentProgress {
     total_sessions: 0,
     xp: 0,
     level: 1,
+    sparks: 0,
+    owned_items: ['body-orbit', 'color-cyan', 'trail-none', 'emote-wave', 'frame-none'],
+    opened_chests: [],
     scores: [],
     streaks: defaultStreaks(),
     used_input_modes: [],
@@ -137,11 +145,20 @@ function defaultProgress(name: string, ageGroup: AgeGroup): StudentProgress {
 function migrateProgress(raw: StudentProgress): StudentProgress {
   if (raw.xp === undefined) raw.xp = 0;
   if (raw.level === undefined) raw.level = 1;
+  if (raw.sparks === undefined) raw.sparks = 0;
+  if (!Array.isArray(raw.owned_items)) raw.owned_items = ['body-orbit', 'color-cyan', 'trail-none', 'emote-wave', 'frame-none'];
+  if (!Array.isArray(raw.opened_chests)) raw.opened_chests = [];
   if (!Array.isArray(raw.scores)) raw.scores = [];
   if (!raw.streaks) raw.streaks = defaultStreaks();
   if (!Array.isArray(raw.used_input_modes)) raw.used_input_modes = [];
   if (typeof raw.lessons_completed !== 'number') raw.lessons_completed = 0;
   if (typeof raw.quizzes_correct !== 'number') raw.quizzes_correct = 0;
+  if (raw.profile_avatar_kind !== 'emoji' && raw.profile_avatar_kind !== 'robot') {
+    raw.profile_avatar_kind = 'emoji';
+  }
+  if (raw.robot_preset === undefined || raw.robot_preset === '') {
+    raw.robot_preset = 'orbit';
+  }
   return raw;
 }
 
@@ -257,6 +274,7 @@ export function updateStreak(studentName: string): { current: number; longest: n
 
   s.last_active_date = today;
   student.xp += xpAwarded;
+  student.sparks = (student.sparks ?? 0) + SPARK_RATES.streak_day;
   student.level = getLevelForXP(student.xp).level;
   student.updated_at = now();
   save(store);
@@ -333,14 +351,23 @@ export function setAgeGroup(name: string, ageGroup: AgeGroup): void {
 
 export function updateStudentProfile(
   studentName: string,
-  options: { avatar?: string; favorite_color?: string; bio?: string },
+  options: {
+    avatar?: string;
+    favorite_color?: string;
+    bio?: string;
+    profile_avatar_kind?: ProfileAvatarKind;
+    robot_preset?: string;
+  },
 ): void {
   const store = load();
   const student = store[studentName];
   if (!student) return;
+  migrateProgress(student);
   if (options.avatar !== undefined) student.avatar = options.avatar;
   if (options.favorite_color !== undefined) student.favorite_color = options.favorite_color;
   if (options.bio !== undefined) student.bio = options.bio;
+  if (options.profile_avatar_kind !== undefined) student.profile_avatar_kind = options.profile_avatar_kind;
+  if (options.robot_preset !== undefined) student.robot_preset = options.robot_preset;
   student.updated_at = now();
   save(store);
 }
@@ -550,6 +577,21 @@ export function applyTutorEvaluation(
   // XP for any new badges
   totalXP += awardedBadges.length * GAMIFICATION_CONFIG.xp_badge_earned;
 
+  // Award Sparks alongside XP
+  let sparksEarned = 0;
+  if (newlyCompleted) {
+    const sparkMap: Record<ConceptLayer, number> = {
+      intuitive: SPARK_RATES.layer_intuitive,
+      structural: SPARK_RATES.layer_structural,
+      precise: SPARK_RATES.layer_precise,
+    };
+    sparksEarned += sparkMap[layer];
+  }
+  if (newlyMastered) sparksEarned += SPARK_RATES.concept_mastered;
+  if (scoreDetails && scoreDetails.score >= 90) sparksEarned += SPARK_RATES.perfect_score;
+  sparksEarned += awardedBadges.length * SPARK_RATES.badge_earned;
+  student.sparks = (student.sparks ?? 0) + sparksEarned;
+
   const prevLevel = student.level;
   student.xp += totalXP;
   const levelInfo = getLevelForXP(student.xp);
@@ -753,6 +795,7 @@ export function awardLessonXP(studentName: string): XPAwardResult | null {
   if (student) {
     migrateProgress(student);
     student.lessons_completed = (student.lessons_completed ?? 0) + 1;
+    student.sparks = (student.sparks ?? 0) + SPARK_RATES.lesson_completed;
     save(store);
   }
   const result = awardXP(studentName, GAMIFICATION_CONFIG.xp_lesson_completed);
@@ -857,6 +900,117 @@ export async function syncProgressNow(studentName: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ─── Spark Economy ───────────────────────────────────────────────────────────
+
+export function getSparks(studentName: string): number {
+  const store = load();
+  const student = store[studentName];
+  if (!student) return 0;
+  migrateProgress(student);
+  return student.sparks ?? 0;
+}
+
+export function awardSparks(studentName: string, amount: number): number {
+  if (amount <= 0) return 0;
+  const store = load();
+  const student = store[studentName];
+  if (!student) return 0;
+  migrateProgress(student);
+  student.sparks = (student.sparks ?? 0) + amount;
+  student.updated_at = now();
+  save(store);
+  return student.sparks;
+}
+
+export function spendSparks(studentName: string, amount: number): boolean {
+  const store = load();
+  const student = store[studentName];
+  if (!student) return false;
+  migrateProgress(student);
+  if ((student.sparks ?? 0) < amount) return false;
+  student.sparks -= amount;
+  student.updated_at = now();
+  save(store);
+  return true;
+}
+
+export function purchaseShopItem(studentName: string, itemId: string, cost: number): boolean {
+  const store = load();
+  const student = store[studentName];
+  if (!student) return false;
+  migrateProgress(student);
+  if (student.owned_items.includes(itemId)) return true; // already owned
+  if ((student.sparks ?? 0) < cost) return false;
+  student.sparks -= cost;
+  student.owned_items = [...student.owned_items, itemId];
+  student.updated_at = now();
+  save(store);
+  return true;
+}
+
+export function ownsItem(studentName: string, itemId: string): boolean {
+  const store = load();
+  const student = store[studentName];
+  if (!student) return false;
+  migrateProgress(student);
+  return student.owned_items.includes(itemId);
+}
+
+export function getOwnedItems(studentName: string): string[] {
+  const store = load();
+  const student = store[studentName];
+  if (!student) return [];
+  migrateProgress(student);
+  return [...student.owned_items];
+}
+
+export type ChestOpenResult = {
+  sparksAwarded: number;
+  bonusItemId: string | null;
+  newTotal: number;
+};
+
+export function openChest(studentName: string, chestId: string): ChestOpenResult | null {
+  const store = load();
+  const student = store[studentName];
+  if (!student) return null;
+  migrateProgress(student);
+  if (student.opened_chests.includes(chestId)) return null; // already opened
+
+  const chest = CHESTS.find((c) => c.id === chestId);
+  if (!chest) return null;
+
+  const { sparks, bonusItemId } = rollChest(chest);
+  student.sparks = (student.sparks ?? 0) + sparks;
+  student.opened_chests = [...student.opened_chests, chestId];
+  if (bonusItemId && !student.owned_items.includes(bonusItemId)) {
+    student.owned_items = [...student.owned_items, bonusItemId];
+  }
+  student.updated_at = now();
+  save(store);
+
+  return { sparksAwarded: sparks, bonusItemId, newTotal: student.sparks };
+}
+
+export function hasOpenedChest(studentName: string, chestId: string): boolean {
+  const store = load();
+  const student = store[studentName];
+  if (!student) return false;
+  migrateProgress(student);
+  return student.opened_chests.includes(chestId);
+}
+
+export function getAvailableChests(studentName: string): string[] {
+  const store = load();
+  const student = store[studentName];
+  if (!student) return [];
+  migrateProgress(student);
+  const masteredCount = Object.values(student.concepts).filter((c) => c.mastered).length;
+  return CHESTS
+    .filter((c) => c.milestoneAfterConcepts <= masteredCount && !student.opened_chests.includes(c.id))
+    .map((c) => c.id);
 }
 
 export function scheduleProgressSync(studentName: string, debounceMs = 800): void {

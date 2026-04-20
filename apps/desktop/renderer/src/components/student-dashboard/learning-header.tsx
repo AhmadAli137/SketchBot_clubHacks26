@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { motion } from 'motion/react';
 import { ArrowLeft, ChevronDown, Map, Flame } from 'lucide-react';
+
+import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { AGE_GROUP_META, type AgeGroup } from '@/lib/concept-types';
-import { getConceptPreviews } from '@/lib/concept-catalog';
+import { getConceptPreviews, ROBOT_LAB_CONCEPT_IDS } from '@/lib/concept-catalog';
 
 import type { LearningHeaderProps } from './types';
 
@@ -27,6 +30,8 @@ export function LearningHeader({
   xpProgress = 0,
   nextXP = 50,
   streakDays = 0,
+  sparks = 0,
+  profileAvatar,
   onBackToHome,
   onAgeGroupChange,
   onOpenConceptMap,
@@ -34,6 +39,7 @@ export function LearningHeader({
   onToggleSystemStatus,
   onClosePopover,
 }: LearningHeaderProps) {
+  const reducedMotion = usePrefersReducedMotion();
   const systemPanelRef = useRef<HTMLDivElement | null>(null);
   const conceptDropdownRef = useRef<HTMLDivElement | null>(null);
   const ageDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -41,6 +47,14 @@ export function LearningHeader({
   const [showAgeDropdown, setShowAgeDropdown] = useState(false);
 
   const conceptPreviews = useMemo(() => getConceptPreviews(), []);
+  const activeConcept = useMemo(
+    () => (conceptId ? conceptPreviews.find((c) => c.id === conceptId) : undefined),
+    [conceptPreviews, conceptId],
+  );
+  const headerConceptEmoji = activeConcept?.emoji ?? (conceptId ? '🗺️' : '✏️');
+  const isRobotLab = Boolean(
+    conceptId && (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(conceptId),
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -70,7 +84,7 @@ export function LearningHeader({
 
   return (
     <>
-      <header className="learn-header">
+      <header className="learn-header" data-tour="session-hub">
         <Button
           variant="ghost"
           size="sm"
@@ -81,6 +95,12 @@ export function LearningHeader({
           <ArrowLeft size={13} />
           Menu
         </Button>
+
+        {profileAvatar ? (
+          <div className="learn-header-profile-avatar" title="Your profile look">
+            {profileAvatar}
+          </div>
+        ) : null}
 
         <div className="learn-header-brand">
           <div className="learn-header-logo">✏️</div>
@@ -96,7 +116,7 @@ export function LearningHeader({
             title={conceptTitle}
             onClick={() => setShowConceptDropdown((v) => !v)}
           >
-            <span className="learn-concept-emoji">{conceptId ? '🗺️' : '✏️'}</span>
+            <span className="learn-concept-emoji">{headerConceptEmoji}</span>
             <span className="learn-concept-name">{conceptTitle}</span>
             <ChevronDown size={12} style={{ opacity: 0.5, flexShrink: 0, transition: 'transform 120ms', transform: showConceptDropdown ? 'rotate(180deg)' : undefined }} />
           </button>
@@ -202,15 +222,36 @@ export function LearningHeader({
           onClick={onToggleSystemStatus}
           title={sysLabel}
         >
-          <div className={`learn-sys-dot ${sysStatus}`} />
+          <motion.div
+            key={sysStatus}
+            className={`learn-sys-dot ${sysStatus}`}
+            initial={reducedMotion ? false : { scale: 0.88, opacity: 0.85 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 26 }}
+          />
           <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600 }}>{sysLabel}</span>
         </button>
+
+        {sparks > 0 && (
+          <button
+            type="button"
+            className="header-sparks-pill"
+            data-tour="header-sparks"
+            onClick={onOpenConceptMap}
+            title="Open your learning map to spend Sparks in the Avatar Shop"
+          >
+            <span>⚡</span>
+            <motion.span key={sparks} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ duration: 0.25 }}>
+              {sparks}
+            </motion.span>
+          </button>
+        )}
 
         <Button
           variant="ghost"
           size="sm"
           onClick={onOpenConceptMap}
-          title="Knowledge Map"
+          title="Learning path — lessons, unlocks, and your stats"
           className="rounded-[var(--radius-md)]"
         >
           <Map size={13} />

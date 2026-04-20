@@ -165,11 +165,22 @@ export type RobotRecord = {
   activeModules: string[]; // active module IDs
 };
 
+/** Optional policies the teacher sets; enforced client-side for students (v1). */
+export type ClassroomRestrictions = {
+  /** When non-null and non-empty, only these concept IDs are allowed (Free Draw uses id `free-draw`). */
+  allowedConceptIds: string[] | null;
+  disableFreeDraw?: boolean;
+  disableUpload?: boolean;
+  /** Hint button calls tutor with trigger hint_request; 0 = unlimited. */
+  maxTutorHintsPerSession?: number;
+};
+
 export type ClassroomProfile = {
   classroomName: string;
   teacherName: string;
   students: string[]; // names (simple for v1)
   bots: string[]; // custom bot names (simple for v1)
+  restrictions?: ClassroomRestrictions;
 };
 
 // ─── Platform Registry Response ───────────────────────────────────────────────

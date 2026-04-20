@@ -163,11 +163,13 @@ export function LearningStage({
             />
           )}
           {liveMarkerOverlayUrl && !markerOverlayFailed ? (
-            <img
+            <Image
               src={liveMarkerOverlayUrl}
               alt=""
+              fill
+              unoptimized
               onError={() => setMarkerOverlayFailed(true)}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
+              style={{ objectFit: 'contain', pointerEvents: 'none' }}
             />
           ) : (aprilTagDetections.length > 0 || canvasBorder.detected) && (() => {
             const vw = videoDims?.w ?? 1;

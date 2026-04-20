@@ -16,16 +16,31 @@ class Settings:
         self.cors_origins = _split_csv(
             os.getenv(
                 "CLOUD_CORS_ORIGINS",
-                "http://127.0.0.1:3002,http://localhost:3002",
+                "http://127.0.0.1:3001,http://localhost:3001,http://127.0.0.1:3002,http://localhost:3002",
             )
         )
-        self.cors_origin_regex = os.getenv("CLOUD_CORS_ORIGIN_REGEX")
+        self.cors_origin_regex = os.getenv(
+            "CLOUD_CORS_ORIGIN_REGEX",
+            r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://.*\.aibotics\.app$|^app://localhost$",
+        )
         self.data_file = Path(
             os.getenv(
                 "SKETCHBOT_CLOUD_DATA_FILE",
                 Path(__file__).resolve().parents[2] / "data" / "platform.json",
             )
         )
+        # AI provider keys — live only on the cloud backend, never in the installer
+        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        self.elevenlabs_api_key = os.getenv("ELEVENLABS_API_KEY", "")
+        self.elevenlabs_model_id = os.getenv("ELEVENLABS_MODEL_ID", "eleven_turbo_v2_5")
+        self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
+
+        # Supabase — used to validate user JWTs on every AI request
+        self.supabase_url = os.getenv("SUPABASE_URL", "")
+        self.supabase_service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+
+        # Set SKIP_AUTH=true in local dev to bypass JWT validation
+        self.skip_auth = os.getenv("SKIP_AUTH", "").strip().lower() in ("1", "true", "yes")
 
 
 settings = Settings()

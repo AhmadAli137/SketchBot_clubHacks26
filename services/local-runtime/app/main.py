@@ -12,10 +12,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import api_router
 from app.core.settings import settings
 from app.core.state import app_state
+from app.services import tutor_supabase_sync
+from app.services.tutor_audit_log import start_supabase_outbox_worker
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if tutor_supabase_sync.is_configured():
+        start_supabase_outbox_worker()
     yield
 
 

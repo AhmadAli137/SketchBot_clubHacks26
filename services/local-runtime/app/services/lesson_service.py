@@ -12,7 +12,7 @@ except ModuleNotFoundError:
 
 from app.services.tutor_service import _load_concepts, _get_concept, _build_concept_context
 
-_LESSON_CACHE_DIR = Path(__file__).parent.parent / "data" / "lesson-plans"
+_LESSON_CACHE_DIR = Path(os.environ.get("SKETCHBOT_DATA_DIR") or (Path(__file__).parent.parent / "data")) / "lesson-plans"
 
 _LESSON_SCHEMA = """\
 You are an expert curriculum designer for a robotics education platform.

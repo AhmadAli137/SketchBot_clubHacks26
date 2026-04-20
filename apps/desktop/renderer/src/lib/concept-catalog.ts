@@ -25,6 +25,13 @@ export type ConceptMapNode = {
 
 const concepts = conceptsJson as ConceptDefinition[];
 
+/** Physical robot / competition labs — used for motion accents and theming */
+export const ROBOT_LAB_CONCEPT_IDS = [
+  'cone-ring-gauntlet',
+  'sumo-arena',
+  'maze-marathon',
+] as const;
+
 const MAP_LAYOUT: Record<string, { x: number; y: number }> = {
   'coord-systems': { x: 50, y: 14 },
   'geometry-drawing': { x: 22, y: 40 },
@@ -32,7 +39,10 @@ const MAP_LAYOUT: Record<string, { x: number; y: number }> = {
   'path-planning': { x: 78, y: 40 },
   'computer-vision': { x: 22, y: 68 },
   'control-theory': { x: 78, y: 68 },
-  'systems-engineering': { x: 50, y: 88 },
+  'cone-ring-gauntlet': { x: 28, y: 76 },
+  'sumo-arena': { x: 50, y: 76 },
+  'maze-marathon': { x: 72, y: 76 },
+  'systems-engineering': { x: 50, y: 91 },
 };
 
 function getStarterPrompt(concept: ConceptDefinition): string {

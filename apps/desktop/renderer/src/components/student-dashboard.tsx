@@ -3,8 +3,10 @@
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { motion } from 'motion/react';
 
 import { ConceptMap } from '@/components/concept-map';
+import { ProgressMap } from '@/components/progress-map';
 import { TutorPanel } from '@/components/tutor-panel';
 import type { BlockProgram } from '@/components/block-editor';
 import { LearningHeader } from '@/components/student-dashboard/learning-header';
@@ -17,13 +19,19 @@ import {
   awardBadge,
   saveDrawing,
   getStudentXPInfo,
+  getSparks,
   getStreakInfo,
+  getStudentProgress,
   updateStreak,
   recordInputModeUsed,
   scheduleProgressSync,
   setProgressSyncApiBase,
 } from '@/lib/progress-store';
+import type { ProfileAvatarKind } from '@/lib/concept-types';
+import { StudentProfileAvatar } from '@/components/student-profile-avatar';
 import { LevelUpCelebration, useXPToast } from '@/components/gamification';
+import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
+import { canUpload } from '@/lib/classroom-restrictions';
 
 export function StudentDashboard({
   topStatus,
@@ -57,6 +65,9 @@ export function StudentDashboard({
   ageGroup: ageGroupProp = 'explorer',
   studentName = '',
   apiBase = '',
+  lessonPlanActive = false,
+  classroomRestrictions,
+  userRole = 'student',
   onConceptSelect,
   onBackToHome,
   onVideoMount,
@@ -69,6 +80,9 @@ export function StudentDashboard({
   onUploadFile,
   onLoadTask,
 }: StudentDashboardProps) {
+  const reducedMotion = usePrefersReducedMotion();
+  const sessionActorRole: 'teacher' | 'student' = userRole === 'teacher' ? 'teacher' : 'student';
+  const uploadDisabled = userRole === 'student' && classroomRestrictions && !canUpload(classroomRestrictions);
   type WorkspaceTab = 'simulator' | 'live' | 'programming';
 
   const [activeLayer, setActiveLayer] = useState<ConceptLayer>('intuitive');
@@ -86,6 +100,7 @@ export function StudentDashboard({
   const [showCameraDropToast, setShowCameraDropToast] = useState(false);
   const cameraWasReadyRef = useRef(false);
   const [showCodeFocus, setShowCodeFocus] = useState(false);
+  const [blockRunnerNotice, setBlockRunnerNotice] = useState<string | null>(null);
   const [tutorCollapsed, setTutorCollapsed] = useState(false);
   const [primaryTab, setPrimaryTab] = useState<WorkspaceTab>('simulator');
   const [secondaryTab, setSecondaryTab] = useState<WorkspaceTab | null>(null);
@@ -102,6 +117,13 @@ export function StudentDashboard({
   const [gamificationData, setGamificationData] = useState<{
     xp: number; level: number; levelName: string; levelEmoji: string; progress: number; nextXP: number; streakDays: number;
   }>({ xp: 0, level: 1, levelName: 'Doodler', levelEmoji: '✏️', progress: 0, nextXP: 50, streakDays: 0 });
+
+  const [profileAppearance, setProfileAppearance] = useState<{
+    kind: ProfileAvatarKind;
+    emoji: string;
+    robotPreset: string;
+    color: string;
+  }>({ kind: 'emoji', emoji: '🤖', robotPreset: 'orbit', color: 'var(--cyan)' });
 
   const xpToast = useXPToast();
 
@@ -156,6 +178,14 @@ export function StudentDashboard({
 
       scheduleProgressSync(studentName);
     }
+
+    const sp = getStudentProgress(studentName, ageGroup);
+    setProfileAppearance({
+      kind: sp.profile_avatar_kind ?? 'emoji',
+      emoji: sp.avatar ?? '🤖',
+      robotPreset: sp.robot_preset ?? 'orbit',
+      color: sp.favorite_color ?? 'var(--cyan)',
+    });
   };
 
   useEffect(() => {
@@ -319,6 +349,7 @@ export function StudentDashboard({
   const handleInteractionModeChange = (mode: 'blocks' | 'code') => {
     setInteractionMode(mode);
     setPrimaryTab('programming');
+    setBlockRunnerNotice(null);
     trackInputMode(mode);
   };
 
@@ -356,7 +387,15 @@ export function StudentDashboard({
 
   const renderWorkspace = (tab: WorkspaceTab) => {
     if (tab === 'simulator') {
-      return <SimPlayground svgContent={approvedSvg} isGenerating={composing || Boolean(pendingTask)} style={{ position: 'absolute', inset: 0 }} />;
+      return (
+        <SimPlayground
+          svgContent={approvedSvg}
+          isGenerating={composing || Boolean(pendingTask)}
+          style={{ position: 'absolute', inset: 0 }}
+          conceptId={conceptId}
+          activeLayer={activeLayer}
+        />
+      );
     }
 
     if (tab === 'live') {
@@ -407,6 +446,14 @@ export function StudentDashboard({
 
     return (
       <div className="workspace-programming">
+        {blockRunnerNotice && (
+          <div className="block-runner-notice" role="alert">
+            <span>{blockRunnerNotice}</span>
+            <button type="button" className="block-runner-notice-dismiss" onClick={() => setBlockRunnerNotice(null)} aria-label="Dismiss">
+              ✕
+            </button>
+          </div>
+        )}
         <PromptComposer
           interactionMode={interactionMode}
           activeLayer={activeLayer}
@@ -437,6 +484,7 @@ export function StudentDashboard({
   };
 
   const handleBlockRun = async (program: BlockProgram) => {
+    setBlockRunnerNotice(null);
     awaitingResultRef.current = true;
     trackInputMode('blocks');
     try {
@@ -459,7 +507,10 @@ export function StudentDashboard({
       };
 
       if (!response.ok || payload.ok === false) {
-        throw new Error(payload.message || 'Block execution failed.');
+        awaitingResultRef.current = false;
+        setBlockRunnerNotice(payload.message || 'Block execution failed.');
+        setLastSubmittedPrompt('Block runner notice');
+        return;
       }
 
       if (payload.svg) {
@@ -467,13 +518,19 @@ export function StudentDashboard({
       }
       setLastSubmittedPrompt(payload.task_name || conceptTitle || 'block program');
     } catch (error) {
-      console.error('Block runner failed', error);
+      awaitingResultRef.current = false;
+      setBlockRunnerNotice(
+        error instanceof Error ? error.message : 'Could not reach the block runner. Is the local backend running?',
+      );
       setLastSubmittedPrompt('Block runner error');
     }
   };
 
   useEffect(() => {
     if (!cameraReady || !studentName || !activeJobName) {
+      return;
+    }
+    if (sessionActorRole === 'teacher') {
       return;
     }
 
@@ -483,10 +540,19 @@ export function StudentDashboard({
       layer: activeLayer,
     });
     refreshGamification();
-  }, [cameraReady, activeJobName, studentName, conceptId, activeLayer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cameraReady, activeJobName, studentName, conceptId, activeLayer, sessionActorRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="app-shell learning-app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div
+      className="app-shell learning-app-shell"
+      data-session-actor={sessionActorRole}
+      style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}
+    >
+      {lessonPlanActive ? (
+        <div className="lesson-plan-session-bar" role="status">
+          Lesson plan session — follow your class steps below.
+        </div>
+      ) : null}
       <LearningHeader
         conceptId={conceptId}
         conceptTitle={conceptTitle}
@@ -504,6 +570,18 @@ export function StudentDashboard({
         xpProgress={gamificationData.progress}
         nextXP={gamificationData.nextXP}
         streakDays={gamificationData.streakDays}
+        sparks={studentName ? getSparks(studentName) : 0}
+        profileAvatar={
+          studentName ? (
+            <StudentProfileAvatar
+              kind={profileAppearance.kind}
+              emoji={profileAppearance.emoji}
+              robotPresetId={profileAppearance.robotPreset}
+              accent={profileAppearance.color}
+              size={34}
+            />
+          ) : undefined
+        }
         onBackToHome={onBackToHome}
         onAgeGroupChange={setAgeGroup}
         onOpenConceptMap={() => setShowConceptMap(true)}
@@ -517,7 +595,7 @@ export function StudentDashboard({
         <div className="workspace-column">
         <div className={`workspace-main ${splitEnabled ? 'split' : ''}`} style={{ minHeight: 0 }}>
           <div className="workspace-pane">
-            <div className="workspace-tabs">
+            <div className="workspace-tabs" data-tour="session-tabs">
               {(['simulator', 'live', 'programming'] as WorkspaceTab[]).map((tab) => (
                 <button
                   key={tab}
@@ -597,7 +675,7 @@ export function StudentDashboard({
         </div>
 
         {/* Floating prompt bar */}
-        <div className="floating-prompt-bar">
+        <div className="floating-prompt-bar" data-tour="session-prompt">
           <form
             className="floating-prompt-form"
             onSubmit={(e) => { e.preventDefault(); handlePromptSubmit(e); }}
@@ -625,17 +703,30 @@ export function StudentDashboard({
                 }
               }}
             />
-            <label className="floating-prompt-upload" title="Upload image">
-              <input type="file" accept=".svg,image/*" onChange={onUploadFile} style={{ display: 'none' }} />
+            <label
+              className="floating-prompt-upload"
+              title={uploadDisabled ? 'Upload disabled by your teacher' : 'Upload image'}
+              style={{
+                opacity: uploadDisabled ? 0.35 : 1,
+                pointerEvents: uploadDisabled ? 'none' : undefined,
+              }}
+            >
+              <input type="file" accept=".svg,image/*" onChange={onUploadFile} style={{ display: 'none' }} disabled={uploadDisabled} />
               📎
             </label>
-            <button
+            <motion.button
               type="submit"
               className="floating-prompt-submit"
               disabled={composing || uploading || !prompt.trim()}
+              whileTap={
+                reducedMotion || composing || uploading || !prompt.trim()
+                  ? undefined
+                  : { scale: 0.94 }
+              }
+              transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 28 }}
             >
               {composing ? '⏳' : '▶ Generate'}
-            </button>
+            </motion.button>
           </form>
 
           {/* Prompt gallery panel */}
@@ -717,6 +808,9 @@ export function StudentDashboard({
               backendReachable={backendReachable}
               onLayerChange={setActiveLayer}
               onXPChange={refreshGamification}
+              sessionActorRole={sessionActorRole}
+              lessonPlanActive={lessonPlanActive}
+              classroomRestrictions={userRole === 'student' ? classroomRestrictions : undefined}
             />
           </div>
         </div>
@@ -757,7 +851,7 @@ export function StudentDashboard({
       )}
 
       {showConceptMap && (
-        <ConceptMap
+        <ProgressMap
           studentName={studentName}
           ageGroup={ageGroup}
           onConceptSelect={(nextConceptId, nextConceptTitle) => {

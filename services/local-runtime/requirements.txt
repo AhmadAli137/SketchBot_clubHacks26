@@ -2,7 +2,7 @@ fastapi
 uvicorn[standard]
 pydantic
 numpy
-opencv-python
+opencv-python-headless
 python-multipart
 openai
 anthropic

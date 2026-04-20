@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parents[1] / ".env")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.platform import load_challenge_library, load_platform_data, load_robot_registry
 from app.core.settings import settings
-from app.routers import concepts
+from app.routers import concepts, tutor
 
 app = FastAPI(title="SketchBot Cloud Backend", version="0.2.0")
 
@@ -19,6 +25,7 @@ app.add_middleware(
 )
 
 app.include_router(concepts.router)
+app.include_router(tutor.router)
 
 
 @app.get("/")

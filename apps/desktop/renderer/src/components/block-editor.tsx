@@ -52,7 +52,7 @@ export type BlockProgram = {
 
 type BlockEditorProps = {
   conceptId?: string | null;
-  onRunProgram: (program: BlockProgram) => void;
+  onRunProgram: (program: BlockProgram) => void | Promise<void>;
   isRunning?: boolean;
   onPreviewSvgChange?: (svg: string | null) => void;
 };
@@ -788,7 +788,11 @@ export function BlockEditor({ conceptId, onRunProgram, isRunning = false, onPrev
             <button
               type="button"
               className="block-run-btn"
-              onClick={() => onRunProgram(compiledProgram)}
+              onClick={() => {
+                void Promise.resolve(onRunProgram(compiledProgram)).catch(() => {
+                  /* errors surfaced by parent (e.g. banner); avoid unhandled rejection */
+                });
+              }}
               disabled={isRunning || compiledProgram.blocks.length === 0}
             >
               <Play size={13} />

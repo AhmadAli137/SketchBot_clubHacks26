@@ -208,5 +208,95 @@
         "starter_prompt": "draw a rose curve: r = cos(k·θ) in polar coordinates. Try k=3, k=5, k=7 and observe the pattern."
       }
     }
+  },
+  {
+    "concept_id": "cone-ring-gauntlet",
+    "domain": "sensors",
+    "title": "Cone Ring Gauntlet",
+    "subtitle": "Ultrasonic aim, line sensors for balance",
+    "emoji": "🎯",
+    "description": "Design a robot that hunts traffic cones inside a ring using an ultrasonic rangefinder to line up pushes, while line IR sensors keep you from driving off the edge — without tipping over. Tutorial flow: (1) calibrate line thresholds on your mat, (2) sweep to acquire cones in range, (3) cap motor power and test edge recovery.",
+    "prerequisite_ids": ["control-theory"],
+    "layers": {
+      "intuitive": {
+        "hook": "Can your robot \"see\" a cone it cannot photograph?",
+        "activity": "language_prompt",
+        "robot_demo": null,
+        "tutor_intro": "Welcome to the Cone Ring! Picture a low arena with a bold black border. Ultrasonic sensors send out tiny sound clicks and listen for the echo — that gives distance to the nearest cone. Line IR sensors stare at the floor: dark line means \"edge is close\"; bright means \"safe.\" Your job is to choreograph those two senses so the bot shoves cones without driving off the cliff or ramming so hard it flips. Mini-tutorial: first stand still and log raw line values on white vs black; then spin slowly and watch distance spikes when a cone enters the beam; only then chain forward motion.",
+        "starter_prompt": "write a 4-step test plan: calibrate IR, log ultrasonic vs cone position, one slow push trial, then add edge escape — note one failure mode for each step"
+      },
+      "structural": {
+        "block_template": "sensor_fusion_drive",
+        "visual_tool": "sensor_timeline",
+        "tutor_intro": "Stack blocks in a sense → decide → act loop. Wire ultrasonic distance into a threshold (\"cone near enough to push\"). Pair left/right line IR so if one side sees black first, you curve away from the ring edge. Add a max motor power cap so momentum stays gentle — fewer tip-overs. Add a timer so \"hunt\" never runs forever: every 2.5s without a valid distance, nudge rotate 15° and try again.",
+        "starter_prompt": "build blocks for: HUNT (rotate until distance in 15–60 cm), ALIGN (differential drive to center the echo), PUSH (capped power), EDGE (both lines or either line triggers reverse+turn) — label which block runs fastest in your loop"
+      },
+      "precise": {
+        "code_scaffold": "# Cone ring — ultrasonic + line IR fusion (pseudocode for a differential drive)\nULTRA_NEAR_CM = 18\nLINE_DARK = 0.35  # normalized reflectance threshold\nMAX_PWM = 0.55\n\ndef read_ultra_cm() -> float: ...\ndef line_left() -> float: ...\ndef line_right() -> float: ...\ndef drive(L: float, R: float): ...\n\ndef cone_ring_tick():\n    d = read_ultra_cm()\n    ll, lr = line_left(), line_right()\n    if min(ll, lr) < LINE_DARK:\n        drive(-MAX_PWM * 0.6, -MAX_PWM * 0.6)  # back off\n        turn_away_from_edge(ll, lr)\n        return\n    if d < ULTRA_NEAR_CM:\n        drive(MAX_PWM * 0.45, MAX_PWM * 0.45)  # gentle shove\n    else:\n        hunt_scan()  # rotate or sweep to acquire cones",
+        "math_notation": "d_echo = (c_sound · t_flight) / 2,  edge_risk = min(ρ_L, ρ_R)",
+        "tutor_intro": "Ultrasonic ranging assumes the first echo is the cone — watch for ring walls creating ghost readings. IR line sensors respond to reflectance; calibrate thresholds on your actual mat. Fuse slow: low-pass filter distance, debounce line hits, and limit jerk (Δv/Δt) so the center of mass stays inside the support polygon. Tutorial extension: if two echoes compete, prefer the reading that matches last known cone bearing; reject jumps larger than your max closing speed × Δt.",
+        "starter_prompt": "implement median-of-3 on distance, 50 ms debounce on line trip, and a jerk cap — document the numeric values you chose and why"
+      }
+    }
+  },
+  {
+    "concept_id": "sumo-arena",
+    "domain": "competition",
+    "title": "Sumo Arena",
+    "subtitle": "Push the rival bot out first",
+    "emoji": "🤼",
+    "description": "Two robots, one ring: last machine inside wins. Strategy, torque, timing, and sensors turn a shove into a sport. Tutorial flow: (1) prove edge sensors stop you at the border every time, (2) add opponent seek, (3) tune charge vs escape timing.",
+    "prerequisite_ids": ["control-theory"],
+    "layers": {
+      "intuitive": {
+        "hook": "Is sumo about strength — or about knowing where the edge is?",
+        "activity": "language_prompt",
+        "robot_demo": null,
+        "tutor_intro": "Mini sumo is chess at 500 RPM. You want enough grip to shove, but not so much spin that you fly out backwards. Most bots read the white ring border with sensors under the nose; many hunt opponents with short-range IR or ultrasonic. Picture your robot as a bulldozer with reflexes: if the edge flickers, you backpedal before a wheel crosses. Try this lesson arc: shadow practice (motors off, drag bot to feel the ring), then edge-only autonomous, then add seek.",
+        "starter_prompt": "for each phase — shadow, edge-only, seek+charge — write one success metric you can observe in under 60 seconds"
+      },
+      "structural": {
+        "block_template": "sumo_state_machine",
+        "visual_tool": "arena_edge_overlay",
+        "tutor_intro": "Model the match as states: SEEK (scan for opponent), CHARGE (full forward when target in arc), EDGE_ESCAPE (reverse + curve when border detected), COOLDOWN (short pause after a big hit). Swap priorities so edge safety always preempts attack. Sketch a ladder diagram: SEEK at the bottom priority, EDGE_ESCAPE at the top — anything below must yield when the ladder fires.",
+        "starter_prompt": "use blocks so COOLDOWN can only run after EDGE_ESCAPE or a collision timer, never after a clean SEEK — explain why that prevents stall-outs"
+      },
+      "precise": {
+        "code_scaffold": "import math\n\nRING_RADIUS_MM = 770  # example mini-sumo ring\nEDGE_TH = 0.4\n\nclass SumoBot:\n    def __init__(self):\n        self.state = 'SEEK'\n        self.t = 0.0\n\n    def tick(self, dt, border_sensors, opponent_bearing_deg, opponent_dist):\n        if any(s < EDGE_TH for s in border_sensors):\n            self.state = 'EDGE_ESCAPE'\n            return self.edge_escape()\n        if self.state == 'SEEK' and opponent_dist < 400:\n            self.state = 'CHARGE'\n        if self.state == 'CHARGE':\n            return self.drive_toward(opponent_bearing_deg)\n        return self.scan_rotate(dt)\n\n    def edge_escape(self):\n        return (-0.7, -0.7), 0.35  # reverse, then curve (implement in drive)",
+        "math_notation": "τ_wheel ∝ μ·N — traction limits push; prioritize CoM low inside the ring polygon",
+        "tutor_intro": "Sumo is dominated by traction and center of mass. The control problem is hybrid: continuous drive laws inside each state, discrete jumps on sensor events. Consider opponent acquisition rate vs edge sampling rate — the faster loop should own safety. Add hysteresis on border readings so a single noisy sample cannot cancel CHARGE; require two consecutive edge hits or a short persistence window.",
+        "starter_prompt": "code edge detection with a 30–50 ms persistence filter and log state transitions during a mock match — count spurious escapes"
+      }
+    }
+  },
+  {
+    "concept_id": "maze-marathon",
+    "domain": "navigation",
+    "title": "Maze Marathon",
+    "subtitle": "Wall-follow, nodes, and memory",
+    "emoji": "🧭",
+    "description": "From left-hand rule to stepping through a grid: learn how maze-solving robots turn corridors into a solvable graph. Tutorial flow: (1) reliable wall detection, (2) consistent intersection turns, (3) log a path string, (4) optimize on run two.",
+    "prerequisite_ids": ["path-planning"],
+    "layers": {
+      "intuitive": {
+        "hook": "If you always hug the left wall, do you always escape?",
+        "activity": "language_prompt",
+        "robot_demo": null,
+        "tutor_intro": "A maze-solving bot feels the world with bump sensors, short IR, or a time-of-flight sweep. The classic trick beginners love is wall following — pick a wall and never let go. It does not work in every maze, but it is a beautiful introduction to persistent rules creating emergent paths. Watch how corners become \"nodes\" where you choose forward, left, or right. Practice drill: drive three perfect 90° turns in an empty box — if your turns drift, fix that before trusting any maze rule.",
+        "starter_prompt": "draw a tiny 3x3 maze on paper, run left-hand rule by hand, and mark where you revisit the same cell — what does that tell you about loops?"
+      },
+      "structural": {
+        "block_template": "maze_step_executor",
+        "visual_tool": "maze_graph_sketch",
+        "tutor_intro": "Represent the maze as intersections. Each block step is: advance to the next node, read openings, enqueue decisions. Build a simple stack or string of turns (like LFR letters) to remember a discovered path — that is the bridge from wall-follow to systematic search. Add a \"segment\" block: drive until the next opening or wall contact, so your graph edges have consistent length.",
+        "starter_prompt": "encode LFRBLF for one solved maze, then apply the standard simplification rules (replace LBL with S, etc.) on paper before you code"
+      },
+      "precise": {
+        "code_scaffold": "# Tremaux / simplified exploration — sketch for discussion\nfrom enum import Enum\nclass Dir(Enum): N = 0; E = 1; S = 2; W = 3\n\ndef left_hand_step(walls_open, facing):\n    # walls_open: [front, left, right] relative to robot\n    if not walls_open[1]:  # left open\n        return 'turn_left', (facing - 1) % 4\n    if not walls_open[0]:\n        return 'forward', facing\n    if not walls_open[2]:\n        return 'turn_right', (facing + 1) % 4\n    return 'uturn', (facing + 2) % 4\n\n# Flood-fill on a known grid is O(n) after mapping — students often implement BFS on cell grid",
+        "math_notation": "Maze as graph G=(V,E); shortest path ⇒ BFS on V if map known",
+        "tutor_intro": "Wall-following is a policy, not a guarantee of optimality. For competition mazes, teams often map cells with encoders + gyros, then flood-fill from the goal. Discuss error: wheel slip makes odometry drift — periodic landmark fixes matter. When you have a full map, BFS gives shortest path in unweighted grids; compare that path to your logged LFR string length.",
+        "starter_prompt": "simulate a 5x5 grid maze in Python: run BFS from start to goal, then animate left-hand rule on the same grid and print total steps — note when they diverge badly"
+      }
+    }
   }
 ]

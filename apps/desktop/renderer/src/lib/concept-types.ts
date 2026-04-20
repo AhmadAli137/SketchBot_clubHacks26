@@ -13,7 +13,10 @@ export type ConceptDomain =
   | 'vision'
   | 'control'
   | 'geometry'
-  | 'systems';
+  | 'systems'
+  | 'sensors'
+  | 'competition'
+  | 'navigation';
 
 export type IntuitiveLayer = {
   hook: string;            // Opening question to create curiosity
@@ -84,10 +87,16 @@ export type StreakData = {
 
 export type InputMode = 'language' | 'blocks' | 'code';
 
+export type ProfileAvatarKind = 'emoji' | 'robot';
+
 export type StudentProgress = {
   student_name: string;
   age_group: AgeGroup;
   avatar?: string;
+  /** When `robot`, show `RobotAvatarPreset` with `robot_preset` + `favorite_color`. */
+  profile_avatar_kind?: ProfileAvatarKind;
+  /** Preset id from `ROBOT_PRESETS` in `@/lib/robot-presets`. */
+  robot_preset?: string;
   favorite_color?: string;
   bio?: string;
   concepts: Record<string, ConceptProgress>;
@@ -96,6 +105,9 @@ export type StudentProgress = {
   total_sessions: number;
   xp: number;
   level: number;
+  sparks: number;
+  owned_items: string[];
+  opened_chests: string[];
   scores: ScoreRecord[];
   streaks: StreakData;
   used_input_modes?: InputMode[];

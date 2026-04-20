@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LessonStep } from './lesson-types';
+import { CLOUD_API_URL, cloudHeaders } from './cloud-api';
 
 type UseLessonAudioOptions = {
   apiBase: string;
+  authToken?: string | null;
   enabled?: boolean;
   voice?: string;
 };
 
 /**
  * Manages TTS audio playback synchronized with lesson steps.
- * When a step has narration text, fetches audio from /api/tutor/speak
- * and plays it. Stops audio on step change or pause.
+ * Fetches audio from the Aibotics cloud backend (auth-gated, keys never in installer).
  */
-export function useLessonAudio({ apiBase, enabled = true, voice = 'alloy' }: UseLessonAudioOptions) {
+export function useLessonAudio({ apiBase, authToken = null, enabled = true, voice = 'alloy' }: UseLessonAudioOptions) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentBlobUrlRef = useRef<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -49,15 +50,15 @@ export function useLessonAudio({ apiBase, enabled = true, voice = 'alloy' }: Use
   const speakStep = useCallback(async (step: LessonStep | null) => {
     cleanup();
 
-    if (!enabled || !step?.narration?.text || !apiBase) return;
+    if (!enabled || !step?.narration?.text) return;
 
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
-      const response = await fetch(`${apiBase}/api/tutor/speak`, {
+      const response = await fetch(`${CLOUD_API_URL}/api/tutor/speak`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: cloudHeaders(authToken),
         body: JSON.stringify({ text: step.narration.text, voice }),
         signal: controller.signal,
       });
@@ -79,7 +80,7 @@ export function useLessonAudio({ apiBase, enabled = true, voice = 'alloy' }: Use
     } catch {
       // Fetch aborted or network error — ignore
     }
-  }, [apiBase, enabled, voice, cleanup]);
+  }, [authToken, enabled, voice, cleanup]);
 
   const stop = useCallback(() => {
     cleanup();

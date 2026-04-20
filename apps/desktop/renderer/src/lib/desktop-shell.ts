@@ -14,6 +14,9 @@ export type DesktopShellBridge = {
   isDesktopShell: boolean;
   runtimePort: string;
   rendererMode: string;
+  /** Last saved theme from disk (`userData/sketchbot-theme-pref.json`). `null` if never saved. */
+  initialTheme?: 'light' | 'dark' | null;
+  setTheme?: (theme: 'light' | 'dark') => Promise<void>;
   getLaunchState: () => Promise<DesktopLaunchState>;
   retryLaunch: () => Promise<DesktopLaunchState>;
   getPairingTargets: () => Promise<string[]>;

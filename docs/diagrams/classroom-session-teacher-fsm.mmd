@@ -1,0 +1,15 @@
+%% Teacher-owned bounded session (server authority).
+stateDiagram-v2
+    direction LR
+    [*] --> Drafted
+    Drafted --> Live: start_session
+    Live --> Locked: lock_joins
+    Locked --> Live: unlock_joins
+    Live --> Closing: end_session
+    Locked --> Closing: end_session
+    Closing --> Closed: drain_complete
+    Closed --> Aggregating: begin_aggregate
+    Aggregating --> SyncedToTeacher: persist_roster_stats
+    Aggregating --> SyncFailed: persist_error
+    SyncFailed --> Aggregating: retry_policy
+    SyncedToTeacher --> [*]

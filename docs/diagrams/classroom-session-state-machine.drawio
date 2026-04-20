@@ -1,0 +1,182 @@
+<mxfile host="app.diagrams.net" modified="2026-04-17T00:00:00.000Z" agent="RoboticsPro-docs" version="22.1.0">
+  <diagram id="classroom-session-fsm" name="Classroom session FSM">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="t-title" value="Teacher: ClassroomSession" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="280" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="t-draft" value="Drafted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="70" width="120" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-live" value="Live" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="220" y="70" width="100" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-lock" value="Locked&#xa;(joins off)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="380" y="70" width="120" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-close" value="Closing&#xa;(drain)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="560" y="70" width="120" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-closed" value="Closed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="740" y="70" width="100" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-agg" value="Aggregating" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="900" y="70" width="120" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-sync" value="SyncedToTeacher" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="1080" y="70" width="140" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="t-draft" target="t-live">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1l" value="start_session" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="e1">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="t-live" target="t-lock">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2l" value="lock_joins" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="e2">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="t-lock" target="t-live">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3l" value="unlock_joins" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="e3">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="t-live" target="t-close">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4l" value="end_session" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="e4">
+          <mxGeometry x="-0.15" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="t-lock" target="t-close">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5l" value="end_session" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="e5">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="t-close" target="t-closed">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6l" value="drain_complete" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="e6">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="t-closed" target="t-agg">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7l" value="begin_aggregate" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="e7">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="t-agg" target="t-sync">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8l" value="persist_roster_stats" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="e8">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="s-title" value="Student: SessionParticipation" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="40" y="200" width="280" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="s-idle" value="Idle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="250" width="100" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="s-val" value="ValidatingCode" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="200" y="250" width="140" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="s-join" value="Joined" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="400" y="250" width="100" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="s-act" value="Active" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="560" y="250" width="100" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="s-disc" value="Disconnected" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="720" y="250" width="130" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="s-left" value="Left" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="920" y="250" width="80" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="se1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="s-idle" target="s-val">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="se1l" value="enter_code" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="se1">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="se2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="s-val" target="s-join">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="se2l" value="code_ok" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="se2">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="se2b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="s-val" target="s-idle">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="270" y="340"/><mxPoint x="90" y="340"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="se2bl" value="code_invalid" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="se2b">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="se3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="s-join" target="s-act">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="se3l" value="lesson_ack" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="se3">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="se4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="s-act" target="s-disc">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="se4l" value="transport_lost" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="se4">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="se5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="s-disc" target="s-act">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="se5l" value="reconnect_in_window" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="se5">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="se6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="s-disc" target="s-left">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="se6l" value="TTL_expired" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="se6">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="se7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="s-act" target="s-left">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="se7l" value="leave_or_kick" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="se7">
+          <mxGeometry x="-0.05" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="se8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="s-join" target="s-left">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="se8l" value="leave_before_start" style="edgeLabel;html=1;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="se8">
+          <mxGeometry x="-0.05" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="note" value="FigJam: FigJam files (.fig) are created in the Figma/FigJam app; use this .drawio as reference or export PNG/SVG from diagrams.net and paste into FigJam." style="text;html=1;strokeColor=#666666;fillColor=#f5f5f5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="340" width="520" height="56" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

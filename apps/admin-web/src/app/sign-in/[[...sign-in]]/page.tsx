@@ -1,29 +1,96 @@
-import { SignIn } from '@clerk/nextjs';
-import Link from 'next/link';
+'use client';
 
-import { CLERK_ENABLED } from '@/lib/config';
-import { SiteHeader } from '@/components/site-header';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { motion } from 'framer-motion';
+
+import { createClient } from '@/lib/supabase/client';
+import { AiboticsLogo } from '@/components/aibotics-logo';
+
+function SignInForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next') ?? '/account';
+  const urlError = searchParams.get('error');
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(urlError);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (authError) {
+      setError(authError.message);
+      setLoading(false);
+      return;
+    }
+
+    router.push(next);
+    router.refresh();
+  };
+
+  return (
+    <div className="auth-page">
+      <div className="auth-bg" />
+
+      <motion.div
+        className="auth-card"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+      >
+        <Link href="/" className="auth-logo-link">
+          <AiboticsLogo size={42} />
+          <span className="auth-logo-name">Aibotics</span>
+        </Link>
+
+        <h1 className="auth-title">Welcome back</h1>
+        <p className="auth-subtitle">Sign in to your Aibotics account</p>
+
+        {error && (
+          <motion.div className="auth-error" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+            {error}
+          </motion.div>
+        )}
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="auth-field">
+            <label htmlFor="email" className="auth-label">Email</label>
+            <input id="email" type="email" autoComplete="email" required className="auth-input"
+              placeholder="you@school.edu" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+
+          <div className="auth-field">
+            <div className="auth-label-row">
+              <label htmlFor="password" className="auth-label">Password</label>
+              <Link href="/forgot-password" className="auth-link-sm">Forgot password?</Link>
+            </div>
+            <input id="password" type="password" autoComplete="current-password" required className="auth-input"
+              placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+
+          <button type="submit" className="auth-submit" disabled={loading}>
+            {loading ? <span className="auth-spinner" /> : 'Sign in →'}
+          </button>
+        </form>
+
+        <p className="auth-footer-text">
+          No account yet?{' '}
+          <Link href="/sign-up" className="auth-link">Get started free</Link>
+        </p>
+      </motion.div>
+    </div>
+  );
+}
 
 export default function SignInPage() {
-  return (
-    <>
-      <SiteHeader />
-      <main className="auth-shell">
-        {CLERK_ENABLED ? (
-          <SignIn />
-        ) : (
-          <div className="auth-card">
-            <p className="eyebrow" style={{ marginBottom: 16 }}>Authentication</p>
-            <h2 className="headline" style={{ marginBottom: 12 }}>Clerk not configured</h2>
-            <p className="body-md" style={{ marginBottom: 24 }}>
-              Add your Clerk keys to <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 6, fontSize: '0.875rem' }}>.env</code> to enable hosted sign-in.
-            </p>
-            <Link href="/portal" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-              Go to portal →
-            </Link>
-          </div>
-        )}
-      </main>
-    </>
-  );
+  return <Suspense><SignInForm /></Suspense>;
 }

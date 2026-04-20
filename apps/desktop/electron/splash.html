@@ -2,232 +2,376 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <script>
+      (function () {
+        try {
+          var t = window.sketchbotDesktop && window.sketchbotDesktop.initialTheme;
+          document.documentElement.setAttribute('data-theme', t === 'light' || t === 'dark' ? t : 'dark');
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SketchBot Desktop</title>
+    <title>Aibotics Platform</title>
     <style>
-      :root {
-        color-scheme: light;
-        --bg: #eef5ff;
-        --panel: rgba(255, 255, 255, 0.92);
-        --text: #18314c;
-        --muted: #60738f;
-        --cyan: #4fc8ff;
-        --violet: #8d63ff;
-        --pink: #ff74d8;
-        --danger: #d84f72;
+      html {
+        --bg:           #050816;
+        --text:         #eef4ff;
+        --muted:        #95a6c7;
+        --cyan:         #5de4ff;
+        --violet:       #a855f7;
+        --pink:         #ff4fd8;
+        --danger:       #ff6f91;
+        --entry-base-1: #0a1020;
+        --entry-base-2: #0c1428;
+        --entry-base-3: #0a0e18;
+        --entry-a1:     rgba(79, 216, 255, 0.16);
+        --entry-a2:     rgba(155, 125, 255, 0.14);
+        --entry-a3:     rgba(255, 122, 209, 0.10);
+        --blob-a:       rgba(79, 216, 255, 0.35);
+        --blob-b:       rgba(155, 125, 255, 0.32);
+      }
+      html[data-theme='light'] {
+        --bg:           #f5f9ff;
+        --text:         #142132;
+        --muted:        #516079;
+        --cyan:         #0096c7;
+        --violet:       #6b5cff;
+        --pink:         #c926a8;
+        --danger:       #c42d4f;
+        --entry-base-1: #f5f9ff;
+        --entry-base-2: #e4ecfc;
+        --entry-base-3: #eef4ff;
+        --entry-a1:     rgba(42, 135, 225, 0.17);
+        --entry-a2:     rgba(118, 98, 210, 0.14);
+        --entry-a3:     rgba(225, 135, 195, 0.12);
+        --blob-a:       rgba(52, 150, 230, 0.38);
+        --blob-b:       rgba(118, 98, 215, 0.34);
       }
 
-      * {
-        box-sizing: border-box;
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      @keyframes bg-pan {
+        0%   { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+      }
+      @keyframes blob-a {
+        0%, 100% { transform: translate(-6%, -4%) scale(1);    opacity: 0.55; }
+        50%       { transform: translate(4%,   8%) scale(1.12); opacity: 0.85; }
+      }
+      @keyframes blob-b {
+        0%, 100% { transform: translate(8%,  6%) scale(1.05); opacity: 0.45; }
+        50%       { transform: translate(-6%,-8%) scale(0.95); opacity: 0.70; }
+      }
+      @keyframes fade-up {
+        from { opacity: 0; transform: translateY(18px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes logo-float {
+        0%, 100% { transform: translateY(0); }
+        50%       { transform: translateY(-7px); }
+      }
+      @keyframes ring-pulse {
+        0%   { transform: scale(0.88); opacity: 0.65; }
+        70%  { transform: scale(1.22); opacity: 0; }
+        100% { transform: scale(0.88); opacity: 0; }
+      }
+      @keyframes bar-sweep {
+        0%   { transform: translateX(-100%); width: 42%; }
+        50%  { width: 58%; }
+        100% { transform: translateX(220%);  width: 42%; }
       }
 
       body {
-        margin: 0;
         min-height: 100vh;
-        display: grid;
-        place-items: center;
-        padding: 28px;
-        font-family: "Segoe UI", Inter, system-ui, sans-serif;
-        color: var(--text);
-        background:
-          radial-gradient(circle at 18% 18%, rgba(79, 200, 255, 0.18), transparent 22%),
-          radial-gradient(circle at 82% 14%, rgba(141, 99, 255, 0.16), transparent 24%),
-          radial-gradient(circle at 72% 82%, rgba(255, 116, 216, 0.16), transparent 22%),
-          linear-gradient(180deg, #f7fbff 0%, #eaf2ff 100%);
-      }
-
-      .shell {
-        width: min(720px, 100%);
-        padding: 28px;
-        border-radius: 28px;
-        background: var(--panel);
-        border: 1px solid rgba(113, 132, 255, 0.16);
-        box-shadow: 0 24px 48px rgba(86, 105, 166, 0.14);
-      }
-
-      .eyebrow {
-        margin: 0 0 10px;
-        font-size: 12px;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: #5574b0;
-        font-weight: 800;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: 34px;
-        line-height: 1.05;
-      }
-
-      p {
-        margin: 0;
-      }
-
-      .subtitle {
-        margin-top: 12px;
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .status {
-        margin-top: 22px;
-        display: grid;
-        gap: 12px;
-        padding: 18px;
-        border-radius: 20px;
-        background: rgba(240, 247, 255, 0.94);
-        border: 1px solid rgba(79, 200, 255, 0.18);
-      }
-
-      .status strong {
-        font-size: 18px;
-      }
-
-      .detail {
-        color: var(--muted);
-        line-height: 1.55;
-      }
-
-      .detail.error {
-        color: var(--danger);
-        font-weight: 700;
-      }
-
-      .spinner {
-        width: 42px;
-        height: 42px;
-        border-radius: 999px;
-        border: 4px solid rgba(79, 200, 255, 0.18);
-        border-top-color: var(--violet);
-        animation: spin 0.9s linear infinite;
-      }
-
-      .row {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 14px;
+        justify-content: center;
+        font-family: 'Segoe UI', Inter, system-ui, sans-serif;
+        color: var(--text);
+        background: var(--entry-base-1);
+        overflow: hidden;
+        position: relative;
+        isolation: isolate;
+        user-select: none;
       }
 
-      .actions {
-        margin-top: 16px;
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
+      /* Panning gradient base */
+      body::after {
+        content: '';
+        position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        background: linear-gradient(125deg, var(--entry-base-1) 0%, var(--entry-base-2) 40%, var(--entry-base-3) 100%);
+        background-size: 200% 200%;
+        animation: bg-pan 18s ease-in-out infinite alternate;
       }
 
-      button {
-        border: 0;
-        border-radius: 16px;
-        padding: 14px 18px;
-        font: inherit;
-        font-weight: 800;
-        color: #18314c;
-        background: linear-gradient(135deg, var(--cyan), #c7f1ff);
-        cursor: pointer;
+      /* Radial colour blobs */
+      body::before {
+        content: '';
+        position: fixed; inset: 0; z-index: 1; pointer-events: none;
+        background:
+          radial-gradient(ellipse 80% 60% at 20% 20%, var(--entry-a1), transparent 55%),
+          radial-gradient(ellipse 70% 50% at 85% 15%, var(--entry-a2), transparent 50%),
+          radial-gradient(ellipse 60% 45% at 70% 85%, var(--entry-a3), transparent 50%);
       }
 
-      button.secondary {
-        background: rgba(235, 241, 255, 0.96);
+      /* Soft animated blobs */
+      .blobs { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
+      .blob  { position: absolute; border-radius: 999px; filter: blur(2px); }
+      .blob-a {
+        width: min(52vw, 420px); height: min(52vw, 420px);
+        left: -12%; top: 6%;
+        background: radial-gradient(circle, var(--blob-a), transparent 68%);
+        animation: blob-a 14s ease-in-out infinite;
+      }
+      .blob-b {
+        width: min(58vw, 480px); height: min(58vw, 480px);
+        right: -14%; bottom: 2%;
+        background: radial-gradient(circle, var(--blob-b), transparent 70%);
+        animation: blob-b 16s ease-in-out infinite;
       }
 
+      /* ─── Center content ───────────────────────────────────────────────── */
+      .center {
+        position: relative; z-index: 3;
+        display: flex; flex-direction: column; align-items: center;
+        text-align: center;
+        animation: fade-up 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      /* Logo mark */
+      .mark-wrap {
+        position: relative;
+        width: 96px; height: 96px;
+        display: grid; place-items: center;
+        margin-bottom: 24px;
+        animation: logo-float 3.8s ease-in-out infinite;
+        animation-delay: 0.75s;
+      }
+      .mark-ring {
+        position: absolute; inset: 0; border-radius: 999px;
+        border: 1.5px solid rgba(93, 228, 255, 0.28);
+        animation: ring-pulse 2.6s ease-out infinite;
+      }
+      .mark-ring.d {
+        animation-delay: 0.95s;
+        border-color: rgba(168, 85, 247, 0.26);
+      }
+
+      /* Wordmark */
+      .wordmark-name {
+        font-size: 2.4rem; font-weight: 800;
+        letter-spacing: -0.035em; line-height: 1;
+        margin-bottom: 6px;
+      }
+      .wordmark-ai {
+        background: linear-gradient(120deg, var(--cyan) 0%, #b8a8ff 50%, var(--pink) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .wordmark-rest { color: var(--text); }
+      .wordmark-sub {
+        font-size: 0.68rem; font-weight: 600;
+        letter-spacing: 0.20em; text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 52px;
+      }
+
+      /* Status */
+      .load-area {
+        width: 300px;
+        display: flex; flex-direction: column; align-items: center; gap: 11px;
+      }
+      .load-message {
+        font-size: 0.88rem; font-weight: 600;
+        color: var(--text); opacity: 0.90;
+        min-height: 1.3em;
+        transition: color 0.2s;
+      }
+
+      /* 2-px progress bar */
+      .progress-track {
+        width: 100%; height: 2px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden; position: relative;
+      }
+      .progress-fill {
+        position: absolute; left: 0; top: 0; bottom: 0;
+        width: 0%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--cyan), var(--violet));
+        transition: width 0.5s ease;
+        overflow: hidden;
+      }
+      .progress-fill.indeterminate { width: 42%; }
+      .progress-fill.indeterminate::after {
+        content: '';
+        position: absolute; inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.52), transparent);
+        animation: bar-sweep 1.4s ease-in-out infinite;
+      }
+
+      .load-detail {
+        font-size: 0.77rem; color: var(--muted);
+        line-height: 1.45; min-height: 1.1em;
+        transition: color 0.2s, opacity 0.2s;
+      }
+      .load-detail.is-error { color: var(--danger); font-weight: 600; }
+      .load-detail:empty { opacity: 0; }
+
+      /* Camera-buddy connected chip */
       .pairing {
-        margin-top: 18px;
-        display: grid;
-        gap: 10px;
+        margin-top: 36px;
+        display: flex; flex-direction: column; align-items: center; gap: 0;
+      }
+      .pairing-chip {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 0.78rem; font-weight: 600;
+        color: var(--cyan);
+        background: rgba(93, 228, 255, 0.07);
+        border: 1px solid rgba(93, 228, 255, 0.18);
+        border-radius: 999px;
+        padding: 7px 16px;
+      }
+      .pairing-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--cyan);
+        box-shadow: 0 0 6px var(--cyan);
       }
 
-      .pairing-item {
-        padding: 12px 14px;
-        border-radius: 16px;
-        background: rgba(247, 250, 255, 0.94);
-        border: 1px solid rgba(113, 132, 255, 0.14);
-        color: #36517f;
-        font-family: Consolas, "SFMono-Regular", monospace;
+      /* Error retry button — anchored bottom-right, only shown on error */
+      .actions {
+        position: fixed; bottom: 24px; right: 28px;
+        display: flex; gap: 8px; z-index: 4;
+      }
+      .btn {
+        border: 0; border-radius: 10px;
+        padding: 9px 18px;
+        font: 600 0.82rem/1 'Segoe UI', Inter, system-ui, sans-serif;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s;
+      }
+      .btn:hover  { opacity: 0.82; }
+      .btn:active { transform: scale(0.97); }
+      .btn-primary {
+        background: linear-gradient(135deg, var(--cyan), #8be8ff);
+        color: #050816;
       }
 
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
+      @media (prefers-reduced-motion: reduce) {
+        body::after, .blob-a, .blob-b { animation: none; }
+        .mark-ring  { animation: none; opacity: 0.30; }
+        .mark-wrap  { animation: none; }
+        .progress-fill.indeterminate::after { animation: none; }
       }
     </style>
   </head>
   <body>
-    <main class="shell">
-      <p class="eyebrow">SketchBot Desktop</p>
-      <h1>Starting your local robot studio</h1>
-      <p class="subtitle">
-        SketchBot runs camera vision, teleoperation, and robot control locally on this machine so the classroom
-        experience stays fast even when the internet does not.
-      </p>
+    <div class="blobs" aria-hidden="true">
+      <div class="blob blob-a"></div>
+      <div class="blob blob-b"></div>
+    </div>
 
-      <section class="status">
-        <div class="row">
-          <div class="spinner" id="spinner"></div>
-          <div>
-            <strong id="message">Booting SketchBot Desktop...</strong>
-            <p class="detail" id="detail">Preparing the local robot runtime.</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="pairing" id="pairing" hidden></section>
-
-      <div class="actions">
-        <button id="retry" hidden>Retry startup</button>
-        <button class="secondary" id="refresh">Refresh screen</button>
+    <div class="center">
+      <!-- Aibotics logo mark (inline SVG — no build step needed) -->
+      <div class="mark-wrap" aria-hidden="true">
+        <div class="mark-ring"></div>
+        <div class="mark-ring d"></div>
+        <svg width="72" height="72" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0.5" y="0.5" width="27" height="27" rx="7.5"
+            fill="url(#s-bg)" stroke="url(#s-bd)" stroke-width="0.6"/>
+          <circle cx="14" cy="13" r="8.5" fill="url(#s-head)"/>
+          <circle cx="14" cy="13" r="10" fill="none" stroke="#5de4ff" stroke-width="0.5" opacity="0.20"/>
+          <ellipse cx="11.0" cy="12.4" rx="1.55" ry="1.05" fill="#020810" opacity="0.90"/>
+          <ellipse cx="17.0" cy="12.4" rx="1.55" ry="1.05" fill="#020810" opacity="0.90"/>
+          <circle cx="11.7" cy="11.8" r="0.46" fill="white" opacity="0.92"/>
+          <circle cx="17.7" cy="11.8" r="0.46" fill="white" opacity="0.92"/>
+          <path d="M11.2 14.8 Q14 16.4 16.8 14.8"
+            stroke="#020810" stroke-width="0.70" fill="none" stroke-linecap="round" opacity="0.68"/>
+          <defs>
+            <linearGradient id="s-bg" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#060e22"/>
+              <stop offset="100%" stop-color="#07122a"/>
+            </linearGradient>
+            <linearGradient id="s-bd" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#6366f1" stop-opacity="0.70"/>
+              <stop offset="100%" stop-color="#5de4ff" stop-opacity="0.35"/>
+            </linearGradient>
+            <radialGradient id="s-head" cx="38%" cy="30%" r="70%">
+              <stop offset="0%"   stop-color="#c4f5ff"/>
+              <stop offset="52%"  stop-color="#5de4ff"/>
+              <stop offset="100%" stop-color="#2563eb"/>
+            </radialGradient>
+          </defs>
+        </svg>
       </div>
-    </main>
+
+      <!-- Wordmark -->
+      <p class="wordmark-name" aria-label="Aibotics">
+        <span class="wordmark-ai">Ai</span><span class="wordmark-rest">botics</span>
+      </p>
+      <p class="wordmark-sub">AI Robotics Studio</p>
+
+      <!-- Load status -->
+      <div class="load-area">
+        <div class="load-message" id="message">Starting…</div>
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill indeterminate" id="launchFill"></div>
+        </div>
+        <p class="load-detail" id="detail"></p>
+      </div>
+
+      <!-- Camera buddy (shown when ready) -->
+      <div class="pairing" id="pairing" hidden></div>
+    </div>
+
+    <!-- Retry — only shown on error -->
+    <div class="actions">
+      <button class="btn btn-primary" id="retry" hidden type="button">Try again</button>
+    </div>
 
     <script>
-      const messageEl = document.getElementById('message');
-      const detailEl = document.getElementById('detail');
+      const messageEl   = document.getElementById('message');
+      const detailEl    = document.getElementById('detail');
       const retryButton = document.getElementById('retry');
-      const refreshButton = document.getElementById('refresh');
-      const spinner = document.getElementById('spinner');
-      const pairingSection = document.getElementById('pairing');
+      const launchFill  = document.getElementById('launchFill');
+      const pairingEl   = document.getElementById('pairing');
 
       const renderPairing = async () => {
-        if (!window.sketchbotDesktop?.getPairingTargets) {
-          return;
-        }
+        if (!window.sketchbotDesktop?.getPairingTargets) return;
         const targets = await window.sketchbotDesktop.getPairingTargets();
-        if (!targets.length) {
-          pairingSection.hidden = true;
-          pairingSection.innerHTML = '';
-          return;
-        }
-        pairingSection.hidden = false;
-        pairingSection.innerHTML = `
-          <p class="detail">When Camera Buddy is ready, use one of these local room addresses:</p>
-          ${targets.map((target) => `<div class="pairing-item">${target}</div>`).join('')}
-        `;
+        if (!targets.length) { pairingEl.hidden = true; pairingEl.innerHTML = ''; return; }
+        pairingEl.hidden = false;
+        pairingEl.innerHTML =
+          '<div class="pairing-chip"><div class="pairing-dot"></div>Camera Buddy connected</div>';
       };
 
       const updateState = (state) => {
-        if (!state) {
-          return;
-        }
-        messageEl.textContent = state.message || 'Starting SketchBot Desktop...';
-        detailEl.textContent = state.detail || '';
-        detailEl.classList.toggle('error', state.phase === 'error');
+        if (!state) return;
+        messageEl.textContent = state.message || 'Starting\u2026';
+        detailEl.textContent  = state.detail  || '';
+        detailEl.classList.toggle('is-error', state.phase === 'error');
         retryButton.hidden = state.phase !== 'error';
-        spinner.style.display = state.phase === 'error' ? 'none' : 'block';
+        document.body.dataset.launchPhase = state.phase || '';
+
+        if (launchFill) {
+          launchFill.classList.toggle('indeterminate', state.phase === 'starting');
+          if      (state.phase === 'ready') launchFill.style.width = '100%';
+          else if (state.phase === 'error') launchFill.style.width = '0%';
+          else                              launchFill.style.width = '38%';
+        }
+
         void renderPairing();
       };
 
-      refreshButton.addEventListener('click', () => {
-        window.location.reload();
-      });
-
       retryButton.addEventListener('click', async () => {
         retryButton.disabled = true;
-        try {
-          const next = await window.sketchbotDesktop.retryLaunch();
-          updateState(next);
-        } finally {
-          retryButton.disabled = false;
-        }
+        try   { updateState(await window.sketchbotDesktop.retryLaunch()); }
+        finally { retryButton.disabled = false; }
       });
 
       window.sketchbotDesktop.getLaunchState().then(updateState);

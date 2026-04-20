@@ -4,6 +4,8 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { ReactNode } from 'react';
 
 import { XPToastProvider } from '@/components/gamification';
+import { THEME_STORAGE_KEY } from '@/lib/theme-preference';
+import MusicPreloader from '@/components/music-preloader';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -18,8 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'SketchBot Platform',
-  description: 'AI-tutored educational robotics platform',
+  title: 'AIbotics — AI-Tutored Robotics',
+  description: 'Learn robotics by doing — real robots, real code, AI personal tutor.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -29,11 +31,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* Inline script: apply saved theme before first paint to prevent flash */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('sketchbot-theme-mode');document.documentElement.dataset.theme=(t==='light'||t==='dark')?t:'dark';}catch(e){}})();`,
+            __html: `(function(){try{var k=${JSON.stringify(THEME_STORAGE_KEY)};var t=localStorage.getItem(k);document.documentElement.dataset.theme=(t==='light'||t==='dark')?t:'dark';}catch(e){}})();`,
           }}
         />
       </head>
       <body>
+        <MusicPreloader />
         <XPToastProvider>{children}</XPToastProvider>
       </body>
     </html>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, type TargetAndTransition } from 'motion/react';
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw } from 'lucide-react';
 
 import { useLessonTimeline } from '@/lib/use-lesson-timeline';
@@ -24,7 +24,7 @@ type LessonPlayerProps = {
   onXPChange?: () => void;
 };
 
-const ENTER_VARIANTS: Record<string, object> = {
+const ENTER_VARIANTS: Record<string, TargetAndTransition> = {
   fade: { opacity: 0 },
   'slide-left': { opacity: 0, x: -60 },
   'slide-right': { opacity: 0, x: 60 },

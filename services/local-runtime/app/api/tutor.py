@@ -12,6 +12,8 @@ logger = logging.getLogger("sketchbot.tutor")
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.services import tutor_supabase_sync
+from app.services.tutor_audit_log import supabase_outbox_pending_count
 from app.services.tutor_service import tutor_service
 
 router = APIRouter(prefix="/api/tutor", tags=["tutor"])
@@ -22,7 +24,8 @@ router = APIRouter(prefix="/api/tutor", tags=["tutor"])
 class TutorMessageRequest(BaseModel):
     student_name: str = "Student"
     age_group: str = "builder"          # explorer | builder | engineer
-    trigger: str = "student_reply"      # concept_change | drawing_submitted | student_reply | hint_request | layer_change
+    actor_role: str = "student"         # student | teacher
+    trigger: str = "student_reply"      # concept_change | drawing_submitted | student_reply | hint_request | layer_change | teacher_reply | teacher_hint_request
     concept_id: str = "free-draw"
     layer: str = "intuitive"            # intuitive | structural | precise
     student_message: str = ""
@@ -33,6 +36,7 @@ class TutorMessageRequest(BaseModel):
 class TutorEvaluateRequest(BaseModel):
     student_name: str = "Student"
     age_group: str = "builder"
+    actor_role: str = "student"
     concept_id: str = "free-draw"
     layer: str = "intuitive"
     drawing_prompt: str = ""
@@ -65,6 +69,7 @@ async def tutor_message(req: TutorMessageRequest) -> StreamingResponse:
             async for token in tutor_service.stream_message(
                 student_name=req.student_name,
                 age_group=req.age_group,
+                actor_role=req.actor_role,
                 trigger=req.trigger,
                 concept_id=req.concept_id,
                 layer=req.layer,
@@ -100,6 +105,7 @@ async def tutor_evaluate(req: TutorEvaluateRequest) -> dict:
     return await tutor_service.evaluate(
         student_name=req.student_name,
         age_group=req.age_group,
+        actor_role=req.actor_role,
         concept_id=req.concept_id,
         layer=req.layer,
         drawing_prompt=req.drawing_prompt,
@@ -116,8 +122,14 @@ async def tutor_clear_session(req: TutorClearRequest) -> dict:
 
 @router.get("/status")
 def tutor_status() -> dict:
-    """Check whether the Anthropic API key is configured."""
-    return {"available": tutor_service.is_available()}
+    """Anthropic availability + Supabase sync diagnostics (see docs/supabase-tutor-audit.md)."""
+    return {
+        "available": tutor_service.is_available(),
+        "supabase_sync": {
+            "configured": tutor_supabase_sync.is_configured(),
+            "outbox_pending": supabase_outbox_pending_count(),
+        },
+    }
 
 
 # ─── Text-to-speech ──────────────────────────────────────────────────────────

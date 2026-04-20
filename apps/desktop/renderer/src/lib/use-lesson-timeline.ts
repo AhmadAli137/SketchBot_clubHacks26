@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LessonPlan, LessonStep } from './lesson-types';
 
 export type TimelineControls = {
@@ -31,7 +31,7 @@ export function useLessonTimeline(plan: LessonPlan | null): TimelineState & Time
   const stepElapsedRef = useRef(0);
   const stepIndexRef = useRef(0);
 
-  const steps = plan?.steps ?? [];
+  const steps = useMemo(() => plan?.steps ?? [], [plan]);
   const currentStep = steps[stepIndex] ?? null;
 
   const currentStepDuration = currentStep

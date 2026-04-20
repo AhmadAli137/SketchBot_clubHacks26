@@ -22,6 +22,9 @@ import {
   touchConcept,
   type ConceptProgressSnapshot,
 } from '@/lib/progress-store';
+import type { ClassroomRestrictions } from '@/lib/platform-types';
+import { effectiveMaxHints } from '@/lib/classroom-restrictions';
+import { CLOUD_API_URL, cloudHeaders, useCloudAuthToken } from '@/lib/cloud-api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +47,10 @@ type TutorPanelProps = {
   backendReachable: boolean;
   onLayerChange: (layer: ConceptLayer) => void;
   onXPChange?: () => void;
+  /** When teacher is in session, tutor uses educator-oriented prompts and audit prefix. */
+  sessionActorRole?: 'teacher' | 'student';
+  lessonPlanActive?: boolean;
+  classroomRestrictions?: ClassroomRestrictions | null;
 };
 
 type EvaluationNotice = {
@@ -420,11 +427,21 @@ const TTS_ENABLED_STORAGE_KEY = 'sketchbot.tutor.ttsEnabled';
 
 /**
  * Max characters sent to TTS per tutor reply (one stream or one-shot).
- * Short prompts and quick answers stay under this; long explainers are
- * read aloud only up to this point — the rest stays on-screen to save
- * ElevenLabs / API usage.
+ * Keep in sync with `TTS_SPOKEN_CHAR_BUDGET` in
+ * services/local-runtime/app/services/tutor_service.py (model is instructed there too).
  */
-const TTS_MAX_SPOKEN_CHARS = 420;
+const TTS_MAX_SPOKEN_CHARS = 380;
+
+/** Matches a line that is exactly --- between newlines (spoken vs text-only sections). */
+const SPOKEN_DETAIL_DELIM = /(?:\r\n|\r|\n)---\s*(?:\r\n|\r|\n)/;
+
+/** Text before the first --- is all that TTS should read (see tutor_service prompts). */
+function extractSpokenChannel(text: string): string {
+  const s = text.trim();
+  const m = SPOKEN_DETAIL_DELIM.exec(s);
+  if (m) return s.slice(0, m.index).trim();
+  return s;
+}
 
 function stripMarkdown(text: string): string {
   return text
@@ -464,21 +481,31 @@ function splitIntoSentences(text: string): { chunks: string[]; rest: string } {
   return { chunks, rest: '' };
 }
 
-/** Fit `text` into at most `maxLen` characters, preferring a word boundary. */
+/** Fit `text` into at most `maxLen` characters, preferring a word boundary (reduces clipped TTS). */
 function fitTtsSegment(text: string, maxLen: number): string {
   const t = text.trim();
   if (maxLen <= 0 || !t) return '';
   if (t.length <= maxLen) return t;
   let s = t.slice(0, maxLen);
   const lastSpace = s.lastIndexOf(' ');
-  if (lastSpace > maxLen * 0.45 && lastSpace > 0) {
+  if (lastSpace > maxLen * 0.35 && lastSpace > 0) {
+    s = s.slice(0, lastSpace);
+  } else if (lastSpace > 0) {
     s = s.slice(0, lastSpace);
   }
   return s.trimEnd();
 }
 
+function countWords(s: string): number {
+  const t = s.trim();
+  if (!t) return 0;
+  return t.split(/\s+/).length;
+}
+
 type TTSOptions = {
   apiBase: string;
+  cloudApiBase: string;
+  authToken: string | null;
   backendReachable: boolean;
 };
 
@@ -486,12 +513,23 @@ type QueueItem = {
   id: number;
   text: string;
   ageGroup: AgeGroup;
+  /** Tutor bubble id this audio belongs to (for karaoke highlight). */
+  messageId: string;
+  /** Global word index of first word in this chunk (within the utterance). */
+  wordOffset: number;
+  wordCount: number;
   /** Pre-fetched MP3 blob URL (primed during streaming for minimum latency). */
   primedUrl?: string | null;
   primePromise?: Promise<string | null>;
 };
 
-function useTTS({ apiBase, backendReachable }: TTSOptions) {
+export type TutorTtsHighlight = {
+  messageId: string | null;
+  /** Index into whitespace-split words of the spoken plain text for that message. */
+  activeWordIndex: number;
+};
+
+function useTTS({ apiBase, cloudApiBase, authToken, backendReachable }: TTSOptions) {
   const [enabled, setEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -502,6 +540,10 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
   });
   const [voice, setVoiceState] = useState<TutorVoice>(() => loadSavedVoice());
   const [speaking, setSpeaking] = useState(false);
+  const [highlight, setHighlight] = useState<TutorTtsHighlight>({
+    messageId: null,
+    activeWordIndex: 0,
+  });
 
   const supported =
     typeof window !== 'undefined' && ('speechSynthesis' in window || true); // backend path always possible
@@ -522,11 +564,16 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
   const ttsSpokenCharsRef = useRef<number>(0);
   /** Leftover streaming text without a sentence terminator yet. */
   const cleanedPendingRef = useRef<string>('');
+  /** Current tutor message id for queued TTS (karaoke sync). */
+  const utteranceMessageIdRef = useRef<string | null>(null);
+  /** Running word offset for the current utterance (resets per streamBegin / speak). */
+  const utteranceWordOffsetRef = useRef<number>(0);
+  const lastHighlightWordRef = useRef<number>(-1);
 
   // Stable references to the hook config so queue drain uses the latest
   // values even when captured inside long-lived closures.
-  const optsRef = useRef({ enabled, apiBase, backendReachable, voice });
-  optsRef.current = { enabled, apiBase, backendReachable, voice };
+  const optsRef = useRef({ enabled, apiBase, cloudApiBase, authToken, backendReachable, voice });
+  optsRef.current = { enabled, apiBase, cloudApiBase, authToken, backendReachable, voice };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -558,7 +605,7 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
    */
   const primeItem = useCallback((item: QueueItem, token: number) => {
     if (item.primePromise) return item.primePromise;
-    const { apiBase: base, backendReachable: reachable, voice: v } = optsRef.current;
+    const { cloudApiBase: base, authToken: tok, backendReachable: reachable, voice: v } = optsRef.current;
     if (!reachable || !base) {
       item.primedUrl = null;
       return Promise.resolve(null);
@@ -567,7 +614,7 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
       try {
         const response = await fetch(`${base}/api/tutor/speak`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: cloudHeaders(tok),
           body: JSON.stringify({ text: item.text, voice: v.id, provider: 'elevenlabs' }),
         });
         if (token !== cancelTokenRef.current) return null;
@@ -588,6 +635,12 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
     return item.primePromise;
   }, []);
 
+  const emitWordHighlight = useCallback((messageId: string, globalWordIndex: number) => {
+    if (globalWordIndex === lastHighlightWordRef.current) return;
+    lastHighlightWordRef.current = globalWordIndex;
+    setHighlight({ messageId, activeWordIndex: globalWordIndex });
+  }, []);
+
   const processQueue = useCallback(async () => {
     if (isProcessingRef.current) return;
     if (queueRef.current.length === 0) return;
@@ -597,15 +650,21 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
     try {
       while (queueRef.current.length > 0 && myToken === cancelTokenRef.current) {
         const item = queueRef.current.shift()!;
-        // Prime the *next* item in parallel so its MP3 is ready by the time
-        // this one finishes playing.
         if (queueRef.current[0]) primeItem(queueRef.current[0], myToken);
 
         const url = await (item.primePromise ?? primeItem(item, myToken));
         if (myToken !== cancelTokenRef.current) return;
 
+        const applyLocalProgress = (t01: number) => {
+          const clamped = Math.min(1, Math.max(0, t01));
+          const local = Math.min(
+            item.wordCount - 1,
+            Math.floor(clamped * item.wordCount),
+          );
+          emitWordHighlight(item.messageId, item.wordOffset + local);
+        };
+
         if (!url) {
-          // No backend / error: fall back to Web Speech for this chunk.
           await new Promise<void>((resolve) => {
             if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
               resolve();
@@ -614,46 +673,95 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
             const utter = new SpeechSynthesisUtterance(item.text);
             utter.rate = item.ageGroup === 'explorer' ? 0.88 : item.ageGroup === 'builder' ? 0.94 : 1.0;
             utter.pitch = item.ageGroup === 'explorer' ? 1.15 : 1.0;
-            utter.onend = () => resolve();
-            utter.onerror = () => resolve();
-            try { window.speechSynthesis.speak(utter); } catch { resolve(); }
+            const estMs = Math.max(600, item.wordCount * 380);
+            const t0 = performance.now();
+            applyLocalProgress(0);
+            const tick = window.setInterval(() => {
+              if (myToken !== cancelTokenRef.current) {
+                window.clearInterval(tick);
+                return;
+              }
+              const elapsed = performance.now() - t0;
+              applyLocalProgress(elapsed / estMs);
+            }, 45);
+            utter.onend = () => {
+              window.clearInterval(tick);
+              applyLocalProgress(1);
+              resolve();
+            };
+            utter.onerror = () => {
+              window.clearInterval(tick);
+              resolve();
+            };
+            try { window.speechSynthesis.speak(utter); } catch { window.clearInterval(tick); resolve(); }
           });
           continue;
         }
 
-        // Play MP3 and await its `ended` event.
         const audio = audioRef.current;
         if (!audio) {
           URL.revokeObjectURL(url);
           continue;
         }
         await new Promise<void>((resolve) => {
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve();
+          };
           const cleanup = () => {
             audio.removeEventListener('ended', onEnded);
-            audio.removeEventListener('error', onEnded);
+            audio.removeEventListener('error', onErr);
+            audio.removeEventListener('timeupdate', onTime);
             if (currentBlobUrlRef.current === url) currentBlobUrlRef.current = null;
             URL.revokeObjectURL(url);
           };
-          const onEnded = () => { cleanup(); resolve(); };
+          const onEnded = () => {
+            applyLocalProgress(1);
+            finish();
+          };
+          const onErr = () => {
+            finish();
+          };
+          const onTime = () => {
+            const d = audio.duration;
+            if (!d || !Number.isFinite(d) || d <= 0) return;
+            applyLocalProgress(audio.currentTime / d);
+          };
           audio.addEventListener('ended', onEnded);
-          audio.addEventListener('error', onEnded);
+          audio.addEventListener('error', onErr);
+          audio.addEventListener('timeupdate', onTime);
           currentBlobUrlRef.current = url;
           audio.src = url;
           audio.load();
-          audio.play().catch(() => { cleanup(); resolve(); });
+          applyLocalProgress(0);
+          const startPlayback = () => {
+            void audio.play().catch(() => { finish(); });
+          };
+          if (audio.readyState >= 2) startPlayback();
+          else audio.addEventListener('canplay', startPlayback, { once: true });
         });
         if (myToken !== cancelTokenRef.current) return;
       }
     } finally {
       isProcessingRef.current = false;
-      if (queueRef.current.length === 0) setSpeaking(false);
+      if (queueRef.current.length === 0) {
+        setSpeaking(false);
+        lastHighlightWordRef.current = -1;
+        setHighlight({ messageId: null, activeWordIndex: 0 });
+      }
     }
-  }, [primeItem]);
+  }, [emitWordHighlight, primeItem]);
 
   const cancelAll = useCallback(() => {
     cancelTokenRef.current += 1;
     streamActiveRef.current = false;
     streamBufferRef.current = '';
+    utteranceMessageIdRef.current = null;
+    utteranceWordOffsetRef.current = 0;
+    lastHighlightWordRef.current = -1;
 
     // Clean up primed URLs sitting in the queue.
     for (const q of queueRef.current) {
@@ -676,6 +784,7 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
     isProcessingRef.current = false;
     ttsSpokenCharsRef.current = 0;
     setSpeaking(false);
+    setHighlight({ messageId: null, activeWordIndex: 0 });
   }, []);
 
   const enqueue = useCallback((text: string, ageGroup: AgeGroup) => {
@@ -690,7 +799,19 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
     if (!segment) return;
     ttsSpokenCharsRef.current += segment.length;
 
-    const item: QueueItem = { id: ++itemIdRef.current, text: segment, ageGroup };
+    const mid = utteranceMessageIdRef.current ?? '';
+    const wc = Math.max(1, countWords(segment));
+    const wordOffset = utteranceWordOffsetRef.current;
+    utteranceWordOffsetRef.current += wc;
+
+    const item: QueueItem = {
+      id: ++itemIdRef.current,
+      text: segment,
+      ageGroup,
+      messageId: mid,
+      wordOffset,
+      wordCount: wc,
+    };
     queueRef.current.push(item);
     setSpeaking(true);
     // Prime the first item immediately so it's ready to play with ~no extra delay.
@@ -699,15 +820,20 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
   }, [primeItem, processQueue]);
 
   /** One-shot: stop whatever is currently speaking, then speak `text`. */
-  const speak = useCallback((text: string, ageGroup: AgeGroup) => {
+  const speak = useCallback((text: string, ageGroup: AgeGroup, messageId: string) => {
     const cleaned = stripMarkdown(text);
-    if (!cleaned) return;
+    const spokenOnly = extractSpokenChannel(cleaned);
+    if (!spokenOnly) return;
     cancelAll();
     if (!optsRef.current.enabled) return;
 
+    utteranceMessageIdRef.current = messageId;
+    utteranceWordOffsetRef.current = 0;
+    lastHighlightWordRef.current = -1;
+
     // For one-shots, split into sentences too so very long messages still
     // start speaking quickly.
-    const { chunks, rest } = splitIntoSentences(cleaned);
+    const { chunks, rest } = splitIntoSentences(spokenOnly);
     const toEnqueue = [...chunks];
     if (rest) toEnqueue.push(rest);
     for (const piece of toEnqueue) {
@@ -719,13 +845,16 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
   }, [cancelAll, enqueue]);
 
   /**
-   * Streaming mode: call `streamBegin()` when tutor starts, `streamFeed()`
+   * Streaming mode: call `streamBegin(messageId)` when tutor starts, `streamFeed()`
    * whenever the message grows, `streamEnd()` when streaming closes. New
    * complete sentences are auto-enqueued as they arrive.
    */
-  const streamBegin = useCallback(() => {
+  const streamBegin = useCallback((messageId: string) => {
     cancelAll();
     cleanedPendingRef.current = '';
+    utteranceMessageIdRef.current = messageId;
+    utteranceWordOffsetRef.current = 0;
+    lastHighlightWordRef.current = -1;
     if (!optsRef.current.enabled) return;
     streamActiveRef.current = true;
     streamBufferRef.current = '';
@@ -735,22 +864,21 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
     if (!streamActiveRef.current) return;
     if (!optsRef.current.enabled) return;
     const cleaned = stripMarkdown(fullText);
-    // Find the delta vs. what we've already processed.
+    // Only TTS the "spoken" section (before ---); stays aligned with the text stream.
+    const spokenOnly = extractSpokenChannel(cleaned);
     const buffered = streamBufferRef.current;
-    if (cleaned.length <= buffered.length) return;
-    if (!cleaned.startsWith(buffered)) {
-      // Stream diverged (e.g. token rewrite); reset from scratch but don't
-      // re-speak what already played.
-      streamBufferRef.current = cleaned;
+    if (spokenOnly.length <= buffered.length) return;
+    if (!spokenOnly.startsWith(buffered)) {
+      streamBufferRef.current = spokenOnly;
       return;
     }
-    const delta = cleaned.slice(buffered.length);
+    const delta = spokenOnly.slice(buffered.length);
     // Accumulate the delta and split on sentence terminators. Anything
     // without a terminator is left pending for the next feed.
     const pending = (cleanedPendingRef.current ?? '') + delta;
     const { chunks, rest } = splitIntoSentences(pending);
     cleanedPendingRef.current = rest;
-    streamBufferRef.current = cleaned;
+    streamBufferRef.current = spokenOnly;
     // Only speak sentences that are at least a few words long — avoids
     // the "H." / "Oh." mid-token artifacts.
     for (const chunk of chunks) {
@@ -794,6 +922,7 @@ function useTTS({ apiBase, backendReachable }: TTSOptions) {
   return {
     enabled,
     speaking,
+    highlight,
     supported,
     voice,
     setVoice,
@@ -837,23 +966,37 @@ export function TutorPanel({
   backendReachable,
   onLayerChange,
   onXPChange,
+  sessionActorRole: sessionActorRoleProp,
+  lessonPlanActive = false,
+  classroomRestrictions,
 }: TutorPanelProps) {
+  const sessionActorRole: 'teacher' | 'student' = sessionActorRoleProp ?? 'student';
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [studentInput, setStudentInput] = useState('');
-  const [isSending, setIsSending] = useState(false);
+  /** True while any tutor SSE reply is in flight (greeting, hint, student reply, etc.). */
+  const [tutorStreaming, setTutorStreaming] = useState(false);
   const [progressSnapshot, setProgressSnapshot] = useState<ConceptProgressSnapshot | null>(null);
   const [evaluationNotice, setEvaluationNotice] = useState<EvaluationNotice | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  /** Scroll spoken karaoke line into view as the active word moves. */
+  const activeWordScrollRef = useCallback((node: HTMLSpanElement | null) => {
+    if (!node) return;
+    requestAnimationFrame(() => {
+      node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }, []);
   /** `undefined` = effect has never run yet (distinguishes from `conceptId === null`). */
   const prevConceptRef = useRef<string | null | undefined>(undefined);
   const prevLayerRef = useRef<ConceptLayer | undefined>(undefined);
   const lastEvaluatedKeyRef = useRef<string | null>(null);
+  const hintsUsedRef = useRef(0);
   const lastSpokenMsgRef = useRef<string | null>(null);
   const streamSpokeItRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const tts = useTTS({ apiBase, backendReachable });
+  const cloudAuthToken = useCloudAuthToken();
+  const tts = useTTS({ apiBase, cloudApiBase: CLOUD_API_URL, authToken: cloudAuthToken, backendReachable });
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const voicePickerRef = useRef<HTMLDivElement | null>(null);
 
@@ -979,16 +1122,16 @@ export function TutorPanel({
       return;
     }
     lastSpokenMsgRef.current = last.content;
-    tts.speak(last.content, ageGroup);
+    tts.speak(last.content, ageGroup, last.id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   // Send tutor message when concept or layer changes
   useEffect(() => {
-    // First paint: `prevConceptRef` is `undefined`, so we always load a greeting
-    // once. Without this, `conceptId === null` and `activeLayer === 'intuitive'`
-    // looks like "no change" vs initial `null`/`intuitive` refs and the effect
-    // bails out forever — leaving an empty feed stuck on "Connecting to tutor…".
+    // Wait for a real concept before firing — avoids a "free-draw" greeting that
+    // immediately gets replaced when the actual conceptId loads (double greeting bug).
+    if (conceptId === null && prevConceptRef.current !== undefined) return;
+
     const conceptChanged =
       prevConceptRef.current === undefined || conceptId !== prevConceptRef.current;
     const layerChanged =
@@ -998,8 +1141,8 @@ export function TutorPanel({
 
     if (!conceptChanged && !layerChanged) return;
 
-    // Record progress touch
-    if (conceptId && studentName) {
+    // Record progress touch (students only — teachers don't mutate learner progress here)
+    if (conceptId && studentName && sessionActorRole !== 'teacher') {
       touchConcept(studentName, conceptId, activeLayer);
       setProgressSnapshot(getConceptProgressSnapshot(studentName, conceptId));
     }
@@ -1035,10 +1178,15 @@ export function TutorPanel({
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conceptId, activeLayer]);
+  }, [conceptId, activeLayer, sessionActorRole]);
+
+  useEffect(() => {
+    hintsUsedRef.current = 0;
+  }, [conceptId]);
 
   // Notify tutor when a drawing is submitted
   useEffect(() => {
+    if (sessionActorRole === 'teacher') return;
     if (!drawingPrompt) return;
     if (!messages.length) return; // Don't react before greeting loads
 
@@ -1057,12 +1205,13 @@ export function TutorPanel({
         });
 
         try {
-          const response = await fetch(`${apiBase}/api/tutor/evaluate`, {
+          const response = await fetch(`${CLOUD_API_URL}/api/tutor/evaluate`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: cloudHeaders(cloudAuthToken),
             body: JSON.stringify({
               student_name: studentName,
               age_group: ageGroup,
+              actor_role: sessionActorRole,
               concept_id: conceptId ?? 'free-draw',
               layer: activeLayer,
               drawing_prompt: drawingPrompt,
@@ -1142,9 +1291,7 @@ export function TutorPanel({
   const stopStreaming = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
-    setIsSending(false);
-    // Stop pending TTS chunks too so we don't keep speaking after the user
-    // cancels the stream. Any sentences already queued will play out.
+    setTutorStreaming(false);
     tts.stopSpeaking();
     setMessages((prev) =>
       prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
@@ -1166,28 +1313,31 @@ export function TutorPanel({
   }, [apiBase, studentName, stopStreaming]);
 
   const streamTutorMessage = async (body: Record<string, unknown>) => {
+    abortControllerRef.current?.abort();
+
     const tutorMsgId = genId();
+    const myController = new AbortController();
     setMessages((prev) => [
       ...prev,
       { id: tutorMsgId, role: 'tutor', content: '', isStreaming: true },
     ]);
 
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+    abortControllerRef.current = myController;
+    setTutorStreaming(true);
 
-    // Start the chunked TTS pipeline: sentences will be spoken as soon as
-    // they're complete, not after the whole message finishes streaming.
-    tts.streamBegin();
+    // Chunked TTS: sentences from the spoken section (before ---) queue as they complete.
+    tts.streamBegin(tutorMsgId);
     streamSpokeItRef.current = true;
 
     try {
-      const res = await fetch(`${apiBase}/api/tutor/message`, {
+      const res = await fetch(`${CLOUD_API_URL}/api/tutor/message`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
+        headers: cloudHeaders(cloudAuthToken),
+        signal: myController.signal,
         body: JSON.stringify({
           student_name: studentName,
           age_group: ageGroup,
+          actor_role: sessionActorRole,
           ...body,
         }),
       });
@@ -1278,7 +1428,8 @@ export function TutorPanel({
         ),
       );
     } finally {
-      if (abortControllerRef.current?.signal.aborted === false) {
+      setTutorStreaming(false);
+      if (abortControllerRef.current === myController) {
         abortControllerRef.current = null;
       }
     }
@@ -1286,44 +1437,42 @@ export function TutorPanel({
 
   const handleSend = async () => {
     const text = studentInput.trim();
-    if (!text || isSending) return;
+    if (!text || tutorStreaming) return;
 
     setStudentInput('');
     setMessages((prev) => [...prev, { id: genId(), role: 'student', content: text }]);
-    setIsSending(true);
 
-    try {
-      await streamTutorMessage({
-        trigger: 'student_reply',
-        concept_id: conceptId ?? 'free-draw',
-        layer: activeLayer,
-        student_message: text,
-      });
-    } finally {
-      setIsSending(false);
-    }
+    await streamTutorMessage({
+      trigger: sessionActorRole === 'teacher' ? 'teacher_reply' : 'student_reply',
+      concept_id: conceptId ?? 'free-draw',
+      layer: activeLayer,
+      student_message: text,
+    });
   };
 
   const handleHint = async () => {
-    setIsSending(true);
-    try {
-      await streamTutorMessage({
-        trigger: 'hint_request',
-        concept_id: conceptId ?? 'free-draw',
-        layer: activeLayer,
-        drawing_prompt: drawingPrompt ?? '',
-        path_count: pathCount ?? 0,
-      });
-    } finally {
-      setIsSending(false);
+    const cap = effectiveMaxHints(classroomRestrictions ?? undefined);
+    if (cap !== null && hintsUsedRef.current >= cap) {
+      window.alert('No more hints for this session — your teacher set a limit.');
+      return;
     }
+    if (cap !== null) {
+      hintsUsedRef.current += 1;
+    }
+    await streamTutorMessage({
+      trigger: sessionActorRole === 'teacher' ? 'teacher_hint_request' : 'hint_request',
+      concept_id: conceptId ?? 'free-draw',
+      layer: activeLayer,
+      drawing_prompt: drawingPrompt ?? '',
+      path_count: pathCount ?? 0,
+    });
   };
 
   const handleGoDeeper = () => {
     const currentIdx = LAYERS.indexOf(activeLayer);
     if (currentIdx < LAYERS.length - 1) {
       const nextLayer = LAYERS[currentIdx + 1];
-      if (conceptId && studentName) {
+      if (conceptId && studentName && sessionActorRole !== 'teacher') {
         completeConceptLayer(studentName, conceptId, activeLayer);
         touchConcept(studentName, conceptId, nextLayer);
         awardBadge(studentName, 'went-deeper');
@@ -1345,7 +1494,7 @@ export function TutorPanel({
     : [];
 
   return (
-    <div className="tutor-panel">
+    <div className="tutor-panel" data-tour="session-tutor">
       {/* Header */}
       <div className="tutor-panel-header">
         <div className="tutor-header-top">
@@ -1354,6 +1503,12 @@ export function TutorPanel({
             <div className="tutor-name">Sketch</div>
             <div className="tutor-concept-label">
               {conceptTitle || 'Free Draw'} · {AGE_GROUP_META[ageGroup].label}
+              {sessionActorRole === 'teacher' ? (
+                <span>
+                  {' '}
+                  · Educator{lessonPlanActive ? ' · co-planning' : ''}
+                </span>
+              ) : null}
             </div>
           </div>
           {/* Clear conversation */}
@@ -1373,7 +1528,7 @@ export function TutorPanel({
               className={`tutor-icon-btn ${showVoicePicker ? 'active' : ''}`}
               onClick={() => setShowVoicePicker((v) => !v)}
               title={`Voice: ${tts.voice.label}`}
-              aria-label="Choose Sketch's voice"
+              aria-label="Choose Sketch voice"
               aria-haspopup="menu"
               aria-expanded={showVoicePicker}
             >
@@ -1381,7 +1536,7 @@ export function TutorPanel({
             </button>
             {showVoicePicker && (
               <div className="tutor-voice-menu" role="menu">
-                <div className="tutor-voice-menu-header">Sketch's voice</div>
+                <div className="tutor-voice-menu-header">Sketch&apos;s voice</div>
                 {TUTOR_VOICES.map((option) => (
                   <button
                     key={option.id}
@@ -1397,7 +1552,7 @@ export function TutorPanel({
                       const last = messages.at(-1);
                       if (last && last.role === 'tutor' && !last.isStreaming) {
                         lastSpokenMsgRef.current = null;
-                        setTimeout(() => tts.speak(last.content, ageGroup), 50);
+                        setTimeout(() => tts.speak(last.content, ageGroup, last.id), 50);
                       }
                     }}
                   >
@@ -1436,17 +1591,31 @@ export function TutorPanel({
             Connecting to tutor…
           </div>
         )}
-        {messages.map((msg) => (
-          <div key={msg.id} className={`tutor-msg-row ${msg.role === 'student' ? 'from-student' : ''}`}>
-            {msg.role === 'tutor' && (
-              <div className="tutor-msg-avatar">🤖</div>
-            )}
-            <div className="tutor-msg-bubble">
-              {renderMessage(msg.content)}
-              {msg.isStreaming && <span className="tutor-cursor" />}
+        {messages.map((msg) => {
+          const karaoke =
+            msg.role === 'tutor' &&
+            tts.enabled &&
+            tts.highlight.messageId === msg.id;
+          return (
+            <div key={msg.id} className={`tutor-msg-row ${msg.role === 'student' ? 'from-student' : ''}`}>
+              {msg.role === 'tutor' && (
+                <div className="tutor-msg-avatar">🤖</div>
+              )}
+              <div className="tutor-msg-bubble">
+                {msg.role === 'tutor' ? (
+                  renderTutorBubbleContent(msg.content, {
+                    karaoke,
+                    activeWordIndex: tts.highlight.activeWordIndex,
+                    activeWordRef: karaoke ? activeWordScrollRef : undefined,
+                  })
+                ) : (
+                  renderMessage(msg.content)
+                )}
+                {msg.isStreaming && <span className="tutor-cursor" />}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Starter chips */}
@@ -1457,7 +1626,7 @@ export function TutorPanel({
               key={chip}
               type="button"
               className="tutor-chip"
-              disabled={isSending}
+              disabled={tutorStreaming}
               onClick={() => {
                 setStudentInput(chip);
                 setTimeout(() => inputRef.current?.focus(), 50);
@@ -1471,7 +1640,7 @@ export function TutorPanel({
 
       {/* Action buttons */}
       <div className="tutor-actions">
-        {isSending ? (
+        {tutorStreaming ? (
           <button
             type="button"
             className="tutor-action-btn stop"
@@ -1485,13 +1654,13 @@ export function TutorPanel({
             type="button"
             className="tutor-action-btn"
             onClick={handleHint}
-            disabled={isSending}
+            disabled={tutorStreaming}
           >
             <Lightbulb size={12} />
             Hint
           </button>
         )}
-        {canGoDeeper && !isSending && (
+        {canGoDeeper && !tutorStreaming && (
           <button
             type="button"
             className="tutor-action-btn deeper"
@@ -1682,7 +1851,7 @@ export function TutorPanel({
           type="button"
           className={`tutor-mic-btn ${speech.isListening ? 'recording' : ''} ${speech.isTranscribing ? 'transcribing' : ''}`}
           onClick={speech.isListening ? speech.stopListening : () => void speech.startListening()}
-          disabled={speech.isTranscribing || isSending}
+          disabled={speech.isTranscribing || tutorStreaming}
           title={(() => {
             if (speech.isListening) return 'Stop recording & send';
             if (backendReachable && backendSttAvailable !== false) return 'Hold to speak';
@@ -1716,7 +1885,7 @@ export function TutorPanel({
               }
             }}
           />
-          {(inputDisplayValue.length > 0 || partialTranscript) && !isSending && (
+          {(inputDisplayValue.length > 0 || partialTranscript) && !tutorStreaming && (
             <button
               type="button"
               className="tutor-input-clear"
@@ -1740,7 +1909,7 @@ export function TutorPanel({
           type="button"
           className="tutor-send-btn"
           onClick={() => void handleSend()}
-          disabled={!studentInput.trim() || isSending}
+          disabled={!studentInput.trim() || tutorStreaming}
         >
           <Send size={14} />
         </button>
@@ -1769,7 +1938,8 @@ function renderInline(text: string, keyPrefix: string): ReactNode {
   });
 }
 
-function renderMessage(text: string): ReactNode {
+/** Renders markdown-ish body (used for spoken + detail sections). */
+function renderMessageParts(text: string): ReactNode {
   if (!text) return null;
 
   // Split out fenced code blocks first (``` ... ```)
@@ -1825,4 +1995,91 @@ function renderMessage(text: string): ReactNode {
       );
     });
   });
+}
+
+function clampWordHighlightIndex(plain: string, idx: number): number {
+  const words = plain.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return 0;
+  return Math.min(Math.max(0, idx), words.length - 1);
+}
+
+function renderPlainWordsWithHighlight(
+  plain: string,
+  activeIdx: number,
+  activeWordRef?: (el: HTMLSpanElement | null) => void,
+): ReactNode {
+  if (!plain) return null;
+  const safeIdx = clampWordHighlightIndex(plain, activeIdx);
+  const tokens = plain.split(/(\s+)/);
+  let wi = 0;
+  return tokens.map((tok, i) => {
+    if (/^\s+$/.test(tok)) {
+      return <span key={`sp-${i}`}>{tok}</span>;
+    }
+    const idx = wi;
+    wi += 1;
+    const isPast = idx < safeIdx;
+    const isActive = idx === safeIdx;
+    return (
+      <span
+        key={`w-${i}`}
+        ref={isActive ? activeWordRef : undefined}
+        className={`tutor-tts-word ${isActive ? 'tutor-tts-word--active' : ''} ${isPast ? 'tutor-tts-word--past' : ''}`}
+      >
+        {tok}
+      </span>
+    );
+  });
+}
+
+function renderTutorBubbleContent(
+  raw: string,
+  options: {
+    karaoke: boolean;
+    activeWordIndex: number;
+    activeWordRef?: (el: HTMLSpanElement | null) => void;
+  },
+): ReactNode {
+  const { karaoke, activeWordIndex, activeWordRef } = options;
+  const m = SPOKEN_DETAIL_DELIM.exec(raw);
+  if (m) {
+    const before = raw.slice(0, m.index).trim();
+    const after = raw.slice(m.index + m[0].length).trim();
+    const plainSpoken = stripMarkdown(before);
+    return (
+      <div className="tutor-msg-parts">
+        <div className={`tutor-msg-spoken ${karaoke ? 'tutor-msg-spoken-karaoke' : ''}`}>
+          {karaoke
+            ? renderPlainWordsWithHighlight(plainSpoken, activeWordIndex, activeWordRef)
+            : renderMessageParts(before)}
+        </div>
+        <div className="tutor-msg-detail" aria-label="Written detail">
+          {renderMessageParts(after)}
+        </div>
+      </div>
+    );
+  }
+  if (karaoke) {
+    const plain = extractSpokenChannel(stripMarkdown(raw));
+    return renderPlainWordsWithHighlight(plain, activeWordIndex, activeWordRef);
+  }
+  return renderMessageParts(raw);
+}
+
+function renderMessage(text: string): ReactNode {
+  if (!text) return null;
+  const m = SPOKEN_DETAIL_DELIM.exec(text);
+  if (m) {
+    const before = text.slice(0, m.index).trim();
+    const after = text.slice(m.index + m[0].length).trim();
+    return (
+      <div className="tutor-msg-parts">
+        <div className="tutor-msg-spoken">{renderMessageParts(before)}</div>
+        <div className="tutor-msg-detail" aria-label="Written detail">
+          {renderMessageParts(after)}
+        </div>
+      </div>
+    );
+  }
+  return renderMessageParts(text);
 }

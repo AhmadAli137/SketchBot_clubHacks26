@@ -1,0 +1,14 @@
+%% Session-scoped student client (may be device-bound, optional account link later).
+stateDiagram-v2
+    direction LR
+    [*] --> Idle
+    Idle --> ValidatingCode: enter_code
+    ValidatingCode --> Joined: code_ok
+    ValidatingCode --> Idle: code_invalid
+    Joined --> Active: lesson_ack
+    Active --> Disconnected: transport_lost
+    Disconnected --> Active: reconnect_in_window
+    Disconnected --> Left: ttl_expired
+    Active --> Left: leave_or_kick
+    Joined --> Left: leave_before_start
+    Left --> [*]

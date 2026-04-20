@@ -1,11 +1,20 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getShortLoopBuffer } from '@/lib/menu-music'; // triggers offline render immediately
+import { AnimatePresence, motion } from 'motion/react';
 
-import { AuthScreen, type AuthRole } from '@/components/auth-screen';
+import { AiboticsLogo } from '@/components/aibotics-logo';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { AuthScreen, type AuthResult, type AuthRole } from '@/components/auth-screen';
+import { PlanPicker } from '@/components/onboarding/plan-picker';
+import { SessionBanner } from '@/components/classroom/session-banner';
+import { TeacherDashboard } from '@/components/classroom/teacher-dashboard';
+import { GuidedTourProvider } from '@/components/guided-tour/guided-tour-provider';
 import { HomeScreen } from '@/components/home-screen';
 import { StudentDashboard } from '@/components/student-dashboard';
 import { useRuntimeConfig } from '@/lib/config';
+import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { useDesktopShell } from '@/lib/desktop-shell';
 import { mockState } from '@/lib/mock-state';
 import type {
@@ -16,9 +25,15 @@ import type {
   WebRTCConfigResponse,
 } from '@/lib/types';
 import type { AgeGroup } from '@/lib/concept-types';
+import { signOutAuth } from '@/lib/account-storage';
+import { loadClassroomProfile, saveClassroomProfile } from '@/lib/classroom-profile';
+import { getClassSession, setClassSession, type ClassSession } from '@/lib/session-store';
+import { canUpload, canUseFreeDraw, isConceptAllowed } from '@/lib/classroom-restrictions';
+import type { ClassroomProfile } from '@/lib/platform-types';
+import type { StartSessionOptions } from '@/components/home-screen';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
-type AppView = 'auth' | 'home' | 'session';
+type AppView = 'plan' | 'auth' | 'home' | 'session';
 
 function svgToDataUrl(svg: string | null | undefined) {
   if (!svg) return null;
@@ -73,17 +88,32 @@ function rtcConfiguration(iceServers?: RTCIceServerConfig[]): RTCConfiguration {
 }
 
 export default function HomePage() {
+  const prefersReducedMotion = usePrefersReducedMotion();
   const { apiBase, wsBase } = useRuntimeConfig();
-  const { pairingTargets } = useDesktopShell();
+  const { launchState, pairingTargets } = useDesktopShell();
   const companionBackendUrl = useMemo(() => pairingTargets[0] ?? apiBase, [pairingTargets, apiBase]);
   const classroomJoinCode = useMemo(() => classroomJoinCodeFromUrl(companionBackendUrl), [companionBackendUrl]);
 
+  // ─── Music ready gate — audio buffer must be done before plan picker shows ─
+  const [musicReady, setMusicReady] = useState(false);
+  useEffect(() => {
+    getShortLoopBuffer()
+      .then(() => setMusicReady(true))
+      .catch(() => setMusicReady(true)); // never block forever on audio failure
+  }, []);
+
   // ─── Auth / routing state ──────────────────────────────────────────────
-  const [view, setView] = useState<AppView>('auth');
+  const [view, setView] = useState<AppView>('plan');
+  const [showTeacherDash, setShowTeacherDash] = useState(false);
+  const [authMode, setAuthMode] = useState<'personal' | 'teacher'>('teacher');
+  const [activeClassSession, setActiveClassSession] = useState<ClassSession | null>(() => getClassSession());
   const [userRole, setUserRole] = useState<AuthRole>('guest');
   const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [classroomName, setClassroomName] = useState('');
   const [studentCount, setStudentCount] = useState(0);
+  const [classroomRestrictions, setClassroomRestrictions] = useState<ClassroomProfile['restrictions']>(undefined);
+  const [lessonPlanActive, setLessonPlanActive] = useState(false);
 
   // ─── Learning system state ─────────────────────────────────────────────
   const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null);
@@ -96,49 +126,106 @@ export default function HomePage() {
     try {
       const raw = localStorage.getItem('sketchbot-session-v1');
       if (raw) {
-        const saved = JSON.parse(raw) as { role: AuthRole; name: string; view: AppView };
+        const saved = JSON.parse(raw) as { role: AuthRole; name: string; view: AppView; email?: string };
         setUserRole(saved.role);
         setUserName(saved.name);
-        setView(saved.view === 'session' ? 'home' : saved.view); // never restore mid-session
+        setUserEmail(typeof saved.email === 'string' ? saved.email : '');
+        // Restore to home if previously authenticated, skip plan picker
+        const restoredView = saved.view === 'session' ? 'home' : saved.view;
+        setView(restoredView === 'plan' || restoredView === 'auth' ? 'plan' : restoredView);
       }
-      const profileRaw = localStorage.getItem('sketchbot-classroom-profile');
-      if (profileRaw) {
-        const profile = JSON.parse(profileRaw) as { classroomName?: string; students?: string[] };
-        setClassroomName(profile.classroomName ?? '');
-        setStudentCount(profile.students?.length ?? 0);
-      }
+      const profile = loadClassroomProfile();
+      setClassroomName(profile.classroomName);
+      setStudentCount(profile.students.length);
+      setClassroomRestrictions(profile.restrictions);
     } catch {
       // ignore
     }
   }, []);
 
-  const handleAuthenticated = (role: AuthRole, name: string) => {
+  const handleAuthenticated = (result: AuthResult) => {
+    const { role, name, email, authSource } = result;
     setUserRole(role);
     setUserName(name);
+    setUserEmail(email ?? '');
     setView('home');
-    localStorage.setItem('sketchbot-session-v1', JSON.stringify({ role, name, view: 'home' }));
+    // Sync class session state in case PlanPicker just stored one
+    setActiveClassSession(getClassSession());
+    localStorage.setItem(
+      'sketchbot-session-v1',
+      JSON.stringify({ role, name, view: 'home', email: email ?? undefined, authSource }),
+    );
+    if (role === 'teacher' && name.trim()) {
+      const p = loadClassroomProfile();
+      if (!p.teacherName.trim()) {
+        p.teacherName = name.trim();
+        saveClassroomProfile(p);
+      }
+    }
   };
 
-  const handleStartSession = (conceptId?: string, starterPrompt?: string, ageGroup?: AgeGroup) => {
+  const handleClassroomSaved = useCallback((p: ClassroomProfile) => {
+    setClassroomName(p.classroomName);
+    setStudentCount(p.students.length);
+    setClassroomRestrictions(p.restrictions);
+  }, []);
+
+  const handleStartSession = (
+    conceptId?: string,
+    starterPrompt?: string,
+    ageGroup?: AgeGroup,
+    options?: StartSessionOptions,
+  ) => {
     if (conceptId !== undefined) setSelectedConceptId(conceptId ?? null);
+    if (options?.conceptTitle) {
+      setSelectedConceptTitle(options.conceptTitle);
+    }
     if (starterPrompt) {
       setSessionStartPrompt(starterPrompt);
       setPrompt(starterPrompt);
     }
     if (ageGroup) setSelectedAgeGroup(ageGroup);
+    setLessonPlanActive(Boolean(options?.lessonPlanning));
     setView('session');
-    localStorage.setItem('sketchbot-session-v1', JSON.stringify({ role: userRole, name: userName, view: 'session' }));
+    localStorage.setItem(
+      'sketchbot-session-v1',
+      JSON.stringify({
+        role: userRole,
+        name: userName,
+        view: 'session',
+        email: userEmail || undefined,
+      }),
+    );
   };
 
-  const handleConceptSelect = (conceptId: string, conceptTitle: string) => {
-    setSelectedConceptId(conceptId);
-    setSelectedConceptTitle(conceptTitle);
+  const handleConceptSelect = useCallback(
+    (conceptId: string, conceptTitle: string) => {
+      if (userRole === 'student' && classroomRestrictions) {
+        if (!isConceptAllowed(conceptId, classroomRestrictions)) {
+          window.alert('That topic is not available in your classroom. Ask your teacher.');
+          return;
+        }
+      }
+      setSelectedConceptId(conceptId);
+      setSelectedConceptTitle(conceptTitle);
+    },
+    [userRole, classroomRestrictions],
+  );
+
+  const clearClassSession = () => {
+    setClassSession(null);
+    setActiveClassSession(null);
   };
 
   const handleSignOut = () => {
-    setView('auth');
+    void signOutAuth();
+    setView('plan');
     setUserRole('guest');
     setUserName('');
+    setUserEmail('');
+    setLessonPlanActive(false);
+    setShowTeacherDash(false);
+    clearClassSession();
     localStorage.removeItem('sketchbot-session-v1');
   };
 
@@ -416,7 +503,7 @@ export default function HomePage() {
         void fetch(`${apiBase}/api/camera/phone-webrtc/viewer-stop/${sessionId}`, { method: 'POST' }).catch(() => {});
       }
     };
-  }, [apiBase, state.camera?.media_session?.session_id, state.camera?.source, viewerIceKey]);
+  }, [apiBase, state.camera?.media_session?.session_id, state.camera?.source, viewerIceKey, refreshState]);
 
   useEffect(() => {
     const shouldUseBrowserCamera = state.camera?.source === 'browser-camera';
@@ -683,6 +770,12 @@ export default function HomePage() {
 
   const submitPrompt = async (event: FormEvent) => {
     event.preventDefault();
+    if (userRole === 'student' && classroomRestrictions) {
+      if (!selectedConceptId && !canUseFreeDraw(classroomRestrictions)) {
+        window.alert('Free Draw is turned off for your classroom.');
+        return;
+      }
+    }
     setComposing(true);
     try {
       await fetch(`${apiBase}/api/compose/prompt`, {
@@ -700,6 +793,11 @@ export default function HomePage() {
   const uploadFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (userRole === 'student' && classroomRestrictions && !canUpload(classroomRestrictions)) {
+      window.alert('Uploads are disabled for your classroom.');
+      event.target.value = '';
+      return;
+    }
     setUploading(true);
     try {
       const formData = new FormData();
@@ -844,40 +942,187 @@ export default function HomePage() {
         : 'Camera Buddy';
   const featuredTasks = tasks.slice(0, 3);
 
-  // ─── Auth screen ──────────────────────────────────────────────────────
-  if (view === 'auth') {
-    return <AuthScreen onAuthenticated={handleAuthenticated} />;
-  }
+  const viewTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.32, ease: [0.22, 1, 0.36, 1] as const };
 
-  // ─── Home screen ──────────────────────────────────────────────────────
-  if (view === 'home') {
-    return (
-      <HomeScreen
-        role={userRole}
-        userName={userName}
-        isRobotConnected={state.robot_connected}
-        classroomName={classroomName || undefined}
-        studentCount={studentCount}
-        apiBase={apiBase}
-        onStartSession={(conceptId, starterPrompt, ageGroup) =>
-          handleStartSession(conceptId, starterPrompt, ageGroup)
-        }
-        onSignOut={handleSignOut}
-      />
-    );
-  }
+  const viewVariants = prefersReducedMotion
+    ? {
+        initial: { opacity: 1, y: 0 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 1, y: 0 },
+      }
+    : {
+        initial: { opacity: 0, y: 12 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -8 },
+      };
 
-  // ─── Session ──────────────────────────────────────────────────────────
+  // ─── Auth / home / session with shared motion shell ───────────────────
   return (
-    <StudentDashboard
+    <GuidedTourProvider activeView={view === 'plan' ? 'auth' : view} userRole={userRole} lessonActive={lessonPlanActive}>
+      <AnimatePresence mode="wait">
+        {view === 'plan' && (!musicReady || launchState.phase === 'starting') && (
+          <motion.div
+            key="loading"
+            className="plan-boot-screen"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {/* Theme toggle — top-right corner */}
+            <div style={{ position: 'absolute', top: 18, right: 20, zIndex: 10 }}>
+              <ThemeToggle variant="icon" />
+            </div>
+
+            {/* Animated blobs */}
+            <div className="plan-boot-blobs" aria-hidden="true">
+              <div className="plan-boot-blob-a" />
+              <div className="plan-boot-blob-b" />
+            </div>
+
+            {/* Center content */}
+            <div className="plan-boot-center">
+              {/* Logo mark with ring pulses */}
+              <div className="plan-boot-mark-wrap" aria-hidden="true">
+                <div className="plan-boot-ring" />
+                <div className="plan-boot-ring plan-boot-ring-d" />
+                <AiboticsLogo size={72} showWordmark={false} animate={false} />
+              </div>
+
+              {/* Wordmark */}
+              <p className="plan-boot-wordmark-name">
+                <span className="plan-boot-wordmark-ai">Ai</span>botics
+              </p>
+              <p className="plan-boot-wordmark-sub">AI Robotics Studio</p>
+
+              {/* Progress bar + status */}
+              <div className="plan-boot-load-area">
+                <div className="plan-boot-message">
+                  {launchState.phase === 'starting' ? launchState.message : 'Getting music ready\u2026'}
+                </div>
+                <div className="plan-boot-track" aria-hidden="true">
+                  <div className="plan-boot-fill" />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+        {view === 'plan' && musicReady && launchState.phase !== 'starting' && (
+          <motion.div
+            key="plan"
+            className="min-h-[100dvh]"
+            variants={viewVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={viewTransition}
+          >
+            <PlanPicker
+              apiBase={apiBase}
+              onPicked={handleAuthenticated}
+              onTeacherAuth={() => { setAuthMode('teacher'); setView('auth'); }}
+              onPersonalTutor={() => { setAuthMode('personal'); setView('auth'); }}
+            />
+          </motion.div>
+        )}
+        {view === 'auth' && (
+          <motion.div
+            key="auth"
+            className="min-h-[100dvh]"
+            variants={viewVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={viewTransition}
+          >
+            <AuthScreen
+              onAuthenticated={handleAuthenticated}
+              onBack={() => setView('plan')}
+              authMode={authMode}
+            />
+          </motion.div>
+        )}
+        {view === 'home' && (
+          <motion.div
+            key="home"
+            className="min-h-[100dvh]"
+            variants={viewVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={viewTransition}
+          >
+            {userRole === 'student' && activeClassSession && (
+              <>
+                <SessionBanner
+                  apiBase={apiBase}
+                  studentName={userName}
+                  onLeave={clearClassSession}
+                />
+                <div style={{ height: 38 }} aria-hidden />
+              </>
+            )}
+            <HomeScreen
+              role={userRole}
+              userName={userName}
+              isRobotConnected={state.robot_connected}
+              classroomName={classroomName || undefined}
+              studentCount={studentCount}
+              apiBase={apiBase}
+              onStartSession={handleStartSession}
+              onSignOut={handleSignOut}
+              onClassroomSaved={handleClassroomSaved}
+              onOpenTeacherDashboard={userRole === 'teacher' ? () => setShowTeacherDash(true) : undefined}
+            />
+            <AnimatePresence>
+              {showTeacherDash && userRole === 'teacher' && (
+                <TeacherDashboard
+                  apiBase={apiBase}
+                  classroomName={classroomName || 'My Class'}
+                  teacherName={userName}
+                  onClose={() => setShowTeacherDash(false)}
+                />
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+        {view === 'session' && (
+          <motion.div
+            key="session"
+            className="min-h-[100dvh]"
+            variants={viewVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={viewTransition}
+          >
+            {userRole === 'student' && activeClassSession && (
+              <>
+                <SessionBanner
+                  apiBase={apiBase}
+                  studentName={userName}
+                  onLeave={clearClassSession}
+                />
+                <div style={{ height: 38 }} aria-hidden />
+              </>
+            )}
+            <StudentDashboard
       topStatus={topStatus}
       conceptId={selectedConceptId}
       conceptTitle={selectedConceptTitle}
       ageGroup={selectedAgeGroup}
       studentName={userName}
       apiBase={apiBase}
+      userRole={userRole}
+      lessonPlanActive={lessonPlanActive}
+      classroomRestrictions={userRole === 'student' ? classroomRestrictions : undefined}
       onConceptSelect={handleConceptSelect}
-      onBackToHome={() => setView('home')}
+      onBackToHome={() => {
+        setLessonPlanActive(false);
+        setView('home');
+      }}
       operatorMode={operator.mock_mode ? 'Practice mode' : 'Live mode'}
       nextActionTitle={nextActionTitle}
       nextActionCopy={nextActionCopy}
@@ -922,6 +1167,10 @@ export default function HomePage() {
       onSubmitPrompt={(event) => void submitPrompt(event)}
       onUploadFile={(event) => void uploadFile(event)}
       onLoadTask={(task) => void loadTask(task)}
-    />
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </GuidedTourProvider>
   );
 }

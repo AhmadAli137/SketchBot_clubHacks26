@@ -2,3 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 .env
+# Local LLM response caches (machine-specific)
+data/tutor_stream_response_cache.json
+data/tutor_eval_response_cache.json
+data/tutor_audit.sqlite
+data/tutor_audit.sqlite-wal
+data/tutor_audit.sqlite-shm

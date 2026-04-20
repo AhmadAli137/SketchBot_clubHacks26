@@ -1,10 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Settings, Flame, Trophy } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText } from 'lucide-react';
 
-import { getConceptPreviews, type ConceptPreview } from '@/lib/concept-catalog';
-import { AGE_GROUP_META, type AgeGroup } from '@/lib/concept-types';
+import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
+
+import { ConceptMap } from '@/components/concept-map';
+import { RobotAvatarPreset } from '@/components/robot-avatar-preset';
+import { StudentProfileAvatar } from '@/components/student-profile-avatar';
+import {
+  getConceptPreviews,
+  ROBOT_LAB_CONCEPT_IDS,
+  type ConceptPreview,
+} from '@/lib/concept-catalog';
+import { AGE_GROUP_META, type AgeGroup, type ProfileAvatarKind } from '@/lib/concept-types';
+import { ROBOT_PRESETS, DEFAULT_ROBOT_PRESET, type RobotPresetId } from '@/lib/robot-presets';
 import {
   getStudentProgress,
   incrementSessions,
@@ -13,10 +24,17 @@ import {
   getProgressSummary,
 } from '@/lib/progress-store';
 import { Button } from '@/components/ui/button';
+import { ClassroomSettingsModal } from '@/components/classroom-settings-modal';
+import { TeacherFeedbackModal } from '@/components/teacher-feedback-modal';
+import type { ClassroomProfile } from '@/lib/platform-types';
 
 import type { AuthRole } from './auth-screen';
+import { getClassSession } from '@/lib/session-store';
 
 const CONCEPT_PREVIEWS: ConceptPreview[] = getConceptPreviews();
+
+/** Hero spotlight — rotate between fresh robotics labs and core math paths */
+const FEATURED_TOPIC_IDS: readonly string[] = ['cone-ring-gauntlet', 'path-planning'];
 
 type LeaderboardEntry = {
   rank: number;
@@ -29,6 +47,8 @@ type LeaderboardEntry = {
   streak_days: number;
 };
 
+export type StartSessionOptions = { lessonPlanning?: boolean; conceptTitle?: string };
+
 type HomeScreenProps = {
   role: AuthRole;
   userName: string;
@@ -36,8 +56,10 @@ type HomeScreenProps = {
   classroomName?: string;
   studentCount?: number;
   apiBase?: string;
-  onStartSession: (conceptId?: string, starterPrompt?: string, ageGroup?: AgeGroup) => void;
+  onStartSession: (conceptId?: string, starterPrompt?: string, ageGroup?: AgeGroup, options?: StartSessionOptions) => void;
   onSignOut: () => void;
+  onClassroomSaved?: (profile: ClassroomProfile) => void;
+  onOpenTeacherDashboard?: () => void;
 };
 
 export function HomeScreen({
@@ -49,18 +71,61 @@ export function HomeScreen({
   apiBase = '',
   onStartSession,
   onSignOut,
+  onClassroomSaved,
+  onOpenTeacherDashboard,
 }: HomeScreenProps) {
   const [ageGroup, setAgeGroupState] = useState<AgeGroup>('explorer');
+  const [showClassroomModal, setShowClassroomModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [teacherLeaderboard, setTeacherLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [teacherDetailName, setTeacherDetailName] = useState<string | null>(null);
+  const [teacherDetail, setTeacherDetail] = useState<Record<string, unknown> | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [profile, setProfile] = useState({ avatar: '🤖', favorite_color: 'var(--cyan)', bio: '' });
+  const [showJourney, setShowJourney] = useState(false);
+  const [journeyInitialTab, setJourneyInitialTab] = useState<'path' | 'stats'>('path');
+  const [profile, setProfile] = useState({
+    avatar: '🤖',
+    favorite_color: 'var(--cyan)',
+    bio: '',
+    profile_avatar_kind: 'emoji' as ProfileAvatarKind,
+    robot_preset: DEFAULT_ROBOT_PRESET as RobotPresetId,
+  });
   const [showAllTopics, setShowAllTopics] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const reducedMotion = usePrefersReducedMotion();
+
+  const cardGridContainer = useMemo(
+    () => ({
+      hidden: {},
+      show: {
+        transition: { staggerChildren: reducedMotion ? 0 : 0.055, delayChildren: reducedMotion ? 0 : 0.05 },
+      },
+    }),
+    [reducedMotion],
+  );
+
+  const cardGridItem = useMemo(
+    () => ({
+      hidden: reducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 },
+      show: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: reducedMotion ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] as const },
+      },
+    }),
+    [reducedMotion],
+  );
+
+  const cardHoverTap = reducedMotion
+    ? {}
+    : { whileHover: { scale: 1.015 }, whileTap: { scale: 0.985 } };
 
   const syncAndFetchLeaderboard = useCallback(async () => {
     if (!apiBase || !userName) return;
     try {
       const summary = getProgressSummary(userName);
       if (summary) {
+        const classSession = getClassSession();
         await fetch(`${apiBase}/api/progress/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -75,6 +140,7 @@ export function HomeScreen({
             drawings_count: summary.drawingCount,
             concepts_started: summary.conceptsStarted,
             concepts_mastered: summary.conceptsMastered,
+            session_id: classSession?.sessionId ?? null,
           }),
         });
       }
@@ -88,6 +154,19 @@ export function HomeScreen({
     }
   }, [apiBase, userName]);
 
+  const fetchTeacherLeaderboard = useCallback(async () => {
+    if (!apiBase || role !== 'teacher') return;
+    try {
+      const res = await fetch(`${apiBase}/api/progress/leaderboard`);
+      if (res.ok) {
+        const data = await res.json();
+        setTeacherLeaderboard(data.leaderboard ?? []);
+      }
+    } catch {
+      setTeacherLeaderboard([]);
+    }
+  }, [apiBase, role]);
+
   useEffect(() => {
     if (!userName) {
       return;
@@ -100,6 +179,8 @@ export function HomeScreen({
         avatar: progress.avatar ?? '🤖',
         favorite_color: progress.favorite_color ?? 'var(--cyan)',
         bio: progress.bio ?? '',
+        profile_avatar_kind: progress.profile_avatar_kind ?? 'emoji',
+        robot_preset: (progress.robot_preset as RobotPresetId) ?? DEFAULT_ROBOT_PRESET,
       });
     } catch {
       // Ignore localStorage parse failures and keep the default group.
@@ -107,6 +188,40 @@ export function HomeScreen({
 
     syncAndFetchLeaderboard();
   }, [userName, syncAndFetchLeaderboard]);
+
+  useEffect(() => {
+    if (role === 'teacher') {
+      setAgeGroupState('builder');
+    }
+  }, [role]);
+
+  useEffect(() => {
+    void fetchTeacherLeaderboard();
+  }, [fetchTeacherLeaderboard]);
+
+  useEffect(() => {
+    if (!apiBase || !teacherDetailName) {
+      setTeacherDetail(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/progress/${encodeURIComponent(teacherDetailName)}`);
+        if (!res.ok) {
+          if (!cancelled) setTeacherDetail(null);
+          return;
+        }
+        const data = (await res.json()) as Record<string, unknown>;
+        if (!cancelled) setTeacherDetail(data);
+      } catch {
+        if (!cancelled) setTeacherDetail(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, teacherDetailName]);
 
   const handleStart = (concept: ConceptPreview | null) => {
     if (userName) {
@@ -123,9 +238,15 @@ export function HomeScreen({
     }
   };
 
-  const handleProfileSave = (nextProfile: { avatar: string; favorite_color: string; bio: string }) => {
+  const handleProfileSave = (nextProfile: typeof profile) => {
     if (userName) {
-      updateStudentProfile(userName, nextProfile);
+      updateStudentProfile(userName, {
+        avatar: nextProfile.avatar,
+        favorite_color: nextProfile.favorite_color,
+        bio: nextProfile.bio,
+        profile_avatar_kind: nextProfile.profile_avatar_kind,
+        robot_preset: nextProfile.robot_preset,
+      });
     }
     setProfile(nextProfile);
     setShowProfileModal(false);
@@ -164,8 +285,15 @@ export function HomeScreen({
     };
   }, [studentProgress]);
 
-  const featuredConcepts = CONCEPT_PREVIEWS.slice(0, 2);
-  const visibleConcepts = showAllTopics ? CONCEPT_PREVIEWS : CONCEPT_PREVIEWS.slice(0, 5);
+  const featuredConcepts = useMemo(() => {
+    const byId = new Map(CONCEPT_PREVIEWS.map((c) => [c.id, c]));
+    return FEATURED_TOPIC_IDS.map((id) => byId.get(id)).filter((c): c is ConceptPreview => Boolean(c));
+  }, []);
+
+  const initialTopicCount = 10;
+  const visibleConcepts = showAllTopics
+    ? CONCEPT_PREVIEWS
+    : CONCEPT_PREVIEWS.slice(0, Math.min(initialTopicCount, CONCEPT_PREVIEWS.length));
 
   return (
     <div className="onboarding-shell">
@@ -175,10 +303,36 @@ export function HomeScreen({
 
       <div style={{ position: 'fixed', top: 14, right: 14, display: 'flex', gap: 8, zIndex: 10 }}>
         {role === 'teacher' && (
-          <Button variant="ghost" size="sm" style={{ fontSize: '0.75rem', minHeight: 32, gap: 5 } as React.CSSProperties}>
-            <Settings size={13} />
-            Classroom
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              style={{ fontSize: '0.75rem', minHeight: 32, gap: 5 } as React.CSSProperties}
+              onClick={() => setShowFeedbackModal(true)}
+            >
+              <MessageSquareText size={13} />
+              Feedback
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              style={{ fontSize: '0.75rem', minHeight: 32, gap: 5 } as React.CSSProperties}
+              onClick={() => setShowClassroomModal(true)}
+            >
+              <Settings size={13} />
+              Classroom
+            </Button>
+            {onOpenTeacherDashboard && (
+              <Button
+                variant="ghost"
+                size="sm"
+                style={{ fontSize: '0.75rem', minHeight: 32, gap: 5 } as React.CSSProperties}
+                onClick={onOpenTeacherDashboard}
+              >
+                Class Session
+              </Button>
+            )}
+          </>
         )}
         <Button
           variant="ghost"
@@ -186,27 +340,193 @@ export function HomeScreen({
           onClick={onSignOut}
           style={{ fontSize: '0.75rem', minHeight: 32 } as React.CSSProperties}
         >
-          Sign out
+          {role === 'guest' ? 'Switch mode' : 'Sign out'}
         </Button>
       </div>
 
       <div className="onboarding-inner">
         <div className="onboarding-greeting">
-          <h1>{role === 'teacher' ? `Welcome back, ${userName}` : `Hi, ${userName}!`}</h1>
+          <h1>
+            {role === 'teacher'
+              ? `Welcome back, ${userName}`
+              : role === 'guest'
+                ? 'Sandbox Mode'
+                : `Hi, ${userName}!`}
+          </h1>
           <p>
             {role === 'teacher'
-              ? `${classroomName ?? 'Your classroom'} - ${studentCount ?? 0} student${studentCount !== 1 ? 's' : ''}`
-              : 'Your student dashboard is ready. Pick a lesson or customize your profile.'}
+              ? `${classroomName ?? 'Your classroom'} — ${studentCount ?? 0} student${studentCount !== 1 ? 's' : ''}`
+              : role === 'guest'
+                ? 'You\'re in free-draw mode. No lessons or XP — just you and the bot.'
+                : 'Your student dashboard is ready. Pick a lesson or customize your profile.'}
           </p>
         </div>
 
+        {role === 'guest' && (
+          <div className="guest-unlock-nudge">
+            <span className="guest-unlock-icon">🎓</span>
+            <span className="guest-unlock-text">
+              Want lessons, XP, and badges?
+            </span>
+            <button type="button" className="guest-unlock-btn" onClick={onSignOut}>
+              Switch to Personal Tutor →
+            </button>
+          </div>
+        )}
+
+        {role === 'teacher' && (
+          <section style={{ width: '100%', maxWidth: 920, margin: '0 auto 24px' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                gap: 16,
+              }}
+            >
+              <div
+                style={{
+                  border: '1px solid rgba(120,140,255,0.2)',
+                  borderRadius: 16,
+                  padding: 16,
+                  background: 'rgba(5,8,22,0.35)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Users size={18} />
+                  <strong>Roster</strong>
+                </div>
+                <p style={{ fontSize: '0.9rem', color: 'var(--muted)', margin: 0 }}>
+                  {studentCount ?? 0} student{(studentCount ?? 0) !== 1 ? 's' : ''} on this device
+                  {classroomName ? ` · ${classroomName}` : ''}
+                </p>
+                <Button variant="primary" size="sm" style={{ marginTop: 12 }} onClick={() => setShowClassroomModal(true)}>
+                  Manage classroom
+                </Button>
+              </div>
+              <div
+                style={{
+                  border: '1px solid rgba(120,140,255,0.2)',
+                  borderRadius: 16,
+                  padding: 16,
+                  background: 'rgba(5,8,22,0.35)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Trophy size={18} />
+                    <strong>Synced progress</strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ padding: 4 }}
+                    onClick={() => void fetchTeacherLeaderboard()}
+                    title="Refresh leaderboard"
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: '0 0 8px' }}>
+                  Students who synced XP to this hub. Tap a row for server-stored summary.
+                </p>
+                <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                  {teacherLeaderboard.length === 0 ? (
+                    <span style={{ fontSize: '0.88rem', color: 'var(--muted)' }}>
+                      No rows yet — students sync when they open the home screen with the backend running.
+                    </span>
+                  ) : (
+                    teacherLeaderboard.map((e) => (
+                      <button
+                        key={e.student_name}
+                        type="button"
+                        onClick={() => setTeacherDetailName((n) => (n === e.student_name ? null : e.student_name))}
+                        style={{
+                          display: 'flex',
+                          width: '100%',
+                          justifyContent: 'space-between',
+                          padding: '8px 10px',
+                          marginBottom: 4,
+                          borderRadius: 10,
+                          border:
+                            teacherDetailName === e.student_name
+                              ? '1px solid rgba(77,226,255,0.5)'
+                              : '1px solid rgba(120,140,255,0.12)',
+                          background: 'rgba(5,8,22,0.55)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          color: 'inherit',
+                          font: 'inherit',
+                        }}
+                      >
+                        <span>
+                          #{e.rank} {e.student_name}
+                        </span>
+                        <span>
+                          {e.level_emoji} Lv.{e.level} · {e.xp} XP
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+                {teacherDetailName && teacherDetail && teacherDetail.found === false && (
+                  <p style={{ marginTop: 12, fontSize: '0.85rem', color: 'var(--muted)' }}>No synced row for this name.</p>
+                )}
+                {teacherDetailName && teacherDetail && teacherDetail.found !== false && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      fontSize: '0.82rem',
+                      color: 'var(--muted)',
+                      borderTop: '1px solid rgba(120,140,255,0.15)',
+                      paddingTop: 10,
+                    }}
+                  >
+                    <strong style={{ color: 'var(--text)' }}>
+                      {String(teacherDetail.student_name ?? teacherDetailName)}
+                    </strong>
+                    <div>Drawings (synced): {String(teacherDetail.drawings_count ?? '—')}</div>
+                    <div>Concepts started: {String(teacherDetail.concepts_started ?? '—')}</div>
+                    <div>Concepts mastered: {String(teacherDetail.concepts_mastered ?? '—')}</div>
+                    <div>Streak (days): {String(teacherDetail.streak_days ?? '—')}</div>
+                  </div>
+                )}
+              </div>
+              <div
+                style={{
+                  border: '1px solid rgba(120,140,255,0.2)',
+                  borderRadius: 16,
+                  padding: 16,
+                  background: 'rgba(5,8,22,0.35)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <MessageSquareText size={18} />
+                  <strong>Product feedback</strong>
+                </div>
+                <p style={{ fontSize: '0.9rem', color: 'var(--muted)', margin: '0 0 12px' }}>
+                  Save notes to this computer&apos;s hub log, or open email to the team (address from server config).
+                </p>
+                <Button variant="primary" size="sm" onClick={() => setShowFeedbackModal(true)}>
+                  Feedback &amp; email
+                </Button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {role === 'student' ? (
           <div className="dashboard-top-grid">
-            <section className="student-profile-panel">
+            <section className="student-profile-panel" data-tour="home-profile">
               <div className="student-profile-card" style={{ borderColor: profile.favorite_color }}>
                 <div className="student-profile-header">
-                  <div className="student-profile-avatar" style={{ background: profile.favorite_color }}>
-                    {profile.avatar}
+                  <div className="student-profile-avatar-wrap">
+                    <StudentProfileAvatar
+                      kind={profile.profile_avatar_kind}
+                      emoji={profile.avatar}
+                      robotPresetId={profile.robot_preset}
+                      accent={profile.favorite_color}
+                      size={52}
+                    />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="student-profile-name">{userName}</div>
@@ -258,9 +578,21 @@ export function HomeScreen({
                     <span>Drawings</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div className="student-profile-actions">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setJourneyInitialTab('stats');
+                      setShowJourney(true);
+                    }}
+                    style={{ gap: 6 } as React.CSSProperties}
+                  >
+                    <MapIcon size={14} />
+                    Progress &amp; path
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => setShowProfileModal(true)}>
-                    Customize profile
+                    Customize look
                   </Button>
                 </div>
               </div>
@@ -301,29 +633,56 @@ export function HomeScreen({
                 <h2>Today’s adventure</h2>
                 <p>Choose one of these top activities to continue your learning.</p>
               </div>
-              <div className="home-hero-card-grid">
-                <button
+              <motion.div
+                className="home-hero-card-grid"
+                variants={cardGridContainer}
+                initial="hidden"
+                animate="show"
+              >
+                <motion.button
                   type="button"
                   className="hero-card hero-card-primary"
+                  variants={cardGridItem}
                   onClick={() => handleStart(null)}
+                  {...cardHoverTap}
                 >
                   <span className="hero-card-emoji">🎨</span>
                   <div className="hero-card-title">Free Draw</div>
                   <div className="hero-card-copy">Any prompt, any idea — just jump in and draw.</div>
-                </button>
-                {featuredConcepts.map((concept) => (
-                  <button
-                    key={concept.id}
-                    type="button"
-                    className="hero-card"
-                    onClick={() => handleStart(concept)}
-                  >
-                    <span className="hero-card-emoji">{concept.emoji}</span>
-                    <div className="hero-card-title">{concept.title}</div>
-                    <div className="hero-card-copy">{concept.subtitle}</div>
-                  </button>
-                ))}
-              </div>
+                </motion.button>
+                {featuredConcepts.map((concept) => {
+                  const isRobotLab = (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(concept.id);
+                  return (
+                    <motion.button
+                      key={concept.id}
+                      type="button"
+                      data-concept={concept.id}
+                      className={`hero-card ${isRobotLab ? 'hero-card--robot-lab' : ''}`}
+                      variants={cardGridItem}
+                      onClick={() => handleStart(concept)}
+                      {...cardHoverTap}
+                    >
+                      <motion.span
+                        className="hero-card-emoji"
+                        animate={
+                          !reducedMotion && isRobotLab
+                            ? { y: [0, -4, 0], rotate: [0, -2, 2, 0] }
+                            : {}
+                        }
+                        transition={
+                          isRobotLab
+                            ? { duration: 3.8, repeat: Infinity, ease: 'easeInOut' }
+                            : {}
+                        }
+                      >
+                        {concept.emoji}
+                      </motion.span>
+                      <div className="hero-card-title">{concept.title}</div>
+                      <div className="hero-card-copy">{concept.subtitle}</div>
+                    </motion.button>
+                  );
+                })}
+              </motion.div>
             </div>
           </div>
         ) : (
@@ -332,29 +691,54 @@ export function HomeScreen({
               <h2>Ready for the classroom?</h2>
               <p>Select a concept and launch a session for your class.</p>
             </div>
-            <div className="home-hero-card-grid">
-              <button
+            <motion.div
+              className="home-hero-card-grid"
+              variants={cardGridContainer}
+              initial="hidden"
+              animate="show"
+            >
+              <motion.button
                 type="button"
                 className="hero-card hero-card-primary"
+                variants={cardGridItem}
                 onClick={() => handleStart(null)}
+                {...cardHoverTap}
               >
                 <span className="hero-card-emoji">🎨</span>
                 <div className="hero-card-title">Free Draw</div>
                 <div className="hero-card-copy">Any prompt, any idea — just jump in and draw.</div>
-              </button>
-              {featuredConcepts.map((concept) => (
-                <button
-                  key={concept.id}
-                  type="button"
-                  className="hero-card"
-                  onClick={() => handleStart(concept)}
-                >
-                  <span className="hero-card-emoji">{concept.emoji}</span>
-                  <div className="hero-card-title">{concept.title}</div>
-                  <div className="hero-card-copy">{concept.subtitle}</div>
-                </button>
-              ))}
-            </div>
+              </motion.button>
+              {featuredConcepts.map((concept) => {
+                const isRobotLab = (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(concept.id);
+                return (
+                  <motion.button
+                    key={concept.id}
+                    type="button"
+                    data-concept={concept.id}
+                    className={`hero-card ${isRobotLab ? 'hero-card--robot-lab' : ''}`}
+                    variants={cardGridItem}
+                    onClick={() => handleStart(concept)}
+                    {...cardHoverTap}
+                  >
+                    <motion.span
+                      className="hero-card-emoji"
+                      animate={
+                        !reducedMotion && isRobotLab
+                          ? { y: [0, -4, 0], rotate: [0, -2, 2, 0] }
+                          : {}
+                      }
+                      transition={
+                        isRobotLab ? { duration: 3.8, repeat: Infinity, ease: 'easeInOut' } : {}
+                      }
+                    >
+                      {concept.emoji}
+                    </motion.span>
+                    <div className="hero-card-title">{concept.title}</div>
+                    <div className="hero-card-copy">{concept.subtitle}</div>
+                  </motion.button>
+                );
+              })}
+            </motion.div>
           </div>
         )}
 
@@ -364,12 +748,19 @@ export function HomeScreen({
             <div className="tap-to-enter-hint">Tap a card to launch the experience instantly.</div>
           </div>
 
-          <div className="concept-card-grid">
-            <button
+          <motion.div
+            className="concept-card-grid"
+            data-tour="home-topics"
+            variants={cardGridContainer}
+            initial="hidden"
+            animate="show"
+          >
+            <motion.button
               type="button"
               className="concept-card free-explore"
+              variants={cardGridItem}
               onClick={() => handleStart(null)}
-              style={{ animationDelay: '0ms' }}
+              {...cardHoverTap}
             >
               <span className="concept-card-emoji">Draw</span>
               <div className="concept-card-title">Free Draw</div>
@@ -377,23 +768,29 @@ export function HomeScreen({
               <div className="concept-card-domain-badge" style={{ color: 'var(--pink)', background: 'rgba(255,79,216,0.12)', borderColor: 'transparent' }}>
                 freestyle
               </div>
-            </button>
+            </motion.button>
 
-            {visibleConcepts.map((concept, index) => (
-              <button
+            {visibleConcepts.map((concept) => (
+              <motion.button
                 key={concept.id}
                 type="button"
-                className="concept-card"
+                data-concept={concept.id}
+                className={`concept-card ${
+                  (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(concept.id)
+                    ? 'concept-card--robot-lab'
+                    : ''
+                }`}
+                variants={cardGridItem}
                 onClick={() => handleStart(concept)}
-                style={{ animationDelay: `${(index + 1) * 40}ms` }}
+                {...cardHoverTap}
               >
                 <span className="concept-card-emoji">{concept.emoji}</span>
                 <div className="concept-card-title">{concept.title}</div>
                 <div className="concept-card-subtitle">{concept.subtitle}</div>
                 <div className="concept-card-domain-badge">{concept.domain}</div>
-              </button>
+              </motion.button>
             ))}
-          </div>
+          </motion.div>
 
           {!showAllTopics && CONCEPT_PREVIEWS.length > visibleConcepts.length && (
             <button type="button" className="show-all-topics-btn" onClick={() => setShowAllTopics(true)}>
@@ -407,25 +804,80 @@ export function HomeScreen({
           )}
         </div>
 
-        {showProfileModal && (
-          <div className="profile-modal-overlay" onClick={() => setShowProfileModal(false)}>
-            <div className="profile-modal" onClick={(event) => event.stopPropagation()}>
-              <h3>Customize your profile</h3>
+        <AnimatePresence>
+          {showProfileModal && (
+            <motion.div
+              className="profile-modal-overlay"
+              initial={{ opacity: reducedMotion ? 1 : 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: reducedMotion ? 1 : 0 }}
+              transition={{ duration: reducedMotion ? 0 : 0.2 }}
+              onClick={() => setShowProfileModal(false)}
+            >
+              <motion.div
+                className="profile-modal"
+                initial={reducedMotion ? false : { opacity: 0, scale: 0.96, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={reducedMotion ? undefined : { opacity: 0, scale: 0.98, y: 8 }}
+                transition={{ duration: reducedMotion ? 0 : 0.26, ease: [0.22, 1, 0.36, 1] }}
+                onClick={(event) => event.stopPropagation()}
+              >
+              <h3>Customize your look</h3>
               <div className="profile-form-row">
-                <label>Avatar</label>
-                <div className="profile-avatar-grid">
-                  {['🤖', '🚀', '🧠', '🎨', '⚙️', '🌟'].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className={`profile-avatar-choice ${profile.avatar === emoji ? 'active' : ''}`}
-                      onClick={() => setProfile((current) => ({ ...current, avatar: emoji }))}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+                <label>How you appear</label>
+                <div className="profile-look-toggle">
+                  <button
+                    type="button"
+                    className={`profile-look-opt ${profile.profile_avatar_kind === 'robot' ? 'active' : ''}`}
+                    onClick={() => setProfile((c) => ({ ...c, profile_avatar_kind: 'robot' }))}
+                  >
+                    Robot buddy
+                  </button>
+                  <button
+                    type="button"
+                    className={`profile-look-opt ${profile.profile_avatar_kind === 'emoji' ? 'active' : ''}`}
+                    onClick={() => setProfile((c) => ({ ...c, profile_avatar_kind: 'emoji' }))}
+                  >
+                    Emoji
+                  </button>
                 </div>
               </div>
+
+              {profile.profile_avatar_kind === 'robot' ? (
+                <div className="profile-form-row">
+                  <label>Robot style</label>
+                  <div className="profile-robot-grid">
+                    {ROBOT_PRESETS.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`profile-robot-choice ${profile.robot_preset === p.id ? 'active' : ''}`}
+                        onClick={() => setProfile((c) => ({ ...c, robot_preset: p.id }))}
+                        title={p.description}
+                      >
+                        <RobotAvatarPreset preset={p.id} accent={profile.favorite_color} size={44} />
+                        <span className="profile-robot-label">{p.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="profile-form-row">
+                  <label>Emoji</label>
+                  <div className="profile-avatar-grid">
+                    {['🤖', '🚀', '🧠', '🎨', '⚙️', '🌟'].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className={`profile-avatar-choice ${profile.avatar === emoji ? 'active' : ''}`}
+                        onClick={() => setProfile((current) => ({ ...current, avatar: emoji }))}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="profile-form-row">
                 <label>Color</label>
@@ -460,9 +912,52 @@ export function HomeScreen({
                   Save profile
                 </Button>
               </div>
-            </div>
-          </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {showClassroomModal && (
+          <ClassroomSettingsModal
+            open
+            onClose={() => setShowClassroomModal(false)}
+            onSaved={(p) => {
+              onClassroomSaved?.(p);
+              void fetchTeacherLeaderboard();
+            }}
+            onStartLessonPlanning={(conceptId, title, starterPrompt) => {
+              onStartSession(
+                conceptId,
+                starterPrompt,
+                role === 'teacher' ? 'builder' : ageGroup,
+                { lessonPlanning: true, conceptTitle: title },
+              );
+            }}
+          />
         )}
+
+        {showFeedbackModal && role === 'teacher' && (
+          <TeacherFeedbackModal
+            open
+            onClose={() => setShowFeedbackModal(false)}
+            apiBase={apiBase}
+            teacherDisplayName={userName}
+          />
+        )}
+
+        {role === 'student' && showJourney && userName ? (
+          <ConceptMap
+            studentName={userName}
+            ageGroup={ageGroup}
+            initialTab={journeyInitialTab}
+            onConceptSelect={(conceptId, _title) => {
+              const preview = CONCEPT_PREVIEWS.find((c) => c.id === conceptId);
+              onStartSession(conceptId, preview?.starterPrompt, ageGroup);
+              setShowJourney(false);
+            }}
+            onClose={() => setShowJourney(false)}
+          />
+        ) : null}
       </div>
     </div>
   );

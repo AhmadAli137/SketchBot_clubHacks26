@@ -1,6 +1,7 @@
-import type { RefObject, MutableRefObject, ChangeEvent, FormEvent } from 'react';
+import type { RefObject, MutableRefObject, ChangeEvent, FormEvent, ReactNode } from 'react';
 
 import type { AprilTagDetection, CanvasBorder, TaskRecord } from '@/lib/types';
+import type { ClassroomProfile } from '@/lib/platform-types';
 import type { AgeGroup, ConceptLayer } from '@/lib/concept-types';
 import type { BlockProgram } from '@/components/block-editor';
 
@@ -50,6 +51,12 @@ export type StudentDashboardProps = {
   ageGroup?: AgeGroup;
   studentName?: string;
   apiBase?: string;
+  /** Set when the session was started from lesson-planning flow. */
+  lessonPlanActive?: boolean;
+  /** Classroom policy from teacher profile (student sessions only). */
+  classroomRestrictions?: ClassroomProfile['restrictions'];
+  /** Signed-in role from desktop auth (for UI policy). */
+  userRole?: 'teacher' | 'student' | 'guest';
   onConceptSelect?: (conceptId: string, conceptTitle: string) => void;
   onBackToHome?: () => void;
   onActivateCompanionCamera: () => void;
@@ -79,6 +86,9 @@ export type LearningHeaderProps = {
   xpProgress?: number;
   nextXP?: number;
   streakDays?: number;
+  sparks?: number;
+  /** Small avatar (emoji or robot) next to the menu when signed in as a student. */
+  profileAvatar?: ReactNode;
   onBackToHome?: () => void;
   onAgeGroupChange: (ageGroup: AgeGroup) => void;
   onOpenConceptMap: () => void;
@@ -131,7 +141,7 @@ export type PromptComposerProps = {
   onUploadFile: (event: ChangeEvent<HTMLInputElement>) => void;
   onLoadTask: (task: TaskRecord) => void;
   onInteractionModeChange: (mode: InteractionMode) => void;
-  onBlockRun: (program: BlockProgram) => void;
+  onBlockRun: (program: BlockProgram) => void | Promise<void>;
   onBlockPreviewSvgChange: (svg: string | null) => void;
   onCodeSvgResult: (svg: string) => void;
   showCodeFocus: boolean;

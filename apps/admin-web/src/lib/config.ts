@@ -1,7 +1,12 @@
-export const CLOUD_BACKEND_URL =
-  process.env.NEXT_PUBLIC_CLOUD_BACKEND_URL ?? 'http://127.0.0.1:8010';
+/** Aibotics cloud backend — AI gateway + admin APIs */
+export const CLOUD_API_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? 'https://sketchbot-backend.onrender.com';
 
-export const CLERK_ENABLED = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-
+/** Public site URL (used for og:url, canonical links) */
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'http://127.0.0.1:3002';
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://aibotics.app';
+
+/** Supabase is configured when these env vars are present */
+export const SUPABASE_CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+);

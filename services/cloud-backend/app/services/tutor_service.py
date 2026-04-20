@@ -1,0 +1,449 @@
+from __future__ import annotations
+
+import json
+import threading
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, AsyncIterator
+
+from app.core.settings import settings
+
+try:
+    import anthropic
+except ModuleNotFoundError:
+    anthropic = None  # type: ignore[assignment]
+
+# ─── Personas ─────────────────────────────────────────────────────────────────
+
+TTS_SPOKEN_CHAR_BUDGET = 380
+
+_OUTPUT_CHANNELS = f"""\
+OUTPUT CHANNELS (critical — follow every time):
+1) First, write the **spoken** part: friendly, concise, 1–3 short sentences (plus optional quick prompts or one short question).
+2) Then a single line containing exactly three hyphens: ---
+3) After that line, put **written-only** content: longer explanations, numbered steps, bullet lists, math, or anything lengthy.
+
+HARD LIMIT: The spoken section (before ---), measured as plain text with markdown stripped, must stay at or under **{TTS_SPOKEN_CHAR_BUDGET} characters**.
+Never put long explanations before the --- line.
+Do not mention "---", "TTS", "spoken layer", "character limit", or "voice API" to the student.\
+"""
+
+_PERSONA_EXPLORER = """\
+You are Sketch, a warm and enthusiastic robot tutor for kids aged 6–10.
+Speak simply — short sentences, big ideas, zero jargon.
+Use analogies to everyday things (games, animals, toys, cartoons).
+Ask ONE question at a time. Celebrate every small discovery.
+Use the occasional emoji 🤖✏️🎉 to stay fun (but not every sentence).
+Never use words like "algorithm", "parameter", or "matrix" without immediately explaining them with a playful comparison.
+Keep the **spoken** part (before ---) to at most 3 short sentences; put any longer walkthrough after ---.
+You have memory of the full conversation above — refer back to what the student said and what you drew together.
+
+""" + _OUTPUT_CHANNELS
+
+_PERSONA_BUILDER = """\
+You are Sketch, an energetic and knowledgeable robot tutor for students aged 11–14.
+Use a slightly technical vocabulary — words like "coordinates", "loop", "variable", "sensor", "feedback", "vector" are fine.
+Connect ideas to things students care about: games, sports, music, design.
+Be encouraging but honest. Use Socratic questions to guide discovery rather than giving answers directly.
+Reference how the physical robot works to ground abstract ideas.
+Keep the **spoken** part (before ---) brief (about 2–4 short sentences); put step-by-step detail, lists, and deep dives after ---.
+You have memory of the full conversation above — build on what was said, don't repeat yourself.
+
+""" + _OUTPUT_CHANNELS
+
+_PERSONA_ENGINEER = """\
+You are Sketch, a precise and knowledgeable robotics mentor for students aged 15+.
+Speak at near-peer level. Use proper technical vocabulary freely: kinematics, homography, PID, parametric equations, control theory, linear algebra, Jacobian.
+Express math in plain text or Unicode — for example: x(t) = cx + r·cos(t), not LaTeX dollar-sign notation.
+Reference real engineering systems (CNC machines, autonomous vehicles, satellite attitude control).
+Be concise in the **spoken** part (before ---); put proofs, long derivations, and multi-step analysis after ---.
+You have memory of the full conversation above — be consistent, build depth across turns, avoid repeating prior explanations.
+
+""" + _OUTPUT_CHANNELS
+
+_PERSONAS = {
+    "explorer": _PERSONA_EXPLORER,
+    "builder": _PERSONA_BUILDER,
+    "engineer": _PERSONA_ENGINEER,
+}
+
+# ─── Session store (in-memory, per cloud instance) ────────────────────────────
+
+MAX_HISTORY_TURNS = 10
+
+
+@dataclass
+class _TutorSession:
+    history: list[dict] = field(default_factory=list)
+    last_layer: str = "intuitive"
+
+
+_sessions: dict[str, _TutorSession] = {}
+_sessions_lock = threading.Lock()
+
+
+def _session_key(student_name: str, concept_id: str, *, actor_role: str = "student") -> str:
+    role = "teacher" if actor_role == "teacher" else "student"
+    return f"{role}:{student_name}::{concept_id}"
+
+
+def _get_session(student_name: str, concept_id: str, *, actor_role: str = "student") -> _TutorSession:
+    key = _session_key(student_name, concept_id, actor_role=actor_role)
+    with _sessions_lock:
+        if key not in _sessions:
+            _sessions[key] = _TutorSession()
+        return _sessions[key]
+
+
+def _trim_history(history: list[dict]) -> list[dict]:
+    max_msgs = MAX_HISTORY_TURNS * 2
+    return history[-max_msgs:] if len(history) > max_msgs else history
+
+
+# ─── Concepts loader ──────────────────────────────────────────────────────────
+# concepts.json lives alongside the cloud-backend code in data/
+
+_CONCEPTS_PATH = Path(__file__).parents[2] / "data" / "concepts.json"
+_concepts_cache: list[dict] | None = None
+
+
+def _load_concepts() -> list[dict]:
+    global _concepts_cache
+    if _concepts_cache is None:
+        try:
+            _concepts_cache = json.loads(_CONCEPTS_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            _concepts_cache = []
+    return _concepts_cache
+
+
+def _get_concept(concept_id: str) -> dict | None:
+    for c in _load_concepts():
+        if c.get("concept_id") == concept_id:
+            return c
+    return None
+
+
+# ─── Response cache (in-memory LRU only — no disk on cloud) ──────────────────
+
+_CACHE_MAX = 256
+_CACHE_TTL = 86400 * 7  # 7 days
+
+import hashlib
+import time
+
+_stream_lru: OrderedDict[str, tuple[float, str]] = OrderedDict()
+_stream_lock = threading.Lock()
+
+
+def _sha256(obj: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _lru_get(lru: OrderedDict, key: str, ttl: float) -> Any | None:
+    if key not in lru:
+        return None
+    ts, val = lru[key]
+    if time.time() - ts > ttl:
+        del lru[key]
+        return None
+    lru.move_to_end(key)
+    return val
+
+
+def _lru_put(lru: OrderedDict, key: str, val: Any, max_entries: int) -> None:
+    lru[key] = (time.time(), val)
+    lru.move_to_end(key)
+    while len(lru) > max_entries:
+        lru.popitem(last=False)
+
+
+# ─── Context builder ──────────────────────────────────────────────────────────
+
+def _build_concept_context(concept_id: str, layer: str) -> str:
+    concept = _get_concept(concept_id)
+    if not concept:
+        return f"Current concept: {concept_id} (no curriculum data), layer: {layer}."
+
+    layer_data = concept.get("layers", {}).get(layer, {})
+    lines = [
+        f"Concept: {concept['title']} (ID: {concept_id})",
+        f"Domain: {concept.get('domain', 'unknown')}",
+        f"Description: {concept.get('description', '')}",
+        f"Active layer: {layer}",
+    ]
+    if layer_data.get("tutor_intro"):
+        lines.append(f"Layer introduction: {layer_data['tutor_intro']}")
+    if layer_data.get("hook"):
+        lines.append(f"Hook question to explore: {layer_data['hook']}")
+    if layer_data.get("starter_prompt"):
+        lines.append(f"Suggested starter activity: {layer_data['starter_prompt']}")
+    if layer_data.get("math_notation"):
+        lines.append(f"Core math for this layer: {layer_data['math_notation']}")
+    for lname, ldata in concept.get("layers", {}).items():
+        if lname != layer and ldata.get("hook"):
+            lines.append(f"[{lname} layer hook — for reference]: {ldata['hook']}")
+    return "\n".join(lines)
+
+
+# ─── User message builder ─────────────────────────────────────────────────────
+
+def _build_user_message(
+    *,
+    student_name: str,
+    actor_role: str,
+    trigger: str,
+    layer: str,
+    student_message: str,
+    drawing_prompt: str,
+    path_count: int,
+) -> str:
+    is_teacher = actor_role == "teacher"
+    name = student_name or ("the teacher" if is_teacher else "the student")
+
+    if trigger == "concept_change":
+        who = "The teacher" if is_teacher else name
+        return (
+            f"{who} just opened this concept at the **{layer}** layer. "
+            + (
+                "Before ---: acknowledge their planning context in 1–3 short sentences. "
+                "After ---: lesson moves, differentiation, timing, and assessment ideas."
+                if is_teacher
+                else "Before ---: a warm greeting in 1–3 short sentences, one hook question, and one quick starter idea. "
+                "After ---: the fuller layer introduction, core idea, and any extra detail."
+            )
+        )
+    if trigger == "drawing_submitted":
+        segments_desc = f"{path_count} path segment(s)" if path_count > 0 else "no paths yet"
+        return (
+            f"{name} submitted a drawing. Prompt: \"{drawing_prompt}\". Result: {segments_desc}.\n\n"
+            + (
+                "Before ---: brief reaction (2–3 short sentences). "
+                "After ---: fuller feedback, observations, and next-step ideas."
+                if not is_teacher
+                else "Before ---: brief reaction for the educator. After ---: class demo ideas and follow-up prompts."
+            )
+        )
+    if trigger in ("hint_request", "teacher_hint_request"):
+        parts = [f"{name} asked for a hint at the **{layer}** layer."]
+        if drawing_prompt:
+            parts.append(f'Their most recent drawing was: "{drawing_prompt}" ({path_count} path segment(s)).')
+        else:
+            parts.append("They haven't submitted a drawing yet.")
+        parts.append(
+            "Before ---: a short hint (1–2 sentences). After ---: optional extra clues."
+        )
+        return " ".join(parts)
+    if trigger == "layer_change":
+        return (
+            f"{name} just moved to the **{layer}** layer. "
+            + (
+                "Before ---: one or two short sentences celebrating the move. "
+                "After ---: what's new at this layer and the first challenge."
+                if not is_teacher
+                else "Before ---: one or two sentences on what changes pedagogically. After ---: deeper layer notes."
+            )
+        )
+    if trigger in ("student_reply", "teacher_reply") and student_message:
+        return (
+            f"{name}: \"{student_message}\"\n\n"
+            + (
+                "Before ---: a direct, friendly answer in a few short sentences. "
+                "After ---: longer explanations, math, lists, or multi-step answers."
+                if not is_teacher
+                else "Before ---: answer directly for an educator — concise. After ---: structured ideas or rubric language."
+            )
+        )
+    return (
+        f"{name} is interacting with you. Continue the session naturally, "
+        "building on the conversation history above."
+    )
+
+
+# ─── Offline fallback ─────────────────────────────────────────────────────────
+
+def _offline_message(student_name: str, age_group: str, concept_id: str, trigger: str) -> str:
+    name = student_name or "there"
+    concept = _get_concept(concept_id)
+    title = concept.get("title", concept_id) if concept else concept_id
+
+    if trigger == "hint_request":
+        return "Here's a hint: try thinking about what shape the robot would need to trace to show this concept. Start simple — one line, one curve."
+    if age_group == "explorer":
+        return f"Hi {name}! I'm Sketch, your robot tutor! 🤖 Today we're exploring **{title}** together. Ready to make something awesome?"
+    if age_group == "engineer":
+        return f"Welcome, {name}. Let's dig into **{title}**. We'll start with the core abstraction and build toward the full mathematical model."
+    return f"Hey {name}! Ready to level up? We're diving into **{title}** — this is where robotics gets really interesting. Let's start drawing."
+
+
+# ─── TutorService ─────────────────────────────────────────────────────────────
+
+class TutorService:
+    def __init__(self) -> None:
+        self._client = (
+            anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+            if anthropic is not None and settings.anthropic_api_key
+            else None
+        )
+
+    def is_available(self) -> bool:
+        return self._client is not None
+
+    async def stream_message(
+        self,
+        *,
+        student_name: str,
+        age_group: str,
+        actor_role: str = "student",
+        trigger: str,
+        concept_id: str,
+        layer: str,
+        student_message: str = "",
+        drawing_prompt: str = "",
+        path_count: int = 0,
+    ) -> AsyncIterator[str]:
+        if self._client is None:
+            yield _offline_message(student_name, age_group, concept_id, trigger)
+            return
+
+        session = _get_session(student_name, concept_id, actor_role=actor_role)
+        if trigger == "concept_change":
+            session.history.clear()
+            session.last_layer = layer
+        elif layer != session.last_layer:
+            session.last_layer = layer
+
+        persona = _PERSONAS.get(age_group, _PERSONA_BUILDER)
+        concept_ctx = _build_concept_context(concept_id, layer)
+
+        if actor_role == "teacher":
+            session_mode = (
+                "You are Sketch, speaking with an educator using the same drawing-robot classroom app. "
+                "Be concise and practical. Still use the --- split."
+            )
+        else:
+            session_mode = (
+                "You are Sketch, having a one-on-one tutoring session with a student using a drawing robot. "
+                "Always stay in character as Sketch. Never mention Claude, Anthropic, or AI. "
+                "Use conversation history to stay coherent — reference what was drawn and build on prior exchanges."
+            )
+
+        system_blocks = [
+            {"type": "text", "text": persona, "cache_control": {"type": "ephemeral"}},
+            {
+                "type": "text",
+                "text": (
+                    f"CONCEPT CONTEXT:\n{concept_ctx}\n\n{session_mode}\n\n"
+                    f"The app truncates TTS after roughly {TTS_SPOKEN_CHAR_BUDGET} plain-text characters in the spoken section."
+                ),
+                "cache_control": {"type": "ephemeral"},
+            },
+        ]
+
+        user_text = _build_user_message(
+            student_name=student_name,
+            actor_role=actor_role,
+            trigger=trigger,
+            layer=layer,
+            student_message=student_message,
+            drawing_prompt=drawing_prompt,
+            path_count=path_count,
+        )
+        messages = _trim_history(list(session.history)) + [{"role": "user", "content": user_text}]
+
+        # In-memory response cache
+        cache_key = _sha256({
+            "v": 2, "model": "claude-sonnet-4-6", "actor_role": actor_role,
+            "age_group": age_group, "trigger": trigger, "concept_id": concept_id,
+            "layer": layer, "user": user_text, "messages": messages,
+        })
+        with _stream_lock:
+            cached = _lru_get(_stream_lru, cache_key, _CACHE_TTL)
+        if cached:
+            for i in range(0, len(cached), 32):
+                yield cached[i: i + 32]
+            session.history.append({"role": "user", "content": user_text})
+            session.history.append({"role": "assistant", "content": cached})
+            session.history = _trim_history(session.history)
+            return
+
+        accumulated = ""
+        async with self._client.messages.stream(
+            model="claude-sonnet-4-6",
+            max_tokens=512,
+            system=system_blocks,  # type: ignore[arg-type]
+            messages=messages,
+        ) as stream:
+            async for text in stream.text_stream:
+                accumulated += text
+                yield text
+
+        with _stream_lock:
+            _lru_put(_stream_lru, cache_key, accumulated, _CACHE_MAX)
+
+        session.history.append({"role": "user", "content": user_text})
+        session.history.append({"role": "assistant", "content": accumulated})
+        session.history = _trim_history(session.history)
+
+    async def evaluate(
+        self,
+        *,
+        student_name: str,
+        age_group: str,
+        actor_role: str = "student",
+        concept_id: str,
+        layer: str,
+        drawing_prompt: str,
+        path_count: int,
+    ) -> dict:
+        if self._client is None:
+            return {"passed": True, "score": 75, "creativity": 70, "concept_alignment": 80,
+                    "complexity": 65, "feedback": "Great work! Keep exploring.", "suggest_next_layer": False}
+
+        persona = _PERSONAS.get(age_group, _PERSONA_BUILDER)
+        concept_ctx = _build_concept_context(concept_id, layer)
+        session = _get_session(student_name, concept_id, actor_role=actor_role)
+        recent_history = _trim_history(list(session.history))[-6:]
+
+        eval_prompt = (
+            f"A student named {student_name} just submitted a drawing.\n"
+            f"Prompt: \"{drawing_prompt}\"\nPath segments: {path_count}.\n\n"
+            "Evaluate this drawing. Score each 0–100:\n"
+            "- score, creativity, concept_alignment, complexity\n"
+            "- passed: true if score >= 50\n"
+            "- feedback: 1–2 age-appropriate sentences\n"
+            "- suggest_next_layer: true if clearly ready\n\n"
+            "Reply with ONLY valid JSON: "
+            '{"passed":true,"score":75,"creativity":70,"concept_alignment":80,"complexity":65,"feedback":"Nice work!","suggest_next_layer":false}'
+        )
+
+        msg = await self._client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=300,
+            system=[
+                {"type": "text", "text": persona, "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": f"CONCEPT CONTEXT:\n{concept_ctx}", "cache_control": {"type": "ephemeral"}},
+            ],
+            messages=[*recent_history, {"role": "user", "content": eval_prompt}],
+        )
+
+        raw = msg.content[0].text.strip() if msg.content else ""
+        if raw.startswith("```"):
+            raw = raw.split("```")[1].lstrip("json").strip()
+        try:
+            result = json.loads(raw)
+            for key in ("score", "creativity", "concept_alignment", "complexity"):
+                result[key] = max(0, min(100, int(result.get(key, 50))))
+            result.setdefault("passed", result.get("score", 50) >= 50)
+            result.setdefault("feedback", "Keep exploring!")
+            result.setdefault("suggest_next_layer", False)
+            return result
+        except json.JSONDecodeError:
+            return {"passed": True, "score": 50, "creativity": 50, "concept_alignment": 50,
+                    "complexity": 50, "feedback": raw or "Keep exploring!", "suggest_next_layer": False}
+
+
+tutor_service = TutorService()

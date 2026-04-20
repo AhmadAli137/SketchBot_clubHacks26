@@ -2,22 +2,18 @@
 
 /**
  * SimPlayground — Gazebo-like 3D + 2D simulation environment for SketchBot.
- *
- * Modes:
- *   '3d'    — full-width 3D perspective view with OrbitControls
- *   'split' — 3D view (70%) + 2D top-down overview (30%)
- *   '2d'    — full-width 2D overhead view
- *
- * The robot is a differential-drive wheeled robot (matching real SketchBot hardware).
- * It drives to each waypoint on the paper, rotating to face the next point.
+ * Each concept renders a unique 3D arena, tutorial panel, and live score overlay.
  */
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
-import { Grid3X3, Pause, Play, RotateCcw, View } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { Grid3X3, Pause, Play, RotateCcw, View, BookOpen, ChevronRight, ChevronLeft, X, Trophy } from 'lucide-react';
 
 import { TopView } from './top-view';
 import { useSimAnimation } from '@/lib/use-sim-animation';
+import { getEnvironment, getTutorialSteps } from '@/lib/concept-environments';
+import { playBGM, stopBGM, playSfx } from '@/lib/game-audio';
 
 const Scene3D = dynamic(() => import('./scene-3d').then((m) => ({ default: m.Scene3D })), {
   ssr: false,
@@ -57,6 +53,10 @@ type SimPlaygroundProps = {
   className?: string;
   style?: React.CSSProperties;
   onDrawComplete?: () => void;
+  conceptId?: string | null;
+  activeLayer?: 'intuitive' | 'structural' | 'precise';
+  score?: number;
+  maxScore?: number;
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -67,12 +67,29 @@ export function SimPlayground({
   className,
   style,
   onDrawComplete,
+  conceptId,
+  activeLayer = 'intuitive',
+  score,
+  maxScore,
 }: SimPlaygroundProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('2d');
   const [showGrid, setShowGrid] = useState(true);
   const [showAxes, setShowAxes] = useState(true);
   const [showCamera, setShowCamera] = useState(true);
   const [speed, setSpeed] = useState(1);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [showScore, setShowScore] = useState(false);
+
+  const env = getEnvironment(conceptId);
+  const tutorialSteps = getTutorialSteps(conceptId, activeLayer);
+
+  // BGM: play concept theme, stop on unmount
+  useEffect(() => {
+    if (conceptId) playBGM(conceptId);
+    else stopBGM();
+    return () => stopBGM();
+  }, [conceptId]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
@@ -249,6 +266,7 @@ export function SimPlayground({
               showAxes={showAxes}
               showCamera={showCamera}
               className="sim-3d-canvas"
+              conceptId={conceptId}
             />
             <div className="sim-3d-hint">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
           </div>
@@ -291,6 +309,189 @@ export function SimPlayground({
             <div className="sim-empty-title">Generating path…</div>
           </div>
         )}
+
+        {/* ── Concept environment badge ── */}
+        <AnimatePresence>
+          {conceptId && (
+            <motion.div
+              key={conceptId}
+              className="sim-env-badge"
+              initial={{ opacity: 0, y: -8, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.92 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+            >
+              <span className="sim-env-badge-dot" style={{ background: env.accentColor }} />
+              {env.label}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Tutorial button ── */}
+        {conceptId && (
+          <motion.button
+            className="sim-tutorial-btn"
+            onClick={() => { setShowTutorial((v) => !v); setTutorialStep(0); playSfx('click'); }}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.94 }}
+            title="Show tutorial"
+          >
+            <BookOpen size={13} />
+          </motion.button>
+        )}
+
+        {/* ── Score badge ── */}
+        <AnimatePresence>
+          {score != null && (
+            <motion.button
+              key="score"
+              className="sim-score-badge"
+              initial={{ opacity: 0, scale: 0.8, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.3 }}
+              onClick={() => setShowScore((v) => !v)}
+            >
+              <Trophy size={11} />
+              <span>{score}</span>
+              {maxScore != null && <span className="sim-score-max">/{maxScore}</span>}
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* ── Tutorial panel ── */}
+        <AnimatePresence>
+          {showTutorial && conceptId && (
+            <motion.div
+              key="tutorial-panel"
+              className="sim-tutorial-panel"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 24 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              <div className="sim-tutorial-head">
+                <span className="sim-tutorial-title">{env.label}</span>
+                <motion.button
+                  className="sim-tutorial-close"
+                  onClick={() => setShowTutorial(false)}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <X size={12} />
+                </motion.button>
+              </div>
+
+              <div className="sim-tutorial-layer-tag">{activeLayer}</div>
+
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={tutorialStep}
+                  className="sim-tutorial-text"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {tutorialSteps[tutorialStep] ?? tutorialSteps[0]}
+                </motion.p>
+              </AnimatePresence>
+
+              <div className="sim-tutorial-nav">
+                <motion.button
+                  className="sim-tutorial-nav-btn"
+                  disabled={tutorialStep === 0}
+                  onClick={() => { setTutorialStep((s) => Math.max(0, s - 1)); playSfx('click'); }}
+                  whileHover={{ scale: tutorialStep > 0 ? 1.1 : 1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <ChevronLeft size={12} />
+                </motion.button>
+                <span className="sim-tutorial-dots">
+                  {tutorialSteps.map((_, i) => (
+                    <motion.span
+                      key={i}
+                      className={`sim-tutorial-dot ${i === tutorialStep ? 'active' : ''}`}
+                      animate={{ scale: i === tutorialStep ? 1.3 : 1 }}
+                      transition={{ duration: 0.2 }}
+                    />
+                  ))}
+                </span>
+                <motion.button
+                  className="sim-tutorial-nav-btn"
+                  disabled={tutorialStep >= tutorialSteps.length - 1}
+                  onClick={() => { setTutorialStep((s) => Math.min(tutorialSteps.length - 1, s + 1)); playSfx('beep'); }}
+                  whileHover={{ scale: tutorialStep < tutorialSteps.length - 1 ? 1.1 : 1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <ChevronRight size={12} />
+                </motion.button>
+              </div>
+
+              {/* Scoring breakdown */}
+              <div className="sim-scoring">
+                <div className="sim-scoring-label">{env.scoring.label}</div>
+                {env.scoring.metrics.map((m) => (
+                  <div key={m.name} className="sim-scoring-row">
+                    <span className="sim-scoring-name">{m.name}</span>
+                    <span className="sim-scoring-pts">{m.maxPoints}pts</span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Score breakdown panel ── */}
+        <AnimatePresence>
+          {showScore && score != null && (
+            <motion.div
+              key="score-panel"
+              className="sim-score-panel"
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              transition={{ duration: 0.25 }}
+            >
+              <div className="sim-score-panel-head">
+                <Trophy size={13} />
+                <span>{env.scoring.label}</span>
+                <motion.button
+                  onClick={() => setShowScore(false)}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <X size={11} />
+                </motion.button>
+              </div>
+              <div className="sim-score-total">
+                <motion.span
+                  key={score}
+                  initial={{ scale: 1.3, color: '#ffd440' }}
+                  animate={{ scale: 1, color: '#ffffff' }}
+                  transition={{ duration: 0.4 }}
+                >
+                  {score}
+                </motion.span>
+                {maxScore != null && <span className="sim-score-max-lg">/ {maxScore}</span>}
+              </div>
+              {env.scoring.metrics.map((m) => (
+                <div key={m.name} className="sim-score-metric">
+                  <span className="sim-score-metric-name">{m.name}</span>
+                  <div className="sim-score-metric-bar-track">
+                    <motion.div
+                      className="sim-score-metric-bar"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(m.maxPoints / (maxScore ?? 100)) * 100}%` }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                    />
+                  </div>
+                  <span className="sim-score-metric-pts">{m.maxPoints}</span>
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
