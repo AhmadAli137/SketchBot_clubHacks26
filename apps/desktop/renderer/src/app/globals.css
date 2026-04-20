@@ -8023,7 +8023,7 @@ select.block-param-input{width:auto;padding-right:20px}
 
 .lesson-player-bot {
   position: absolute;
-  top: 16px;
+  top: 74px; /* 58px rail + 16px gap */
   left: 16px;
   z-index: 10;
 }
@@ -8428,6 +8428,97 @@ select.block-param-input{width:auto;padding-right:20px}
   height: 100%;
   background: var(--cyan);
   opacity: 0.5;
+}
+
+/* ── Named step rail ── */
+
+.lesson-step-rail {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 20px 10px;
+  border-bottom: 1px solid rgba(93, 228, 255, 0.08);
+  background: rgba(5, 8, 22, 0.6);
+  backdrop-filter: blur(10px);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.lesson-step-rail::-webkit-scrollbar { display: none; }
+
+/* The horizontal connector between nodes */
+.lesson-rail-line {
+  flex: 1;
+  height: 2px;
+  background: rgba(149, 166, 199, 0.12);
+  margin-top: 13px; /* vertically aligns with circle centre (26px ÷ 2) */
+  min-width: 10px;
+  transition: background 0.3s ease;
+}
+.lesson-rail-line.filled {
+  background: rgba(34, 197, 94, 0.4);
+}
+
+/* Column: circle + label + optional xp */
+.lesson-rail-node-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* The circle */
+.lesson-rail-node {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(149, 166, 199, 0.2);
+  background: rgba(5, 8, 22, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: transparent;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.lesson-rail-node:hover {
+  border-color: rgba(149, 166, 199, 0.4);
+}
+.lesson-rail-node.done {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.35);
+}
+.lesson-rail-node.active {
+  border-color: var(--cyan);
+  border-width: 2px;
+  box-shadow: 0 0 0 3px rgba(93, 228, 255, 0.18), 0 0 12px rgba(93, 228, 255, 0.2);
+}
+
+/* Step name */
+.lesson-rail-label {
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: rgba(149, 166, 199, 0.38);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.lesson-rail-label.done   { color: rgba(34, 197, 94, 0.7); }
+.lesson-rail-label.active { color: var(--cyan); font-weight: 700; }
+
+/* XP reward hint shown on the active step */
+.lesson-rail-xp {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--green);
+  background: rgba(77, 255, 184, 0.1);
+  border: 1px solid rgba(77, 255, 184, 0.22);
+  border-radius: 99px;
+  padding: 1px 5px;
+  white-space: nowrap;
 }
 
 /* ─── Sketch notification / drawing confirmation card ─────────────────────── */

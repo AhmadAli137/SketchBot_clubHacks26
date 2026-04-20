@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, type TargetAndTransition } from 'motion/react';
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw } from 'lucide-react';
 
@@ -12,6 +12,82 @@ import { useXPToast } from '@/components/gamification';
 import { BotAvatar } from './bot-avatar';
 import { QuizStep } from './quiz-step';
 import { ChallengeStep } from './challenge-step';
+
+// ─── Step Rail ───────────────────────────────────────────────────────────────
+
+const GAMIFICATION_XP = {
+  quiz:      15,  // xp_quiz_correct
+  drawing:   10,  // xp_drawing_submitted
+  celebrate: 40,  // xp_lesson_completed
+} as const;
+
+function getRailLabel(step: LessonStep, narrationsSoFar: number): string {
+  switch (step.type) {
+    case 'narration': return narrationsSoFar === 0 ? 'Intro' : 'Concept';
+    case 'reveal':    return 'Reveal';
+    case 'challenge': return 'Try It';
+    case 'quiz':      return 'Quiz';
+    case 'drawing':   return 'Draw!';
+    case 'celebrate': return 'Done!';
+    default:          return 'Step';
+  }
+}
+
+function getRailXP(step: LessonStep): number | null {
+  return (GAMIFICATION_XP as Record<string, number>)[step.type] ?? null;
+}
+
+type StepRailProps = {
+  steps: LessonStep[];
+  currentStepIndex: number;
+  onSeek: (i: number) => void;
+};
+
+function LessonStepRail({ steps, currentStepIndex, onSeek }: StepRailProps) {
+  const labels = useMemo(() => {
+    let n = 0;
+    return steps.map(s => {
+      const label = getRailLabel(s, s.type === 'narration' ? n : -1);
+      if (s.type === 'narration') n++;
+      return label;
+    });
+  }, [steps]);
+
+  return (
+    <div className="lesson-step-rail">
+      {steps.map((step, i) => {
+        const done   = i < currentStepIndex;
+        const active = i === currentStepIndex;
+        const xp     = active ? getRailXP(step) : null;
+        return (
+          <Fragment key={step.id}>
+            {i > 0 && (
+              <div className={`lesson-rail-line${i <= currentStepIndex ? ' filled' : ''}`} />
+            )}
+            <div className="lesson-rail-node-col">
+              <button
+                type="button"
+                className={`lesson-rail-node${done ? ' done' : active ? ' active' : ''}`}
+                onClick={() => onSeek(i)}
+                title={`Go to ${labels[i]}`}
+              >
+                {done ? '✓' : null}
+              </button>
+              <span className={`lesson-rail-label${done ? ' done' : active ? ' active' : ''}`}>
+                {labels[i]}
+              </span>
+              {xp !== null && (
+                <span className="lesson-rail-xp">+{xp} XP</span>
+              )}
+            </div>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 type LessonPlayerProps = {
   plan: LessonPlan | null;
@@ -151,6 +227,13 @@ export function LessonPlayer({
 
   return (
     <div className="lesson-player-root">
+      {/* Named step progress rail */}
+      <LessonStepRail
+        steps={plan.steps}
+        currentStepIndex={currentStepIndex}
+        onSeek={timeline.seekStep}
+      />
+
       {/* Bot avatar */}
       <div className="lesson-player-bot">
         <BotAvatar emotion={botEmotion} size={80} />
