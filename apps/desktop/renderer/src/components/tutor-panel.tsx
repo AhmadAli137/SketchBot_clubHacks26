@@ -1393,12 +1393,15 @@ export function TutorPanel({
                 tts.streamEnd(ageGroup);
                 return;
               } else if (msg.type === 'error') {
-                // Backend signalled an error — show offline fallback rather than empty bubble
+                // Backend signalled an error — show the real message so it's diagnosable
                 tts.stopSpeaking();
+                const errText = msg.message
+                  ? `⚠️ Sketch ran into a problem: ${msg.message}`
+                  : getOfflineGreeting(studentName, ageGroup, conceptTitle || 'this concept');
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === tutorMsgId
-                      ? { ...m, content: getOfflineGreeting(studentName, ageGroup, conceptTitle || 'this concept'), isStreaming: false }
+                      ? { ...m, content: errText, isStreaming: false }
                       : m,
                   ),
                 );
