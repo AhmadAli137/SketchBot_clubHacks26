@@ -1,7 +1,7 @@
 import { createServerClient, type CookieMethodsServer } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-type CookiesToSet = Parameters<CookieMethodsServer['setAll']>[0];
+type CookiesToSet = Parameters<NonNullable<CookieMethodsServer['setAll']>>[0];
 
 export async function createClient() {
   const cookieStore = await cookies();

@@ -2,7 +2,7 @@ import { createServerClient, type CookieMethodsServer } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-type CookiesToSet = Parameters<CookieMethodsServer['setAll']>[0];
+type CookiesToSet = Parameters<NonNullable<CookieMethodsServer['setAll']>>[0];
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
