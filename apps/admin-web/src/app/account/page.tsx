@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { CLOUD_API_URL } from '@/lib/config';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
-import { DangerZone } from './account-client';
+import { DangerZone, ManageSubscriptionButton } from './account-client';
 import { EditProfileClient } from './edit-profile-client';
 import { UpgradeBanner } from './upgrade-banner';
 
@@ -154,6 +154,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                 </Link>
               ) : (
                 <p className="body-md" style={{ color: 'var(--muted)', fontStyle: 'italic' }}>You&apos;re on our top tier — thank you!</p>
+              )}
+              {entitlements.tier !== 'free' && (
+                <ManageSubscriptionButton />
               )}
             </div>
 

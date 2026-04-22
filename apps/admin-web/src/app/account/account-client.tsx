@@ -1,7 +1,51 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { CLOUD_API_URL } from '@/lib/config';
+
+export function ManageSubscriptionButton() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleClick = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { window.location.href = '/sign-in'; return; }
+      const res = await fetch(`${CLOUD_API_URL}/api/subscriptions/portal`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError((data as { detail?: string }).detail ?? 'Could not open portal.'); return; }
+      window.location.href = (data as { url: string }).url;
+    } catch {
+      setError('Network error — please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="btn btn-outline btn-sm"
+        onClick={handleClick}
+        disabled={loading}
+      >
+        {loading && <Loader2 size={13} style={{ animation: 'spin 0.9s linear infinite' }} />}
+        {loading ? 'Opening…' : 'Manage subscription →'}
+      </button>
+      {error && <p style={{ fontSize: '0.78rem', color: '#ef4444', marginTop: 6 }}>{error}</p>}
+    </div>
+  );
+}
 
 export function DangerZone() {
   const router = useRouter();

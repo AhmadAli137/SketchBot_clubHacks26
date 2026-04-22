@@ -189,6 +189,32 @@ def create_checkout(body: CheckoutRequest, user: Annotated[dict, Depends(require
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.post("/portal")
+def create_portal(user: Annotated[dict, Depends(require_auth)]):
+    """Create a Stripe Customer Portal session so the user can manage/cancel their subscription."""
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=501, detail="Payments are not configured on this server.")
+    try:
+        import stripe  # type: ignore[import]
+        stripe.api_key = settings.stripe_secret_key
+        client = _supabase()
+        sub = _get_or_create_subscription(client, user["id"])
+        customer_id = sub.get("stripe_customer_id")
+        if not customer_id:
+            raise HTTPException(status_code=400, detail="No active subscription found. Purchase a plan first.")
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=f"{settings.app_url}/account",
+        )
+        return {"url": session.url}
+    except ImportError:
+        raise HTTPException(status_code=501, detail="Stripe library not installed.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.post("/webhook")
 async def stripe_webhook(request: Request):
     """Handle Stripe webhook events (subscription created / updated / deleted)."""
