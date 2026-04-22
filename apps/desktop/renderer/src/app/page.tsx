@@ -1104,6 +1104,7 @@ export default function HomePage() {
             <DifficultyPicker
               studentName={userName}
               onComplete={handleDifficultyComplete}
+              onBack={() => setView('plan')}
             />
           </motion.div>
         )}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ArrowLeft } from 'lucide-react';
 import type { AgeGroup } from '@/lib/concept-types';
 import { AssessmentQuiz } from './assessment-quiz';
 
@@ -52,9 +53,10 @@ const LEVELS: Level[] = [
 type Props = {
   studentName: string;
   onComplete: (level: AgeGroup) => void;
+  onBack?: () => void;
 };
 
-export function DifficultyPicker({ studentName, onComplete }: Props) {
+export function DifficultyPicker({ studentName, onComplete, onBack }: Props) {
   const [phase, setPhase] = useState<'pick' | 'quiz'>('pick');
   const [chosen, setChosen] = useState<AgeGroup | null>(null);
   const [hovered, setHovered] = useState<AgeGroup | null>(null);
@@ -71,6 +73,26 @@ export function DifficultyPicker({ studentName, onComplete }: Props) {
         <div className="difficulty-blob-a" />
         <div className="difficulty-blob-b" />
       </div>
+
+      {/* Back to menu */}
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          style={{
+            position: 'absolute', top: 18, left: 18, zIndex: 10,
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 10, padding: '7px 14px', color: 'var(--muted)',
+            fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
+            transition: 'background 0.15s, color 0.15s',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--fg)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)'; }}
+        >
+          <ArrowLeft size={14} /> Main menu
+        </button>
+      )}
 
       <AnimatePresence mode="wait">
         {phase === 'pick' && (
