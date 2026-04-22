@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'AIbotics — AI-Tutored Robotics',
+  title: 'Aibotics — AI-Tutored Robotics',
   description: 'Learn robotics by doing — real robots, real code, AI personal tutor.',
 };
 

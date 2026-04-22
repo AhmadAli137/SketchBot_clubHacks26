@@ -65,7 +65,14 @@ function fromApiPack(raw: Record<string, unknown>): ChallengePack {
   };
 }
 
-export function useChallenges(robotId = 'sketchbot') {
+async function fetchPacks(url: string): Promise<ChallengePack[]> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = (await res.json()) as { packs?: Record<string, unknown>[] };
+  return (data.packs ?? []).map(fromApiPack);
+}
+
+export function useChallenges(robotId = 'sketchbot', localApiBase?: string) {
   const [packs, setPacks] = useState<ChallengePack[]>(_cachedPacks ?? []);
   const [loading, setLoading] = useState(_cachedPacks === null);
   const fetchedRef = useRef(false);
@@ -83,17 +90,28 @@ export function useChallenges(robotId = 'sketchbot') {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${CLOUD_API_URL}/api/challenges/${robotId}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { packs?: Record<string, unknown>[] };
-        const mapped = (data.packs ?? []).map(fromApiPack);
-        if (!cancelled) {
+        // Priority: local runtime → cloud API → bundled static file (always works)
+        const urls = [
+          localApiBase ? `${localApiBase}/api/challenges/${robotId}` : null,
+          `${CLOUD_API_URL}/api/challenges/${robotId}`,
+          '/challenges.json', // static fallback bundled with the renderer
+        ].filter(Boolean) as string[];
+
+        let mapped: ChallengePack[] | null = null;
+        for (const url of urls) {
+          try {
+            mapped = await fetchPacks(url);
+            if (mapped.length > 0) break;
+          } catch {
+            // try next source
+          }
+        }
+
+        if (!cancelled && mapped && mapped.length > 0) {
           _cachedPacks = mapped;
           _cachedAt = Date.now();
           setPacks(mapped);
         }
-      } catch {
-        // Network offline — packs stay empty (RobotHub falls back to SEED_PACKS)
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -102,7 +120,7 @@ export function useChallenges(robotId = 'sketchbot') {
     return () => {
       cancelled = true;
     };
-  }, [robotId]);
+  }, [robotId, localApiBase]);
 
   return { packs, loading };
 }

@@ -100,6 +100,7 @@ type LessonPlayerProps = {
   apiBase?: string;
   studentName?: string;
   onXPChange?: () => void;
+  compact?: boolean;
 };
 
 const ENTER_VARIANTS: Record<string, TargetAndTransition> = {
@@ -132,6 +133,7 @@ export function LessonPlayer({
   apiBase = '',
   studentName = '',
   onXPChange,
+  compact = false,
 }: LessonPlayerProps) {
   const xpToast = useXPToast();
   const timeline = useLessonTimeline(plan);
@@ -228,7 +230,7 @@ export function LessonPlayer({
   }
 
   return (
-    <div className="lesson-player-root">
+    <div className={`lesson-player-root${compact ? ' lesson-player-compact' : ''}`}>
       {/* Named step progress rail */}
       <LessonStepRail
         steps={plan.steps}
@@ -236,10 +238,12 @@ export function LessonPlayer({
         onSeek={timeline.seekStep}
       />
 
-      {/* Bot avatar */}
-      <div className="lesson-player-bot">
-        <BotAvatar emotion={botEmotion} size={80} />
-      </div>
+      {/* Bot avatar — hidden in compact mode (shown in dock header instead) */}
+      {!compact && (
+        <div className="lesson-player-bot">
+          <BotAvatar emotion={botEmotion} size={80} />
+        </div>
+      )}
 
       {/* Step content area */}
       <div className="lesson-player-stage">

@@ -6,8 +6,8 @@ import { ArrowLeft, ChevronDown, Map, Flame } from 'lucide-react';
 
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 
-import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
+import { AiboticsLogo } from '@/components/aibotics-logo';
 import { AGE_GROUP_META, type AgeGroup } from '@/lib/concept-types';
 import { getConceptPreviews, ROBOT_LAB_CONCEPT_IDS } from '@/lib/concept-catalog';
 
@@ -106,8 +106,8 @@ export function LearningHeader({
         ) : null}
 
         <div className="learn-header-brand">
-          <div className="learn-header-logo">✏️</div>
-          <span className="learn-header-name">SketchBot</span>
+          <AiboticsLogo size={26} showWordmark={false} animate={false} />
+          <span className="learn-header-name">Aibotics</span>
         </div>
 
         <div className="learn-header-divider" />
@@ -272,7 +272,6 @@ export function LearningHeader({
           Map
         </Button>
 
-        <ThemeToggle />
       </header>
 
       {showSystemStatus && (

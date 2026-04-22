@@ -234,7 +234,6 @@ function ConceptArenaProps({ env, skipCones = false }: { env: ConceptEnvironment
       {walls?.map((w, i) => <MazeWall key={i} {...w} />)}
       {waypoints?.map((wp, i) => <WaypointProp key={i} x={wp.x} z={wp.z} color={wp.color} />)}
       {arenaType === 'sumo' && sumoRingRadius && <SumoRing radius={sumoRingRadius} />}
-      {arenaType === 'circuit' && <CircuitFloor />}
       {env.label === 'Unit Circle Field' && <UnitCircleFloor />}
     </group>
   );

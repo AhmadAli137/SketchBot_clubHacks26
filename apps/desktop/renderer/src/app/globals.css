@@ -5143,7 +5143,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 14px;
+  padding: 0 60px 0 14px; /* right padding reserves space for fixed app-profile-btn */
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   backdrop-filter: blur(20px);
@@ -5979,6 +5979,64 @@ body {
 
 :root[data-theme='dark'] .tutor-dock-header {
   background: rgba(5, 8, 22, 0.6);
+}
+
+/* ─── Lesson dock tabs (Lesson / Tutor switcher) ──────────────────────────── */
+.lesson-dock-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.lesson-dock-tab {
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+  white-space: nowrap;
+}
+
+.lesson-dock-tab.active {
+  background: var(--cyan);
+  color: #000;
+}
+
+/* ─── Compact lesson player (embedded in tutor dock) ──────────────────────── */
+.lesson-player-compact {
+  background: transparent;
+  overflow-y: auto;
+}
+
+.lesson-player-compact .lesson-player-stage {
+  padding: 12px 14px;
+  min-height: 120px;
+}
+
+.lesson-player-compact .lesson-narration p {
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.lesson-player-compact .lesson-step-rail {
+  padding: 10px 12px 6px;
+  gap: 0;
+}
+
+.lesson-player-compact .lesson-rail-label {
+  font-size: 0.6rem;
+}
+
+.lesson-player-compact .lesson-player-controls {
+  padding: 6px 10px;
 }
 
 .tutor-dock-avatar {
@@ -13510,4 +13568,336 @@ select.block-param-input{width:auto;padding-right:20px}
   padding: 4px;
 }
 .paywall-btn-dismiss:hover { color: var(--fg); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LESSON HUD  —  floating overlay on top of the workspace
+   Root uses pointer-events:none so the simulator/editor stays interactive;
+   interactive children restore pointer-events:auto.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.lesson-hud-root {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Step rail (top) ───────────────────────────────────────────────────── */
+
+.lesson-hud-rail-wrap {
+  pointer-events: auto;
+  padding: 10px 16px 0;
+}
+
+.lesson-hud-rail {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(9, 13, 32, 0.72);
+  border: 1px solid rgba(93, 228, 255, 0.14);
+  border-radius: 999px;
+  padding: 6px 14px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lesson-hud-rail::-webkit-scrollbar { display: none; }
+
+.lesson-hud-rail-line {
+  height: 2px;
+  width: 28px;
+  flex-shrink: 0;
+  background: rgba(93, 228, 255, 0.35);
+  border-radius: 2px;
+  margin: 0 2px;
+}
+
+.lesson-hud-rail-node-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+
+.lesson-hud-rail-node-col:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.lesson-hud-rail-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(149, 166, 199, 0.25);
+  border: 1.5px solid rgba(149, 166, 199, 0.35);
+  display: grid;
+  place-items: center;
+  transition: background 0.2s, border-color 0.2s;
+  color: var(--green);
+}
+
+.lesson-hud-rail-dot.done {
+  background: rgba(77, 255, 184, 0.2);
+  border-color: var(--green);
+}
+
+.lesson-hud-rail-dot.active {
+  background: rgba(93, 228, 255, 0.25);
+  border-color: var(--cyan);
+  width: 12px;
+  height: 12px;
+}
+
+.lesson-hud-rail-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+
+.lesson-hud-rail-label.active { color: var(--cyan); }
+.lesson-hud-rail-label.done   { color: var(--green); }
+
+/* ── Floating card (bottom) ─────────────────────────────────────────────── */
+
+.lesson-hud-card-wrap {
+  pointer-events: auto;
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 520px;
+}
+
+.lesson-hud-card {
+  background: rgba(9, 13, 32, 0.82);
+  border: 1px solid rgba(93, 228, 255, 0.18);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Thin coloured progress bar at very top of card */
+.lesson-hud-card-progress {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  width: 100%;
+  overflow: hidden;
+}
+
+.lesson-hud-card-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--lesson-accent, var(--cyan)), var(--violet));
+  border-radius: 0 3px 3px 0;
+  min-width: 4px;
+}
+
+/* Card body row: avatar col + content */
+.lesson-hud-card-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px 8px;
+}
+
+.lesson-hud-card-avatar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.lesson-hud-card-step-badge {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.lesson-hud-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.lesson-hud-card-text {
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--text, #e8edf8);
+  margin: 0;
+}
+
+/* Drawing step badge */
+.lesson-hud-drawing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 184, 77, 0.3);
+  background: rgba(255, 184, 77, 0.08);
+  color: var(--amber);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* Challenge section */
+.lesson-hud-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lesson-hud-challenge-instruction {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text, #e8edf8);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.lesson-hud-challenge-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.lesson-hud-challenge-input {
+  flex: 1;
+  padding: 7px 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(93, 228, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text, #e8edf8);
+  font-size: 0.8rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.lesson-hud-challenge-input:focus {
+  border-color: var(--cyan);
+}
+
+.lesson-hud-challenge-btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.lesson-hud-challenge-btn:hover { opacity: 0.85; }
+
+.lesson-hud-challenge-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--green);
+  padding: 6px 0;
+}
+
+/* Celebrate state */
+.lesson-hud-celebrate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+/* ── Controls row ────────────────────────────────────────────────────────── */
+
+.lesson-hud-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lesson-hud-ctrl {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.lesson-hud-ctrl:hover:not(:disabled) {
+  background: rgba(93, 228, 255, 0.1);
+  border-color: rgba(93, 228, 255, 0.3);
+  color: var(--cyan);
+}
+
+.lesson-hud-ctrl:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.lesson-hud-ctrl-play {
+  background: rgba(93, 228, 255, 0.12);
+  border-color: rgba(93, 228, 255, 0.28);
+  color: var(--cyan);
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+
+.lesson-hud-ctrl-play:hover {
+  background: rgba(93, 228, 255, 0.22);
+}
+
+.lesson-hud-finish-btn {
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, var(--green), var(--cyan));
+  color: #000;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.lesson-hud-finish-btn:hover { opacity: 0.85; }
 

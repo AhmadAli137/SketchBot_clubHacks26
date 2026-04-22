@@ -200,10 +200,8 @@ export default function HomePage() {
     ageGroup?: AgeGroup,
     options?: StartSessionOptions,
   ) => {
-    if (conceptId !== undefined) setSelectedConceptId(conceptId ?? null);
-    if (options?.conceptTitle) {
-      setSelectedConceptTitle(options.conceptTitle);
-    }
+    setSelectedConceptId(conceptId ?? null);
+    setSelectedConceptTitle(options?.conceptTitle ?? (conceptId ? conceptId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Free Draw'));
     if (starterPrompt) {
       setSessionStartPrompt(starterPrompt);
       setPrompt(starterPrompt);

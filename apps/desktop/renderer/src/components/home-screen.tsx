@@ -110,7 +110,7 @@ export function HomeScreen({
   const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
   const reducedMotion = usePrefersReducedMotion();
 
-  const { packs } = useChallenges('sketchbot');
+  const { packs } = useChallenges('sketchbot', apiBase || undefined);
   const difficultyLevel = userName ? (getDifficultyLevel(userName) ?? ageGroup) : ageGroup;
 
   const cardGridContainer = useMemo(
@@ -247,7 +247,25 @@ export function HomeScreen({
       incrementSessions(userName);
     }
 
-    onStartSession(concept?.id, concept?.starterPrompt, ageGroup);
+    // If there's a matching challenge pack for this concept, auto-launch the first challenge
+    if (concept && packs.length > 0) {
+      const matchingPack = packs.find((p) => p.conceptId === concept.id);
+      if (matchingPack && matchingPack.challenges.length > 0) {
+        onStartSession(concept.id, concept.starterPrompt, ageGroup, {
+          challengeId: matchingPack.challenges[0].id,
+          conceptTitle: concept.title,
+        });
+        return;
+      }
+    }
+
+    // Always pass conceptTitle so the header doesn't stay stuck on "Free Draw"
+    onStartSession(
+      concept?.id,
+      concept?.starterPrompt,
+      ageGroup,
+      concept ? { conceptTitle: concept.title } : undefined,
+    );
   };
 
   const handleStartChallenge = (challengeId: string) => {

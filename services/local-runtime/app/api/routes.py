@@ -5,6 +5,7 @@ from app.api import (
     arduino,
     block_runner,
     camera,
+    challenges,
     code_runner,
     compose,
     demo,
@@ -44,5 +45,6 @@ api_router.include_router(teacher_feedback.router)
 api_router.include_router(code_runner.router)
 api_router.include_router(block_runner.router)
 api_router.include_router(agent.router)
+api_router.include_router(challenges.router)
 api_router.include_router(sessions.router)
 api_router.include_router(arduino.router)

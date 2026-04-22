@@ -36,7 +36,7 @@ import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { canUpload } from '@/lib/classroom-restrictions';
 import { useEntitlements } from '@/lib/use-entitlements';
 import { PaywallOverlay } from '@/components/paywall-overlay';
-import { LessonPlayer } from '@/components/lesson-player';
+import { LessonHud } from '@/components/lesson-player/lesson-hud';
 import { BotAvatar } from '@/components/lesson-player/bot-avatar';
 import { useChallenges } from '@/lib/use-challenges';
 import { challengeToLessonPlan } from '@/lib/challenge-to-lesson';
@@ -125,19 +125,28 @@ export function StudentDashboard({
   const workspaceCameraRef = useRef<HTMLDivElement | null>(null);
 
   // Challenge lesson player
-  const { packs: challengePacks } = useChallenges('sketchbot');
-  const [lessonPlayerOpen, setLessonPlayerOpen] = useState(false);
+  const { packs: challengePacks } = useChallenges('sketchbot', apiBase || undefined);
+  // effectiveChallengeId: explicit prop takes priority; if absent, auto-detect
+  // the first challenge for the current concept once packs have loaded.
+  const [effectiveChallengeId, setEffectiveChallengeId] = useState<string | null>(activeChallengeId);
   useEffect(() => {
-    if (activeChallengeId) setLessonPlayerOpen(true);
+    if (activeChallengeId) { setEffectiveChallengeId(activeChallengeId); return; }
   }, [activeChallengeId]);
+  useEffect(() => {
+    if (effectiveChallengeId) return;
+    if (!conceptId || challengePacks.length === 0) return;
+    const match = challengePacks.find((p) => p.conceptId === conceptId);
+    const first = match?.challenges[0];
+    if (first) setEffectiveChallengeId(first.id);
+  }, [effectiveChallengeId, conceptId, challengePacks]);
   const activeChallenge = useMemo(() => {
-    if (!activeChallengeId) return null;
+    if (!effectiveChallengeId) return null;
     for (const pack of challengePacks) {
-      const found = pack.challenges.find((c) => c.id === activeChallengeId);
+      const found = pack.challenges.find((c) => c.id === effectiveChallengeId);
       if (found) return { challenge: found, pack };
     }
     return null;
-  }, [activeChallengeId, challengePacks]);
+  }, [effectiveChallengeId, challengePacks]);
   const lessonPlan = useMemo(
     () => (activeChallenge ? challengeToLessonPlan(activeChallenge.challenge, ageGroup) : null),
     [activeChallenge, ageGroup],
@@ -150,7 +159,7 @@ export function StudentDashboard({
     onSubmitPrompt({ preventDefault: () => {} } as FormEvent);
   };
   const handleLessonComplete = () => {
-    setLessonPlayerOpen(false);
+    setEffectiveChallengeId(null);
     onChallengeComplete?.();
   };
 
@@ -414,13 +423,22 @@ export function StudentDashboard({
       return;
     }
 
+    // When a lesson is active, the drawing was triggered by the lesson HUD —
+    // auto-approve it so the simulator starts immediately (no confirmation toast).
+    if (lessonPlan) {
+      setApprovedSvg(featuredSvgContent);
+      awaitingResultRef.current = false;
+      hasInitializedSvgRef.current = true;
+      return;
+    }
+
     setPendingTask({
       svg: featuredSvgContent,
       label: lastSubmittedPrompt?.trim() || 'your new drawing',
     });
     awaitingResultRef.current = false;
     hasInitializedSvgRef.current = true;
-  }, [featuredSvgContent, approvedSvg, pendingTask, lastSubmittedPrompt]);
+  }, [featuredSvgContent, approvedSvg, pendingTask, lastSubmittedPrompt, lessonPlan]);
 
   const confirmPendingTask = () => {
     if (!pendingTask) return;
@@ -722,7 +740,20 @@ export function StudentDashboard({
                 )}
               </div>
             </div>
-            <div className="workspace-pane-body">{renderWorkspace(primaryTab)}</div>
+            <div className="workspace-pane-body" style={{ position: 'relative' }}>
+              {renderWorkspace(primaryTab)}
+              {lessonPlan && (
+                <LessonHud
+                  plan={lessonPlan}
+                  studentName={studentName}
+                  apiBase={apiBase}
+                  reducedMotion={reducedMotion}
+                  onDrawingRequest={handleDrawingRequest}
+                  onComplete={handleLessonComplete}
+                  onXPChange={refreshGamification}
+                />
+              )}
+            </div>
           </div>
 
           {secondaryTab ? (
@@ -908,7 +939,7 @@ export function StudentDashboard({
         </div>
       </div>
 
-      {pendingTask && (
+      {pendingTask && !lessonPlan && (
         <div className="sketch-notify-card" role="dialog" aria-live="polite" aria-labelledby="sketch-notify-title">
           <div className="sketch-notify-avatar" aria-hidden="true">🤖</div>
           <div className="sketch-notify-body">
@@ -975,101 +1006,6 @@ export function StudentDashboard({
         </div>
       )}
 
-      {/* Challenge Lesson Player overlay */}
-      <AnimatePresence>
-        {lessonPlayerOpen && lessonPlan && (
-          <motion.div
-            key="lesson-overlay"
-            className="lesson-overlay"
-            initial={{ opacity: 0, y: 32 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 32 }}
-            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 32 }}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 120,
-              display: 'flex',
-              flexDirection: 'column',
-              background: 'var(--bg)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-              <span style={{ fontWeight: 700, fontSize: '0.95rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {lessonPlan.title}
-              </span>
-              <button
-                type="button"
-                className="btn-ghost"
-                style={{ fontSize: '0.8rem', padding: '4px 10px' }}
-                onClick={() => setLessonPlayerOpen(false)}
-                aria-label="Minimize lesson player"
-              >
-                Minimize
-              </button>
-              <button
-                type="button"
-                className="btn-ghost"
-                style={{ fontSize: '0.8rem', padding: '4px 10px' }}
-                onClick={handleLessonComplete}
-                aria-label="Exit lesson"
-              >
-                ✕ Exit
-              </button>
-            </div>
-            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-              <LessonPlayer
-                plan={lessonPlan}
-                studentName={studentName}
-                apiBase={apiBase}
-                onDrawingRequest={handleDrawingRequest}
-                onComplete={handleLessonComplete}
-                onXPChange={refreshGamification}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Re-open button when lesson is minimized */}
-      <AnimatePresence>
-        {activeChallengeId && !lessonPlayerOpen && (
-          <motion.button
-            key="lesson-resume-fab"
-            type="button"
-            className="lesson-resume-fab"
-            onClick={() => setLessonPlayerOpen(true)}
-            title="Resume lesson"
-            initial={reducedMotion ? false : { y: 16, opacity: 0, scale: 0.92 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={reducedMotion ? undefined : { y: 16, opacity: 0, scale: 0.92 }}
-            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 }}
-            whileHover={reducedMotion ? undefined : { scale: 1.05 }}
-            whileTap={reducedMotion ? undefined : { scale: 0.95 }}
-            style={{
-              position: 'fixed',
-              bottom: 80,
-              right: 16,
-              zIndex: 110,
-              background: 'var(--cyan)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 24,
-              padding: '8px 18px',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              boxShadow: '0 4px 20px rgba(93,228,255,0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-            }}
-          >
-            <Send size={13} />
-            Resume Lesson
-          </motion.button>
-        )}
-      </AnimatePresence>
 
       <LevelUpCelebration
         show={Boolean(levelUpData)}
