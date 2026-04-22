@@ -231,12 +231,17 @@ async def stripe_webhook(request: Request):
 
     obj = event.get("data", {}).get("object", {})
     event_type = event["type"]
-    if event_type == "checkout.session.completed":
-        _link_customer_to_user(obj)
-    elif event_type in ("customer.subscription.created", "customer.subscription.updated"):
-        _sync_subscription(obj)
-    elif event_type == "customer.subscription.deleted":
-        _downgrade_subscription(obj)
+    try:
+        if event_type == "checkout.session.completed":
+            _link_customer_to_user(obj)
+        elif event_type in ("customer.subscription.created", "customer.subscription.updated"):
+            _sync_subscription(obj)
+        elif event_type == "customer.subscription.deleted":
+            _downgrade_subscription(obj)
+    except Exception as exc:
+        # Log but always return 200 so Stripe doesn't keep retrying a bad event
+        import logging
+        logging.error("Webhook handler error [%s]: %s", event_type, exc, exc_info=True)
     return {"received": True}
 
 
@@ -269,18 +274,41 @@ def _price_to_tier(price_id: str) -> str:
 
 def _sync_subscription(sub_obj: dict) -> None:
     client = _supabase()
-    price_id = (sub_obj.get("items", {}).get("data", [{}])[0].get("price", {}).get("id", ""))
+    items_data = sub_obj.get("items", {}).get("data", [])
+    price_id = items_data[0].get("price", {}).get("id", "") if items_data else ""
     tier = _price_to_tier(price_id)
+    customer_id = sub_obj["customer"]
+
     resp = (
         client.table("user_subscriptions")
         .select("user_id")
-        .eq("stripe_customer_id", sub_obj["customer"])
+        .eq("stripe_customer_id", customer_id)
         .maybe_single()
         .execute()
     )
     if not resp.data:
-        return
-    user_id = resp.data["user_id"]
+        # checkout.session.completed may not have fired yet — look up user by email via auth
+        from app.auth import _supabase_client
+        sb = _supabase_client()
+        if sb is None:
+            return
+        import stripe as _stripe  # type: ignore[import]
+        _stripe.api_key = settings.stripe_secret_key
+        customer = _stripe.Customer.retrieve(customer_id)
+        email = customer.get("email", "")
+        if not email:
+            return
+        users = sb.auth.admin.list_users()
+        user = next((u for u in users if u.email and u.email.lower() == email.lower()), None)
+        if not user:
+            return
+        sub = _get_or_create_subscription(client, str(user.id))
+        client.table("user_subscriptions").update({
+            "stripe_customer_id": customer_id,
+        }).eq("user_id", str(user.id)).execute()
+        user_id = str(user.id)
+    else:
+        user_id = resp.data["user_id"]
     period_end = (
         datetime.fromtimestamp(sub_obj["current_period_end"], tz=timezone.utc).isoformat()
         if sub_obj.get("current_period_end") else None
