@@ -127,7 +127,9 @@ export default function HomePage() {
                   </div>
                   <div className="lesson-mock-body">
                     <div className="lesson-mock-spark">
-                      <div className="lesson-mock-avatar">🤩</div>
+                      <div className="lesson-mock-avatar">
+                        <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(255,184,77,0.13)', boxShadow: '0 0 20px rgba(255,184,77,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🤩</div>
+                      </div>
                       <div className="lesson-mock-bubble">
                         Now try it! Drag the three waypoints to form a triangle.
                         The robot will follow the path you designed.

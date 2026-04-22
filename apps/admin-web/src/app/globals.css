@@ -3585,3 +3585,13 @@ body::before {
   .upgrade-banner-icon { color: #059669; }
   .upgrade-banner-text strong { color: #059669; }
 }
+
+/* ─── Aibotics logo / wordmark ─────────────────────────────────────────────── */
+.aibotics-wordmark-name { color: var(--text); }
+.aibotics-wordmark-ai {
+  background: linear-gradient(90deg, #6366f1, #5de4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.nav-logo { gap: 0 !important; }

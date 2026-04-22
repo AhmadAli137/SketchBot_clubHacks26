@@ -1,34 +1,72 @@
-export function AiboticsLogo({ size = 32 }: { size?: number }) {
-  const id = `al-${size}`;
+'use client';
+
+import { motion } from 'framer-motion';
+
+type LogoProps = {
+  size?: number;
+  showWordmark?: boolean;
+  className?: string;
+  animate?: boolean;
+};
+
+export function AiboticsLogo({ size = 40, showWordmark = true, className, animate = true }: LogoProps) {
+  const s = size;
+  const markSize = Math.round(s * 0.62);
+
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-label="Aibotics">
-      <rect x="1" y="1" width="38" height="38" rx="10" fill={`url(#${id}-bg)`} stroke={`url(#${id}-bd)`} strokeWidth="0.5"/>
-      <path d="M10 31 C10 22 14 13 20 8" stroke={`url(#${id}-l)`} strokeWidth="2.8" strokeLinecap="round" fill="none"/>
-      <path d="M30 31 C30 22 26 13 20 8" stroke={`url(#${id}-r)`} strokeWidth="2.8" strokeLinecap="round" fill="none"/>
-      <line x1="13.8" y1="21.5" x2="26.2" y2="21.5" stroke="#5de4ff" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2.8 1.8" opacity="0.82"/>
-      <circle cx="13.8" cy="21.5" r="2" fill="#6366f1"/>
-      <circle cx="26.2" cy="21.5" r="2" fill="#5de4ff"/>
-      <circle cx="20" cy="8" r="3.4" fill={`url(#${id}-core)`}/>
-      <circle cx="20" cy="8" r="1.45" fill="white" opacity="0.92"/>
-      <circle cx="14.5" cy="29.5" r="1.9" fill="#6366f1" opacity="0.85"/>
-      <circle cx="25.5" cy="29.5" r="1.9" fill="#6366f1" opacity="0.85"/>
-      <defs>
-        <linearGradient id={`${id}-bg`} x1="1" y1="1" x2="39" y2="39" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#040c1e"/><stop offset="1" stopColor="#07122a"/>
-        </linearGradient>
-        <linearGradient id={`${id}-bd`} x1="1" y1="1" x2="39" y2="39" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#6366f1" stopOpacity="0.65"/><stop offset="1" stopColor="#5de4ff" stopOpacity="0.3"/>
-        </linearGradient>
-        <linearGradient id={`${id}-l`} x1="10" y1="31" x2="20" y2="8" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#6366f1"/><stop offset="1" stopColor="#5de4ff"/>
-        </linearGradient>
-        <linearGradient id={`${id}-r`} x1="30" y1="31" x2="20" y2="8" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#8b5cf6"/><stop offset="1" stopColor="#5de4ff"/>
-        </linearGradient>
-        <radialGradient id={`${id}-core`} cx="40%" cy="35%" r="60%">
-          <stop offset="0%" stopColor="#a8f4ff"/><stop offset="100%" stopColor="#5de4ff"/>
-        </radialGradient>
-      </defs>
-    </svg>
+    <div
+      className={`aibotics-logo-root${className ? ` ${className}` : ''}`}
+      style={{ display: 'flex', alignItems: 'center', gap: Math.round(s * 0.18) }}
+    >
+      <motion.svg
+        width={markSize} height={markSize} viewBox="0 0 28 28" fill="none" aria-label="Aibotics"
+        initial={animate ? { opacity: 0, scale: 0.80 } : undefined}
+        animate={animate ? { opacity: 1, scale: 1 } : undefined}
+        transition={{ duration: 0.40, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <rect x="0.5" y="0.5" width="27" height="27" rx="7.5"
+          fill="url(#ab-bg)" stroke="url(#ab-bd)" strokeWidth="0.6" />
+        <circle cx="14" cy="13" r="8.5" fill="url(#ab-head)" />
+        <circle cx="14" cy="13" r="10" fill="none" stroke="#5de4ff" strokeWidth="0.5" opacity={0.20} />
+        <ellipse cx="11.0" cy="12.4" rx="1.55" ry="1.05" fill="#020810" opacity={0.90} />
+        <ellipse cx="17.0" cy="12.4" rx="1.55" ry="1.05" fill="#020810" opacity={0.90} />
+        <circle cx="11.7" cy="11.8" r="0.46" fill="white" opacity={0.92} />
+        <circle cx="17.7" cy="11.8" r="0.46" fill="white" opacity={0.92} />
+        <path d="M11.2 14.8 Q14 16.4 16.8 14.8"
+          stroke="#020810" strokeWidth="0.70" fill="none" strokeLinecap="round" opacity={0.68} />
+        <defs>
+          <linearGradient id="ab-bg" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#060e22" />
+            <stop offset="100%" stopColor="#07122a" />
+          </linearGradient>
+          <linearGradient id="ab-bd" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.70" />
+            <stop offset="100%" stopColor="#5de4ff" stopOpacity="0.35" />
+          </linearGradient>
+          <radialGradient id="ab-head" cx="38%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#c4f5ff" />
+            <stop offset="52%" stopColor="#5de4ff" />
+            <stop offset="100%" stopColor="#2563eb" />
+          </radialGradient>
+        </defs>
+      </motion.svg>
+
+      {showWordmark && (
+        <motion.div
+          className="aibotics-wordmark"
+          style={{ lineHeight: 1 }}
+          initial={animate ? { opacity: 0, x: -5 } : undefined}
+          animate={animate ? { opacity: 1, x: 0 } : undefined}
+          transition={{ duration: 0.38, delay: 0.10, ease: 'easeOut' }}
+        >
+          <div
+            className="aibotics-wordmark-name"
+            style={{ fontSize: Math.round(s * 0.54), fontWeight: 800, letterSpacing: '-0.03em' }}
+          >
+            <span className="aibotics-wordmark-ai">Ai</span>botics
+          </div>
+        </motion.div>
+      )}
+    </div>
   );
 }
