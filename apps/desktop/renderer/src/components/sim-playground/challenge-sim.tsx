@@ -39,10 +39,7 @@ export function getSimMode(conceptId: string | null | undefined): SimMode {
     case 'cone-ring-gauntlet': return 'cone-ring';
     case 'maze-marathon':      return 'maze';
     case 'path-planning':      return 'waypoint';
-    case 'trigonometry-motion':return 'circle-dance';
-    case 'control-theory':     return 'pid-approach';
     case 'geometry-drawing':
-    case 'coord-systems':
     default:                   return 'drawing';
   }
 }

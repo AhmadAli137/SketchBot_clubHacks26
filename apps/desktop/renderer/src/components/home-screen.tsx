@@ -366,16 +366,6 @@ export function HomeScreen({
             Switch mode
           </Button>
         )}
-        {role === 'student' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onSignOut}
-            style={{ fontSize: '0.75rem', minHeight: 32 } as React.CSSProperties}
-          >
-            Sign out
-          </Button>
-        )}
         <ThemeToggle />
       </div>
 

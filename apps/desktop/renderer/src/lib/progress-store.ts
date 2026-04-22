@@ -21,11 +21,7 @@ import { rollChest, SPARK_RATES, CHESTS } from './game-economy';
 const STORAGE_KEY = 'sketchbot-progress-v1';
 const LAYER_ORDER: ConceptLayer[] = ['intuitive', 'structural', 'precise'];
 const CONCEPT_BADGE_MAP: Partial<Record<string, string>> = {
-  'coord-systems': 'coordinate-explorer',
   'path-planning': 'curve-master',
-  'computer-vision': 'vision-pioneer',
-  'systems-engineering': 'system-thinker',
-  'trigonometry-motion': 'sine-surfer',
   'symmetry-reflection': 'symmetry-seeker',
   'symmetry': 'symmetry-seeker',
 };

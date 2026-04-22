@@ -1,42 +1,12 @@
 [
   {
-    "concept_id": "coord-systems",
-    "domain": "coordinates",
-    "title": "Coordinate Systems",
-    "subtitle": "How robots navigate space",
-    "emoji": "🗺️",
-    "description": "Learn how robots use X and Y coordinates to move precisely, and how coordinate systems are the foundation of all robot motion.",
-    "prerequisite_ids": [],
-    "layers": {
-      "intuitive": {
-        "hook": "How does the robot know where to go on the paper?",
-        "activity": "observe",
-        "robot_demo": "coord-system-axes",
-        "tutor_intro": "Have you ever played a game where you had to find something on a map using letters and numbers, like A3 or C7? The robot uses the same idea — it has an X direction (left and right) and a Y direction (up and down). Every spot on the paper has its own unique address!",
-        "starter_prompt": "draw a plus sign in the center of the paper showing X and Y directions"
-      },
-      "structural": {
-        "block_template": "move_to_coordinates",
-        "visual_tool": "coordinate_grid",
-        "tutor_intro": "Now let's use coordinate blocks. You can tell the robot exactly where to go using numbers. Try: move_to(100, 50) — that's 100mm to the right and 50mm up from the starting corner.",
-        "starter_prompt": "use move_to blocks to draw a square with corners at (50,50), (150,50), (150,150), (50,150)"
-      },
-      "precise": {
-        "code_scaffold": "# SketchBot coordinate systems\nimport sketchbot\n\n# Home position is (0, 0) — bottom-left of canvas\n# X increases to the right, Y increases upward\n# Canvas is 297mm x 210mm (A4)\n\nsketchbot.move_to(148.5, 105)  # Move to center\nsketchbot.draw_path([\n    (50, 50),\n    (247, 50),\n    (247, 160),\n    (50, 160),\n    (50, 50)\n])",
-        "math_notation": "P = (x, y) where x ∈ [0, 297], y ∈ [0, 210]",
-        "tutor_intro": "In code, every position is a 2-tuple (x, y). The robot's workspace is a 2D Euclidean plane. You can use numpy arrays for paths, trigonometric functions for curves, and linear algebra for transformations.",
-        "starter_prompt": "import numpy as np; draw a grid of 5x5 dots evenly spaced across the canvas"
-      }
-    }
-  },
-  {
     "concept_id": "path-planning",
     "domain": "kinematics",
     "title": "Path Planning",
     "subtitle": "Bezier curves and smooth motion",
     "emoji": "〰️",
     "description": "Explore how robots plan their paths — the difference between jagged and smooth motion, and how Bezier curves work.",
-    "prerequisite_ids": ["coord-systems"],
+    "prerequisite_ids": [],
     "layers": {
       "intuitive": {
         "hook": "Why does the robot draw smooth curves instead of jagged lines?",
@@ -66,7 +36,7 @@
     "subtitle": "Shapes, symmetry & patterns",
     "emoji": "🔷",
     "description": "Discover how geometry comes alive when a robot draws it. Triangles, circles, fractals, and symmetry all have real mathematical structure.",
-    "prerequisite_ids": ["coord-systems"],
+    "prerequisite_ids": [],
     "layers": {
       "intuitive": {
         "hook": "How many straight lines does it take to make a circle?",
@@ -90,133 +60,13 @@
     }
   },
   {
-    "concept_id": "computer-vision",
-    "domain": "vision",
-    "title": "Computer Vision",
-    "subtitle": "How the robot sees the world",
-    "emoji": "👁️",
-    "description": "Understand how the robot uses a camera and AprilTag markers to locate itself in space — the same technology used in AR and autonomous vehicles.",
-    "prerequisite_ids": [],
-    "layers": {
-      "intuitive": {
-        "hook": "How does the robot know where the paper is?",
-        "activity": "observe",
-        "robot_demo": "grid-localization",
-        "tutor_intro": "The robot can't feel the paper, but it CAN see it! It looks for special square markers called AprilTags at the corners. Each one has a unique pattern, like a tiny barcode. Once it sees all four, it knows exactly where the paper is and how it's tilted.",
-        "starter_prompt": "point the camera at the paper with AprilTag markers and describe what you see happening on screen"
-      },
-      "structural": {
-        "block_template": "tag_detection_overlay",
-        "visual_tool": "vision_inspector",
-        "tutor_intro": "Look at the vision overlay! Each AprilTag gets highlighted when detected. You can see the corner points the robot found and the outline it computed for the paper. Try tilting the paper — watch how the detected outline changes in real time.",
-        "starter_prompt": "tilt the paper at different angles and observe how the robot's perspective changes"
-      },
-      "precise": {
-        "code_scaffold": "import cv2\nimport numpy as np\n\n# This is what the robot runtime does internally:\n# 1. Detect AprilTag corners in image coordinates\n# 2. Map them to known paper coordinates (world space)\n# 3. Compute homography matrix H\n\nsrc_pts = np.float32([[0,0],[297,0],[297,210],[0,210]])  # paper corners (mm)\ndst_pts = np.float32(detected_tag_corners)               # pixel positions\n\nH, _ = cv2.findHomography(src_pts, dst_pts)\n# H transforms paper-space coordinates to image-space pixels\n# This lets us overlay the drawing preview perfectly on the live image",
-        "math_notation": "p_img = H · p_world,  H ∈ ℝ³ˣ³ (homography matrix)",
-        "tutor_intro": "Computer vision uses a homography matrix H to map between two coordinate systems. Given 4 point correspondences (AprilTag corners), we can solve for the 8 degrees of freedom in H using Direct Linear Transform (DLT).",
-        "starter_prompt": "write a function that uses the homography matrix to check if a given paper coordinate is inside the detected canvas boundary"
-      }
-    }
-  },
-  {
-    "concept_id": "control-theory",
-    "domain": "control",
-    "title": "Control Theory",
-    "subtitle": "Feedback loops and precision",
-    "emoji": "🎛️",
-    "description": "Discover how robots correct their own errors using feedback loops — the same math that controls thermostats, cruise control, and rockets.",
-    "prerequisite_ids": ["coord-systems"],
-    "layers": {
-      "intuitive": {
-        "hook": "How does the robot draw a straight line without wobbling?",
-        "activity": "observe",
-        "robot_demo": "pid-overshoot",
-        "tutor_intro": "Imagine trying to walk in a perfectly straight line with your eyes closed. Hard right? The robot faces the same challenge — its motors aren't perfect. So it constantly checks where it is vs where it should be, and corrects itself. I'll show you what happens when the correction is too aggressive... and when it's just right.",
-        "starter_prompt": "draw ten parallel horizontal lines and see how straight the robot can make them"
-      },
-      "structural": {
-        "block_template": "pid_controller",
-        "visual_tool": "pid_sliders",
-        "tutor_intro": "Use the PID sliders! There are three knobs: P (how aggressively it corrects), I (how much it learns from past errors), and D (how fast it's correcting). Find the settings that make the robot draw the smoothest line.",
-        "starter_prompt": "tune the P and D sliders to minimize overshoot on a straight 100mm line"
-      },
-      "precise": {
-        "code_scaffold": "class PIDController:\n    def __init__(self, kp, ki, kd):\n        self.kp, self.ki, self.kd = kp, ki, kd\n        self.integral = 0\n        self.prev_error = 0\n    \n    def update(self, setpoint, measurement, dt):\n        error = setpoint - measurement\n        self.integral += error * dt\n        derivative = (error - self.prev_error) / dt\n        self.prev_error = error\n        return self.kp*error + self.ki*self.integral + self.kd*derivative\n\n# Tune these for the robot:\npid = PIDController(kp=2.0, ki=0.5, kd=0.1)",
-        "math_notation": "u(t) = Kₚe(t) + Kᵢ∫e(τ)dτ + Kd(de/dt)",
-        "tutor_intro": "PID control is one of the most important algorithms in engineering. P corrects proportionally to current error, I eliminates steady-state error by integrating history, D dampens oscillation using the derivative.",
-        "starter_prompt": "simulate a PID controller in Python and plot the step response for three different Kp values"
-      }
-    }
-  },
-  {
-    "concept_id": "systems-engineering",
-    "domain": "systems",
-    "title": "Systems Thinking",
-    "subtitle": "Design your own challenge",
-    "emoji": "🧠",
-    "description": "Learn to think like an engineer by designing, building, and testing your own robot challenge from scratch.",
-    "prerequisite_ids": ["coord-systems", "geometry-drawing"],
-    "layers": {
-      "intuitive": {
-        "hook": "What would you want a robot to draw for your school?",
-        "activity": "language_prompt",
-        "robot_demo": null,
-        "tutor_intro": "Every great invention starts with a question: 'What problem am I trying to solve?' Engineers call this 'systems thinking' — understanding all the parts and how they fit together. Today you're going to design something! What would you want the robot to draw, and why?",
-        "starter_prompt": "design a drawing that would teach younger students about something you care about"
-      },
-      "structural": {
-        "block_template": "challenge_builder",
-        "visual_tool": "challenge_editor",
-        "tutor_intro": "Use the challenge builder to design a step-by-step learning activity. You'll define: the goal, the steps, hints for students, and how to know when it's done. This is exactly how the challenges in SketchBot were built!",
-        "starter_prompt": "build a 3-step challenge that teaches another student one thing about your favorite subject"
-      },
-      "precise": {
-        "code_scaffold": "# Design doc template\nchallenge = {\n    'title': 'Your Challenge Title',\n    'learning_objectives': ['Students will understand...'],\n    'success_criteria': 'The student has successfully completed when...',\n    'steps': [\n        {\n            'description': 'Step 1: ...',\n            'expected_output': '...',\n            'hint': '...'\n        }\n    ],\n    'estimated_minutes': 15,\n    'robot_actions': ['draw_path', 'move_to']\n}",
-        "math_notation": "System = {Inputs, Processes, Outputs, Feedback}",
-        "tutor_intro": "Systems engineering formalizes design as: specify requirements → design architecture → implement → test → iterate. Write a design document for your challenge, including measurable success criteria and failure modes.",
-        "starter_prompt": "write a complete design document for a robot challenge that teaches a concept from your own curriculum"
-      }
-    }
-  },
-  {
-    "concept_id": "trigonometry-motion",
-    "domain": "geometry",
-    "title": "Trigonometry in Motion",
-    "subtitle": "Sine, cosine, and circular paths",
-    "emoji": "〰️",
-    "description": "See how sin and cos are more than just test problems — they are the actual math that makes the robot draw circles, waves, and spirals.",
-    "prerequisite_ids": ["coord-systems", "geometry-drawing"],
-    "layers": {
-      "intuitive": {
-        "hook": "Did you know a circle is made of two waves?",
-        "activity": "language_prompt",
-        "robot_demo": "sine-wave",
-        "tutor_intro": "Here's something wild: a circle is secretly made from two waves — sine and cosine — working together. The robot will draw a sine wave for you now. Watch the height of the line go up and down, up and down... exactly like a wave in the ocean.",
-        "starter_prompt": "draw a wave pattern that repeats 3 times across the paper"
-      },
-      "structural": {
-        "block_template": "parametric_curve",
-        "visual_tool": "wave_builder",
-        "tutor_intro": "Try the wave builder! You can control: amplitude (how tall), frequency (how many waves fit), and phase (where it starts). Notice how changing frequency changes the number of peaks. This is the math of sound, light, and even music!",
-        "starter_prompt": "use wave_builder to draw two overlapping waves with different frequencies — this is called a beat pattern"
-      },
-      "precise": {
-        "code_scaffold": "import numpy as np\nimport sketchbot\n\n# Parametric equations for curves\nt = np.linspace(0, 2*np.pi, 300)\n\n# Circle: x=cos(t), y=sin(t)\ncircle = list(zip(148.5 + 80*np.cos(t), 105 + 80*np.sin(t)))\n\n# Lissajous figure: change a and b\na, b = 3, 2\nlissajous = list(zip(148.5 + 80*np.sin(a*t), 105 + 80*np.sin(b*t + np.pi/4)))\n\nsketchbot.draw_path(lissajous)",
-        "math_notation": "x(t) = A·sin(at + δ),  y(t) = B·sin(bt)",
-        "tutor_intro": "Parametric equations express curves as functions of a parameter t. Lissajous figures emerge when a/b is rational — and they're used in oscilloscopes to measure phase relationships. Change a and b to see different patterns.",
-        "starter_prompt": "draw a rose curve: r = cos(k·θ) in polar coordinates. Try k=3, k=5, k=7 and observe the pattern."
-      }
-    }
-  },
-  {
     "concept_id": "cone-ring-gauntlet",
     "domain": "sensors",
     "title": "Cone Ring Gauntlet",
     "subtitle": "Ultrasonic aim, line sensors for balance",
     "emoji": "🎯",
     "description": "Design a robot that hunts traffic cones inside a ring using an ultrasonic rangefinder to line up pushes, while line IR sensors keep you from driving off the edge — without tipping over. Tutorial flow: (1) calibrate line thresholds on your mat, (2) sweep to acquire cones in range, (3) cap motor power and test edge recovery.",
-    "prerequisite_ids": ["control-theory"],
+    "prerequisite_ids": [],
     "layers": {
       "intuitive": {
         "hook": "Can your robot \"see\" a cone it cannot photograph?",
@@ -246,7 +96,7 @@
     "subtitle": "Push the rival bot out first",
     "emoji": "🤼",
     "description": "Two robots, one ring: last machine inside wins. Strategy, torque, timing, and sensors turn a shove into a sport. Tutorial flow: (1) prove edge sensors stop you at the border every time, (2) add opponent seek, (3) tune charge vs escape timing.",
-    "prerequisite_ids": ["control-theory"],
+    "prerequisite_ids": [],
     "layers": {
       "intuitive": {
         "hook": "Is sumo about strength — or about knowing where the edge is?",

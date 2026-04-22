@@ -33,16 +33,11 @@ export const ROBOT_LAB_CONCEPT_IDS = [
 ] as const;
 
 const MAP_LAYOUT: Record<string, { x: number; y: number }> = {
-  'coord-systems': { x: 50, y: 14 },
-  'geometry-drawing': { x: 22, y: 40 },
-  'trigonometry-motion': { x: 50, y: 40 },
-  'path-planning': { x: 78, y: 40 },
-  'computer-vision': { x: 22, y: 68 },
-  'control-theory': { x: 78, y: 68 },
-  'cone-ring-gauntlet': { x: 28, y: 76 },
-  'sumo-arena': { x: 50, y: 76 },
-  'maze-marathon': { x: 72, y: 76 },
-  'systems-engineering': { x: 50, y: 91 },
+  'geometry-drawing': { x: 22, y: 35 },
+  'path-planning': { x: 78, y: 35 },
+  'cone-ring-gauntlet': { x: 28, y: 70 },
+  'sumo-arena': { x: 50, y: 70 },
+  'maze-marathon': { x: 72, y: 70 },
 };
 
 function getStarterPrompt(concept: ConceptDefinition): string {

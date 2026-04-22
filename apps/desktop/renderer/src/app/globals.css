@@ -3633,7 +3633,7 @@ body {
   background:
     radial-gradient(120% 80% at 10% 0%, rgba(93, 228, 255, 0.14), transparent 55%),
     radial-gradient(90% 70% at 95% 100%, rgba(255, 79, 216, 0.1), transparent 50%),
-    rgba(255, 255, 255, 0.92);
+    var(--panel-strong);
 }
 
 .concept-card.concept-card--robot-lab .concept-card-domain-badge {

@@ -60,11 +60,6 @@ type BgmConfig = {
 };
 
 const CONCEPT_BGM: Record<string, BgmConfig> = {
-  'coord-systems': {
-    scale: 'major', rootHz: 261.63, bpm: 100, waveform: 'square',
-    bassWave: 'sawtooth', arpPattern: [0, 2, 4, 7, 4, 2], bassPattern: [0, 0, 4, 0],
-    reverbAmount: 0.2,
-  },
   'path-planning': {
     scale: 'pentatonic', rootHz: 293.66, bpm: 120, waveform: 'square',
     bassWave: 'triangle', arpPattern: [0, 2, 4, 2, 7, 4, 2, 0], bassPattern: [0, 4, 0, 7],
@@ -74,26 +69,6 @@ const CONCEPT_BGM: Record<string, BgmConfig> = {
     scale: 'major', rootHz: 329.63, bpm: 90, waveform: 'sine',
     bassWave: 'sine', arpPattern: [0, 4, 7, 12, 7, 4], bassPattern: [0, 0, 7, 0],
     reverbAmount: 0.3,
-  },
-  'computer-vision': {
-    scale: 'dorian', rootHz: 293.66, bpm: 110, waveform: 'sawtooth',
-    bassWave: 'sawtooth', arpPattern: [0, 2, 3, 7, 10, 7, 3, 2], bassPattern: [0, 3, 7, 3],
-    reverbAmount: 0.1,
-  },
-  'control-theory': {
-    scale: 'minor', rootHz: 246.94, bpm: 105, waveform: 'sawtooth',
-    bassWave: 'sawtooth', arpPattern: [0, 3, 7, 10, 7, 3], bassPattern: [0, 7, 3, 7],
-    reverbAmount: 0.2,
-  },
-  'trigonometry-motion': {
-    scale: 'major', rootHz: 349.23, bpm: 128, waveform: 'square',
-    bassWave: 'triangle', arpPattern: [0, 4, 7, 12, 9, 7, 4, 0], bassPattern: [0, 4, 7, 4],
-    reverbAmount: 0.15,
-  },
-  'systems-engineering': {
-    scale: 'dorian', rootHz: 220.0, bpm: 95, waveform: 'sawtooth',
-    bassWave: 'sawtooth', arpPattern: [0, 2, 3, 7, 9, 7, 3, 2], bassPattern: [0, 3, 5, 7],
-    reverbAmount: 0.25,
   },
   'cone-ring-gauntlet': {
     scale: 'pentatonic', rootHz: 329.63, bpm: 145, waveform: 'square',
@@ -112,7 +87,7 @@ const CONCEPT_BGM: Record<string, BgmConfig> = {
   },
 };
 
-const DEFAULT_BGM: BgmConfig = CONCEPT_BGM['coord-systems']!;
+const DEFAULT_BGM: BgmConfig = CONCEPT_BGM['path-planning']!;
 
 // ─── Build a simple reverb convolver ─────────────────────────────────────────
 

@@ -15,10 +15,15 @@
           "title": "First Doodle",
           "subtitle": "Let the robot draw anything",
           "description": "No instructions, no rules — just ask SketchBot to draw something and see what it creates. Your first creative conversation.",
-          "subjects": ["art"],
+          "subjects": [
+            "art"
+          ],
           "difficulty": 1,
           "estimated_minutes": 5,
-          "learning_objectives": ["Send a drawing prompt to a robot", "Observe how AI interprets natural language"],
+          "learning_objectives": [
+            "Send a drawing prompt to a robot",
+            "Observe how AI interprets natural language"
+          ],
           "steps": [
             {
               "id": "step-hello",
@@ -30,7 +35,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Here we go!",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "{{student_input}}" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "{{student_input}}"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 60
             },
@@ -41,7 +51,12 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-first-doodle", "name": "First Stroke", "description": "Sent the first drawing prompt", "icon": "✏️" },
+          "completion_badge": {
+            "id": "badge-first-doodle",
+            "name": "First Stroke",
+            "description": "Sent the first drawing prompt",
+            "icon": "✏️"
+          },
           "prerequisite_challenge_ids": []
         },
         {
@@ -52,10 +67,16 @@
           "title": "Shape Alphabet",
           "subtitle": "Build letters from geometric shapes",
           "description": "Every letter in the alphabet can be built from lines, circles, and arcs. Can you design one?",
-          "subjects": ["art", "math"],
+          "subjects": [
+            "art",
+            "math"
+          ],
           "difficulty": 1,
           "estimated_minutes": 8,
-          "learning_objectives": ["Recognize geometric primitives in everyday objects", "Decompose complex shapes into parts"],
+          "learning_objectives": [
+            "Recognize geometric primitives in everyday objects",
+            "Decompose complex shapes into parts"
+          ],
           "steps": [
             {
               "id": "step-think",
@@ -67,7 +88,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Great pick! I'll draw your letter using only geometric shapes — no cheating with fancy fonts.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "the letter {{student_input}} drawn large and clearly using only straight lines and circular arcs, centered on the page" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "the letter {{student_input}} drawn large and clearly using only straight lines and circular arcs, centered on the page"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 75
             },
@@ -78,8 +104,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-shape-alpha", "name": "Type Designer", "description": "Built a letter from geometry", "icon": "🔤" },
-          "prerequisite_challenge_ids": ["fd-first-doodle"]
+          "completion_badge": {
+            "id": "badge-shape-alpha",
+            "name": "Type Designer",
+            "description": "Built a letter from geometry",
+            "icon": "🔤"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-first-doodle"
+          ]
         },
         {
           "id": "fd-trace-outline",
@@ -89,10 +122,15 @@
           "title": "Silhouette Sketch",
           "subtitle": "Draw the outline of an animal",
           "description": "A silhouette captures the essential shape of something with a single unbroken line. Choose an animal and see how little detail is needed to recognize it.",
-          "subjects": ["art"],
+          "subjects": [
+            "art"
+          ],
           "difficulty": 1,
           "estimated_minutes": 7,
-          "learning_objectives": ["Understand contour drawing", "Identify key features that make a shape recognizable"],
+          "learning_objectives": [
+            "Understand contour drawing",
+            "Identify key features that make a shape recognizable"
+          ],
           "steps": [
             {
               "id": "step-guess",
@@ -104,7 +142,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Drawing the silhouette now — just one clean outline!",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a simple clean silhouette outline of a {{student_input}}, single continuous stroke, no internal details" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a simple clean silhouette outline of a {{student_input}}, single continuous stroke, no internal details"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 90
             },
@@ -115,8 +158,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-silhouette", "name": "Contour Artist", "description": "Captured an animal in pure outline", "icon": "🦁" },
-          "prerequisite_challenge_ids": ["fd-first-doodle"]
+          "completion_badge": {
+            "id": "badge-silhouette",
+            "name": "Contour Artist",
+            "description": "Captured an animal in pure outline",
+            "icon": "🦁"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-first-doodle"
+          ]
         },
         {
           "id": "fd-color-zones",
@@ -126,10 +176,16 @@
           "title": "Zone Map",
           "subtitle": "Divide the page into regions",
           "description": "Artists and mapmakers both think in zones. Design a page layout that divides the paper into distinct areas — then fill each with a different pattern.",
-          "subjects": ["art", "math"],
+          "subjects": [
+            "art",
+            "math"
+          ],
           "difficulty": 2,
           "estimated_minutes": 12,
-          "learning_objectives": ["Understand area and partitioning", "Combine geometric shapes to fill a space"],
+          "learning_objectives": [
+            "Understand area and partitioning",
+            "Combine geometric shapes to fill a space"
+          ],
           "steps": [
             {
               "id": "step-plan",
@@ -141,7 +197,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Laying out your zones now — I'll fill each one with a different hatching or dot pattern so they're easy to tell apart.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a page divided into {{student_input}} zones, each filled with a distinct repeating pattern: hatching, dots, cross-hatch, or waves" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a page divided into {{student_input}} zones, each filled with a distinct repeating pattern: hatching, dots, cross-hatch, or waves"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 120
             },
@@ -152,8 +213,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-zone-map", "name": "Zone Planner", "description": "Designed a multi-zone page layout", "icon": "🗺️" },
-          "prerequisite_challenge_ids": ["fd-first-doodle"]
+          "completion_badge": {
+            "id": "badge-zone-map",
+            "name": "Zone Planner",
+            "description": "Designed a multi-zone page layout",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-first-doodle"
+          ]
         },
         {
           "id": "fd-pattern-tile",
@@ -163,10 +231,16 @@
           "title": "Pattern Tile",
           "subtitle": "Design a repeating tile",
           "description": "Wallpaper, fabric, and floor tiles all use one simple trick: repeat a small pattern endlessly. Design a tile and let SketchBot fill the page with it.",
-          "subjects": ["art", "math"],
+          "subjects": [
+            "art",
+            "math"
+          ],
           "difficulty": 2,
           "estimated_minutes": 10,
-          "learning_objectives": ["Understand tiling and repetition", "Recognize translational symmetry"],
+          "learning_objectives": [
+            "Understand tiling and repetition",
+            "Recognize translational symmetry"
+          ],
           "steps": [
             {
               "id": "step-design",
@@ -178,7 +252,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Stamping your tile across the whole page now!",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a seamless repeating tile pattern filling the full page, based on {{student_input}} shapes arranged in a grid with no gaps" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a seamless repeating tile pattern filling the full page, based on {{student_input}} shapes arranged in a grid with no gaps"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 120
             },
@@ -189,8 +268,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-tile", "name": "Pattern Maker", "description": "Designed a repeating tile pattern", "icon": "🔲" },
-          "prerequisite_challenge_ids": ["fd-color-zones"]
+          "completion_badge": {
+            "id": "badge-tile",
+            "name": "Pattern Maker",
+            "description": "Designed a repeating tile pattern",
+            "icon": "🔲"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-color-zones"
+          ]
         },
         {
           "id": "fd-robot-story",
@@ -200,10 +286,15 @@
           "title": "Robot Story Strip",
           "subtitle": "A 3-panel comic about a robot",
           "description": "Every comic strip tells a story in three frames: setup, conflict, resolution. Script a 3-panel robot adventure and let SketchBot illustrate it.",
-          "subjects": ["art"],
+          "subjects": [
+            "art"
+          ],
           "difficulty": 2,
           "estimated_minutes": 15,
-          "learning_objectives": ["Understand narrative structure", "Communicate ideas visually across panels"],
+          "learning_objectives": [
+            "Understand narrative structure",
+            "Communicate ideas visually across panels"
+          ],
           "steps": [
             {
               "id": "step-script",
@@ -215,7 +306,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Drawing your 3-panel strip now. Each panel will be a simple scene in a bordered box.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a 3-panel comic strip with bordered boxes: panel 1 — {{panel_1}}, panel 2 — {{panel_2}}, panel 3 — {{panel_3}}, simple clear line art" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a 3-panel comic strip with bordered boxes: panel 1 — {{panel_1}}, panel 2 — {{panel_2}}, panel 3 — {{panel_3}}, simple clear line art"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 150
             },
@@ -226,8 +322,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-comic", "name": "Storyteller", "description": "Wrote and illustrated a robot comic", "icon": "📖" },
-          "prerequisite_challenge_ids": ["fd-pattern-tile"]
+          "completion_badge": {
+            "id": "badge-comic",
+            "name": "Storyteller",
+            "description": "Wrote and illustrated a robot comic",
+            "icon": "📖"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-pattern-tile"
+          ]
         },
         {
           "id": "fd-spirograph",
@@ -237,10 +340,17 @@
           "title": "Spirograph",
           "subtitle": "Circular motion makes complex curves",
           "description": "A spirograph is a circle rolling inside another circle — the pen traces a path called a hypotrochoid. Change the ratio of radii and the whole pattern transforms.",
-          "subjects": ["math", "art"],
+          "subjects": [
+            "math",
+            "art"
+          ],
           "difficulty": 3,
           "estimated_minutes": 20,
-          "learning_objectives": ["Understand parametric equations", "See how simple rules produce complex patterns", "Explore ratio relationships"],
+          "learning_objectives": [
+            "Understand parametric equations",
+            "See how simple rules produce complex patterns",
+            "Explore ratio relationships"
+          ],
           "steps": [
             {
               "id": "step-ratio",
@@ -252,7 +362,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Calculating the hypotrochoid path and drawing it now — watch the pattern emerge!",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a hypotrochoid spirograph with outer radius {{R}} and inner radius {{r}}, centered on the page, single continuous line" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a hypotrochoid spirograph with outer radius {{R}} and inner radius {{r}}, centered on the page, single continuous line"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 120
             },
@@ -263,8 +378,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-spirograph", "name": "Curve Explorer", "description": "Generated a hypotrochoid spirograph", "icon": "🌀" },
-          "prerequisite_challenge_ids": ["fd-pattern-tile"]
+          "completion_badge": {
+            "id": "badge-spirograph",
+            "name": "Curve Explorer",
+            "description": "Generated a hypotrochoid spirograph",
+            "icon": "🌀"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-pattern-tile"
+          ]
         },
         {
           "id": "fd-pixel-art",
@@ -274,10 +396,17 @@
           "title": "Pixel Art",
           "subtitle": "Draw on a grid like early video games",
           "description": "Early video games had tiny screens — 8×8 or 16×16 pixels. Every character had to be designed on a grid. Design yours and let SketchBot render it full-size.",
-          "subjects": ["art", "coding"],
+          "subjects": [
+            "art",
+            "coding"
+          ],
           "difficulty": 3,
           "estimated_minutes": 18,
-          "learning_objectives": ["Understand raster graphics and pixel coordinates", "Design within constraints", "Connect art to computer graphics fundamentals"],
+          "learning_objectives": [
+            "Understand raster graphics and pixel coordinates",
+            "Design within constraints",
+            "Connect art to computer graphics fundamentals"
+          ],
           "steps": [
             {
               "id": "step-grid",
@@ -289,7 +418,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Rendering your pixel art on the grid now — each filled square gets a solid black fill.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a 16x16 pixel art grid on the page with a {{student_input}} design, each pixel is a small filled square, clean grid lines" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a 16x16 pixel art grid on the page with a {{student_input}} design, each pixel is a small filled square, clean grid lines"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 150
             },
@@ -300,8 +434,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-pixel", "name": "Pixel Artist", "description": "Created pixel art on a drawn grid", "icon": "👾" },
-          "prerequisite_challenge_ids": ["fd-spirograph"]
+          "completion_badge": {
+            "id": "badge-pixel",
+            "name": "Pixel Artist",
+            "description": "Created pixel art on a drawn grid",
+            "icon": "👾"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-spirograph"
+          ]
         },
         {
           "id": "fd-rose-curve",
@@ -311,10 +452,17 @@
           "title": "Mathematical Rose",
           "subtitle": "r = cos(n·θ) — petals from an equation",
           "description": "The equation r = cos(nθ) in polar coordinates draws a perfect rose. One number — n — controls everything: even n gives 2n petals, odd n gives n petals.",
-          "subjects": ["math", "art"],
+          "subjects": [
+            "math",
+            "art"
+          ],
           "difficulty": 3,
           "estimated_minutes": 22,
-          "learning_objectives": ["Understand polar coordinates", "Connect trigonometric functions to geometry", "Explore even/odd petal rule"],
+          "learning_objectives": [
+            "Understand polar coordinates",
+            "Connect trigonometric functions to geometry",
+            "Explore even/odd petal rule"
+          ],
           "steps": [
             {
               "id": "step-explain",
@@ -326,7 +474,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Plotting r = cos({{n}}·θ) from 0 to 2π now.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a mathematical rose curve r = cos({{n}} * theta) in polar coordinates, centered on the page, clean single-line drawing, {{n}}-petal rose if odd or {{n*2}}-petal if even" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a mathematical rose curve r = cos({{n}} * theta) in polar coordinates, centered on the page, clean single-line drawing, {{n}}-petal rose if odd or {{n*2}}-petal if even"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 90
             },
@@ -337,8 +490,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-rose", "name": "Polar Explorer", "description": "Drew a polar rose with trigonometry", "icon": "🌸" },
-          "prerequisite_challenge_ids": ["fd-spirograph"]
+          "completion_badge": {
+            "id": "badge-rose",
+            "name": "Polar Explorer",
+            "description": "Drew a polar rose with trigonometry",
+            "icon": "🌸"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-spirograph"
+          ]
         },
         {
           "id": "fd-tessellation",
@@ -348,10 +508,17 @@
           "title": "Tessellation",
           "subtitle": "Tile the plane — no gaps, no overlaps",
           "description": "M.C. Escher filled pages with interlocking lizards and birds. The secret is a shape that tiles perfectly. There are only three regular polygons that can tile a plane — can you name them?",
-          "subjects": ["math", "art"],
+          "subjects": [
+            "math",
+            "art"
+          ],
           "difficulty": 3,
           "estimated_minutes": 18,
-          "learning_objectives": ["Identify which regular polygons tessellate", "Understand interior angle sum at a vertex", "Recognize Escher-style transformation tilings"],
+          "learning_objectives": [
+            "Identify which regular polygons tessellate",
+            "Understand interior angle sum at a vertex",
+            "Recognize Escher-style transformation tilings"
+          ],
           "steps": [
             {
               "id": "step-why",
@@ -363,7 +530,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Drawing a hexagonal honeycomb tessellation — the most efficient tiling in nature.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a regular hexagonal tessellation (honeycomb) filling the full page, all hexagons equal size, no gaps, clean line art" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a regular hexagonal tessellation (honeycomb) filling the full page, all hexagons equal size, no gaps, clean line art"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 120
             },
@@ -374,8 +546,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-tess", "name": "Plane Filler", "description": "Explored the math of tessellation", "icon": "🔷" },
-          "prerequisite_challenge_ids": ["fd-rose-curve"]
+          "completion_badge": {
+            "id": "badge-tess",
+            "name": "Plane Filler",
+            "description": "Explored the math of tessellation",
+            "icon": "🔷"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-rose-curve"
+          ]
         },
         {
           "id": "fd-motion-trail",
@@ -385,10 +564,17 @@
           "title": "Motion Trail",
           "subtitle": "Visualize a moving path as a drawing",
           "description": "Animators use motion trails to show speed and direction. Program a sequence of moves and let the pen trace the robot's path — the drawing IS the data.",
-          "subjects": ["art", "engineering", "coding"],
+          "subjects": [
+            "art",
+            "engineering",
+            "coding"
+          ],
           "difficulty": 3,
           "estimated_minutes": 15,
-          "learning_objectives": ["Represent motion as a data trace", "Understand velocity and direction changes in a visual medium"],
+          "learning_objectives": [
+            "Represent motion as a data trace",
+            "Understand velocity and direction changes in a visual medium"
+          ],
           "steps": [
             {
               "id": "step-choreograph",
@@ -400,7 +586,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Executing your choreography now — the pen records every step.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a continuous motion trail path based on the following movement sequence: {{student_input}}, drawn as a single pen trace on the page" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a continuous motion trail path based on the following movement sequence: {{student_input}}, drawn as a single pen trace on the page"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 120
             },
@@ -411,8 +602,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-trail", "name": "Path Tracer", "description": "Visualized a robot motion sequence as a drawing", "icon": "〰️" },
-          "prerequisite_challenge_ids": ["fd-tessellation"]
+          "completion_badge": {
+            "id": "badge-trail",
+            "name": "Path Tracer",
+            "description": "Visualized a robot motion sequence as a drawing",
+            "icon": "〰️"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-tessellation"
+          ]
         },
         {
           "id": "fd-bezier",
@@ -422,10 +620,18 @@
           "title": "Bézier Curves",
           "subtitle": "Smooth curves from control points",
           "description": "Every font, car body, and animation path uses Bézier curves. Two anchor points and one or two control points — pull the curve like a rubber band.",
-          "subjects": ["math", "engineering", "coding"],
+          "subjects": [
+            "math",
+            "engineering",
+            "coding"
+          ],
           "difficulty": 4,
           "estimated_minutes": 25,
-          "learning_objectives": ["Understand linear interpolation and De Casteljau's algorithm", "Relate control points to curve shape", "Recognize Bézier curves in real-world design"],
+          "learning_objectives": [
+            "Understand linear interpolation and De Casteljau's algorithm",
+            "Relate control points to curve shape",
+            "Recognize Bézier curves in real-world design"
+          ],
           "steps": [
             {
               "id": "step-casteljau",
@@ -437,7 +643,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Drawing a cubic Bézier art composition — multiple curves flowing together like a ribbon.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "an abstract composition of flowing cubic Bezier curves, smooth S-curves and loops, balanced across the page, single-line elegant art" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "an abstract composition of flowing cubic Bezier curves, smooth S-curves and loops, balanced across the page, single-line elegant art"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 120
             },
@@ -449,8 +660,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-bezier", "name": "Curve Sculptor", "description": "Mastered control-point curve design", "icon": "🎨" },
-          "prerequisite_challenge_ids": ["fd-motion-trail"]
+          "completion_badge": {
+            "id": "badge-bezier",
+            "name": "Curve Sculptor",
+            "description": "Mastered control-point curve design",
+            "icon": "🎨"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-motion-trail"
+          ]
         },
         {
           "id": "fd-lissajous",
@@ -460,10 +678,17 @@
           "title": "Lissajous Figures",
           "subtitle": "Two sine waves collide on paper",
           "description": "When you combine two sine waves at right angles — one for X, one for Y — the robot traces a Lissajous figure. Change the frequency ratio and a completely different shape emerges.",
-          "subjects": ["math", "science"],
+          "subjects": [
+            "math",
+            "science"
+          ],
           "difficulty": 4,
           "estimated_minutes": 22,
-          "learning_objectives": ["Understand parametric motion from two oscillations", "Relate frequency ratio to curve complexity", "Connect to oscilloscope Lissajous patterns in electronics"],
+          "learning_objectives": [
+            "Understand parametric motion from two oscillations",
+            "Relate frequency ratio to curve complexity",
+            "Connect to oscilloscope Lissajous patterns in electronics"
+          ],
           "steps": [
             {
               "id": "step-equations",
@@ -475,7 +700,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Plotting x = sin({{a}}·t), y = sin({{b}}·t + {{delta}}°) as t goes from 0 to 2π.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a Lissajous figure with frequency ratio {{a}}:{{b}} and phase shift {{delta}} degrees, centered on the page, single closed or open curve" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a Lissajous figure with frequency ratio {{a}}:{{b}} and phase shift {{delta}} degrees, centered on the page, single closed or open curve"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 100
             },
@@ -486,8 +716,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-lissajous", "name": "Wave Artist", "description": "Combined two sine waves into art", "icon": "〽️" },
-          "prerequisite_challenge_ids": ["fd-bezier"]
+          "completion_badge": {
+            "id": "badge-lissajous",
+            "name": "Wave Artist",
+            "description": "Combined two sine waves into art",
+            "icon": "〽️"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-bezier"
+          ]
         },
         {
           "id": "fd-fourier",
@@ -497,10 +734,18 @@
           "title": "Fourier Sketch",
           "subtitle": "Approximate any shape with sine waves",
           "description": "Any shape can be approximated by adding up sine waves of different frequencies — this is Fourier synthesis. Add more waves, get more detail. This is how MP3s and JPEGs work.",
-          "subjects": ["math", "science", "coding"],
+          "subjects": [
+            "math",
+            "science",
+            "coding"
+          ],
           "difficulty": 4,
           "estimated_minutes": 28,
-          "learning_objectives": ["Understand superposition of waves", "See how frequency components build a waveform", "Connect to audio/image compression concepts"],
+          "learning_objectives": [
+            "Understand superposition of waves",
+            "See how frequency components build a waveform",
+            "Connect to audio/image compression concepts"
+          ],
           "steps": [
             {
               "id": "step-superposition",
@@ -512,7 +757,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Drawing the first 5 harmonics of a square wave superimposed — you'll see the Gibbs ringing phenomenon at the edges.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a graph showing the Fourier series approximation of a square wave using 5 harmonics — show each sine wave individually and their sum as a thicker line, labeled axes" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a graph showing the Fourier series approximation of a square wave using 5 harmonics — show each sine wave individually and their sum as a thicker line, labeled axes"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 150
             },
@@ -523,8 +773,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-fourier", "name": "Harmonic Engineer", "description": "Built a shape from sine waves", "icon": "🎵" },
-          "prerequisite_challenge_ids": ["fd-lissajous"]
+          "completion_badge": {
+            "id": "badge-fourier",
+            "name": "Harmonic Engineer",
+            "description": "Built a shape from sine waves",
+            "icon": "🎵"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-lissajous"
+          ]
         },
         {
           "id": "fd-fractal-tree",
@@ -534,10 +791,18 @@
           "title": "Fractal Tree",
           "subtitle": "Recursion draws a forest",
           "description": "A fractal tree is defined by one rule repeated forever: split each branch into two smaller branches at an angle. The result looks exactly like a real tree — because real trees use the same rule.",
-          "subjects": ["math", "coding", "science"],
+          "subjects": [
+            "math",
+            "coding",
+            "science"
+          ],
           "difficulty": 4,
           "estimated_minutes": 25,
-          "learning_objectives": ["Understand recursive algorithms", "Recognize self-similarity in nature", "Tune branching parameters to change tree shape"],
+          "learning_objectives": [
+            "Understand recursive algorithms",
+            "Recognize self-similarity in nature",
+            "Tune branching parameters to change tree shape"
+          ],
           "steps": [
             {
               "id": "step-recursion",
@@ -549,7 +814,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Running the recursive branching algorithm now — {{levels}} levels deep.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a fractal binary tree: trunk from bottom center, each branch splits into two at {{angle}} degrees, each child is {{ratio}}% the length, {{levels}} recursive levels, detailed fine lines" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a fractal binary tree: trunk from bottom center, each branch splits into two at {{angle}} degrees, each child is {{ratio}}% the length, {{levels}} recursive levels, detailed fine lines"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 180
             },
@@ -560,8 +830,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-fractal", "name": "Recursive Thinker", "description": "Generated a fractal tree from a simple rule", "icon": "🌳" },
-          "prerequisite_challenge_ids": ["fd-fourier"]
+          "completion_badge": {
+            "id": "badge-fractal",
+            "name": "Recursive Thinker",
+            "description": "Generated a fractal tree from a simple rule",
+            "icon": "🌳"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-fourier"
+          ]
         },
         {
           "id": "fd-parametric-3d",
@@ -571,10 +848,18 @@
           "title": "3D on Paper",
           "subtitle": "Project a 3D surface onto 2D",
           "description": "3D graphics engines project 3D points onto a 2D screen using matrix math. SketchBot can do the same — project a 3D wireframe onto the flat paper.",
-          "subjects": ["math", "engineering", "coding"],
+          "subjects": [
+            "math",
+            "engineering",
+            "coding"
+          ],
           "difficulty": 5,
           "estimated_minutes": 30,
-          "learning_objectives": ["Understand 3D→2D projection matrices", "Visualize orthographic vs perspective projection", "Implement rotation and projection by hand"],
+          "learning_objectives": [
+            "Understand 3D→2D projection matrices",
+            "Visualize orthographic vs perspective projection",
+            "Implement rotation and projection by hand"
+          ],
           "steps": [
             {
               "id": "step-projection",
@@ -586,7 +871,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Drawing a rotating wireframe cube projected onto the paper — I'll show it at three different rotation angles side by side.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "three wireframe cubes in a row, each rotated 30° more around the Y-axis, drawn using perspective projection with vanishing point, clean line art, visible hidden edges dashed" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "three wireframe cubes in a row, each rotated 30° more around the Y-axis, drawn using perspective projection with vanishing point, clean line art, visible hidden edges dashed"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 180
             },
@@ -597,8 +887,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-3d", "name": "Dimension Bender", "description": "Projected 3D geometry onto 2D paper", "icon": "📐" },
-          "prerequisite_challenge_ids": ["fd-fractal-tree"]
+          "completion_badge": {
+            "id": "badge-3d",
+            "name": "Dimension Bender",
+            "description": "Projected 3D geometry onto 2D paper",
+            "icon": "📐"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-fractal-tree"
+          ]
         },
         {
           "id": "fd-l-system",
@@ -608,10 +905,18 @@
           "title": "L-System Plants",
           "subtitle": "Grammar rules grow a plant",
           "description": "Lindenmayer systems (L-systems) use string-rewriting rules to model plant growth. Start with 'F', apply rules like F→FF+F, and interpret the result as drawing commands. Nature in code.",
-          "subjects": ["math", "coding", "science"],
+          "subjects": [
+            "math",
+            "coding",
+            "science"
+          ],
           "difficulty": 5,
           "estimated_minutes": 35,
-          "learning_objectives": ["Understand formal grammars and string rewriting", "Implement a turtle-graphics interpreter", "Model biological growth computationally"],
+          "learning_objectives": [
+            "Understand formal grammars and string rewriting",
+            "Implement a turtle-graphics interpreter",
+            "Model biological growth computationally"
+          ],
           "steps": [
             {
               "id": "step-grammar",
@@ -623,7 +928,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Expanding the L-system grammar {{depth}} times and drawing the result as turtle graphics.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "an L-system plant drawing using {{depth}} iterations of the rule F→F[+F]F[-F]F, turn angle {{angle}} degrees, starting from the bottom center, branching plant silhouette, fine lines" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "an L-system plant drawing using {{depth}} iterations of the rule F→F[+F]F[-F]F, turn angle {{angle}} degrees, starting from the bottom center, branching plant silhouette, fine lines"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 200
             },
@@ -634,8 +944,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-lsystem", "name": "Botanical Programmer", "description": "Grew a plant with a grammar rule", "icon": "🌿" },
-          "prerequisite_challenge_ids": ["fd-parametric-3d"]
+          "completion_badge": {
+            "id": "badge-lsystem",
+            "name": "Botanical Programmer",
+            "description": "Grew a plant with a grammar rule",
+            "icon": "🌿"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-parametric-3d"
+          ]
         }
       ]
     },
@@ -654,10 +971,16 @@
           "title": "Meet the Ring",
           "subtitle": "Rules of the sumo arena",
           "description": "Before your robot fights, you need to know the battlefield. Learn the ring's layout, the white edge line, and what it means to lose.",
-          "subjects": ["engineering"],
+          "subjects": [
+            "engineering"
+          ],
           "difficulty": 1,
           "estimated_minutes": 8,
-          "learning_objectives": ["Understand sumo competition rules", "Identify the ring boundary and its detection role", "Define win/loss conditions"],
+          "learning_objectives": [
+            "Understand sumo competition rules",
+            "Identify the ring boundary and its detection role",
+            "Define win/loss conditions"
+          ],
           "steps": [
             {
               "id": "step-rules",
@@ -669,7 +992,12 @@
             {
               "id": "step-sensors",
               "tutor_message": "Sumo robots usually have two types of sensors: line sensors underneath (detect the white edge) and range sensors in front (detect the opponent). Let's test the line sensors by slowly driving to the edge. Watch what happens when I hit white.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a top-down diagram of a sumo ring: black circle, white border ring, robot position in center, arrows showing sensor detection zones (front: rangefinder, bottom: line sensor)" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a top-down diagram of a sumo ring: black circle, white border ring, robot position in center, arrows showing sensor detection zones (front: rangefinder, bottom: line sensor)"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 60
             },
@@ -680,7 +1008,12 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-rules", "name": "Ring Scholar", "description": "Learned the sumo arena rules", "icon": "⭕" },
+          "completion_badge": {
+            "id": "badge-su-rules",
+            "name": "Ring Scholar",
+            "description": "Learned the sumo arena rules",
+            "icon": "⭕"
+          },
           "prerequisite_challenge_ids": []
         },
         {
@@ -691,10 +1024,17 @@
           "title": "The Push Test",
           "subtitle": "Measure force and traction",
           "description": "Sumo is about force — but not just motor power. Grip, weight distribution, and contact surface all matter. Test your robot's pushing force and discover what limits it.",
-          "subjects": ["engineering", "science"],
+          "subjects": [
+            "engineering",
+            "science"
+          ],
           "difficulty": 1,
           "estimated_minutes": 10,
-          "learning_objectives": ["Understand friction and normal force", "Measure traction vs motor torque", "Identify the limiting factor in a push"],
+          "learning_objectives": [
+            "Understand friction and normal force",
+            "Measure traction vs motor torque",
+            "Identify the limiting factor in a push"
+          ],
           "steps": [
             {
               "id": "step-friction",
@@ -717,8 +1057,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-push", "name": "Force Tester", "description": "Measured robot pushing force and traction", "icon": "💪" },
-          "prerequisite_challenge_ids": ["su-meet-ring"]
+          "completion_badge": {
+            "id": "badge-su-push",
+            "name": "Force Tester",
+            "description": "Measured robot pushing force and traction",
+            "icon": "💪"
+          },
+          "prerequisite_challenge_ids": [
+            "su-meet-ring"
+          ]
         },
         {
           "id": "su-hold-ground",
@@ -728,10 +1075,17 @@
           "title": "Hold Your Ground",
           "subtitle": "Stay in the ring under pressure",
           "description": "Even without an opponent, a sumo robot must detect and avoid the edge. Write a rule that keeps the robot on the black surface at all times.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 1,
           "estimated_minutes": 12,
-          "learning_objectives": ["Write a reactive edge-avoidance rule", "Understand event-driven programming", "Test and tune a safety response"],
+          "learning_objectives": [
+            "Write a reactive edge-avoidance rule",
+            "Understand event-driven programming",
+            "Test and tune a safety response"
+          ],
           "steps": [
             {
               "id": "step-rule",
@@ -743,7 +1097,12 @@
             {
               "id": "step-test",
               "tutor_message": "Now I'll drive forward and slowly approach the edge. When the line sensor fires, the escape rule should kick in. Let's test it 5 times from different angles.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a top-down diagram showing 5 escape trajectories from the ring edge — approach from different angles, each showing the reverse-and-rotate recovery path in dashed lines" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a top-down diagram showing 5 escape trajectories from the ring edge — approach from different angles, each showing the reverse-and-rotate recovery path in dashed lines"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 90
             },
@@ -754,8 +1113,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-hold", "name": "Ring Holder", "description": "Programmed reliable edge avoidance", "icon": "🛡️" },
-          "prerequisite_challenge_ids": ["su-push-test"]
+          "completion_badge": {
+            "id": "badge-su-hold",
+            "name": "Ring Holder",
+            "description": "Programmed reliable edge avoidance",
+            "icon": "🛡️"
+          },
+          "prerequisite_challenge_ids": [
+            "su-push-test"
+          ]
         },
         {
           "id": "su-edge-awareness",
@@ -765,10 +1131,17 @@
           "title": "Edge Awareness",
           "subtitle": "Predict and react before it's too late",
           "description": "Detecting the edge after you're on it is too late. Real sumo robots detect the WHITE before the wheel reaches it. Add predictive edge logic to your controller.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 2,
           "estimated_minutes": 15,
-          "learning_objectives": ["Understand sensor placement relative to wheel contact", "Design a predictive safety margin", "Implement multi-sensor edge detection"],
+          "learning_objectives": [
+            "Understand sensor placement relative to wheel contact",
+            "Design a predictive safety margin",
+            "Implement multi-sensor edge detection"
+          ],
           "steps": [
             {
               "id": "step-placement",
@@ -780,7 +1153,12 @@
             {
               "id": "step-multi-sensor",
               "tutor_message": "Two line sensors (left and right front corners) help determine which way to turn. Left sensor hits first → turn right. Right sensor first → turn left. This gives smarter escapes than always turning the same direction.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a diagram of a sumo robot's underside showing left and right front line sensors, with arrows showing which direction to turn based on which sensor triggers first" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a diagram of a sumo robot's underside showing left and right front line sensors, with arrows showing which direction to turn based on which sensor triggers first"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 60
             },
@@ -792,8 +1170,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-edge", "name": "Edge Reader", "description": "Implemented predictive multi-sensor edge detection", "icon": "👁️" },
-          "prerequisite_challenge_ids": ["su-hold-ground"]
+          "completion_badge": {
+            "id": "badge-su-edge",
+            "name": "Edge Reader",
+            "description": "Implemented predictive multi-sensor edge detection",
+            "icon": "👁️"
+          },
+          "prerequisite_challenge_ids": [
+            "su-hold-ground"
+          ]
         },
         {
           "id": "su-first-bout",
@@ -803,10 +1188,17 @@
           "title": "First Bout",
           "subtitle": "Your first real match",
           "description": "Combine edge avoidance with basic opponent-seeking. Your robot should search for the opponent, drive toward it, and push — while never stepping out of the ring.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 2,
           "estimated_minutes": 20,
-          "learning_objectives": ["Integrate multiple behaviors (search + push + escape)", "Understand state-machine architecture", "Observe emergent behavior from simple rules"],
+          "learning_objectives": [
+            "Integrate multiple behaviors (search + push + escape)",
+            "Understand state-machine architecture",
+            "Observe emergent behavior from simple rules"
+          ],
           "steps": [
             {
               "id": "step-state-machine",
@@ -829,8 +1221,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-bout", "name": "Ring Warrior", "description": "Completed the first real sumo match", "icon": "🥊" },
-          "prerequisite_challenge_ids": ["su-edge-awareness"]
+          "completion_badge": {
+            "id": "badge-su-bout",
+            "name": "Ring Warrior",
+            "description": "Completed the first real sumo match",
+            "icon": "🥊"
+          },
+          "prerequisite_challenge_ids": [
+            "su-edge-awareness"
+          ]
         },
         {
           "id": "su-tactics",
@@ -840,10 +1239,16 @@
           "title": "Sumo Tactics",
           "subtitle": "Outsmart, not just outpush",
           "description": "Top sumo robots use strategy: flanking, feinting, and edge-trapping. Study three classic tactics and design a counter-strategy.",
-          "subjects": ["engineering"],
+          "subjects": [
+            "engineering"
+          ],
           "difficulty": 2,
           "estimated_minutes": 18,
-          "learning_objectives": ["Analyze real sumo robot strategies", "Understand the attacker vs defender tradeoff", "Design a counter-strategy for a known opponent"],
+          "learning_objectives": [
+            "Analyze real sumo robot strategies",
+            "Understand the attacker vs defender tradeoff",
+            "Design a counter-strategy for a known opponent"
+          ],
           "steps": [
             {
               "id": "step-tactics",
@@ -855,7 +1260,12 @@
             {
               "id": "step-diagram",
               "tutor_message": "Let me diagram the three attack vectors and their optimal counter-positions.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a top-down sumo ring diagram showing 3 attack patterns: rush (straight arrow from far edge), flank (curved approach from side), edge-trap (angled push toward white line) with defender counter-positions marked" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a top-down sumo ring diagram showing 3 attack patterns: rush (straight arrow from far edge), flank (curved approach from side), edge-trap (angled push toward white line) with defender counter-positions marked"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 90
             },
@@ -867,8 +1277,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-tactics", "name": "Ring Strategist", "description": "Analyzed and countered sumo tactics", "icon": "♟️" },
-          "prerequisite_challenge_ids": ["su-first-bout"]
+          "completion_badge": {
+            "id": "badge-su-tactics",
+            "name": "Ring Strategist",
+            "description": "Analyzed and countered sumo tactics",
+            "icon": "♟️"
+          },
+          "prerequisite_challenge_ids": [
+            "su-first-bout"
+          ]
         },
         {
           "id": "su-reactive-defense",
@@ -878,10 +1295,17 @@
           "title": "Reactive Defense",
           "subtitle": "Sensor-triggered block programs",
           "description": "Build a reactive defense system using Blocks — when sensors detect force from a specific direction, counter-push in the opposite direction.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 3,
           "estimated_minutes": 22,
-          "learning_objectives": ["Read motor current as a force proxy", "Implement reactive counter-push", "Balance offense and defense in a state machine"],
+          "learning_objectives": [
+            "Read motor current as a force proxy",
+            "Implement reactive counter-push",
+            "Balance offense and defense in a state machine"
+          ],
           "steps": [
             {
               "id": "step-current",
@@ -904,8 +1328,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-react", "name": "Counter Pusher", "description": "Built a sensor-reactive defense system", "icon": "⚡" },
-          "prerequisite_challenge_ids": ["su-tactics"]
+          "completion_badge": {
+            "id": "badge-su-react",
+            "name": "Counter Pusher",
+            "description": "Built a sensor-reactive defense system",
+            "icon": "⚡"
+          },
+          "prerequisite_challenge_ids": [
+            "su-tactics"
+          ]
         },
         {
           "id": "su-momentum",
@@ -915,10 +1346,17 @@
           "title": "Mass and Momentum",
           "subtitle": "Physics of the push",
           "description": "p = mv. A heavier robot at the same speed has more momentum and is harder to stop. But mass has limits in sumo. Explore the physics of collisions.",
-          "subjects": ["science", "engineering"],
+          "subjects": [
+            "science",
+            "engineering"
+          ],
           "difficulty": 3,
           "estimated_minutes": 20,
-          "learning_objectives": ["Apply conservation of momentum to robot collisions", "Calculate impulse and contact force", "Understand why rules cap robot weight"],
+          "learning_objectives": [
+            "Apply conservation of momentum to robot collisions",
+            "Calculate impulse and contact force",
+            "Understand why rules cap robot weight"
+          ],
           "steps": [
             {
               "id": "step-collision",
@@ -941,8 +1379,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-momentum", "name": "Collision Analyst", "description": "Applied momentum physics to robot design", "icon": "💥" },
-          "prerequisite_challenge_ids": ["su-reactive-defense"]
+          "completion_badge": {
+            "id": "badge-su-momentum",
+            "name": "Collision Analyst",
+            "description": "Applied momentum physics to robot design",
+            "icon": "💥"
+          },
+          "prerequisite_challenge_ids": [
+            "su-reactive-defense"
+          ]
         },
         {
           "id": "su-decision-tree",
@@ -952,10 +1397,17 @@
           "title": "Strategy Tree",
           "subtitle": "Build a decision-making flowchart",
           "description": "Complex sumo behavior can be built from simple if-then branches. Design a decision tree and implement it — this is the foundation of all autonomous agents.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 3,
           "estimated_minutes": 25,
-          "learning_objectives": ["Design a multi-level decision tree", "Implement conditional logic in code", "Trace execution through a tree"],
+          "learning_objectives": [
+            "Design a multi-level decision tree",
+            "Implement conditional logic in code",
+            "Trace execution through a tree"
+          ],
           "steps": [
             {
               "id": "step-design",
@@ -978,8 +1430,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-tree", "name": "Logic Architect", "description": "Built a complete sumo decision tree", "icon": "🌳" },
-          "prerequisite_challenge_ids": ["su-momentum"]
+          "completion_badge": {
+            "id": "badge-su-tree",
+            "name": "Logic Architect",
+            "description": "Built a complete sumo decision tree",
+            "icon": "🌳"
+          },
+          "prerequisite_challenge_ids": [
+            "su-momentum"
+          ]
         },
         {
           "id": "su-counter-attack",
@@ -989,10 +1448,17 @@
           "title": "The Counter-Attack",
           "subtitle": "Turn your opponent's push against them",
           "description": "Aikido uses an attacker's momentum against them. A sumo robot can do the same: sidestep a rush and let the attacker fly past to the edge.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 3,
           "estimated_minutes": 22,
-          "learning_objectives": ["Implement a timed sidestep maneuver", "Understand reaction-time vs commit-time tradeoffs", "Test a strategy against two different opponent types"],
+          "learning_objectives": [
+            "Implement a timed sidestep maneuver",
+            "Understand reaction-time vs commit-time tradeoffs",
+            "Test a strategy against two different opponent types"
+          ],
           "steps": [
             {
               "id": "step-sidestep",
@@ -1015,8 +1481,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-counter", "name": "Aikido Bot", "description": "Used opponent momentum as a weapon", "icon": "🔄" },
-          "prerequisite_challenge_ids": ["su-decision-tree"]
+          "completion_badge": {
+            "id": "badge-su-counter",
+            "name": "Aikido Bot",
+            "description": "Used opponent momentum as a weapon",
+            "icon": "🔄"
+          },
+          "prerequisite_challenge_ids": [
+            "su-decision-tree"
+          ]
         },
         {
           "id": "su-tournament",
@@ -1026,10 +1499,16 @@
           "title": "Tournament Mode",
           "subtitle": "3 bouts, best of 3",
           "description": "Run a structured 3-match tournament. Between each match, analyze what happened and adjust one parameter. Iterate toward a winning design.",
-          "subjects": ["engineering"],
+          "subjects": [
+            "engineering"
+          ],
           "difficulty": 3,
           "estimated_minutes": 30,
-          "learning_objectives": ["Apply the iterate-and-improve engineering cycle", "Make data-driven parameter adjustments", "Understand variance in robot performance"],
+          "learning_objectives": [
+            "Apply the iterate-and-improve engineering cycle",
+            "Make data-driven parameter adjustments",
+            "Understand variance in robot performance"
+          ],
           "steps": [
             {
               "id": "step-baseline",
@@ -1052,8 +1531,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-tournament", "name": "Iterative Engineer", "description": "Ran a 3-match improvement tournament", "icon": "🏆" },
-          "prerequisite_challenge_ids": ["su-counter-attack"]
+          "completion_badge": {
+            "id": "badge-su-tournament",
+            "name": "Iterative Engineer",
+            "description": "Ran a 3-match improvement tournament",
+            "icon": "🏆"
+          },
+          "prerequisite_challenge_ids": [
+            "su-counter-attack"
+          ]
         },
         {
           "id": "su-gyro-balance",
@@ -1063,10 +1549,17 @@
           "title": "Gyro-Assisted Heading",
           "subtitle": "Hold direction under push",
           "description": "When pushed sideways, a robot with only wheel encoders drifts off its attack line. A gyroscope measures angular velocity and can correct heading in real time.",
-          "subjects": ["engineering", "science"],
+          "subjects": [
+            "engineering",
+            "science"
+          ],
           "difficulty": 4,
           "estimated_minutes": 28,
-          "learning_objectives": ["Understand gyroscope integration for heading", "Implement heading-lock feedback control", "Distinguish between gyro drift and real turns"],
+          "learning_objectives": [
+            "Understand gyroscope integration for heading",
+            "Implement heading-lock feedback control",
+            "Distinguish between gyro drift and real turns"
+          ],
           "steps": [
             {
               "id": "step-gyro",
@@ -1089,8 +1582,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-gyro", "name": "Heading Controller", "description": "Implemented gyro-based heading lock", "icon": "🧭" },
-          "prerequisite_challenge_ids": ["su-tournament"]
+          "completion_badge": {
+            "id": "badge-su-gyro",
+            "name": "Heading Controller",
+            "description": "Implemented gyro-based heading lock",
+            "icon": "🧭"
+          },
+          "prerequisite_challenge_ids": [
+            "su-tournament"
+          ]
         },
         {
           "id": "su-force-feedback",
@@ -1100,10 +1600,17 @@
           "title": "Force Feedback Control",
           "subtitle": "Read motor current to sense impact",
           "description": "Motor current is proportional to torque — and torque spikes when you hit something hard. Use current sensing as a collision detector and impact force estimator.",
-          "subjects": ["engineering", "science"],
+          "subjects": [
+            "engineering",
+            "science"
+          ],
           "difficulty": 4,
           "estimated_minutes": 25,
-          "learning_objectives": ["Relate motor current to mechanical force", "Implement current-threshold collision detection", "Use impact force data to control response"],
+          "learning_objectives": [
+            "Relate motor current to mechanical force",
+            "Implement current-threshold collision detection",
+            "Use impact force data to control response"
+          ],
           "steps": [
             {
               "id": "step-current-force",
@@ -1126,8 +1633,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-force", "name": "Impact Analyst", "description": "Used motor current to estimate collision force", "icon": "📊" },
-          "prerequisite_challenge_ids": ["su-gyro-balance"]
+          "completion_badge": {
+            "id": "badge-su-force",
+            "name": "Impact Analyst",
+            "description": "Used motor current to estimate collision force",
+            "icon": "📊"
+          },
+          "prerequisite_challenge_ids": [
+            "su-gyro-balance"
+          ]
         },
         {
           "id": "su-pid-drive",
@@ -1137,10 +1651,17 @@
           "title": "PID Push Control",
           "subtitle": "Tune a controller for maximum push",
           "description": "A PID controller makes a motor system track a target precisely. Use it to maintain maximum pushing force without wheel slip, even as the opponent resists.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 4,
           "estimated_minutes": 30,
-          "learning_objectives": ["Implement a full PID controller in code", "Tune Kp, Ki, Kd parameters systematically", "Understand integral windup and how to prevent it"],
+          "learning_objectives": [
+            "Implement a full PID controller in code",
+            "Tune Kp, Ki, Kd parameters systematically",
+            "Understand integral windup and how to prevent it"
+          ],
           "steps": [
             {
               "id": "step-pid",
@@ -1163,8 +1684,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-pid", "name": "PID Tuner", "description": "Implemented and tuned a PID push controller", "icon": "📈" },
-          "prerequisite_challenge_ids": ["su-force-feedback"]
+          "completion_badge": {
+            "id": "badge-su-pid",
+            "name": "PID Tuner",
+            "description": "Implemented and tuned a PID push controller",
+            "icon": "📈"
+          },
+          "prerequisite_challenge_ids": [
+            "su-force-feedback"
+          ]
         },
         {
           "id": "su-vision-edge",
@@ -1174,10 +1702,18 @@
           "title": "Vision-Based Edge Detection",
           "subtitle": "See the ring boundary with a camera",
           "description": "Replace IR line sensors with computer vision: detect the white ring boundary using a downward-facing camera and image segmentation.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 5,
           "estimated_minutes": 35,
-          "learning_objectives": ["Apply color thresholding to detect the ring boundary", "Convert image coordinates to robot-relative positions", "Integrate vision-based detection into the state machine"],
+          "learning_objectives": [
+            "Apply color thresholding to detect the ring boundary",
+            "Convert image coordinates to robot-relative positions",
+            "Integrate vision-based detection into the state machine"
+          ],
           "steps": [
             {
               "id": "step-threshold",
@@ -1200,8 +1736,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-vision", "name": "Vision Guard", "description": "Replaced IR sensors with camera-based edge detection", "icon": "📷" },
-          "prerequisite_challenge_ids": ["su-pid-drive"]
+          "completion_badge": {
+            "id": "badge-su-vision",
+            "name": "Vision Guard",
+            "description": "Replaced IR sensors with camera-based edge detection",
+            "icon": "📷"
+          },
+          "prerequisite_challenge_ids": [
+            "su-pid-drive"
+          ]
         },
         {
           "id": "su-autonomous-agent",
@@ -1211,10 +1754,18 @@
           "title": "Autonomous Sumo Agent",
           "subtitle": "A full AI-driven strategy",
           "description": "Combine everything: vision edge detection, PID push control, gyro heading, and an adaptive decision tree. Build a complete autonomous sumo agent.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 5,
           "estimated_minutes": 45,
-          "learning_objectives": ["Integrate multiple subsystems into a coherent agent", "Understand software architecture for autonomous robots", "Debug emergent behavior in complex systems"],
+          "learning_objectives": [
+            "Integrate multiple subsystems into a coherent agent",
+            "Understand software architecture for autonomous robots",
+            "Debug emergent behavior in complex systems"
+          ],
           "steps": [
             {
               "id": "step-architecture",
@@ -1237,8 +1788,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-agent", "name": "Autonomous Agent", "description": "Built a complete autonomous sumo agent", "icon": "🤖" },
-          "prerequisite_challenge_ids": ["su-vision-edge"]
+          "completion_badge": {
+            "id": "badge-su-agent",
+            "name": "Autonomous Agent",
+            "description": "Built a complete autonomous sumo agent",
+            "icon": "🤖"
+          },
+          "prerequisite_challenge_ids": [
+            "su-vision-edge"
+          ]
         },
         {
           "id": "su-multi-robot",
@@ -1248,10 +1806,18 @@
           "title": "Multi-Robot Dynamics",
           "subtitle": "Two robots, one ring — the physics of chaos",
           "description": "With two robots on the same team in a ring, coordination becomes critical. Study multi-robot collision dynamics and design a cooperative strategy.",
-          "subjects": ["engineering", "science", "coding"],
+          "subjects": [
+            "engineering",
+            "science",
+            "coding"
+          ],
           "difficulty": 5,
           "estimated_minutes": 40,
-          "learning_objectives": ["Model multi-robot collision physics", "Design inter-robot communication protocol", "Coordinate attack patterns between two autonomous agents"],
+          "learning_objectives": [
+            "Model multi-robot collision physics",
+            "Design inter-robot communication protocol",
+            "Coordinate attack patterns between two autonomous agents"
+          ],
           "steps": [
             {
               "id": "step-friendly-fire",
@@ -1274,8 +1840,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-su-multi", "name": "Swarm Tactician", "description": "Coordinated two robots in a shared arena", "icon": "🤝" },
-          "prerequisite_challenge_ids": ["su-autonomous-agent"]
+          "completion_badge": {
+            "id": "badge-su-multi",
+            "name": "Swarm Tactician",
+            "description": "Coordinated two robots in a shared arena",
+            "icon": "🤝"
+          },
+          "prerequisite_challenge_ids": [
+            "su-autonomous-agent"
+          ]
         }
       ]
     },
@@ -1294,10 +1867,17 @@
           "title": "Left-Hand Rule",
           "subtitle": "Always hug the left wall",
           "description": "The left-hand rule is the oldest maze algorithm: keep your left hand on the wall and you'll eventually find the exit — if it exists. Learn when it works and when it fails.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 1,
           "estimated_minutes": 12,
-          "learning_objectives": ["Implement left-wall following behavior", "Understand algorithm completeness and correctness", "Identify maze topologies where left-hand rule fails"],
+          "learning_objectives": [
+            "Implement left-wall following behavior",
+            "Understand algorithm completeness and correctness",
+            "Identify maze topologies where left-hand rule fails"
+          ],
           "steps": [
             {
               "id": "step-rule",
@@ -1320,7 +1900,12 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-wall", "name": "Wall Hugger", "description": "Implemented left-hand wall following", "icon": "🧱" },
+          "completion_badge": {
+            "id": "badge-mz-wall",
+            "name": "Wall Hugger",
+            "description": "Implemented left-hand wall following",
+            "icon": "🧱"
+          },
           "prerequisite_challenge_ids": []
         },
         {
@@ -1331,10 +1916,17 @@
           "title": "Right-Turn Only",
           "subtitle": "A navigation constraint",
           "description": "What if you can ONLY turn right? Some mazes are designed to be solved with only right turns. Explore how a constraint changes what paths are reachable.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 1,
           "estimated_minutes": 10,
-          "learning_objectives": ["Understand how navigation constraints limit reachable paths", "Compare right-turn-only vs left-hand rule coverage", "Identify when constraints are advantages"],
+          "learning_objectives": [
+            "Understand how navigation constraints limit reachable paths",
+            "Compare right-turn-only vs left-hand rule coverage",
+            "Identify when constraints are advantages"
+          ],
           "steps": [
             {
               "id": "step-constraint",
@@ -1357,8 +1949,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-right", "name": "Right-Turner", "description": "Navigated with a single-turn constraint", "icon": "↪️" },
-          "prerequisite_challenge_ids": ["mz-wall-follower"]
+          "completion_badge": {
+            "id": "badge-mz-right",
+            "name": "Right-Turner",
+            "description": "Navigated with a single-turn constraint",
+            "icon": "↪️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-wall-follower"
+          ]
         },
         {
           "id": "mz-dead-end",
@@ -1368,10 +1967,17 @@
           "title": "Dead End Escape",
           "subtitle": "Backtrack when stuck",
           "description": "Dead ends are unavoidable in complex mazes. Learn to detect them, mark them as visited, and backtrack — this is the core of depth-first search.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 1,
           "estimated_minutes": 14,
-          "learning_objectives": ["Detect and classify dead ends", "Implement backtracking", "Understand visited-state tracking"],
+          "learning_objectives": [
+            "Detect and classify dead ends",
+            "Implement backtracking",
+            "Understand visited-state tracking"
+          ],
           "steps": [
             {
               "id": "step-detect",
@@ -1394,8 +2000,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-dead", "name": "Backtracker", "description": "Implemented dead-end detection and backtracking", "icon": "↩️" },
-          "prerequisite_challenge_ids": ["mz-right-turn"]
+          "completion_badge": {
+            "id": "badge-mz-dead",
+            "name": "Backtracker",
+            "description": "Implemented dead-end detection and backtracking",
+            "icon": "↩️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-right-turn"
+          ]
         },
         {
           "id": "mz-junction",
@@ -1405,10 +2018,17 @@
           "title": "Junction Decisions",
           "subtitle": "Choosing at T and cross intersections",
           "description": "T-junctions and crossroads are decision points. What rule should govern which path to take first? Order matters for how quickly you find the exit.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 2,
           "estimated_minutes": 16,
-          "learning_objectives": ["Classify junction types (T, cross, Y)", "Implement a consistent junction decision policy", "Understand how decision ordering affects traversal time"],
+          "learning_objectives": [
+            "Classify junction types (T, cross, Y)",
+            "Implement a consistent junction decision policy",
+            "Understand how decision ordering affects traversal time"
+          ],
           "steps": [
             {
               "id": "step-classify",
@@ -1431,8 +2051,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-junction", "name": "Junction Master", "description": "Implemented and compared junction decision policies", "icon": "🔀" },
-          "prerequisite_challenge_ids": ["mz-dead-end"]
+          "completion_badge": {
+            "id": "badge-mz-junction",
+            "name": "Junction Master",
+            "description": "Implemented and compared junction decision policies",
+            "icon": "🔀"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-dead-end"
+          ]
         },
         {
           "id": "mz-race",
@@ -1442,10 +2069,17 @@
           "title": "Speed Run",
           "subtitle": "Solve the maze as fast as possible",
           "description": "First solve the maze slowly to map it. Then run it at full speed using the known map. This two-phase approach is how competition maze robots work.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 2,
           "estimated_minutes": 20,
-          "learning_objectives": ["Separate exploration phase from exploitation phase", "Optimize motor speed for a known path", "Understand the explore-exploit tradeoff"],
+          "learning_objectives": [
+            "Separate exploration phase from exploitation phase",
+            "Optimize motor speed for a known path",
+            "Understand the explore-exploit tradeoff"
+          ],
           "steps": [
             {
               "id": "step-map",
@@ -1468,8 +2102,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-race", "name": "Speed Solver", "description": "Explored then exploited the optimal path", "icon": "⏱️" },
-          "prerequisite_challenge_ids": ["mz-junction"]
+          "completion_badge": {
+            "id": "badge-mz-race",
+            "name": "Speed Solver",
+            "description": "Explored then exploited the optimal path",
+            "icon": "⏱️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-junction"
+          ]
         },
         {
           "id": "mz-draw-map",
@@ -1479,10 +2120,18 @@
           "title": "Draw the Map",
           "subtitle": "Sketch the maze as you navigate",
           "description": "SketchBot's pen can draw the maze map in real time as it explores. Each cell visited gets drawn. The result is a physical record of the exploration.",
-          "subjects": ["engineering", "art", "coding"],
+          "subjects": [
+            "engineering",
+            "art",
+            "coding"
+          ],
           "difficulty": 2,
           "estimated_minutes": 18,
-          "learning_objectives": ["Maintain a 2D occupancy grid from sensor data", "Visualize exploration state as a drawing", "Understand dead reckoning with wheel encoders"],
+          "learning_objectives": [
+            "Maintain a 2D occupancy grid from sensor data",
+            "Visualize exploration state as a drawing",
+            "Understand dead reckoning with wheel encoders"
+          ],
           "steps": [
             {
               "id": "step-grid",
@@ -1494,7 +2143,12 @@
             {
               "id": "step-draw",
               "tutor_message": "After exploring the maze, send the grid to SketchBot and let it draw the map: explored cells as light squares, walls as thick lines, the path taken as a dashed line.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a hand-drawn maze map showing explored cells as open squares with light lines, unvisited cells as filled dark squares, walls as thick borders, and the exploration path as a dashed line through visited cells" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a hand-drawn maze map showing explored cells as open squares with light lines, unvisited cells as filled dark squares, walls as thick borders, and the exploration path as a dashed line through visited cells"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 180
             },
@@ -1505,8 +2159,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-map", "name": "Cartographer", "description": "Drew a real-time maze map from sensor data", "icon": "🗺️" },
-          "prerequisite_challenge_ids": ["mz-race"]
+          "completion_badge": {
+            "id": "badge-mz-map",
+            "name": "Cartographer",
+            "description": "Drew a real-time maze map from sensor data",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-race"
+          ]
         },
         {
           "id": "mz-dfs",
@@ -1516,10 +2177,17 @@
           "title": "Depth-First Search",
           "subtitle": "Explore every branch before backtracking",
           "description": "DFS is the foundational graph search algorithm. It follows one path as deep as possible before backtracking. Implement it for maze navigation.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 3,
           "estimated_minutes": 25,
-          "learning_objectives": ["Implement DFS using a stack", "Understand time and space complexity of DFS", "Apply graph theory to physical maze navigation"],
+          "learning_objectives": [
+            "Implement DFS using a stack",
+            "Understand time and space complexity of DFS",
+            "Apply graph theory to physical maze navigation"
+          ],
           "steps": [
             {
               "id": "step-algorithm",
@@ -1542,8 +2210,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-dfs", "name": "Deep Searcher", "description": "Implemented depth-first search for maze navigation", "icon": "📚" },
-          "prerequisite_challenge_ids": ["mz-draw-map"]
+          "completion_badge": {
+            "id": "badge-mz-dfs",
+            "name": "Deep Searcher",
+            "description": "Implemented depth-first search for maze navigation",
+            "icon": "📚"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-draw-map"
+          ]
         },
         {
           "id": "mz-bfs",
@@ -1553,10 +2228,17 @@
           "title": "Breadth-First Search",
           "subtitle": "Find the shortest path guaranteed",
           "description": "BFS explores level by level — all cells one step away first, then two steps, and so on. This guarantees the shortest path in unweighted graphs.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 3,
           "estimated_minutes": 25,
-          "learning_objectives": ["Implement BFS using a queue", "Prove BFS finds shortest path in unweighted graphs", "Compare BFS vs DFS path quality"],
+          "learning_objectives": [
+            "Implement BFS using a queue",
+            "Prove BFS finds shortest path in unweighted graphs",
+            "Compare BFS vs DFS path quality"
+          ],
           "steps": [
             {
               "id": "step-algorithm",
@@ -1579,8 +2261,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-bfs", "name": "Shortest Pather", "description": "Implemented BFS to guarantee the shortest maze path", "icon": "📡" },
-          "prerequisite_challenge_ids": ["mz-dfs"]
+          "completion_badge": {
+            "id": "badge-mz-bfs",
+            "name": "Shortest Pather",
+            "description": "Implemented BFS to guarantee the shortest maze path",
+            "icon": "📡"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-dfs"
+          ]
         },
         {
           "id": "mz-astar",
@@ -1590,10 +2279,17 @@
           "title": "A* Pathfinding",
           "subtitle": "Heuristic-guided shortest path",
           "description": "A* combines BFS's guarantee of shortest path with a heuristic that guides it toward the goal — exploring smarter, not harder.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 3,
           "estimated_minutes": 28,
-          "learning_objectives": ["Understand the f = g + h formula", "Choose and evaluate admissible heuristics", "Implement A* with a priority queue"],
+          "learning_objectives": [
+            "Understand the f = g + h formula",
+            "Choose and evaluate admissible heuristics",
+            "Implement A* with a priority queue"
+          ],
           "steps": [
             {
               "id": "step-heuristic",
@@ -1616,8 +2312,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-astar", "name": "Pathfinder", "description": "Implemented A* with an admissible heuristic", "icon": "⭐" },
-          "prerequisite_challenge_ids": ["mz-bfs"]
+          "completion_badge": {
+            "id": "badge-mz-astar",
+            "name": "Pathfinder",
+            "description": "Implemented A* with an admissible heuristic",
+            "icon": "⭐"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-bfs"
+          ]
         },
         {
           "id": "mz-dynamic",
@@ -1627,10 +2330,17 @@
           "title": "Dynamic Maze",
           "subtitle": "Walls that appear and disappear",
           "description": "A static maze is solved once. A dynamic maze — where walls can change while you navigate — requires replanning. This is the core of robotics in the real world.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 3,
           "estimated_minutes": 25,
-          "learning_objectives": ["Understand the need for replanning in dynamic environments", "Implement a simple replanning trigger", "Compare reactive vs deliberative responses to change"],
+          "learning_objectives": [
+            "Understand the need for replanning in dynamic environments",
+            "Implement a simple replanning trigger",
+            "Compare reactive vs deliberative responses to change"
+          ],
           "steps": [
             {
               "id": "step-dynamic",
@@ -1653,8 +2363,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-dynamic", "name": "Dynamic Navigator", "description": "Implemented replanning in a changing maze", "icon": "🔄" },
-          "prerequisite_challenge_ids": ["mz-astar"]
+          "completion_badge": {
+            "id": "badge-mz-dynamic",
+            "name": "Dynamic Navigator",
+            "description": "Implemented replanning in a changing maze",
+            "icon": "🔄"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-astar"
+          ]
         },
         {
           "id": "mz-generator",
@@ -1664,10 +2381,17 @@
           "title": "Maze Generator",
           "subtitle": "Code a maze and draw it",
           "description": "Generate a random solvable maze using Recursive Backtracking and have SketchBot draw it on paper. Then solve what you just generated.",
-          "subjects": ["coding", "math"],
+          "subjects": [
+            "coding",
+            "math"
+          ],
           "difficulty": 3,
           "estimated_minutes": 30,
-          "learning_objectives": ["Implement recursive backtracking maze generation", "Understand that all mazes generated this way are perfect (no loops)", "Connect generation to solution algorithms"],
+          "learning_objectives": [
+            "Implement recursive backtracking maze generation",
+            "Understand that all mazes generated this way are perfect (no loops)",
+            "Connect generation to solution algorithms"
+          ],
           "steps": [
             {
               "id": "step-generate",
@@ -1679,7 +2403,12 @@
             {
               "id": "step-draw",
               "tutor_message": "Export your generated maze as wall coordinates and have SketchBot draw it — a real physical maze, generated by your own code!",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a 10x10 cell maze with thick wall lines, clear corridors, a marked START in the top-left cell and FINISH in the bottom-right cell, clean grid-aligned lines" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a 10x10 cell maze with thick wall lines, clear corridors, a marked START in the top-left cell and FINISH in the bottom-right cell, clean grid-aligned lines"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 300
             },
@@ -1691,8 +2420,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-gen", "name": "Maze Architect", "description": "Generated and solved a maze from code", "icon": "🏗️" },
-          "prerequisite_challenge_ids": ["mz-dynamic"]
+          "completion_badge": {
+            "id": "badge-mz-gen",
+            "name": "Maze Architect",
+            "description": "Generated and solved a maze from code",
+            "icon": "🏗️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-dynamic"
+          ]
         },
         {
           "id": "mz-slam",
@@ -1702,10 +2438,18 @@
           "title": "SLAM Basics",
           "subtitle": "Map and locate at the same time",
           "description": "Simultaneous Localization and Mapping: build a map while knowing where you are in it. The challenge is that both are unknowns — you need to solve them together.",
-          "subjects": ["engineering", "science", "coding"],
+          "subjects": [
+            "engineering",
+            "science",
+            "coding"
+          ],
           "difficulty": 4,
           "estimated_minutes": 35,
-          "learning_objectives": ["Understand the SLAM problem formulation", "Implement a simple EKF-based 2D SLAM", "Identify landmark-based vs feature-based SLAM"],
+          "learning_objectives": [
+            "Understand the SLAM problem formulation",
+            "Implement a simple EKF-based 2D SLAM",
+            "Identify landmark-based vs feature-based SLAM"
+          ],
           "steps": [
             {
               "id": "step-chicken-egg",
@@ -1728,8 +2472,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-slam", "name": "SLAM Pioneer", "description": "Implemented basic landmark SLAM", "icon": "🗺️" },
-          "prerequisite_challenge_ids": ["mz-generator"]
+          "completion_badge": {
+            "id": "badge-mz-slam",
+            "name": "SLAM Pioneer",
+            "description": "Implemented basic landmark SLAM",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-generator"
+          ]
         },
         {
           "id": "mz-occupancy",
@@ -1739,10 +2490,18 @@
           "title": "Occupancy Grid",
           "subtitle": "A probabilistic map of the maze",
           "description": "An occupancy grid stores the probability that each cell is occupied. Sensor readings update the probabilities using Bayes' theorem — the robot is always 'uncertain' about the world.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 4,
           "estimated_minutes": 30,
-          "learning_objectives": ["Implement a Bayesian occupancy grid update", "Understand log-odds representation for numerical stability", "Visualize uncertainty in a sensor map"],
+          "learning_objectives": [
+            "Implement a Bayesian occupancy grid update",
+            "Understand log-odds representation for numerical stability",
+            "Visualize uncertainty in a sensor map"
+          ],
           "steps": [
             {
               "id": "step-bayes",
@@ -1765,8 +2524,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-occ", "name": "Probabilistic Mapper", "description": "Built a Bayesian occupancy grid", "icon": "📊" },
-          "prerequisite_challenge_ids": ["mz-slam"]
+          "completion_badge": {
+            "id": "badge-mz-occ",
+            "name": "Probabilistic Mapper",
+            "description": "Built a Bayesian occupancy grid",
+            "icon": "📊"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-slam"
+          ]
         },
         {
           "id": "mz-rrt",
@@ -1776,10 +2542,17 @@
           "title": "RRT Path Planning",
           "subtitle": "Rapidly-exploring random trees",
           "description": "RRT grows a tree of reachable configurations by sampling random points in space — it works in continuous state spaces where grid-based methods can't.",
-          "subjects": ["coding", "engineering"],
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
           "difficulty": 4,
           "estimated_minutes": 32,
-          "learning_objectives": ["Implement the RRT algorithm", "Understand why RRT is better than grid search for continuous spaces", "Visualize the tree growth and extracted path"],
+          "learning_objectives": [
+            "Implement the RRT algorithm",
+            "Understand why RRT is better than grid search for continuous spaces",
+            "Visualize the tree growth and extracted path"
+          ],
           "steps": [
             {
               "id": "step-algorithm",
@@ -1802,8 +2575,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-rrt", "name": "Random Planner", "description": "Implemented RRT path planning", "icon": "🌲" },
-          "prerequisite_challenge_ids": ["mz-occupancy"]
+          "completion_badge": {
+            "id": "badge-mz-rrt",
+            "name": "Random Planner",
+            "description": "Implemented RRT path planning",
+            "icon": "🌲"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-occupancy"
+          ]
         },
         {
           "id": "mz-visual-odometry",
@@ -1813,10 +2593,18 @@
           "title": "Visual Odometry",
           "subtitle": "Track position from camera images",
           "description": "Visual odometry estimates how far the robot has moved by comparing consecutive camera frames. Features tracked across frames reveal the camera's motion — no wheel encoders needed.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 5,
           "estimated_minutes": 40,
-          "learning_objectives": ["Implement feature tracking with optical flow", "Estimate camera translation from feature displacement", "Understand scale ambiguity in monocular VO"],
+          "learning_objectives": [
+            "Implement feature tracking with optical flow",
+            "Estimate camera translation from feature displacement",
+            "Understand scale ambiguity in monocular VO"
+          ],
           "steps": [
             {
               "id": "step-features",
@@ -1839,8 +2627,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-vo", "name": "Vision Odometrist", "description": "Estimated robot position from camera frames", "icon": "👁️" },
-          "prerequisite_challenge_ids": ["mz-rrt"]
+          "completion_badge": {
+            "id": "badge-mz-vo",
+            "name": "Vision Odometrist",
+            "description": "Estimated robot position from camera frames",
+            "icon": "👁️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-rrt"
+          ]
         },
         {
           "id": "mz-full-autonomy",
@@ -1850,10 +2645,18 @@
           "title": "Full Autonomy",
           "subtitle": "Solve an unknown maze with no human input",
           "description": "Given an unseen maze, navigate from start to finish using SLAM for mapping, A* for planning, and visual odometry for localization. Zero human intervention.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 5,
           "estimated_minutes": 60,
-          "learning_objectives": ["Integrate SLAM, planning, and control into one pipeline", "Handle unexpected situations autonomously", "Evaluate autonomy by a formal metric (completion rate, time, accuracy)"],
+          "learning_objectives": [
+            "Integrate SLAM, planning, and control into one pipeline",
+            "Handle unexpected situations autonomously",
+            "Evaluate autonomy by a formal metric (completion rate, time, accuracy)"
+          ],
           "steps": [
             {
               "id": "step-pipeline",
@@ -1876,8 +2679,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-auto", "name": "Full Autonomy", "description": "Solved an unknown maze with zero human intervention", "icon": "🚀" },
-          "prerequisite_challenge_ids": ["mz-visual-odometry"]
+          "completion_badge": {
+            "id": "badge-mz-auto",
+            "name": "Full Autonomy",
+            "description": "Solved an unknown maze with zero human intervention",
+            "icon": "🚀"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-visual-odometry"
+          ]
         },
         {
           "id": "mz-multi-robot",
@@ -1887,10 +2697,18 @@
           "title": "Two Robots, One Maze",
           "subtitle": "Cooperative multi-robot exploration",
           "description": "Two robots can map a maze twice as fast if they coordinate — each explores the areas the other hasn't visited. Design a cooperative frontier-based exploration strategy.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 5,
           "estimated_minutes": 50,
-          "learning_objectives": ["Implement frontier-based exploration", "Coordinate exploration between two agents without conflict", "Merge two partial maps into one consistent map"],
+          "learning_objectives": [
+            "Implement frontier-based exploration",
+            "Coordinate exploration between two agents without conflict",
+            "Merge two partial maps into one consistent map"
+          ],
           "steps": [
             {
               "id": "step-frontier",
@@ -1913,8 +2731,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-mz-multi", "name": "Swarm Explorer", "description": "Coordinated two robots for cooperative maze mapping", "icon": "🤝" },
-          "prerequisite_challenge_ids": ["mz-full-autonomy"]
+          "completion_badge": {
+            "id": "badge-mz-multi",
+            "name": "Swarm Explorer",
+            "description": "Coordinated two robots for cooperative maze mapping",
+            "icon": "🤝"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-full-autonomy"
+          ]
         }
       ]
     },
@@ -1933,10 +2758,17 @@
           "title": "Spot the Cone",
           "subtitle": "Identify a cone in the camera view",
           "description": "Before the robot can interact with cones, it must see them. Learn how cameras detect objects by color, shape, and size.",
-          "subjects": ["engineering", "science"],
+          "subjects": [
+            "engineering",
+            "science"
+          ],
           "difficulty": 1,
           "estimated_minutes": 10,
-          "learning_objectives": ["Understand color-based object detection", "Identify a cone using HSV thresholding", "Find the cone's center in the image"],
+          "learning_objectives": [
+            "Understand color-based object detection",
+            "Identify a cone using HSV thresholding",
+            "Find the cone's center in the image"
+          ],
           "steps": [
             {
               "id": "step-color",
@@ -1948,7 +2780,12 @@
             {
               "id": "step-detect",
               "tutor_message": "Apply the HSV mask and find connected regions. The largest connected orange region is probably the cone. Compute its centroid — that's where the cone is in image coordinates.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a camera view diagram showing an orange cone with an HSV color mask overlay highlighting the cone region, centroid marked with a crosshair, bounding box drawn" } },
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a camera view diagram showing an orange cone with an HSV color mask overlay highlighting the cone region, centroid marked with a crosshair, bounding box drawn"
+                }
+              },
               "completion_condition": "automatic",
               "duration_hint": 60
             },
@@ -1959,7 +2796,12 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-spot", "name": "Cone Spotter", "description": "Detected a cone using color segmentation", "icon": "🔶" },
+          "completion_badge": {
+            "id": "badge-cg-spot",
+            "name": "Cone Spotter",
+            "description": "Detected a cone using color segmentation",
+            "icon": "🔶"
+          },
           "prerequisite_challenge_ids": []
         },
         {
@@ -1970,10 +2812,17 @@
           "title": "Drive Around",
           "subtitle": "Navigate around a single cone",
           "description": "Detecting a cone is step one. Step two: don't hit it. Program a simple avoidance maneuver using the cone's image position to steer around it.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 1,
           "estimated_minutes": 12,
-          "learning_objectives": ["Convert image coordinates to steering commands", "Implement a simple obstacle avoidance behavior", "Tune avoidance turning radius"],
+          "learning_objectives": [
+            "Convert image coordinates to steering commands",
+            "Implement a simple obstacle avoidance behavior",
+            "Tune avoidance turning radius"
+          ],
           "steps": [
             {
               "id": "step-steer",
@@ -1996,8 +2845,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-around", "name": "Cone Dodger", "description": "Navigated around a single cone autonomously", "icon": "↩️" },
-          "prerequisite_challenge_ids": ["cg-spot-cone"]
+          "completion_badge": {
+            "id": "badge-cg-around",
+            "name": "Cone Dodger",
+            "description": "Navigated around a single cone autonomously",
+            "icon": "↩️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-spot-cone"
+          ]
         },
         {
           "id": "cg-slalom",
@@ -2007,10 +2863,17 @@
           "title": "Slalom Intro",
           "subtitle": "Weave through 3 cones",
           "description": "A slalom is the classic speed-accuracy test. 3 cones in a line — alternate left and right of each one. First without a time limit, then as fast as you can.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 1,
           "estimated_minutes": 15,
-          "learning_objectives": ["Sequence multi-cone avoidance", "Coordinate side-of-cone alternation", "Balance speed and accuracy"],
+          "learning_objectives": [
+            "Sequence multi-cone avoidance",
+            "Coordinate side-of-cone alternation",
+            "Balance speed and accuracy"
+          ],
           "steps": [
             {
               "id": "step-sequence",
@@ -2033,8 +2896,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-slalom", "name": "Slalom Starter", "description": "Completed a 3-cone slalom course", "icon": "🏁" },
-          "prerequisite_challenge_ids": ["cg-drive-around"]
+          "completion_badge": {
+            "id": "badge-cg-slalom",
+            "name": "Slalom Starter",
+            "description": "Completed a 3-cone slalom course",
+            "icon": "🏁"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-drive-around"
+          ]
         },
         {
           "id": "cg-ring-aim",
@@ -2044,10 +2914,17 @@
           "title": "Ring Gate",
           "subtitle": "Drive precisely through a ring",
           "description": "A ring gate requires precision — not just avoidance, but centering. The robot must drive exactly through the middle of a hoop placed on the ground.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 2,
           "estimated_minutes": 18,
-          "learning_objectives": ["Detect a ring using ellipse fitting", "Center the robot relative to the ring's detected position", "Implement approach and pass-through control"],
+          "learning_objectives": [
+            "Detect a ring using ellipse fitting",
+            "Center the robot relative to the ring's detected position",
+            "Implement approach and pass-through control"
+          ],
           "steps": [
             {
               "id": "step-detect-ring",
@@ -2070,8 +2947,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-ring", "name": "Ring Threader", "description": "Navigated precisely through a ring gate", "icon": "⭕" },
-          "prerequisite_challenge_ids": ["cg-slalom"]
+          "completion_badge": {
+            "id": "badge-cg-ring",
+            "name": "Ring Threader",
+            "description": "Navigated precisely through a ring gate",
+            "icon": "⭕"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-slalom"
+          ]
         },
         {
           "id": "cg-course-run",
@@ -2081,10 +2965,17 @@
           "title": "Cone Course",
           "subtitle": "Complete a 5-cone obstacle course",
           "description": "A 5-cone course with a ring gate combines all previous skills. Slalom 4 cones, pass through the ring gate, reach the finish line.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 2,
           "estimated_minutes": 20,
-          "learning_objectives": ["Sequence multiple navigation tasks into one program", "Detect and classify multiple object types", "Handle state transitions between task segments"],
+          "learning_objectives": [
+            "Sequence multiple navigation tasks into one program",
+            "Detect and classify multiple object types",
+            "Handle state transitions between task segments"
+          ],
           "steps": [
             {
               "id": "step-layout",
@@ -2107,8 +2998,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-course", "name": "Course Completer", "description": "Completed the 5-cone obstacle course", "icon": "🏅" },
-          "prerequisite_challenge_ids": ["cg-ring-aim"]
+          "completion_badge": {
+            "id": "badge-cg-course",
+            "name": "Course Completer",
+            "description": "Completed the 5-cone obstacle course",
+            "icon": "🏅"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-ring-aim"
+          ]
         },
         {
           "id": "cg-time-trial",
@@ -2118,10 +3016,17 @@
           "title": "Time Trial",
           "subtitle": "Fastest clean run wins",
           "description": "Optimize your 5-cone course program for speed. This isn't about changing the hardware — it's about finding the fastest PARAMETERS that still complete the course cleanly.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 2,
           "estimated_minutes": 25,
-          "learning_objectives": ["Systematic parameter optimization", "Understand the speed-accuracy Pareto frontier", "Use timed runs as a feedback signal for tuning"],
+          "learning_objectives": [
+            "Systematic parameter optimization",
+            "Understand the speed-accuracy Pareto frontier",
+            "Use timed runs as a feedback signal for tuning"
+          ],
           "steps": [
             {
               "id": "step-baseline",
@@ -2144,8 +3049,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-time", "name": "Optimizer", "description": "Systematically improved course time through parameter tuning", "icon": "⏱️" },
-          "prerequisite_challenge_ids": ["cg-course-run"]
+          "completion_badge": {
+            "id": "badge-cg-time",
+            "name": "Optimizer",
+            "description": "Systematically improved course time through parameter tuning",
+            "icon": "⏱️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-course-run"
+          ]
         },
         {
           "id": "cg-color-cones",
@@ -2155,10 +3067,18 @@
           "title": "Color-Coded Cones",
           "subtitle": "Navigate differently based on cone color",
           "description": "Red and blue cones mean different things: red = go right of this cone, blue = go left. The robot must read the color and execute the correct maneuver.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 3,
           "estimated_minutes": 22,
-          "learning_objectives": ["Detect multiple distinct colors simultaneously", "Map color to action in a lookup table", "Handle ambiguous colors under different lighting"],
+          "learning_objectives": [
+            "Detect multiple distinct colors simultaneously",
+            "Map color to action in a lookup table",
+            "Handle ambiguous colors under different lighting"
+          ],
           "steps": [
             {
               "id": "step-multi-color",
@@ -2182,8 +3102,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-color", "name": "Color Classifier", "description": "Navigated a course using cone color commands", "icon": "🎨" },
-          "prerequisite_challenge_ids": ["cg-time-trial"]
+          "completion_badge": {
+            "id": "badge-cg-color",
+            "name": "Color Classifier",
+            "description": "Navigated a course using cone color commands",
+            "icon": "🎨"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-time-trial"
+          ]
         },
         {
           "id": "cg-moving-obstacles",
@@ -2193,10 +3120,17 @@
           "title": "Dynamic Obstacles",
           "subtitle": "Cones that move",
           "description": "Real environments have moving objects — people, vehicles, other robots. Test your avoidance algorithm against cones that are slowly moved by hand during the run.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 3,
           "estimated_minutes": 20,
-          "learning_objectives": ["Track moving objects using velocity estimation", "Predict object position ahead of reaction time", "Distinguish stopped from moving obstacles"],
+          "learning_objectives": [
+            "Track moving objects using velocity estimation",
+            "Predict object position ahead of reaction time",
+            "Distinguish stopped from moving obstacles"
+          ],
           "steps": [
             {
               "id": "step-tracking",
@@ -2219,8 +3153,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-moving", "name": "Dynamic Dodger", "description": "Avoided moving obstacles using predictive tracking", "icon": "🎯" },
-          "prerequisite_challenge_ids": ["cg-color-cones"]
+          "completion_badge": {
+            "id": "badge-cg-moving",
+            "name": "Dynamic Dodger",
+            "description": "Avoided moving obstacles using predictive tracking",
+            "icon": "🎯"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-color-cones"
+          ]
         },
         {
           "id": "cg-precision-park",
@@ -2230,10 +3171,17 @@
           "title": "Precision Parking",
           "subtitle": "Park between cone markers",
           "description": "Parking between cones tests lateral precision. The robot must stop exactly centered between two marker cones — within 2cm — without touching them.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 3,
           "estimated_minutes": 22,
-          "learning_objectives": ["Implement a position-accuracy control loop", "Use visual feedback for fine lateral correction", "Understand the stopping accuracy vs approach speed tradeoff"],
+          "learning_objectives": [
+            "Implement a position-accuracy control loop",
+            "Use visual feedback for fine lateral correction",
+            "Understand the stopping accuracy vs approach speed tradeoff"
+          ],
           "steps": [
             {
               "id": "step-geometry",
@@ -2256,8 +3204,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-park", "name": "Precision Parker", "description": "Parked within 2cm of center between cone markers", "icon": "🅿️" },
-          "prerequisite_challenge_ids": ["cg-moving-obstacles"]
+          "completion_badge": {
+            "id": "badge-cg-park",
+            "name": "Precision Parker",
+            "description": "Parked within 2cm of center between cone markers",
+            "icon": "🅿️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-moving-obstacles"
+          ]
         },
         {
           "id": "cg-ring-size",
@@ -2267,10 +3222,18 @@
           "title": "Ring Sort",
           "subtitle": "Classify rings by size",
           "description": "Three rings of different sizes are placed around the course. The robot must detect each ring, estimate its real-world diameter from the image, and navigate them in order: smallest to largest.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 3,
           "estimated_minutes": 25,
-          "learning_objectives": ["Estimate real-world size from apparent image size and distance", "Sort detected objects by a derived property", "Sequence tasks based on classification results"],
+          "learning_objectives": [
+            "Estimate real-world size from apparent image size and distance",
+            "Sort detected objects by a derived property",
+            "Sequence tasks based on classification results"
+          ],
           "steps": [
             {
               "id": "step-size-estimation",
@@ -2293,8 +3256,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-size", "name": "Size Sorter", "description": "Classified and navigated rings by estimated real-world size", "icon": "📏" },
-          "prerequisite_challenge_ids": ["cg-precision-park"]
+          "completion_badge": {
+            "id": "badge-cg-size",
+            "name": "Size Sorter",
+            "description": "Classified and navigated rings by estimated real-world size",
+            "icon": "📏"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-precision-park"
+          ]
         },
         {
           "id": "cg-full-gauntlet",
@@ -2304,10 +3274,17 @@
           "title": "Full Gauntlet",
           "subtitle": "Color cones, moving obstacles, ring gates — all at once",
           "description": "The complete gauntlet: 4 color-coded cones, 2 moving obstacles, 3 ring gates of different sizes. Complete all tasks in the correct order with no human input.",
-          "subjects": ["engineering", "coding"],
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
           "difficulty": 3,
           "estimated_minutes": 35,
-          "learning_objectives": ["Integrate multiple detection and navigation behaviors", "Handle unexpected task sequencing", "Evaluate system robustness under combined challenge conditions"],
+          "learning_objectives": [
+            "Integrate multiple detection and navigation behaviors",
+            "Handle unexpected task sequencing",
+            "Evaluate system robustness under combined challenge conditions"
+          ],
           "steps": [
             {
               "id": "step-plan",
@@ -2330,8 +3307,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-gauntlet", "name": "Gauntlet Champion", "description": "Completed the full multi-challenge gauntlet", "icon": "🏆" },
-          "prerequisite_challenge_ids": ["cg-ring-size"]
+          "completion_badge": {
+            "id": "badge-cg-gauntlet",
+            "name": "Gauntlet Champion",
+            "description": "Completed the full multi-challenge gauntlet",
+            "icon": "🏆"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-ring-size"
+          ]
         },
         {
           "id": "cg-cone-detect",
@@ -2341,10 +3325,18 @@
           "title": "Deep Cone Detector",
           "subtitle": "Train a neural detector for cones",
           "description": "Color thresholding is fragile. A trained neural network handles lighting variation, partial occlusion, and novel cone colors. Train a lightweight cone detector.",
-          "subjects": ["coding", "science", "engineering"],
+          "subjects": [
+            "coding",
+            "science",
+            "engineering"
+          ],
           "difficulty": 4,
           "estimated_minutes": 40,
-          "learning_objectives": ["Understand object detection vs classification", "Collect and label a small training dataset", "Train and evaluate a MobileNet SSD-style detector"],
+          "learning_objectives": [
+            "Understand object detection vs classification",
+            "Collect and label a small training dataset",
+            "Train and evaluate a MobileNet SSD-style detector"
+          ],
           "steps": [
             {
               "id": "step-dataset",
@@ -2367,8 +3359,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-nn", "name": "Neural Detector", "description": "Trained a neural cone detector from real images", "icon": "🧠" },
-          "prerequisite_challenge_ids": ["cg-full-gauntlet"]
+          "completion_badge": {
+            "id": "badge-cg-nn",
+            "name": "Neural Detector",
+            "description": "Trained a neural cone detector from real images",
+            "icon": "🧠"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-full-gauntlet"
+          ]
         },
         {
           "id": "cg-depth-est",
@@ -2378,10 +3377,18 @@
           "title": "Monocular Depth",
           "subtitle": "Estimate cone distance from a single camera",
           "description": "A single camera can't directly measure distance — but apparent size, position, and learned priors can give useful estimates. Implement monocular depth estimation for cones.",
-          "subjects": ["science", "coding", "engineering"],
+          "subjects": [
+            "science",
+            "coding",
+            "engineering"
+          ],
           "difficulty": 4,
           "estimated_minutes": 35,
-          "learning_objectives": ["Apply the pinhole camera model for depth estimation", "Use known object size as a depth reference", "Evaluate accuracy vs a ground-truth distance sensor"],
+          "learning_objectives": [
+            "Apply the pinhole camera model for depth estimation",
+            "Use known object size as a depth reference",
+            "Evaluate accuracy vs a ground-truth distance sensor"
+          ],
           "steps": [
             {
               "id": "step-pinhole",
@@ -2404,8 +3411,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-depth", "name": "Depth Estimator", "description": "Estimated cone distance from monocular camera", "icon": "📏" },
-          "prerequisite_challenge_ids": ["cg-cone-detect"]
+          "completion_badge": {
+            "id": "badge-cg-depth",
+            "name": "Depth Estimator",
+            "description": "Estimated cone distance from monocular camera",
+            "icon": "📏"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-cone-detect"
+          ]
         },
         {
           "id": "cg-optimal-path",
@@ -2415,10 +3429,18 @@
           "title": "Optimal Path Through Cones",
           "subtitle": "Traveling Salesman for the gauntlet",
           "description": "With all cone and ring positions known, find the shortest path through them all. This is related to the Traveling Salesman Problem — NP-hard in general, but solvable for small N.",
-          "subjects": ["coding", "math", "engineering"],
+          "subjects": [
+            "coding",
+            "math",
+            "engineering"
+          ],
           "difficulty": 4,
           "estimated_minutes": 35,
-          "learning_objectives": ["Formulate the course as an optimization problem", "Implement a greedy nearest-neighbor heuristic", "Compare greedy vs brute-force for small N"],
+          "learning_objectives": [
+            "Formulate the course as an optimization problem",
+            "Implement a greedy nearest-neighbor heuristic",
+            "Compare greedy vs brute-force for small N"
+          ],
           "steps": [
             {
               "id": "step-tsp",
@@ -2441,8 +3463,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-tsp", "name": "Route Optimizer", "description": "Found and executed the optimal path through the gauntlet", "icon": "🗺️" },
-          "prerequisite_challenge_ids": ["cg-depth-est"]
+          "completion_badge": {
+            "id": "badge-cg-tsp",
+            "name": "Route Optimizer",
+            "description": "Found and executed the optimal path through the gauntlet",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-depth-est"
+          ]
         },
         {
           "id": "cg-ring-pose",
@@ -2452,10 +3481,18 @@
           "title": "Ring Pose Estimation",
           "subtitle": "Find the ring's 3D orientation",
           "description": "A tilted ring requires knowing its full 3D pose — not just where it is in the image, but which direction its axis points. Implement PnP-based ring pose estimation.",
-          "subjects": ["science", "coding", "engineering"],
+          "subjects": [
+            "science",
+            "coding",
+            "engineering"
+          ],
           "difficulty": 5,
           "estimated_minutes": 45,
-          "learning_objectives": ["Understand the PnP (Perspective-n-Point) problem", "Use solvePnP to recover 3D pose from 2D correspondences", "Decompose the rotation matrix into Euler angles"],
+          "learning_objectives": [
+            "Understand the PnP (Perspective-n-Point) problem",
+            "Use solvePnP to recover 3D pose from 2D correspondences",
+            "Decompose the rotation matrix into Euler angles"
+          ],
           "steps": [
             {
               "id": "step-pnp",
@@ -2478,8 +3515,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-pose", "name": "Pose Estimator", "description": "Estimated full 3D ring pose using PnP", "icon": "📐" },
-          "prerequisite_challenge_ids": ["cg-optimal-path"]
+          "completion_badge": {
+            "id": "badge-cg-pose",
+            "name": "Pose Estimator",
+            "description": "Estimated full 3D ring pose using PnP",
+            "icon": "📐"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-optimal-path"
+          ]
         },
         {
           "id": "cg-full-autonomous",
@@ -2489,10 +3533,18 @@
           "title": "Autonomous Gauntlet",
           "subtitle": "Zero human input, all 10 elements",
           "description": "The complete autonomous gauntlet: the robot is placed in a start position and must detect, plan, and complete all course elements without any human intervention.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 5,
           "estimated_minutes": 60,
-          "learning_objectives": ["Operate a full perception-planning-control pipeline autonomously", "Handle task failure and recovery without human help", "Evaluate autonomy under real-world variation"],
+          "learning_objectives": [
+            "Operate a full perception-planning-control pipeline autonomously",
+            "Handle task failure and recovery without human help",
+            "Evaluate autonomy under real-world variation"
+          ],
           "steps": [
             {
               "id": "step-pipeline",
@@ -2515,8 +3567,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-auto", "name": "Autonomous Champion", "description": "Completed the full gauntlet with zero human input", "icon": "🤖" },
-          "prerequisite_challenge_ids": ["cg-ring-pose"]
+          "completion_badge": {
+            "id": "badge-cg-auto",
+            "name": "Autonomous Champion",
+            "description": "Completed the full gauntlet with zero human input",
+            "icon": "🤖"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-ring-pose"
+          ]
         },
         {
           "id": "cg-cone-slam",
@@ -2526,10 +3585,18 @@
           "title": "Cone SLAM",
           "subtitle": "Map cone positions as dynamic landmarks",
           "description": "Treat cones as SLAM landmarks: build a map of cone positions while simultaneously localizing the robot. The cone map persists across the full run.",
-          "subjects": ["engineering", "coding", "science"],
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
           "difficulty": 5,
           "estimated_minutes": 50,
-          "learning_objectives": ["Extend SLAM to use detected objects as landmarks", "Handle landmark initialization and data association", "Maintain a consistent map under repeated observations"],
+          "learning_objectives": [
+            "Extend SLAM to use detected objects as landmarks",
+            "Handle landmark initialization and data association",
+            "Maintain a consistent map under repeated observations"
+          ],
           "steps": [
             {
               "id": "step-landmarks",
@@ -2552,648 +3619,15 @@
               "completion_condition": "student-confirms"
             }
           ],
-          "completion_badge": { "id": "badge-cg-cslam", "name": "Cone SLAM Master", "description": "Mapped cone positions as SLAM landmarks", "icon": "🗺️" },
-          "prerequisite_challenge_ids": ["cg-full-autonomous"]
-        }
-      ]
-    },
-    {
-      "id": "computer-vision",
-      "concept_id": "computer-vision",
-      "robot_id": "sketchbot",
-      "name": "Computer Vision",
-      "description": "From pixels to perception — learn how cameras see the world and make robots react to what they see.",
-      "challenges": [
-        {
-          "id": "cv-pixels-intro",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "What Is a Pixel?",
-          "subtitle": "Images are grids of numbers",
-          "description": "Before computers can 'see', we need to understand what a digital image actually is: a grid of numbers. Each number is a pixel. Change the numbers, change the picture.",
-          "subjects": ["coding", "science"],
-          "difficulty": 1,
-          "estimated_minutes": 8,
-          "learning_objectives": ["Understand that images are 2D arrays of numbers", "Interpret pixel values as brightness or color", "Recognize the tradeoff between resolution and file size"],
-          "steps": [
-            {
-              "id": "step-pixels",
-              "tutor_message": "A grayscale image is just a grid of numbers from 0 (black) to 255 (white). A 4×4 image has 16 pixels — 16 numbers. A 4K camera has 3840×2160 = 8,294,400 pixels per frame. Same idea, way more numbers.",
-              "reflection_question": "If each pixel uses 1 byte, how many bytes is one 4K grayscale frame? How about one second of 4K video at 30fps?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 30
-            },
-            {
-              "id": "step-draw",
-              "tutor_message": "I'm going to draw a 16×16 pixel grid where each cell shows its brightness value. Dark cells get dense hatching; light cells stay mostly white.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "a 16x16 pixel grid where each cell is filled with hatching density proportional to a simple gradient: bright top-left, dark bottom-right. Label the corner values: 255 top-left, 0 bottom-right" } },
-              "completion_condition": "automatic",
-              "duration_hint": 90
-            },
-            {
-              "id": "step-color",
-              "tutor_message": "Color images have three grids (channels): Red, Green, Blue. Each pixel is three numbers. (255, 0, 0) = pure red. (0, 255, 0) = pure green. (128, 0, 128) = purple (red + blue mixed). Mixing light is different from mixing paint!",
-              "reflection_question": "What RGB values give you pure yellow? (Hint: yellow light = red + green light)",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-pixel", "name": "Pixel Decoder", "description": "Understood images as arrays of numbers", "icon": "🖼️" },
-          "prerequisite_challenge_ids": []
-        },
-        {
-          "id": "cv-color-hunt",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Color Hunt",
-          "subtitle": "Find all the red things in the frame",
-          "description": "Color detection is the simplest computer vision technique — and one of the most useful for robotics. Write a detector that finds objects of a specific color.",
-          "subjects": ["coding", "science"],
-          "difficulty": 1,
-          "estimated_minutes": 10,
-          "learning_objectives": ["Implement HSV color thresholding", "Find connected components in a binary mask", "Understand why HSV is better than RGB for color detection"],
-          "steps": [
-            {
-              "id": "step-hsv",
-              "tutor_message": "RGB changes with lighting: a red ball in shadow has low R, G, B values. In HSV (Hue, Saturation, Value), the Hue stays constant across lighting — only Value changes. That's why robotics uses HSV for color detection.",
-              "student_prompt": "Open the camera feed. Convert the frame to HSV using your code editor.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 30
-            },
-            {
-              "id": "step-threshold",
-              "tutor_message": "Apply an HSV threshold for red: H=0–10° or H=170–180° (red wraps around). S>100, V>50. The output is a binary mask: 1 where the color matches, 0 elsewhere. Any white blobs in the mask are candidate red objects.",
-              "student_prompt": "Write the HSV threshold and display the resulting binary mask.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-blob",
-              "tutor_message": "Use cv2.findContours to find blobs in the mask. Filter by area (>500px²). Draw a bounding box around the largest blob. Test it: hold a red object in front of the camera. Does it detect it reliably?",
-              "reflection_question": "Red wraps around in HSV (0° and 360° are both red). How do you threshold for a color that spans the H=0 boundary?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-color", "name": "Color Finder", "description": "Detected colored objects using HSV thresholding", "icon": "🎨" },
-          "prerequisite_challenge_ids": ["cv-pixels-intro"]
-        },
-        {
-          "id": "cv-shape-spotter",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Shape Spotter",
-          "subtitle": "Find circles and rectangles in images",
-          "description": "Geometric shape detection is everywhere: QR codes (squares), stop signs (octagons), wheels (circles). Learn to detect them using contour analysis.",
-          "subjects": ["coding", "science"],
-          "difficulty": 1,
-          "estimated_minutes": 12,
-          "learning_objectives": ["Apply edge detection (Canny) to find shape boundaries", "Approximate contours as polygons", "Classify shapes by vertex count and circularity"],
-          "steps": [
-            {
-              "id": "step-edge",
-              "tutor_message": "Edge detection finds the boundaries of shapes. Canny edge detector: blur the image → compute gradient → threshold strong vs weak edges. The result is a binary image where white lines = object boundaries.",
-              "student_prompt": "Apply cv2.Canny to a camera frame and display the edge image.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 45
-            },
-            {
-              "id": "step-contours",
-              "tutor_message": "cv2.findContours finds closed loops in the edge image. cv2.approxPolyDP approximates each contour as a polygon. Count vertices: 3=triangle, 4=rectangle, >10=circle. A circle has circularity = 4π×area/perimeter² ≈ 1.0.",
-              "student_prompt": "Find contours, classify by vertex count and circularity, draw bounding shapes.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 90
-            },
-            {
-              "id": "step-test",
-              "tutor_message": "Place a circle, a rectangle, and a triangle in front of the camera. Does your detector correctly classify all three? What breaks the classifier?",
-              "reflection_question": "A crumpled piece of paper has lots of irregular contours. How do you filter out noise and keep only the 'real' shapes?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-shape", "name": "Shape Finder", "description": "Detected and classified geometric shapes", "icon": "🔷" },
-          "prerequisite_challenge_ids": ["cv-color-hunt"]
-        },
-        {
-          "id": "cv-apriltag",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "AprilTag Magic",
-          "subtitle": "How fiducial markers enable precise localization",
-          "description": "SketchBot uses AprilTags to know exactly where the paper is. Learn what makes these markers so reliable and how they encode both identity and pose.",
-          "subjects": ["engineering", "coding", "science"],
-          "difficulty": 2,
-          "estimated_minutes": 15,
-          "learning_objectives": ["Understand how AprilTags encode ID in a binary matrix", "Detect AprilTags and extract their 4-corner positions", "Compute camera-to-tag pose using corner correspondences"],
-          "steps": [
-            {
-              "id": "step-encoding",
-              "tutor_message": "An AprilTag is a black-and-white binary matrix inside a black border. Each cell is 1 bit. A 6×6 interior = 36 bits → 2^36 unique IDs. The black border makes detection easy (high contrast); error-correcting codes make it robust to partial occlusion.",
-              "reflection_question": "Why is error correction important for a tag that might be seen from 45°, partially blocked, or under harsh lighting?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 45
-            },
-            {
-              "id": "step-detect",
-              "tutor_message": "Using the apriltag library: detector = apriltag.Detector(). results = detector.detect(gray_image). Each result has: id, corners (4×2 array), pose (rotation + translation). The corners are the key data — they give you everything.",
-              "student_prompt": "Detect AprilTags in the SketchBot camera feed. Print detected IDs and corner positions.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 90
-            },
-            {
-              "id": "step-pose",
-              "tutor_message": "From 4 known 3D corners and their 2D image positions, you can compute the camera's exact 3D pose relative to the tag using PnP. This is how SketchBot knows the paper's position even if the camera moves.",
-              "reflection_question": "If one corner of an AprilTag is occluded, can you still compute the pose? What's the minimum number of visible corners needed?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-apriltag", "name": "Tag Detector", "description": "Detected AprilTags and extracted their 3D pose", "icon": "🏷️" },
-          "prerequisite_challenge_ids": ["cv-shape-spotter"]
-        },
-        {
-          "id": "cv-motion-detect",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Motion Detector",
-          "subtitle": "Detect movement between frames",
-          "description": "Security cameras detect motion by comparing consecutive frames. Pixels that change significantly between frames are 'moving'. Implement a basic motion detector.",
-          "subjects": ["coding", "science"],
-          "difficulty": 2,
-          "estimated_minutes": 12,
-          "learning_objectives": ["Compute frame difference to detect motion", "Threshold and morphologically clean motion regions", "Distinguish real motion from camera noise"],
-          "steps": [
-            {
-              "id": "step-diff",
-              "tutor_message": "Frame difference: diff = |frame_t - frame_(t-1)|. High values in diff = pixels that changed = motion. Threshold the diff to get a binary mask. Each white region is a moving object.",
-              "student_prompt": "Implement frame differencing and display the motion mask.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-noise",
-              "tutor_message": "Camera noise causes some pixels to randomly change even in a static scene. Fix: apply Gaussian blur before differencing. Also use morphological operations (cv2.dilate + cv2.erode) to fill holes and remove tiny speckles.",
-              "student_prompt": "Add blur and morphological cleanup to reduce false positives.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-test",
-              "tutor_message": "Test: walk past the camera slowly, then quickly. How does motion speed affect the diff magnitude? Try moving only one finger — does the detector catch it?",
-              "reflection_question": "Frame differencing can't detect a stationary person who just stopped moving. What technique would detect them?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-motion", "name": "Motion Watcher", "description": "Built a frame-differencing motion detector", "icon": "👋" },
-          "prerequisite_challenge_ids": ["cv-apriltag"]
-        },
-        {
-          "id": "cv-edge-find",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Edge Finder",
-          "subtitle": "Detect and visualize image edges",
-          "description": "Edges are where intensity changes sharply — object boundaries, shadows, and texture transitions. Visualize how different edge detectors work and what each reveals.",
-          "subjects": ["coding", "science"],
-          "difficulty": 2,
-          "estimated_minutes": 14,
-          "learning_objectives": ["Understand gradient-based edge detection", "Compare Sobel, Laplacian, and Canny operators", "Tune edge detector thresholds for different images"],
-          "steps": [
-            {
-              "id": "step-gradient",
-              "tutor_message": "An edge = a sudden change in brightness. The gradient measures this: high gradient = edge. Sobel computes the gradient in X and Y separately; combine as sqrt(Gx² + Gy²). Laplacian uses a second derivative — it finds edges from both sides simultaneously.",
-              "student_prompt": "Apply Sobel X, Sobel Y, and combined Sobel to the camera image. Display all three.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-canny",
-              "tutor_message": "Canny is the gold standard: blur → Sobel → non-maximum suppression (thin lines to 1 pixel) → hysteresis thresholding (strong edges keep, weak edges kept only if connected to strong). Result: clean, thin edge lines.",
-              "student_prompt": "Apply cv2.Canny and compare to raw Sobel. Which looks cleaner?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-draw",
-              "tutor_message": "Have SketchBot draw the Canny edges of an object — essentially an automatic sketch generator. The robot traces the edge map from the camera onto paper.",
-              "robot_action": { "type": "draw-prompt", "payload": { "prompt": "an abstract edge-map sketch: strong geometric lines and curves representing the detected edges of an everyday object (mug, book, phone), line art only, no fills" } },
-              "completion_condition": "automatic",
-              "duration_hint": 120
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-edge", "name": "Edge Analyst", "description": "Implemented and compared multiple edge detection operators", "icon": "🔍" },
-          "prerequisite_challenge_ids": ["cv-motion-detect"]
-        },
-        {
-          "id": "cv-classifier",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Image Classifier",
-          "subtitle": "Build a simple object classifier",
-          "description": "Train a classifier to distinguish between 3 object categories using feature extraction and a simple ML model. No deep learning — just features and a decision boundary.",
-          "subjects": ["coding", "science"],
-          "difficulty": 3,
-          "estimated_minutes": 30,
-          "learning_objectives": ["Extract color histogram and shape features from images", "Train a k-NN or SVM classifier", "Evaluate with precision, recall, and confusion matrix"],
-          "steps": [
-            {
-              "id": "step-features",
-              "tutor_message": "Classical CV uses hand-crafted features: color histograms (distribution of pixel values), HOG (histogram of oriented gradients for shape), and area/perimeter ratios. These turn an image into a fixed-length vector a classifier can use.",
-              "student_prompt": "Choose 3 object categories and collect 30 images each. Extract HSV color histograms as features.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 300
-            },
-            {
-              "id": "step-train",
-              "tutor_message": "Train a k-Nearest Neighbors (k-NN) classifier on your features. Split 80/20 train/test. Vary k from 1 to 11 and plot accuracy vs k. Find the optimal k.",
-              "student_prompt": "Train k-NN and plot accuracy vs k.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 120
-            },
-            {
-              "id": "step-evaluate",
-              "tutor_message": "Compute the confusion matrix: a 3×3 table showing predicted vs actual class for every test sample. Which class is most confused with which? What feature would help separate them?",
-              "reflection_question": "Your classifier is 90% accurate. But if 90% of your samples are one class, a dummy classifier that always predicts that class is also 90%. How do you detect this 'accuracy paradox'?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-class", "name": "Object Classifier", "description": "Built and evaluated a traditional image classifier", "icon": "📊" },
-          "prerequisite_challenge_ids": ["cv-edge-find"]
-        },
-        {
-          "id": "cv-optical-flow",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Optical Flow",
-          "subtitle": "Track motion between frames",
-          "description": "Optical flow estimates how each pixel moved between frames — a dense velocity field. Sparse optical flow tracks specific keypoints. Both are fundamental for robotics.",
-          "subjects": ["coding", "science"],
-          "difficulty": 3,
-          "estimated_minutes": 25,
-          "learning_objectives": ["Implement Lucas-Kanade sparse optical flow", "Visualize flow vectors as arrows on the image", "Apply optical flow to robot velocity estimation"],
-          "steps": [
-            {
-              "id": "step-lucas-kanade",
-              "tutor_message": "Lucas-Kanade optical flow assumes: between two frames, a small patch of pixels moves rigidly. It solves for the (vx, vy) velocity that best explains the brightness change. It works only for small displacements — fast motion needs a pyramid (multi-scale).",
-              "reflection_question": "What assumption does LK flow make that breaks in a scene with multiple independently moving objects?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 45
-            },
-            {
-              "id": "step-implement",
-              "tutor_message": "Implement: detect corners with cv2.goodFeaturesToTrack. Track them in the next frame with cv2.calcOpticalFlowPyrLK. Draw arrows from old position to new position for each tracked point.",
-              "student_prompt": "Implement sparse optical flow and visualize flow arrows on the camera feed.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 120
-            },
-            {
-              "id": "step-robot",
-              "tutor_message": "When the camera moves (robot drives), ALL tracked points move in the same direction — this is ego-motion. Average the flow vectors to estimate the robot's camera velocity. Compare to wheel encoder estimates.",
-              "reflection_question": "How do you separate ego-motion (camera moving) from scene motion (objects moving) using only optical flow?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-flow", "name": "Flow Tracker", "description": "Implemented optical flow and estimated camera motion", "icon": "🌊" },
-          "prerequisite_challenge_ids": ["cv-classifier"]
-        },
-        {
-          "id": "cv-color-segment",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Color Segmentation",
-          "subtitle": "Separate objects by color cluster",
-          "description": "K-means clustering groups pixels by color similarity — no labels needed. The result is an automatic segmentation of the image into color regions.",
-          "subjects": ["coding", "science"],
-          "difficulty": 3,
-          "estimated_minutes": 22,
-          "learning_objectives": ["Apply k-means clustering to image pixels", "Interpret cluster centroids as dominant colors", "Use segmentation for object isolation"],
-          "steps": [
-            {
-              "id": "step-kmeans",
-              "tutor_message": "k-means: initialize k cluster centers randomly. Assign each pixel to the nearest center. Recompute centers as the mean of assigned pixels. Repeat until stable. For k=5, the result is an image with only 5 colors — one per cluster.",
-              "reflection_question": "How do you choose k? What visual artifact appears when k is too small vs too large?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 45
-            },
-            {
-              "id": "step-implement",
-              "tutor_message": "Reshape the image to (N_pixels, 3). Apply cv2.kmeans with k=5. Reshape back and display. Each pixel now shows its cluster's color. Objects with distinct colors become clearly separated regions.",
-              "student_prompt": "Implement k-means color segmentation and display the result for k=3, 5, and 8.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 90
-            },
-            {
-              "id": "step-isolate",
-              "tutor_message": "Select one cluster (by clicking on the dominant color of an object). Create a mask of all pixels in that cluster. This isolates the object — even in a complex scene with no labeled training data.",
-              "reflection_question": "K-means is sensitive to initialization — different runs give different results. How do you make segmentation deterministic (same result every run)?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-seg", "name": "Segmentation Artist", "description": "Segmented an image using k-means clustering", "icon": "🎭" },
-          "prerequisite_challenge_ids": ["cv-optical-flow"]
-        },
-        {
-          "id": "cv-face-detect",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Face Detection",
-          "subtitle": "Find faces using Haar cascades",
-          "description": "Haar cascade classifiers were the state-of-the-art face detector in 2001 — and they still work well today. Learn the Viola-Jones algorithm and its clever integral image optimization.",
-          "subjects": ["coding", "science"],
-          "difficulty": 3,
-          "estimated_minutes": 20,
-          "learning_objectives": ["Understand Haar features and cascade architecture", "Use the integral image for O(1) feature computation", "Detect faces at multiple scales using image pyramids"],
-          "steps": [
-            {
-              "id": "step-haar",
-              "tutor_message": "Haar features are rectangle patterns: 'dark region to the left of a bright region'. A face has many such patterns: dark eye sockets below a bright forehead, dark nostrils in a bright nose. A cascade of 6000 such features is checked at every position/scale.",
-              "reflection_question": "Why does the cascade architecture make detection fast? (Hint: think about how many positions are rejected at the first few features vs the last)",
-              "completion_condition": "student-confirms",
-              "duration_hint": 45
-            },
-            {
-              "id": "step-integral",
-              "tutor_message": "The integral image: I(x,y) = sum of all pixels above and left of (x,y). Pre-computed once. Any rectangular sum is then computed in exactly 4 operations, regardless of rectangle size. This makes Haar features O(1) to evaluate.",
-              "student_prompt": "Compute the integral image of a 4×4 test matrix by hand. Verify a sum query using the formula.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-detect",
-              "tutor_message": "Load OpenCV's pre-trained Haar cascade. Apply to the camera feed. Tune scaleFactor and minNeighbors to balance detection rate vs false positives.",
-              "student_prompt": "Detect faces live from the camera. Find settings that minimize false positives.",
-              "reflection_question": "Haar cascade was trained on frontal faces. What happens when you turn your head 45°? What approach would handle arbitrary angles?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-face", "name": "Face Finder", "description": "Implemented Haar cascade face detection", "icon": "😊" },
-          "prerequisite_challenge_ids": ["cv-color-segment"]
-        },
-        {
-          "id": "cv-calibration",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Camera Calibration",
-          "subtitle": "Remove lens distortion",
-          "description": "Every camera lens distorts the image — straight lines look curved near the edges. Calibration finds the distortion parameters and corrects them.",
-          "subjects": ["science", "engineering", "coding"],
-          "difficulty": 3,
-          "estimated_minutes": 25,
-          "learning_objectives": ["Understand intrinsic and extrinsic camera parameters", "Collect calibration images using a chessboard pattern", "Apply undistortion and verify with straight-line objects"],
-          "steps": [
-            {
-              "id": "step-distortion",
-              "tutor_message": "Camera distortion types: radial (barrel = lines bow outward, pincushion = bow inward) and tangential (lens not perfectly parallel to sensor). A checkerboard pattern has perfectly straight lines — any curve in the image is pure distortion.",
-              "reflection_question": "Why is a checkerboard ideal for calibration? What property of the grid makes corner detection easy and reliable?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 30
-            },
-            {
-              "id": "step-collect",
-              "tutor_message": "Collect 20 images of the checkerboard at different angles and distances. OpenCV finds the checkerboard corners in each image automatically. More images from more angles = better calibration.",
-              "student_prompt": "Collect 20 calibration images and run cv2.calibrateCamera. Report the reprojection error.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 300
-            },
-            {
-              "id": "step-undistort",
-              "tutor_message": "Apply cv2.undistort to a live camera frame. Find a straight edge (a door frame, a ruler) and compare distorted vs undistorted. Reprojection error < 1 pixel = good calibration.",
-              "reflection_question": "After undistortion, the image has black borders at the edges. Why? How do you crop them out?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-calib", "name": "Calibration Expert", "description": "Calibrated a camera and removed lens distortion", "icon": "📸" },
-          "prerequisite_challenge_ids": ["cv-face-detect"]
-        },
-        {
-          "id": "cv-yolo",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "YOLO in Action",
-          "subtitle": "Real-time object detection with YOLO",
-          "description": "YOLO (You Only Look Once) processes the entire image in one neural network pass — making it fast enough for real-time robotics. Run YOLO on the robot's camera.",
-          "subjects": ["coding", "science", "engineering"],
-          "difficulty": 4,
-          "estimated_minutes": 35,
-          "learning_objectives": ["Understand the YOLO grid-based detection architecture", "Run YOLO inference on live video", "Interpret confidence scores and NMS suppression"],
-          "steps": [
-            {
-              "id": "step-architecture",
-              "tutor_message": "YOLO divides the image into an S×S grid. Each cell predicts B bounding boxes and class probabilities. A single forward pass produces all detections simultaneously — unlike sliding window methods that run the network hundreds of times per frame.",
-              "reflection_question": "YOLO struggles with small objects clustered together. Why does the grid architecture cause this? Which YOLO version addressed it?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-run",
-              "tutor_message": "Run YOLOv8n (nano — fastest) on the camera feed using Ultralytics. Display bounding boxes with class labels and confidence scores. Measure FPS on the Pi/laptop.",
-              "student_prompt": "Run YOLOv8n on live camera and report detected classes and FPS.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 120
-            },
-            {
-              "id": "step-nms",
-              "tutor_message": "Non-Maximum Suppression (NMS): YOLO outputs dozens of overlapping boxes per object. NMS keeps only the highest-confidence box when boxes overlap > IoU threshold. Tweak the IoU threshold and watch how it affects duplicate detections.",
-              "reflection_question": "When would you LOWER the IoU threshold? When would you raise it? What's the effect on false positives vs missed detections?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-yolo", "name": "YOLO Runner", "description": "Ran real-time YOLO detection on robot camera", "icon": "⚡" },
-          "prerequisite_challenge_ids": ["cv-calibration"]
-        },
-        {
-          "id": "cv-homography",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Homography Transform",
-          "subtitle": "Warp camera view to top-down",
-          "description": "A homography maps one plane to another — transform the angled camera view into a flat top-down map. Essential for SketchBot's coordinate system.",
-          "subjects": ["math", "science", "engineering"],
-          "difficulty": 4,
-          "estimated_minutes": 30,
-          "learning_objectives": ["Understand homography as a projective transformation", "Compute homography from 4 point correspondences", "Apply warpPerspective to create a top-down view"],
-          "steps": [
-            {
-              "id": "step-homography",
-              "tutor_message": "A homography is a 3×3 matrix that maps points from one plane to another via: [x', y', w']^T = H × [x, y, 1]^T. Four point correspondences uniquely determine H. This is exactly how SketchBot converts camera coordinates to paper coordinates.",
-              "reflection_question": "Why do you need exactly 4 points (not 3 or 5) to uniquely determine a homography?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-compute",
-              "tutor_message": "Click 4 corners of the paper in the camera image. Specify their desired positions in the output (flat map). cv2.getPerspectiveTransform → homography matrix. cv2.warpPerspective → top-down image.",
-              "student_prompt": "Implement the paper-to-top-down transform using the 4 AprilTag corners.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 180
-            },
-            {
-              "id": "step-verify",
-              "tutor_message": "Place a ruler on the paper at a known angle. In the warped top-down view, the ruler should appear exactly horizontal or vertical. Pixel distance in the top-down view should map linearly to real-world cm.",
-              "reflection_question": "The homography assumes the paper is perfectly flat. What happens to the transform if the paper has a slight curve?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-homog", "name": "Perspective Warper", "description": "Computed and applied a homography transform", "icon": "🔲" },
-          "prerequisite_challenge_ids": ["cv-yolo"]
-        },
-        {
-          "id": "cv-stereo",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Stereo Vision",
-          "subtitle": "Depth from two cameras",
-          "description": "Two cameras separated by a known baseline give depth from disparity — the same way human eyes work. Implement a stereo depth pipeline.",
-          "subjects": ["math", "science", "engineering"],
-          "difficulty": 4,
-          "estimated_minutes": 40,
-          "learning_objectives": ["Understand the epipolar constraint", "Compute disparity maps using block matching", "Convert disparity to metric depth using the stereo geometry formula"],
-          "steps": [
-            {
-              "id": "step-disparity",
-              "tutor_message": "Two cameras, baseline b apart, see the same point at horizontal offsets x_L and x_R in their images. Disparity d = x_L - x_R. Depth Z = f × b / d, where f is focal length. Far objects have small disparity; close objects have large disparity.",
-              "reflection_question": "A point directly at infinity has d=0. What does that mean for depth estimation? What's the maximum measurable depth?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-calibrate",
-              "tutor_message": "Stereo calibration: find the rotation and translation between both cameras. Use cv2.stereoCalibrate with paired checkerboard images. Then cv2.stereoRectify to align the two image planes to the same horizontal epipolar lines.",
-              "student_prompt": "Calibrate two cameras stereo and verify rectification by checking that epipolar lines are horizontal.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 300
-            },
-            {
-              "id": "step-depth",
-              "tutor_message": "Compute the disparity map: cv2.StereoBM or cv2.StereoSGBM. Convert to depth: depth = f × b / disparity. Visualize as a color-coded depth map. Measure a known object and compare estimated vs actual depth.",
-              "reflection_question": "SGBM is slower but smoother than BM. In which robotics application would each be preferred?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-stereo", "name": "Depth Perceiver", "description": "Built a stereo vision depth pipeline", "icon": "👁️" },
-          "prerequisite_challenge_ids": ["cv-homography"]
-        },
-        {
-          "id": "cv-visual-servo",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Visual Servoing",
-          "subtitle": "Drive the robot using camera feedback",
-          "description": "Visual servoing closes the loop between what the camera sees and how the robot moves. Track a target feature and use its position error to generate motor commands.",
-          "subjects": ["engineering", "science", "coding"],
-          "difficulty": 5,
-          "estimated_minutes": 45,
-          "learning_objectives": ["Implement image-based visual servo (IBVS)", "Define image features and compute error", "Design a stable feedback gain that avoids oscillation"],
-          "steps": [
-            {
-              "id": "step-ibvs",
-              "tutor_message": "Image-Based Visual Servoing (IBVS): define desired image features s* (e.g., target marker at image center). Measure current features s. Error e = s - s*. Control law: ΔV = -λ L_s⁺ e, where L_s is the image Jacobian. The robot moves to minimize e.",
-              "reflection_question": "Why might a large gain λ cause oscillation even though it reduces error faster?",
-              "completion_condition": "student-confirms",
-              "duration_hint": 60
-            },
-            {
-              "id": "step-implement",
-              "tutor_message": "Simplified IBVS: detect target centroid. Error = (centroid_x - image_center_x, centroid_y - image_center_y). Linear velocity ∝ -error_y. Angular velocity ∝ -error_x. The robot turns to center the target and drives toward it.",
-              "student_prompt": "Implement simplified IBVS to track a red target and drive toward it.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 300
-            },
-            {
-              "id": "step-stability",
-              "tutor_message": "Test stability: disturb the robot by hand during tracking. Does it recover? Increase λ until oscillation appears, then halve it. Plot the error signal over time — it should decay exponentially for a stable servo.",
-              "reflection_question": "Full IBVS requires computing the image Jacobian L_s — a 6×6 matrix relating feature motion to camera velocity. Why is this harder than the simplified version? What does it enable?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-servo", "name": "Visual Servo Engineer", "description": "Closed the loop between camera and robot motion", "icon": "🎯" },
-          "prerequisite_challenge_ids": ["cv-stereo"]
-        },
-        {
-          "id": "cv-neural-train",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "Train Your Own Model",
-          "subtitle": "Custom neural network for robot perception",
-          "description": "Train a convolutional neural network (CNN) from scratch on a custom dataset relevant to your robot's task. Understand why architecture choices matter.",
-          "subjects": ["coding", "science"],
-          "difficulty": 5,
-          "estimated_minutes": 60,
-          "learning_objectives": ["Design a CNN architecture for a specific task", "Apply data augmentation to improve generalization", "Analyze overfitting and apply regularization techniques"],
-          "steps": [
-            {
-              "id": "step-design",
-              "tutor_message": "A CNN architecture: INPUT → CONV → RELU → POOL → CONV → RELU → POOL → FLATTEN → DENSE → OUTPUT. Each CONV layer learns spatial features at increasing abstraction. Deeper networks learn more complex features but need more data.",
-              "student_prompt": "Design a CNN architecture for classifying the objects your robot encounters. Justify your layer choices.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 90
-            },
-            {
-              "id": "step-augment",
-              "tutor_message": "Data augmentation artificially increases dataset size: random flips, rotations (±15°), brightness jitter (±30%), random crop. For robotics: also add simulated shadows and motion blur. A model trained with augmentation generalizes far better.",
-              "student_prompt": "Implement augmentation and train the CNN. Compare validation accuracy with and without augmentation.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 1800
-            },
-            {
-              "id": "step-overfit",
-              "tutor_message": "Overfitting: training accuracy >> validation accuracy. The model memorized the training data. Fixes: add dropout (randomly zero neurons during training), reduce model size, add L2 regularization, or collect more data.",
-              "reflection_question": "Plot training vs validation loss over 50 epochs. Identify the exact epoch where overfitting begins. Why stop training there?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-cnn", "name": "Model Trainer", "description": "Trained a custom CNN for robot perception", "icon": "🧠" },
-          "prerequisite_challenge_ids": ["cv-visual-servo"]
-        },
-        {
-          "id": "cv-full-pipeline",
-          "pack_id": "computer-vision",
-          "robot_id": "sketchbot",
-          "required_modules": [],
-          "title": "SketchBot Vision OS",
-          "subtitle": "A complete computer vision pipeline for SketchBot",
-          "description": "Build the complete perception stack for SketchBot: calibration, AprilTag localization, drawing surface detection, line tracking, and quality verification — all running in one pipeline.",
-          "subjects": ["engineering", "coding", "science"],
-          "difficulty": 5,
-          "estimated_minutes": 75,
-          "learning_objectives": ["Integrate multiple CV subsystems into one production pipeline", "Handle failure modes and fallbacks in each subsystem", "Measure end-to-end latency and optimize the bottleneck"],
-          "steps": [
-            {
-              "id": "step-architecture",
-              "tutor_message": "The full SketchBot vision pipeline: FRAME CAPTURE → UNDISTORT → APRILTAG DETECTION → HOMOGRAPHY UPDATE → DRAWING SURFACE MASK → LINE QUALITY CHECK → PUBLISH STATE. Each stage runs at a different frequency. Design the pipeline with parallelism in mind.",
-              "student_prompt": "Design the pipeline architecture: stage order, frequencies, and data handoff.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 90
-            },
-            {
-              "id": "step-implement",
-              "tutor_message": "Implement each stage as a thread or async coroutine. Use a shared state dict protected by a lock. Measure the latency of each stage — find the bottleneck. The slowest stage limits the whole pipeline.",
-              "student_prompt": "Implement the full pipeline with threading and profile each stage's latency.",
-              "completion_condition": "student-confirms",
-              "duration_hint": 1800
-            },
-            {
-              "id": "step-failure",
-              "tutor_message": "Add failure fallbacks: if AprilTags are not detected (occluded), hold the last known homography. If the drawing surface mask fails, use the full image. If frame capture drops, retry 3 times then alarm. Robust pipelines fail gracefully.",
-              "reflection_question": "What's the maximum tolerable pipeline latency for SketchBot to draw accurately at its operating speed? How did your implemented pipeline compare?",
-              "completion_condition": "student-confirms"
-            }
-          ],
-          "completion_badge": { "id": "badge-cv-pipeline", "name": "Vision Architect", "description": "Built the complete SketchBot CV perception pipeline", "icon": "🔭" },
-          "prerequisite_challenge_ids": ["cv-neural-train"]
+          "completion_badge": {
+            "id": "badge-cg-cslam",
+            "name": "Cone SLAM Master",
+            "description": "Mapped cone positions as SLAM landmarks",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-full-autonomous"
+          ]
         }
       ]
     }

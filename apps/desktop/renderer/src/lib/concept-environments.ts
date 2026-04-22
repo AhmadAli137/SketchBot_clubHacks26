@@ -9,10 +9,7 @@ export type ArenaType =
   | 'sumo'        // circular raised ring
   | 'cone-ring'   // orange cones arranged in gauntlet ring
   | 'maze'        // wall segments forming a navigable maze
-  | 'track'       // curved race track with control nodes
-  | 'lab'         // computer-vision sensor lab
   | 'studio'      // geometry studio with drafting props
-  | 'circuit'     // systems engineering circuit board floor
 
 export type WaypointMarker = {
   x: number;
@@ -90,52 +87,6 @@ function ringCones(count: number, radius: number, scale = 1): ConeProp[] {
 // ─── Environment Registry ─────────────────────────────────────────────────────
 
 export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
-
-  'coord-systems': {
-    label: 'Coordinate Grid Arena',
-    arenaType: 'open',
-    background: '#060a18',
-    fog: ['#060a18', 14, 38],
-    groundColor: '#080c18',
-    gridColor: '#1a2a50',
-    sectionColor: '#2a3e7a',
-    ambientColor: '#c8d4ff',
-    keyLightColor: '#d0e8ff',
-    fillLightColor: '#8ab0ff',
-    accentColor: '#4080ff',
-    waypoints: [
-      { x: -0.8, z: -0.6, color: '#ff4060', label: 'A' },
-      { x: 0.8, z: -0.6, color: '#4080ff', label: 'B' },
-      { x: 0, z: 0.8, color: '#4dffb8', label: 'C' },
-      { x: -0.8, z: 0.6, color: '#ffd440', label: 'D' },
-    ],
-    tutorials: {
-      intuitive: [
-        'Can you tell the robot where point A is on the grid?',
-        'Every spot on the floor has a secret address — try moving your robot to (2, 3).',
-        'What happens when both numbers are negative? Explore the other side!',
-      ],
-      structural: [
-        'Set up the X and Y axes by placing waypoints at each corner.',
-        'Write a command that moves the robot from origin (0,0) to point (3,2).',
-        'Challenge: reach all 4 waypoints in the fewest moves.',
-      ],
-      precise: [
-        'Express each waypoint as a vector from the origin.',
-        'Calculate the Euclidean distance between A and C.',
-        'Prove your path is optimal by comparing |AB| + |BC| vs |AC|.',
-      ],
-    },
-    scoring: {
-      label: 'Navigation Score',
-      metrics: [
-        { name: 'Accuracy', maxPoints: 40, description: 'Stopping within 5 cm of each target' },
-        { name: 'Efficiency', maxPoints: 30, description: 'Total path length vs optimal route' },
-        { name: 'Speed', maxPoints: 20, description: 'Completion time' },
-        { name: 'Concept mastery', maxPoints: 10, description: 'Correctly name all axis directions' },
-      ],
-    },
-  },
 
   'path-planning': {
     label: 'Waypoint Gauntlet',
@@ -221,178 +172,6 @@ export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
         { name: 'Creativity', maxPoints: 30, description: 'Complexity and originality of design' },
         { name: 'Symmetry', maxPoints: 20, description: 'Detected symmetry axes' },
         { name: 'Coverage', maxPoints: 10, description: 'Good use of canvas space' },
-      ],
-    },
-  },
-
-  'computer-vision': {
-    label: 'Vision Lab',
-    arenaType: 'lab',
-    background: '#04081a',
-    fog: ['#04081a', 12, 32],
-    groundColor: '#060a1c',
-    gridColor: '#0a1040',
-    sectionColor: '#101860',
-    ambientColor: '#c0c8ff',
-    keyLightColor: '#d0d8ff',
-    fillLightColor: '#8090ff',
-    accentColor: '#5060ff',
-    waypoints: [
-      { x: -0.7, z: -0.5, color: '#ff2060', label: '◎' },
-      { x: 0.7, z: -0.5, color: '#ff2060', label: '◎' },
-      { x: 0, z: 0.7, color: '#ff2060', label: '◎' },
-    ],
-    tutorials: {
-      intuitive: [
-        'The robot has a camera eye — can it find the red marker?',
-        'Cover one AprilTag and see how the robot reacts!',
-        'How does the robot know which way it is facing?',
-      ],
-      structural: [
-        'Set up the camera calibration block and detect all 4 AprilTags.',
-        'Write code that makes the robot drive toward the biggest colored blob.',
-        'Challenge: detect when the robot crosses a drawn line.',
-      ],
-      precise: [
-        'Implement homographic transformation from camera pixels to world coords.',
-        'Compute the robot pose using PnP from AprilTag corners.',
-        'Kalman filter: fuse odometry and camera pose estimates.',
-      ],
-    },
-    scoring: {
-      label: 'Detection Score',
-      metrics: [
-        { name: 'Tag detection', maxPoints: 40, description: 'AprilTags successfully localized' },
-        { name: 'Pose accuracy', maxPoints: 35, description: 'Position error vs ground truth' },
-        { name: 'Robustness', maxPoints: 25, description: 'Performance under partial occlusion' },
-      ],
-    },
-  },
-
-  'control-theory': {
-    label: 'PID Control Track',
-    arenaType: 'track',
-    background: '#0c0800',
-    fog: ['#0c0800', 14, 38],
-    groundColor: '#100a00',
-    gridColor: '#201400',
-    sectionColor: '#302000',
-    ambientColor: '#ffe8b0',
-    keyLightColor: '#fff0c0',
-    fillLightColor: '#ffc060',
-    accentColor: '#ff8c00',
-    waypoints: [
-      { x: -1.0, z: 0, color: '#ff8c00', label: 'Start' },
-      { x: 1.0, z: 0, color: '#ff4060', label: 'End' },
-    ],
-    tutorials: {
-      intuitive: [
-        'Watch what happens when the robot overshoots the target — it wiggles!',
-        'Can you adjust the sensitivity to make it stop smoothly?',
-        'Imagine you\'re steering a remote-control car — how do you avoid crashing?',
-      ],
-      structural: [
-        'Use the PID sliders to tune Kp, Ki, and Kd.',
-        'Graph the error over time — what shape appears with too much Kp?',
-        'Challenge: reach the target in under 3 seconds with <2 cm overshoot.',
-      ],
-      precise: [
-        'Implement a discrete PID controller: u(t) = Kp·e + Ki·∫e dt + Kd·ė.',
-        'Tune using Ziegler-Nichols method (find Ku and Tu).',
-        'Add anti-windup to clamp the integral term.',
-      ],
-    },
-    scoring: {
-      label: 'Control Score',
-      metrics: [
-        { name: 'Settle time', maxPoints: 35, description: 'Time to reach ±2% of target' },
-        { name: 'Overshoot', maxPoints: 30, description: 'Max overshoot percentage' },
-        { name: 'Steady state', maxPoints: 25, description: 'Final error from target' },
-        { name: 'Tuning insight', maxPoints: 10, description: 'Explanation of each parameter' },
-      ],
-    },
-  },
-
-  'trigonometry-motion': {
-    label: 'Unit Circle Field',
-    arenaType: 'open',
-    background: '#08060e',
-    fog: ['#08060e', 14, 36],
-    groundColor: '#0a0812',
-    gridColor: '#181028',
-    sectionColor: '#241840',
-    ambientColor: '#d0c0ff',
-    keyLightColor: '#e8d8ff',
-    fillLightColor: '#a080ff',
-    accentColor: '#7040ff',
-    waypoints: [
-      { x: 0.9, z: 0, color: '#ff4060', label: '0°' },
-      { x: 0, z: -0.9, color: '#4dffb8', label: '90°' },
-      { x: -0.9, z: 0, color: '#4080ff', label: '180°' },
-      { x: 0, z: 0.9, color: '#ffd440', label: '270°' },
-    ],
-    tutorials: {
-      intuitive: [
-        'Make the robot drive in a circle — what shape appears on the paper?',
-        'Sine and cosine are just the robot\'s X and Y position as it goes around!',
-        'Can you draw a figure-8? What angles does the robot use?',
-      ],
-      structural: [
-        'Use sin(t) and cos(t) to drive in a circle of radius 0.5 m.',
-        'Challenge: draw a spiral by increasing the radius over time.',
-        'Encode a lemniscate (figure-8): x = cos(t), y = sin(2t)/2.',
-      ],
-      precise: [
-        'Derive the wheel velocities for circular motion: v = ωr, Δv = ωd.',
-        'Parametrize a rose curve: r = cos(kθ).',
-        'Implement continuous curvature splines between waypoints.',
-      ],
-    },
-    scoring: {
-      label: 'Curve Score',
-      metrics: [
-        { name: 'Circularity', maxPoints: 40, description: 'How round the circle is (eccentricity)' },
-        { name: 'Radius accuracy', maxPoints: 30, description: 'Target vs actual radius' },
-        { name: 'Smoothness', maxPoints: 30, description: 'Curvature variance along the path' },
-      ],
-    },
-  },
-
-  'systems-engineering': {
-    label: 'Systems Lab',
-    arenaType: 'circuit',
-    background: '#000d0a',
-    fog: ['#000d0a', 14, 36],
-    groundColor: '#001008',
-    gridColor: '#002010',
-    sectionColor: '#003018',
-    ambientColor: '#a0ffd0',
-    keyLightColor: '#c0fff0',
-    fillLightColor: '#40ffb0',
-    accentColor: '#00e870',
-    tutorials: {
-      intuitive: [
-        'Your robot is a system — it has inputs, outputs, and states. Can you name one of each?',
-        'What happens if the battery gets low? Which part of the system changes?',
-        'Draw a block diagram of your robot on the paper!',
-      ],
-      structural: [
-        'Map out subsystems: sensing → planning → actuation.',
-        'Build a finite state machine with three states: Idle, Draw, Return.',
-        'Add an error recovery state that triggers when sensing fails.',
-      ],
-      precise: [
-        'Write a state transition matrix for your FSM.',
-        'Implement a watchdog timer using a hardware interrupt simulation.',
-        'Profile memory and CPU usage per subsystem and identify bottlenecks.',
-      ],
-    },
-    scoring: {
-      label: 'System Score',
-      metrics: [
-        { name: 'Modularity', maxPoints: 35, description: 'Clean separation of subsystems' },
-        { name: 'Robustness', maxPoints: 35, description: 'Handles sensor failures gracefully' },
-        { name: 'Efficiency', maxPoints: 30, description: 'Resource usage per task' },
       ],
     },
   },
@@ -554,7 +333,7 @@ export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
 export function getEnvironment(conceptId: string | null | undefined): ConceptEnvironment {
   return (
     (conceptId ? CONCEPT_ENVIRONMENTS[conceptId] : null) ??
-    CONCEPT_ENVIRONMENTS['coord-systems']!
+    CONCEPT_ENVIRONMENTS['path-planning']!
   );
 }
 
