@@ -24,6 +24,7 @@ import {
   getProgressSummary,
 } from '@/lib/progress-store';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { ClassroomSettingsModal } from '@/components/classroom-settings-modal';
 import { TeacherFeedbackModal } from '@/components/teacher-feedback-modal';
 import type { ChallengePack, ClassroomProfile } from '@/lib/platform-types';
@@ -322,7 +323,7 @@ export function HomeScreen({
       <div className="auth-bg-orb auth-bg-orb-c" />
 
       {/* Top-right toolbar — leave 52px gap on right for the persistent profile button */}
-      <div style={{ position: 'fixed', top: 14, right: 58, display: 'flex', gap: 8, zIndex: 10 }}>
+      <div style={{ position: 'fixed', top: 14, right: 58, display: 'flex', gap: 8, zIndex: 10, alignItems: 'center' }}>
         {role === 'teacher' && (
           <>
             <Button
@@ -365,6 +366,17 @@ export function HomeScreen({
             Switch mode
           </Button>
         )}
+        {role === 'student' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSignOut}
+            style={{ fontSize: '0.75rem', minHeight: 32 } as React.CSSProperties}
+          >
+            Sign out
+          </Button>
+        )}
+        <ThemeToggle />
       </div>
 
       <div className="onboarding-inner">
