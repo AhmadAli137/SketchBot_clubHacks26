@@ -107,6 +107,7 @@ export default function HomePage() {
 
   // ─── Auth / routing state ──────────────────────────────────────────────
   const [view, setView] = useState<AppView>('plan');
+  const [showDifficultyModal, setShowDifficultyModal] = useState(false);
   const [showTeacherDash, setShowTeacherDash] = useState(false);
   const [authMode, setAuthMode] = useState<'personal' | 'teacher'>('teacher');
   const [activeClassSession, setActiveClassSession] = useState<ClassSession | null>(() => getClassSession());
@@ -181,11 +182,15 @@ export default function HomePage() {
       setDifficultyLevel(userName, level);
       setSelectedAgeGroup(level);
     }
-    setView('home');
-    localStorage.setItem(
-      'sketchbot-session-v1',
-      JSON.stringify({ role: userRole, name: userName, view: 'home', email: userEmail || undefined }),
-    );
+    if (showDifficultyModal) {
+      setShowDifficultyModal(false);
+    } else {
+      setView('home');
+      localStorage.setItem(
+        'sketchbot-session-v1',
+        JSON.stringify({ role: userRole, name: userName, view: 'home', email: userEmail || undefined }),
+      );
+    }
   };
 
   const handleClassroomSaved = useCallback((p: ClassroomProfile) => {
@@ -1183,6 +1188,7 @@ export default function HomePage() {
         setLessonPlanActive(false);
         setView('home');
       }}
+      onChangeDifficulty={() => setShowDifficultyModal(true)}
       operatorMode={operator.mock_mode ? 'Practice mode' : 'Live mode'}
       nextActionTitle={nextActionTitle}
       nextActionCopy={nextActionCopy}
@@ -1258,6 +1264,37 @@ export default function HomePage() {
             onSignOut={() => { setAccountPanelOpen(false); handleSignOut(); }}
             onClose={() => setAccountPanelOpen(false)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Difficulty re-assessment modal — accessible from the level dropdown in any session */}
+      <AnimatePresence>
+        {showDifficultyModal && (
+          <motion.div
+            key="difficulty-modal"
+            style={{ position: 'fixed', inset: 0, zIndex: 300 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <DifficultyPicker
+              studentName={userName}
+              onComplete={handleDifficultyComplete}
+            />
+            <button
+              type="button"
+              onClick={() => setShowDifficultyModal(false)}
+              style={{
+                position: 'absolute', top: 18, right: 20, zIndex: 10,
+                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)',
+                borderRadius: 8, padding: '6px 12px', color: 'var(--muted)',
+                fontSize: '0.8rem', cursor: 'pointer',
+              }}
+            >
+              ✕ Cancel
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </GuidedTourProvider>

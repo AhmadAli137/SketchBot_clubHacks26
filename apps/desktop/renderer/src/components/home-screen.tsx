@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText, BookOpen } from 'lucide-react';
+import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText, BookOpen, HelpCircle } from 'lucide-react';
 
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
+import { useGuidedTour } from '@/components/guided-tour/guided-tour-context';
 
 import { ConceptMap } from '@/components/concept-map';
 import { RobotAvatarPreset } from '@/components/robot-avatar-preset';
@@ -109,6 +110,7 @@ export function HomeScreen({
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
   const reducedMotion = usePrefersReducedMotion();
+  const { triggerTour } = useGuidedTour();
 
   const { packs } = useChallenges('sketchbot', apiBase || undefined);
   const difficultyLevel = userName ? (getDifficultyLevel(userName) ?? ageGroup) : ageGroup;
@@ -394,6 +396,17 @@ export function HomeScreen({
           >
             Switch mode
           </Button>
+        )}
+        {(role === 'student' || role === 'guest') && (
+          <button
+            type="button"
+            className="learn-header-help-btn"
+            onClick={() => triggerTour('studentHome')}
+            title="Home screen walkthrough"
+            aria-label="Home screen walkthrough"
+          >
+            <HelpCircle size={14} />
+          </button>
         )}
         <ThemeToggle variant="icon" />
       </div>

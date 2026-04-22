@@ -5306,6 +5306,51 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Dropdown divider + action variant */
+
+.concept-dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 4px 8px;
+}
+
+.concept-dropdown-item-action {
+  color: var(--cyan);
+  opacity: 0.85;
+}
+
+.concept-dropdown-item-action:hover {
+  opacity: 1;
+  background: rgba(93, 228, 255, 0.1);
+}
+
+.concept-dropdown-emoji svg {
+  display: block;
+  margin: auto;
+}
+
+/* Header help / tour button */
+
+.learn-header-help-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.learn-header-help-btn:hover {
+  background: rgba(93, 228, 255, 0.1);
+  border-color: rgba(93, 228, 255, 0.3);
+  color: var(--cyan);
+}
+
 /* Age group selector in header */
 .learn-age-selector {
   display: flex;

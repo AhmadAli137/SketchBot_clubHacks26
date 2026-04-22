@@ -65,6 +65,7 @@ export type StudentDashboardProps = {
   userRole?: 'teacher' | 'student' | 'guest';
   onConceptSelect?: (conceptId: string, conceptTitle: string) => void;
   onBackToHome?: () => void;
+  onChangeDifficulty?: () => void;
   onActivateCompanionCamera: () => void;
   onActivateBrowserCamera: () => void;
   onDeactivateCamera: () => void;
@@ -104,6 +105,7 @@ export type LearningHeaderProps = {
   onConceptSelect?: (conceptId: string, conceptTitle: string) => void;
   onToggleSystemStatus: () => void;
   onClosePopover: () => void;
+  onChangeDifficulty?: () => void;
 };
 
 export type LearningStageProps = {

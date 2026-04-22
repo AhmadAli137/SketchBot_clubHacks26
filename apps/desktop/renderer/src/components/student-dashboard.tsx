@@ -82,6 +82,7 @@ export function StudentDashboard({
   userRole = 'student',
   onConceptSelect,
   onBackToHome,
+  onChangeDifficulty,
   onVideoMount,
   onActivateCompanionCamera,
   onActivateBrowserCamera,
@@ -121,7 +122,7 @@ export function StudentDashboard({
   const [blockRunnerNotice, setBlockRunnerNotice] = useState<string | null>(null);
   const [tutorCollapsed, setTutorCollapsed] = useState(false);
   const [primaryTab, setPrimaryTab] = useState<WorkspaceTab>('simulator');
-  const [secondaryTab, setSecondaryTab] = useState<WorkspaceTab | null>(null);
+  const [secondaryTab, setSecondaryTab] = useState<WorkspaceTab | null>('programming');
   const [showPromptGallery, setShowPromptGallery] = useState(false);
   const workspaceCameraRef = useRef<HTMLDivElement | null>(null);
 
@@ -133,6 +134,10 @@ export function StudentDashboard({
   useEffect(() => {
     if (activeChallengeId) { setEffectiveChallengeId(activeChallengeId); return; }
   }, [activeChallengeId]);
+  // Reset when concept changes so the auto-detect picks the right challenge
+  useEffect(() => {
+    if (!activeChallengeId) setEffectiveChallengeId(null);
+  }, [conceptId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (effectiveChallengeId) return;
     if (!conceptId || challengePacks.length === 0) return;
@@ -670,6 +675,7 @@ export function StudentDashboard({
         onConceptSelect={onConceptSelect}
         onToggleSystemStatus={() => setShowSystemStatus((v) => !v)}
         onClosePopover={() => setShowSystemStatus(false)}
+        onChangeDifficulty={onChangeDifficulty}
       />
 
       {entitlements?.status === 'trialing' && entitlements.trial_end && (() => {

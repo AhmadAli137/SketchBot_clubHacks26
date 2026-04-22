@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 
 import type { AuthRole } from '@/components/auth-screen';
 import { GuidedTourOverlay, type TourPhase } from '@/components/guided-tour/guided-tour-overlay';
-import { GUIDED_TOUR_STORAGE, stepsForFlow, storageKeyForFlow } from '@/lib/guided-tour/config';
+import { GuidedTourContext } from '@/components/guided-tour/guided-tour-context';
+import { GUIDED_TOUR_STORAGE, stepsForFlow, storageKeyForFlow, resetTour } from '@/lib/guided-tour/config';
 import type { TourFlowId } from '@/lib/guided-tour/types';
 
 type AppView = 'auth' | 'home' | 'session';
@@ -131,8 +132,14 @@ export function GuidedTourProvider({
     });
   }, []);
 
+  // Public API: any child can call this to re-trigger any tour
+  const triggerTour = useCallback((flow: TourFlowId) => {
+    resetTour(flow);
+    setPhase({ kind: 'intro', flow });
+  }, []);
+
   return (
-    <>
+    <GuidedTourContext.Provider value={{ triggerTour }}>
       {children}
       <GuidedTourOverlay
         phase={phase}
@@ -142,6 +149,6 @@ export function GuidedTourProvider({
         onStepBack={onStepBack}
         onStepNext={onStepNext}
       />
-    </>
+    </GuidedTourContext.Provider>
   );
 }

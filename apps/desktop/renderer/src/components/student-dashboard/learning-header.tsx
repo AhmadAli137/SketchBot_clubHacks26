@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, ChevronDown, Map, Flame } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Map, Flame, HelpCircle, BarChart2 } from 'lucide-react';
 
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
+import { useGuidedTour } from '@/components/guided-tour/guided-tour-context';
 
 import { Button } from '@/components/ui/button';
 import { AiboticsLogo } from '@/components/aibotics-logo';
@@ -41,7 +42,9 @@ export function LearningHeader({
   onConceptSelect,
   onToggleSystemStatus,
   onClosePopover,
+  onChangeDifficulty,
 }: LearningHeaderProps) {
+  const { triggerTour } = useGuidedTour();
   const reducedMotion = usePrefersReducedMotion();
   const systemPanelRef = useRef<HTMLDivElement | null>(null);
   const conceptDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -213,6 +216,25 @@ export function LearningHeader({
                   </div>
                 </button>
               ))}
+              {onChangeDifficulty && (
+                <>
+                  <div className="concept-dropdown-divider" />
+                  <button
+                    type="button"
+                    className="concept-dropdown-item concept-dropdown-item-action"
+                    onClick={() => {
+                      setShowAgeDropdown(false);
+                      onChangeDifficulty();
+                    }}
+                  >
+                    <span className="concept-dropdown-emoji"><BarChart2 size={14} /></span>
+                    <div className="concept-dropdown-text">
+                      <span className="concept-dropdown-title">Re-take level assessment</span>
+                      <span className="concept-dropdown-sub">Confirm or change your tier</span>
+                    </div>
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -271,6 +293,16 @@ export function LearningHeader({
           <Map size={13} />
           Map
         </Button>
+
+        <button
+          type="button"
+          className="learn-header-help-btn"
+          onClick={() => triggerTour('studentSession')}
+          title="Workspace walkthrough"
+          aria-label="Workspace walkthrough"
+        >
+          <HelpCircle size={14} />
+        </button>
 
       </header>
 
