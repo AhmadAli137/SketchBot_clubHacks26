@@ -21,7 +21,7 @@ class Settings:
         )
         self.cors_origin_regex = os.getenv(
             "CLOUD_CORS_ORIGIN_REGEX",
-            r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://.*\.aibotics\.app$|^app://localhost$",
+            r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://.*\.aibotics\.app$|^https://.*\.vercel\.app$|^app://localhost$",
         )
         self.data_file = Path(
             os.getenv(

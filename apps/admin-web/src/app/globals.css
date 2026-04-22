@@ -712,8 +712,8 @@ body::before {
 .plan-tagline { font-size: 0.8rem; color: var(--muted-2); line-height: 1.45; }
 
 .plan-price-block { display: flex; flex-direction: column; gap: 2px; }
-.plan-price { font-size: 1.65rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; line-height: 1.1; }
-.plan-price-note { font-size: 0.75rem; color: var(--muted); line-height: 1.3; }
+.plan-price { font-size: 1.35rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; line-height: 1.1; }
+.plan-price-note { font-size: 0.72rem; color: var(--muted); line-height: 1.3; white-space: nowrap; }
 
 .plan-divider { height: 1px; background: var(--border); }
 
