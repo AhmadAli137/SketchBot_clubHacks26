@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { CLOUD_API_URL } from './cloud-api';
 import type { ChallengePack, Subject } from './platform-types';
+import staticChallenges from './challenges-data.json';
 
 const CACHE_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -90,11 +91,10 @@ export function useChallenges(robotId = 'sketchbot', localApiBase?: string) {
     let cancelled = false;
     (async () => {
       try {
-        // Priority: local runtime → cloud API → bundled static file (always works)
+        // Priority: local runtime → cloud API → bundled static import (always works)
         const urls = [
           localApiBase ? `${localApiBase}/api/challenges/${robotId}` : null,
           `${CLOUD_API_URL}/api/challenges/${robotId}`,
-          '/challenges.json', // static fallback bundled with the renderer
         ].filter(Boolean) as string[];
 
         let mapped: ChallengePack[] | null = null;
@@ -105,6 +105,12 @@ export function useChallenges(robotId = 'sketchbot', localApiBase?: string) {
           } catch {
             // try next source
           }
+        }
+
+        // Guaranteed fallback: challenges bundled directly into the JS bundle
+        if (!mapped || mapped.length === 0) {
+          const raw = (staticChallenges as { packs?: Record<string, unknown>[] }).packs ?? [];
+          mapped = raw.map(fromApiPack);
         }
 
         if (!cancelled && mapped && mapped.length > 0) {

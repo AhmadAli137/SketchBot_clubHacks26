@@ -1,0 +1,3635 @@
+{
+  "packs": [
+    {
+      "id": "free-draw",
+      "concept_id": "free-draw",
+      "robot_id": "sketchbot",
+      "name": "Free Draw Studio",
+      "description": "Open-ended creative challenges. Express yourself, discover math through art, and push the robot to its limits.",
+      "challenges": [
+        {
+          "id": "fd-first-doodle",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "First Doodle",
+          "subtitle": "Let the robot draw anything",
+          "description": "No instructions, no rules — just ask SketchBot to draw something and see what it creates. Your first creative conversation.",
+          "subjects": [
+            "art"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 5,
+          "learning_objectives": [
+            "Send a drawing prompt to a robot",
+            "Observe how AI interprets natural language"
+          ],
+          "steps": [
+            {
+              "id": "step-hello",
+              "tutor_message": "Hi! I'm Sketch. I can draw almost anything — animals, landscapes, symbols, abstract shapes. What should I draw first? Type anything you like!",
+              "student_prompt": "Type what you'd like me to draw.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Here we go!",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "{{student_input}}"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "What do you think? Did I draw what you imagined, or something different? Try describing it differently and see if my next drawing changes.",
+              "reflection_question": "What words would make your prompt more specific so I draw exactly what you picture?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-first-doodle",
+            "name": "First Stroke",
+            "description": "Sent the first drawing prompt",
+            "icon": "✏️"
+          },
+          "prerequisite_challenge_ids": []
+        },
+        {
+          "id": "fd-shape-alphabet",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Shape Alphabet",
+          "subtitle": "Build letters from geometric shapes",
+          "description": "Every letter in the alphabet can be built from lines, circles, and arcs. Can you design one?",
+          "subjects": [
+            "art",
+            "math"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 8,
+          "learning_objectives": [
+            "Recognize geometric primitives in everyday objects",
+            "Decompose complex shapes into parts"
+          ],
+          "steps": [
+            {
+              "id": "step-think",
+              "tutor_message": "Look at the letter 'A'. It's two diagonal lines and one horizontal line in the middle. Every letter is secretly a geometry problem! Which letter do you want to build?",
+              "reflection_question": "What basic shapes (lines, curves, circles) make up your chosen letter?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Great pick! I'll draw your letter using only geometric shapes — no cheating with fancy fonts.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "the letter {{student_input}} drawn large and clearly using only straight lines and circular arcs, centered on the page"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 75
+            },
+            {
+              "id": "step-count",
+              "tutor_message": "Count the segments in my drawing. How many lines? How many curves? That's how many basic commands I needed.",
+              "reflection_question": "Which letter do you think would need the fewest geometric pieces? Which would need the most?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-shape-alpha",
+            "name": "Type Designer",
+            "description": "Built a letter from geometry",
+            "icon": "🔤"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-first-doodle"
+          ]
+        },
+        {
+          "id": "fd-trace-outline",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Silhouette Sketch",
+          "subtitle": "Draw the outline of an animal",
+          "description": "A silhouette captures the essential shape of something with a single unbroken line. Choose an animal and see how little detail is needed to recognize it.",
+          "subjects": [
+            "art"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 7,
+          "learning_objectives": [
+            "Understand contour drawing",
+            "Identify key features that make a shape recognizable"
+          ],
+          "steps": [
+            {
+              "id": "step-guess",
+              "tutor_message": "I'm going to draw a silhouette — just an outline, no details inside. What animal do you want? Pick something with a distinctive shape like a cat, elephant, or shark.",
+              "student_prompt": "Name an animal for the silhouette.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 20
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Drawing the silhouette now — just one clean outline!",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a simple clean silhouette outline of a {{student_input}}, single continuous stroke, no internal details"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "Show the drawing to someone nearby without telling them the animal. Can they guess what it is? A good silhouette only needs the most important curves.",
+              "reflection_question": "What one feature makes your animal instantly recognizable — ears, tail, beak?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-silhouette",
+            "name": "Contour Artist",
+            "description": "Captured an animal in pure outline",
+            "icon": "🦁"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-first-doodle"
+          ]
+        },
+        {
+          "id": "fd-color-zones",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Zone Map",
+          "subtitle": "Divide the page into regions",
+          "description": "Artists and mapmakers both think in zones. Design a page layout that divides the paper into distinct areas — then fill each with a different pattern.",
+          "subjects": [
+            "art",
+            "math"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 12,
+          "learning_objectives": [
+            "Understand area and partitioning",
+            "Combine geometric shapes to fill a space"
+          ],
+          "steps": [
+            {
+              "id": "step-plan",
+              "tutor_message": "Imagine the page as a city map — different districts, each with its own character. Tell me how many zones you want and any shapes you have in mind: circles, triangles, stripes?",
+              "student_prompt": "Describe your zone layout (e.g., '4 quadrants' or '3 circles inside each other').",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Laying out your zones now — I'll fill each one with a different hatching or dot pattern so they're easy to tell apart.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a page divided into {{student_input}} zones, each filled with a distinct repeating pattern: hatching, dots, cross-hatch, or waves"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "Which zone has the most ink on it? Which has the least? Artists use this to guide the viewer's eye — busy zones grab attention first.",
+              "reflection_question": "If this were a real map, what would each zone represent?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-zone-map",
+            "name": "Zone Planner",
+            "description": "Designed a multi-zone page layout",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-first-doodle"
+          ]
+        },
+        {
+          "id": "fd-pattern-tile",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Pattern Tile",
+          "subtitle": "Design a repeating tile",
+          "description": "Wallpaper, fabric, and floor tiles all use one simple trick: repeat a small pattern endlessly. Design a tile and let SketchBot fill the page with it.",
+          "subjects": [
+            "art",
+            "math"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 10,
+          "learning_objectives": [
+            "Understand tiling and repetition",
+            "Recognize translational symmetry"
+          ],
+          "steps": [
+            {
+              "id": "step-design",
+              "tutor_message": "A tile pattern starts with one small unit that can repeat without gaps or overlaps. It could be a star, a diamond, a leaf — anything that can tessellate. What's your tile?",
+              "student_prompt": "Describe the shape for your repeating tile.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Stamping your tile across the whole page now!",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a seamless repeating tile pattern filling the full page, based on {{student_input}} shapes arranged in a grid with no gaps"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "Look at the full pattern — can you still see individual tiles, or does it look like one continuous texture? That's the magic of a good tile.",
+              "reflection_question": "How would the pattern change if you rotated each tile 45°?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-tile",
+            "name": "Pattern Maker",
+            "description": "Designed a repeating tile pattern",
+            "icon": "🔲"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-color-zones"
+          ]
+        },
+        {
+          "id": "fd-robot-story",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Robot Story Strip",
+          "subtitle": "A 3-panel comic about a robot",
+          "description": "Every comic strip tells a story in three frames: setup, conflict, resolution. Script a 3-panel robot adventure and let SketchBot illustrate it.",
+          "subjects": [
+            "art"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 15,
+          "learning_objectives": [
+            "Understand narrative structure",
+            "Communicate ideas visually across panels"
+          ],
+          "steps": [
+            {
+              "id": "step-script",
+              "tutor_message": "Every great story needs three beats: something starts, something goes wrong (or surprising), then it resolves. What happens in your robot story? Give me three sentences — one per panel.",
+              "student_prompt": "Write three sentences for your comic strip panels.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Drawing your 3-panel strip now. Each panel will be a simple scene in a bordered box.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a 3-panel comic strip with bordered boxes: panel 1 — {{panel_1}}, panel 2 — {{panel_2}}, panel 3 — {{panel_3}}, simple clear line art"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 150
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "Show it to someone — do they understand the story without you explaining it? Good visual storytelling doesn't need words.",
+              "reflection_question": "What would you add or change in the middle panel to make the conflict more dramatic?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-comic",
+            "name": "Storyteller",
+            "description": "Wrote and illustrated a robot comic",
+            "icon": "📖"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-pattern-tile"
+          ]
+        },
+        {
+          "id": "fd-spirograph",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Spirograph",
+          "subtitle": "Circular motion makes complex curves",
+          "description": "A spirograph is a circle rolling inside another circle — the pen traces a path called a hypotrochoid. Change the ratio of radii and the whole pattern transforms.",
+          "subjects": [
+            "math",
+            "art"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 20,
+          "learning_objectives": [
+            "Understand parametric equations",
+            "See how simple rules produce complex patterns",
+            "Explore ratio relationships"
+          ],
+          "steps": [
+            {
+              "id": "step-ratio",
+              "tutor_message": "A spirograph has two numbers: the outer radius R and the inner radius r. The ratio R/r determines how many petals appear. Try R=5, r=3 — that gives a 5-petal flower. Change r to 2 and it becomes 5 loops. What ratio do you want to try?",
+              "student_prompt": "Choose R (outer, e.g. 5) and r (inner, e.g. 3).",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Calculating the hypotrochoid path and drawing it now — watch the pattern emerge!",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a hypotrochoid spirograph with outer radius {{R}} and inner radius {{r}}, centered on the page, single continuous line"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-predict",
+              "tutor_message": "How many lobes did you get? It should equal R — gcd(R,r)... divided into some whole number. Try a different ratio and predict the petal count before I draw.",
+              "reflection_question": "What happens when R and r share no common factors (like 5 and 7)? How many times does the pen have to loop before the pattern closes?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-spirograph",
+            "name": "Curve Explorer",
+            "description": "Generated a hypotrochoid spirograph",
+            "icon": "🌀"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-pattern-tile"
+          ]
+        },
+        {
+          "id": "fd-pixel-art",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Pixel Art",
+          "subtitle": "Draw on a grid like early video games",
+          "description": "Early video games had tiny screens — 8×8 or 16×16 pixels. Every character had to be designed on a grid. Design yours and let SketchBot render it full-size.",
+          "subjects": [
+            "art",
+            "coding"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 18,
+          "learning_objectives": [
+            "Understand raster graphics and pixel coordinates",
+            "Design within constraints",
+            "Connect art to computer graphics fundamentals"
+          ],
+          "steps": [
+            {
+              "id": "step-grid",
+              "tutor_message": "I'm going to draw a 16×16 grid on the paper first. Each square is one 'pixel'. You'll describe which pixels to fill in — or just tell me what the image should be and I'll design it.",
+              "student_prompt": "What should the pixel art image be? (Or describe a pattern)",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Rendering your pixel art on the grid now — each filled square gets a solid black fill.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a 16x16 pixel art grid on the page with a {{student_input}} design, each pixel is a small filled square, clean grid lines"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 150
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "Step back a few feet from the paper. Can you see the image more clearly from a distance? That's exactly how a screen works — your eye blends the squares together.",
+              "reflection_question": "Original Game Boy had a 160×144 pixel screen. How many of your 16×16 tiles would fit on it?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-pixel",
+            "name": "Pixel Artist",
+            "description": "Created pixel art on a drawn grid",
+            "icon": "👾"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-spirograph"
+          ]
+        },
+        {
+          "id": "fd-rose-curve",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Mathematical Rose",
+          "subtitle": "r = cos(n·θ) — petals from an equation",
+          "description": "The equation r = cos(nθ) in polar coordinates draws a perfect rose. One number — n — controls everything: even n gives 2n petals, odd n gives n petals.",
+          "subjects": [
+            "math",
+            "art"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 22,
+          "learning_objectives": [
+            "Understand polar coordinates",
+            "Connect trigonometric functions to geometry",
+            "Explore even/odd petal rule"
+          ],
+          "steps": [
+            {
+              "id": "step-explain",
+              "tutor_message": "In polar coordinates, a point is described by (r, θ) — distance from center and angle. The equation r = cos(nθ) traces a path as θ sweeps from 0° to 360°. When n=3, you get 3 petals. When n=4, you get 8! Try n=5.",
+              "student_prompt": "Choose n (e.g. 3, 4, 5, 6, 7).",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Plotting r = cos({{n}}·θ) from 0 to 2π now.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a mathematical rose curve r = cos({{n}} * theta) in polar coordinates, centered on the page, clean single-line drawing, {{n}}-petal rose if odd or {{n*2}}-petal if even"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-predict",
+              "tutor_message": "Count the petals! Did you get n petals (for odd n) or 2n petals (for even n)? Now predict: what will n=6 look like before I draw it?",
+              "reflection_question": "Try r = sin(nθ) instead of cos — how does that change the orientation of the rose?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-rose",
+            "name": "Polar Explorer",
+            "description": "Drew a polar rose with trigonometry",
+            "icon": "🌸"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-spirograph"
+          ]
+        },
+        {
+          "id": "fd-tessellation",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Tessellation",
+          "subtitle": "Tile the plane — no gaps, no overlaps",
+          "description": "M.C. Escher filled pages with interlocking lizards and birds. The secret is a shape that tiles perfectly. There are only three regular polygons that can tile a plane — can you name them?",
+          "subjects": [
+            "math",
+            "art"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 18,
+          "learning_objectives": [
+            "Identify which regular polygons tessellate",
+            "Understand interior angle sum at a vertex",
+            "Recognize Escher-style transformation tilings"
+          ],
+          "steps": [
+            {
+              "id": "step-why",
+              "tutor_message": "For a shape to tile with no gaps, its interior angles must add up to exactly 360° at every meeting point. A triangle has 60° angles — six fit perfectly. A square has 90° — four fit. A hexagon has 120° — three fit. A pentagon has 108° — try fitting three: 108×3 = 324°. Gap!",
+              "reflection_question": "Why can't regular pentagons tile a flat plane?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Drawing a hexagonal honeycomb tessellation — the most efficient tiling in nature.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a regular hexagonal tessellation (honeycomb) filling the full page, all hexagons equal size, no gaps, clean line art"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-escher",
+              "tutor_message": "Escher modified tiles by adding bumps and notches that interlock — so adjacent tiles 'grip' each other like puzzle pieces. Imagine cutting a notch from one side and adding it to the opposite side of a square. The area stays the same, but it looks like an animal!",
+              "reflection_question": "Sketch on paper: take a square tile and make one modification so it could look like a bird or fish when repeated.",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-tess",
+            "name": "Plane Filler",
+            "description": "Explored the math of tessellation",
+            "icon": "🔷"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-rose-curve"
+          ]
+        },
+        {
+          "id": "fd-motion-trail",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Motion Trail",
+          "subtitle": "Visualize a moving path as a drawing",
+          "description": "Animators use motion trails to show speed and direction. Program a sequence of moves and let the pen trace the robot's path — the drawing IS the data.",
+          "subjects": [
+            "art",
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 15,
+          "learning_objectives": [
+            "Represent motion as a data trace",
+            "Understand velocity and direction changes in a visual medium"
+          ],
+          "steps": [
+            {
+              "id": "step-choreograph",
+              "tutor_message": "I'm going to move around the paper while the pen is down. You write the choreography: a sequence of moves like 'forward 10cm, turn right 45°, forward 5cm…' — the drawing will record exactly where I went.",
+              "student_prompt": "Write a sequence of moves (forward, backward, turn left/right with distances and angles).",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Executing your choreography now — the pen records every step.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a continuous motion trail path based on the following movement sequence: {{student_input}}, drawn as a single pen trace on the page"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-analyze",
+              "tutor_message": "Look at the trail. Where are the corners? Where does it look like I was going fast vs slow? You can read a robot's behavior from its ink path.",
+              "reflection_question": "What sequence of moves would draw a perfect spiral outward from the center?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-trail",
+            "name": "Path Tracer",
+            "description": "Visualized a robot motion sequence as a drawing",
+            "icon": "〰️"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-tessellation"
+          ]
+        },
+        {
+          "id": "fd-bezier",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Bézier Curves",
+          "subtitle": "Smooth curves from control points",
+          "description": "Every font, car body, and animation path uses Bézier curves. Two anchor points and one or two control points — pull the curve like a rubber band.",
+          "subjects": [
+            "math",
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 25,
+          "learning_objectives": [
+            "Understand linear interpolation and De Casteljau's algorithm",
+            "Relate control points to curve shape",
+            "Recognize Bézier curves in real-world design"
+          ],
+          "steps": [
+            {
+              "id": "step-casteljau",
+              "tutor_message": "A quadratic Bézier curve has three points: P0 (start), P1 (control), P2 (end). At time t, you interpolate between P0→P1 to get Q, and P1→P2 to get R, then interpolate Q→R. Sweep t from 0 to 1 and you trace the curve. It's recursive interpolation — elegant!",
+              "reflection_question": "If P1 is exactly between P0 and P2, what does the curve look like? What if P1 is very far to one side?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Drawing a cubic Bézier art composition — multiple curves flowing together like a ribbon.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "an abstract composition of flowing cubic Bezier curves, smooth S-curves and loops, balanced across the page, single-line elegant art"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-design",
+              "tutor_message": "Font designers place control points to shape every letter. The letter 'S' is two Bézier curves connected. Try sketching control points on paper for one letter, then I'll draw it.",
+              "student_prompt": "Describe where to place the control points for a letter of your choice.",
+              "reflection_question": "Why do professional designers prefer Bézier curves over freehand paths for logos?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-bezier",
+            "name": "Curve Sculptor",
+            "description": "Mastered control-point curve design",
+            "icon": "🎨"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-motion-trail"
+          ]
+        },
+        {
+          "id": "fd-lissajous",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Lissajous Figures",
+          "subtitle": "Two sine waves collide on paper",
+          "description": "When you combine two sine waves at right angles — one for X, one for Y — the robot traces a Lissajous figure. Change the frequency ratio and a completely different shape emerges.",
+          "subjects": [
+            "math",
+            "science"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 22,
+          "learning_objectives": [
+            "Understand parametric motion from two oscillations",
+            "Relate frequency ratio to curve complexity",
+            "Connect to oscilloscope Lissajous patterns in electronics"
+          ],
+          "steps": [
+            {
+              "id": "step-equations",
+              "tutor_message": "x(t) = A·sin(a·t + δ), y(t) = B·sin(b·t). The ratio a:b decides everything. 1:1 = ellipse, 1:2 = figure-8, 2:3 = a pretzel, 3:5 = a complex knot. The phase δ rotates the whole figure. What ratio do you want?",
+              "student_prompt": "Choose frequency ratio a:b (e.g. 1:2, 3:4, 2:5) and a phase angle δ (0, 45, 90).",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Plotting x = sin({{a}}·t), y = sin({{b}}·t + {{delta}}°) as t goes from 0 to 2π.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a Lissajous figure with frequency ratio {{a}}:{{b}} and phase shift {{delta}} degrees, centered on the page, single closed or open curve"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 100
+            },
+            {
+              "id": "step-oscilloscope",
+              "tutor_message": "Oscilloscopes display voltage vs voltage — exactly a Lissajous figure. Technicians use it to measure the frequency ratio between two signals by counting loops. How many loops cross the vertical axis in your drawing?",
+              "reflection_question": "The loop count on the vertical axis equals the ratio 'a'. Does your drawing confirm this?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-lissajous",
+            "name": "Wave Artist",
+            "description": "Combined two sine waves into art",
+            "icon": "〽️"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-bezier"
+          ]
+        },
+        {
+          "id": "fd-fourier",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Fourier Sketch",
+          "subtitle": "Approximate any shape with sine waves",
+          "description": "Any shape can be approximated by adding up sine waves of different frequencies — this is Fourier synthesis. Add more waves, get more detail. This is how MP3s and JPEGs work.",
+          "subjects": [
+            "math",
+            "science",
+            "coding"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 28,
+          "learning_objectives": [
+            "Understand superposition of waves",
+            "See how frequency components build a waveform",
+            "Connect to audio/image compression concepts"
+          ],
+          "steps": [
+            {
+              "id": "step-superposition",
+              "tutor_message": "Start with one sine wave — a smooth bump. Add a second at 3× the frequency (1/3 the amplitude): the wave gets steeper. Add a 5th harmonic: steeper again. By the time you've added ~20 harmonics, you have a nearly perfect square wave. This is Fourier series!",
+              "reflection_question": "Why would you want to represent a square wave as a sum of smooth sine waves?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Drawing the first 5 harmonics of a square wave superimposed — you'll see the Gibbs ringing phenomenon at the edges.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a graph showing the Fourier series approximation of a square wave using 5 harmonics — show each sine wave individually and their sum as a thicker line, labeled axes"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 150
+            },
+            {
+              "id": "step-jpeg",
+              "tutor_message": "JPEG images compress photos by storing only the most important Fourier components (using cosines). A low-quality JPEG has fewer components — that's why it looks blocky. The blockiness IS the Gibbs phenomenon you just saw.",
+              "reflection_question": "Audio compression (MP3) removes high-frequency components you can barely hear. What are the tradeoffs of removing too many?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-fourier",
+            "name": "Harmonic Engineer",
+            "description": "Built a shape from sine waves",
+            "icon": "🎵"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-lissajous"
+          ]
+        },
+        {
+          "id": "fd-fractal-tree",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Fractal Tree",
+          "subtitle": "Recursion draws a forest",
+          "description": "A fractal tree is defined by one rule repeated forever: split each branch into two smaller branches at an angle. The result looks exactly like a real tree — because real trees use the same rule.",
+          "subjects": [
+            "math",
+            "coding",
+            "science"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 25,
+          "learning_objectives": [
+            "Understand recursive algorithms",
+            "Recognize self-similarity in nature",
+            "Tune branching parameters to change tree shape"
+          ],
+          "steps": [
+            {
+              "id": "step-recursion",
+              "tutor_message": "Recursion means a function that calls itself. Draw a trunk. At the top, draw two branches each at 30° from vertical, each 70% as long as the trunk. Then repeat for each branch. After 8 levels, you have 2^8 = 256 twigs — from one simple rule.",
+              "student_prompt": "Choose: branch angle (10–45°), length ratio (50–80%), and number of levels (4–9).",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Running the recursive branching algorithm now — {{levels}} levels deep.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a fractal binary tree: trunk from bottom center, each branch splits into two at {{angle}} degrees, each child is {{ratio}}% the length, {{levels}} recursive levels, detailed fine lines"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-nature",
+              "tutor_message": "Real trees use a similar algorithm — with randomness added. The branching angle, ratio, and number of splits vary slightly each time, giving organic irregularity. Your tree is deterministic; a real tree is stochastic.",
+              "reflection_question": "How would you add randomness to make the tree look more natural? What parameter would you randomize?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-fractal",
+            "name": "Recursive Thinker",
+            "description": "Generated a fractal tree from a simple rule",
+            "icon": "🌳"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-fourier"
+          ]
+        },
+        {
+          "id": "fd-parametric-3d",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "3D on Paper",
+          "subtitle": "Project a 3D surface onto 2D",
+          "description": "3D graphics engines project 3D points onto a 2D screen using matrix math. SketchBot can do the same — project a 3D wireframe onto the flat paper.",
+          "subjects": [
+            "math",
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 30,
+          "learning_objectives": [
+            "Understand 3D→2D projection matrices",
+            "Visualize orthographic vs perspective projection",
+            "Implement rotation and projection by hand"
+          ],
+          "steps": [
+            {
+              "id": "step-projection",
+              "tutor_message": "To draw a 3D point (x,y,z) on paper: in orthographic projection, just drop z → draw (x,y). In perspective, divide by z: draw (x/z, y/z). Perspective makes far things smaller — orthographic doesn't. Which would you use for architecture drawings? For a map?",
+              "reflection_question": "Why does perspective projection require dividing by z, and what happens when z approaches 0?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Drawing a rotating wireframe cube projected onto the paper — I'll show it at three different rotation angles side by side.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "three wireframe cubes in a row, each rotated 30° more around the Y-axis, drawn using perspective projection with vanishing point, clean line art, visible hidden edges dashed"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-matrix",
+              "tutor_message": "Every rotation is a 3×3 matrix multiplication. Rx rotates around X, Ry around Y, Rz around Z. Chain them together and you rotate in any direction. Game engines do this millions of times per second for every vertex on screen.",
+              "reflection_question": "What happens to the projection when you rotate the cube exactly 90° — can you predict which faces disappear?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-3d",
+            "name": "Dimension Bender",
+            "description": "Projected 3D geometry onto 2D paper",
+            "icon": "📐"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-fractal-tree"
+          ]
+        },
+        {
+          "id": "fd-l-system",
+          "pack_id": "free-draw",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "L-System Plants",
+          "subtitle": "Grammar rules grow a plant",
+          "description": "Lindenmayer systems (L-systems) use string-rewriting rules to model plant growth. Start with 'F', apply rules like F→FF+F, and interpret the result as drawing commands. Nature in code.",
+          "subjects": [
+            "math",
+            "coding",
+            "science"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 35,
+          "learning_objectives": [
+            "Understand formal grammars and string rewriting",
+            "Implement a turtle-graphics interpreter",
+            "Model biological growth computationally"
+          ],
+          "steps": [
+            {
+              "id": "step-grammar",
+              "tutor_message": "An L-system has: an axiom (starting string), production rules (replacements), and an interpretation (F = draw forward, + = turn right, - = turn left, [ = save position, ] = restore). Axiom: F. Rule: F → F[+F]F[-F]F. After 3 iterations this becomes a branching plant. Want to try it?",
+              "student_prompt": "Choose iteration depth (2–5) and turn angle (15–45°). Or write your own rule.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Expanding the L-system grammar {{depth}} times and drawing the result as turtle graphics.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "an L-system plant drawing using {{depth}} iterations of the rule F→F[+F]F[-F]F, turn angle {{angle}} degrees, starting from the bottom center, branching plant silhouette, fine lines"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 200
+            },
+            {
+              "id": "step-biomorphic",
+              "tutor_message": "The paper 'Algorithmic Beauty of Plants' by Prusinkiewicz (1990) used L-systems to model hundreds of plant species — each with slightly different rules. The same math that grows a fern also grows a coral. Biological growth IS computation.",
+              "reflection_question": "How would you modify the rule to make the plant grow wider at the base and thinner at the top?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-lsystem",
+            "name": "Botanical Programmer",
+            "description": "Grew a plant with a grammar rule",
+            "icon": "🌿"
+          },
+          "prerequisite_challenge_ids": [
+            "fd-parametric-3d"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sumo-arena",
+      "concept_id": "sumo-arena",
+      "robot_id": "sketchbot",
+      "name": "Sumo Arena",
+      "description": "Design and program a sumo robot — master pushing, edge detection, and real-time strategy.",
+      "challenges": [
+        {
+          "id": "su-meet-ring",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Meet the Ring",
+          "subtitle": "Rules of the sumo arena",
+          "description": "Before your robot fights, you need to know the battlefield. Learn the ring's layout, the white edge line, and what it means to lose.",
+          "subjects": [
+            "engineering"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 8,
+          "learning_objectives": [
+            "Understand sumo competition rules",
+            "Identify the ring boundary and its detection role",
+            "Define win/loss conditions"
+          ],
+          "steps": [
+            {
+              "id": "step-rules",
+              "tutor_message": "In robot sumo, the arena is a black circle with a white ring around the edge. Your robot wins by pushing the opponent out — but if any part of your robot crosses the white line, YOU lose. The white line is both a weapon and a trap.",
+              "reflection_question": "Why is the white line at the EDGE rather than in the center? What strategic role does it play?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-sensors",
+              "tutor_message": "Sumo robots usually have two types of sensors: line sensors underneath (detect the white edge) and range sensors in front (detect the opponent). Let's test the line sensors by slowly driving to the edge. Watch what happens when I hit white.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a top-down diagram of a sumo ring: black circle, white border ring, robot position in center, arrows showing sensor detection zones (front: rangefinder, bottom: line sensor)"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "The diagram shows two detection zones. A real sumo robot reacts to the line sensor BEFORE the wheel crosses it — it needs to be a tiny bit ahead. That's called a safety margin.",
+              "reflection_question": "If the line sensor is 3cm from the front wheel and the robot moves at 0.5m/s, how many milliseconds does the code have to react before a wheel crosses the line?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-rules",
+            "name": "Ring Scholar",
+            "description": "Learned the sumo arena rules",
+            "icon": "⭕"
+          },
+          "prerequisite_challenge_ids": []
+        },
+        {
+          "id": "su-push-test",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "The Push Test",
+          "subtitle": "Measure force and traction",
+          "description": "Sumo is about force — but not just motor power. Grip, weight distribution, and contact surface all matter. Test your robot's pushing force and discover what limits it.",
+          "subjects": [
+            "engineering",
+            "science"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 10,
+          "learning_objectives": [
+            "Understand friction and normal force",
+            "Measure traction vs motor torque",
+            "Identify the limiting factor in a push"
+          ],
+          "steps": [
+            {
+              "id": "step-friction",
+              "tutor_message": "Friction force = μ × Normal force (weight). If your robot weighs 500g and μ (rubber on mat) is 0.7, max friction = 0.7 × 4.9N = 3.43N. If your motors can push harder than that, the wheels slip — not a motor problem, a traction problem!",
+              "reflection_question": "Would adding weight to the robot help or hurt in sumo? When would more weight make things worse?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-test",
+              "tutor_message": "Drive forward against a fixed wall and measure how far the wheels slip. A kitchen scale between the robot and wall shows the actual push force. What did you measure vs what the motors should produce?",
+              "student_prompt": "Place the robot against a wall and measure push force with a scale. Record your result.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-reflect",
+              "tutor_message": "Most beginners think 'more power = better sumo'. But once wheels slip, extra power does nothing. The real limit is grip × weight. Lower center of mass and wider wheels help more than a stronger motor.",
+              "reflection_question": "Name two ways to increase friction force without changing the motor.",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-push",
+            "name": "Force Tester",
+            "description": "Measured robot pushing force and traction",
+            "icon": "💪"
+          },
+          "prerequisite_challenge_ids": [
+            "su-meet-ring"
+          ]
+        },
+        {
+          "id": "su-hold-ground",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Hold Your Ground",
+          "subtitle": "Stay in the ring under pressure",
+          "description": "Even without an opponent, a sumo robot must detect and avoid the edge. Write a rule that keeps the robot on the black surface at all times.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 12,
+          "learning_objectives": [
+            "Write a reactive edge-avoidance rule",
+            "Understand event-driven programming",
+            "Test and tune a safety response"
+          ],
+          "steps": [
+            {
+              "id": "step-rule",
+              "tutor_message": "The simplest safe rule: IF line sensor detects white → immediately reverse and rotate 180°. This is called a reflex — it triggers regardless of what the robot was doing before. Write this rule using the NL Rules editor.",
+              "student_prompt": "Use the Rules editor: trigger = line_detected, action = reverse_and_turn_180.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-test",
+              "tutor_message": "Now I'll drive forward and slowly approach the edge. When the line sensor fires, the escape rule should kick in. Let's test it 5 times from different angles.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a top-down diagram showing 5 escape trajectories from the ring edge — approach from different angles, each showing the reverse-and-rotate recovery path in dashed lines"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-tune",
+              "tutor_message": "Did the escape always work? If the robot was moving fast, it might slide past the line before the rule activates. The fix: detect the line earlier (lower threshold) or reduce speed near the edge.",
+              "reflection_question": "What's the tradeoff between reacting earlier vs reacting aggressively to an edge detection?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-hold",
+            "name": "Ring Holder",
+            "description": "Programmed reliable edge avoidance",
+            "icon": "🛡️"
+          },
+          "prerequisite_challenge_ids": [
+            "su-push-test"
+          ]
+        },
+        {
+          "id": "su-edge-awareness",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Edge Awareness",
+          "subtitle": "Predict and react before it's too late",
+          "description": "Detecting the edge after you're on it is too late. Real sumo robots detect the WHITE before the wheel reaches it. Add predictive edge logic to your controller.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 15,
+          "learning_objectives": [
+            "Understand sensor placement relative to wheel contact",
+            "Design a predictive safety margin",
+            "Implement multi-sensor edge detection"
+          ],
+          "steps": [
+            {
+              "id": "step-placement",
+              "tutor_message": "If the front sensor is 4cm ahead of the front wheel, and the robot moves at 40cm/s, the sensor gives you 100ms warning. At 80cm/s (full speed), only 50ms. You need to either slow down near edges OR place sensors further ahead.",
+              "reflection_question": "A robot 15cm long wants a 200ms reaction time at full speed (60cm/s). Where should the front sensor be placed?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-multi-sensor",
+              "tutor_message": "Two line sensors (left and right front corners) help determine which way to turn. Left sensor hits first → turn right. Right sensor first → turn left. This gives smarter escapes than always turning the same direction.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a diagram of a sumo robot's underside showing left and right front line sensors, with arrows showing which direction to turn based on which sensor triggers first"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-test",
+              "tutor_message": "Run your robot in the arena and approach the edge from 6 different angles. Log which sensor fires first each time. Does the turn direction always make sense?",
+              "student_prompt": "Test 6 edge approaches and record which sensor fires first and the resulting escape direction.",
+              "reflection_question": "What happens when BOTH sensors fire simultaneously (approaching straight-on)? What should the robot do?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-edge",
+            "name": "Edge Reader",
+            "description": "Implemented predictive multi-sensor edge detection",
+            "icon": "👁️"
+          },
+          "prerequisite_challenge_ids": [
+            "su-hold-ground"
+          ]
+        },
+        {
+          "id": "su-first-bout",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "First Bout",
+          "subtitle": "Your first real match",
+          "description": "Combine edge avoidance with basic opponent-seeking. Your robot should search for the opponent, drive toward it, and push — while never stepping out of the ring.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 20,
+          "learning_objectives": [
+            "Integrate multiple behaviors (search + push + escape)",
+            "Understand state-machine architecture",
+            "Observe emergent behavior from simple rules"
+          ],
+          "steps": [
+            {
+              "id": "step-state-machine",
+              "tutor_message": "Your robot needs three states: SEARCH (rotate slowly, scanning), ATTACK (drive toward detected opponent), and ESCAPE (react to line sensors). These three simple states, combined, create a complete sumo strategy.",
+              "reflection_question": "What triggers the transition from SEARCH to ATTACK? What triggers ESCAPE to override ATTACK?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-code",
+              "tutor_message": "Build the state machine using the Blocks editor — three behavior blocks, each with entry conditions. Connect them with transition arrows: range_sensor < 40cm → ATTACK, line_detected → ESCAPE, timer_expired in ATTACK → SEARCH.",
+              "student_prompt": "Build the 3-state machine in Blocks and run a test match.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-analyze",
+              "tutor_message": "Watch the match replay. How long did the robot spend in each state? Too much SEARCH time means slow opponent acquisition. Too quick ATTACK transitions mean false positives. Watch for the pattern.",
+              "reflection_question": "What was the most common failure mode? The robot stepping out, losing track, or getting stuck in SEARCH?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-bout",
+            "name": "Ring Warrior",
+            "description": "Completed the first real sumo match",
+            "icon": "🥊"
+          },
+          "prerequisite_challenge_ids": [
+            "su-edge-awareness"
+          ]
+        },
+        {
+          "id": "su-tactics",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Sumo Tactics",
+          "subtitle": "Outsmart, not just outpush",
+          "description": "Top sumo robots use strategy: flanking, feinting, and edge-trapping. Study three classic tactics and design a counter-strategy.",
+          "subjects": [
+            "engineering"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 18,
+          "learning_objectives": [
+            "Analyze real sumo robot strategies",
+            "Understand the attacker vs defender tradeoff",
+            "Design a counter-strategy for a known opponent"
+          ],
+          "steps": [
+            {
+              "id": "step-tactics",
+              "tutor_message": "Three classic tactics: (1) RUSH — full speed at start, slam before opponent can react. (2) FLANK — approach from the side where sensors are weakest. (3) EDGE-TRAP — push toward the nearest edge rather than center. Which does your current robot defend against best?",
+              "reflection_question": "Your robot rotates to find the opponent. A RUSH bot is already moving before your scan completes. How do you defend against that?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-diagram",
+              "tutor_message": "Let me diagram the three attack vectors and their optimal counter-positions.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a top-down sumo ring diagram showing 3 attack patterns: rush (straight arrow from far edge), flank (curved approach from side), edge-trap (angled push toward white line) with defender counter-positions marked"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-design",
+              "tutor_message": "Counter-rushing: start moving forward at match-start without waiting for sensor detection. Counter-flanking: spin faster between scans. Counter-edge-trap: maintain center position as a 'home' state.",
+              "student_prompt": "Choose one tactic to add to your robot and describe how you'll implement it.",
+              "reflection_question": "Can you design a robot that beats a RUSH bot but loses to an EDGE-TRAP bot on purpose? What does that tell you about rock-paper-scissors in robotics?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-tactics",
+            "name": "Ring Strategist",
+            "description": "Analyzed and countered sumo tactics",
+            "icon": "♟️"
+          },
+          "prerequisite_challenge_ids": [
+            "su-first-bout"
+          ]
+        },
+        {
+          "id": "su-reactive-defense",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Reactive Defense",
+          "subtitle": "Sensor-triggered block programs",
+          "description": "Build a reactive defense system using Blocks — when sensors detect force from a specific direction, counter-push in the opposite direction.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 22,
+          "learning_objectives": [
+            "Read motor current as a force proxy",
+            "Implement reactive counter-push",
+            "Balance offense and defense in a state machine"
+          ],
+          "steps": [
+            {
+              "id": "step-current",
+              "tutor_message": "When something pushes your robot, the motors fight harder — and motor current goes up. We can read that as a 'being-pushed' signal. Left motor current spike → being pushed from left → counter-push RIGHT.",
+              "reflection_question": "What other sensor could detect being pushed if motor current sensing isn't available? (Hint: think about acceleration or contact switches)",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-build",
+              "tutor_message": "Build it in Blocks: IF (left_motor_current > threshold AND right_motor_current < threshold) → boost right motor by 20% AND turn slightly left. Mirror for the other side. Add a 100ms debounce so noise doesn't trigger it.",
+              "student_prompt": "Build the reactive counter-push block program and tune the threshold.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-test",
+              "tutor_message": "Push the robot from different sides by hand and observe the counter-response. Does it push back? Does it happen fast enough? Log the current values that trigger a response.",
+              "reflection_question": "What happens if you set the threshold too low? Too high?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-react",
+            "name": "Counter Pusher",
+            "description": "Built a sensor-reactive defense system",
+            "icon": "⚡"
+          },
+          "prerequisite_challenge_ids": [
+            "su-tactics"
+          ]
+        },
+        {
+          "id": "su-momentum",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Mass and Momentum",
+          "subtitle": "Physics of the push",
+          "description": "p = mv. A heavier robot at the same speed has more momentum and is harder to stop. But mass has limits in sumo. Explore the physics of collisions.",
+          "subjects": [
+            "science",
+            "engineering"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 20,
+          "learning_objectives": [
+            "Apply conservation of momentum to robot collisions",
+            "Calculate impulse and contact force",
+            "Understand why rules cap robot weight"
+          ],
+          "steps": [
+            {
+              "id": "step-collision",
+              "tutor_message": "In a 1D elastic collision: if robot A (mass m1, velocity v1) hits stationary robot B (mass m2), B's final velocity = 2m1·v1/(m1+m2). If m1 = m2 (equal mass), B gets all the velocity and A stops — like pool balls. If A is 3× heavier, B gets 1.5×v1 but A keeps 0.5×v1.",
+              "reflection_question": "Competition rules cap sumo robots at 500g. Why? What would happen if one robot were 10× heavier?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-experiment",
+              "tutor_message": "Roll two robots of different masses at each other at the same speed. Measure how far each travels after collision. Plot mass ratio vs post-collision distance ratio. Does it match the formula?",
+              "student_prompt": "Run 3 collisions with different mass ratios and record results.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-design",
+              "tutor_message": "Real sumo robots maximize momentum within the weight limit — heavy but fast. They also lower their center of mass to resist tipping (torque = force × height). Design wins when physics is on your side.",
+              "reflection_question": "Given a fixed weight budget, which is more valuable: doubling mass or doubling speed? Show the math.",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-momentum",
+            "name": "Collision Analyst",
+            "description": "Applied momentum physics to robot design",
+            "icon": "💥"
+          },
+          "prerequisite_challenge_ids": [
+            "su-reactive-defense"
+          ]
+        },
+        {
+          "id": "su-decision-tree",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Strategy Tree",
+          "subtitle": "Build a decision-making flowchart",
+          "description": "Complex sumo behavior can be built from simple if-then branches. Design a decision tree and implement it — this is the foundation of all autonomous agents.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 25,
+          "learning_objectives": [
+            "Design a multi-level decision tree",
+            "Implement conditional logic in code",
+            "Trace execution through a tree"
+          ],
+          "steps": [
+            {
+              "id": "step-design",
+              "tutor_message": "Draw a decision tree: root = 'line detected?'. YES → ESCAPE. NO → 'opponent detected?'. YES → ATTACK. NO → 'last seen direction?'. LEFT → rotate left. RIGHT → rotate right. UNKNOWN → SEARCH. Every sumo robot is a tree like this — just deeper.",
+              "student_prompt": "Draw your decision tree on paper or describe it with indentation.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-code",
+              "tutor_message": "Now implement your tree in Python pseudocode, then in Blocks. Trace it on paper: pick a sensor state and follow the tree to the output. Does it always reach a leaf?",
+              "student_prompt": "Implement your decision tree in the Code or Blocks editor.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-coverage",
+              "tutor_message": "A complete decision tree has a defined output for EVERY possible sensor combination. List all possible combinations (line L/R, range near/far). Does your tree cover them all?",
+              "reflection_question": "What happens in your tree if BOTH line sensors fire AND the range sensor detects an opponent simultaneously?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-tree",
+            "name": "Logic Architect",
+            "description": "Built a complete sumo decision tree",
+            "icon": "🌳"
+          },
+          "prerequisite_challenge_ids": [
+            "su-momentum"
+          ]
+        },
+        {
+          "id": "su-counter-attack",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "The Counter-Attack",
+          "subtitle": "Turn your opponent's push against them",
+          "description": "Aikido uses an attacker's momentum against them. A sumo robot can do the same: sidestep a rush and let the attacker fly past to the edge.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 22,
+          "learning_objectives": [
+            "Implement a timed sidestep maneuver",
+            "Understand reaction-time vs commit-time tradeoffs",
+            "Test a strategy against two different opponent types"
+          ],
+          "steps": [
+            {
+              "id": "step-sidestep",
+              "tutor_message": "When a rusher charges in a straight line, it takes them 300–500ms to react to a direction change. If you sidestep 90° in 200ms, they miss. Then immediately re-engage from the side — that's their weakest spot.",
+              "reflection_question": "How do you know when the opponent is 'rushing' vs just approaching normally? What sensor data tells you?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-code",
+              "tutor_message": "Implement: IF opponent_closing_speed > threshold → sidestep 90° → pause 100ms → drive toward opponent's expected landing zone. You're predicting where they'll end up.",
+              "student_prompt": "Build the sidestep counter-attack in Blocks or Python.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-test",
+              "tutor_message": "Test against two robots: one that rushes, one that approaches slowly. The sidestep should work well against the rusher and leave you exposed against the slow approach. That's the tradeoff.",
+              "reflection_question": "What additional sensor data would let you tell a rush from a slow approach BEFORE committing to the sidestep?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-counter",
+            "name": "Aikido Bot",
+            "description": "Used opponent momentum as a weapon",
+            "icon": "🔄"
+          },
+          "prerequisite_challenge_ids": [
+            "su-decision-tree"
+          ]
+        },
+        {
+          "id": "su-tournament",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Tournament Mode",
+          "subtitle": "3 bouts, best of 3",
+          "description": "Run a structured 3-match tournament. Between each match, analyze what happened and adjust one parameter. Iterate toward a winning design.",
+          "subjects": [
+            "engineering"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 30,
+          "learning_objectives": [
+            "Apply the iterate-and-improve engineering cycle",
+            "Make data-driven parameter adjustments",
+            "Understand variance in robot performance"
+          ],
+          "steps": [
+            {
+              "id": "step-baseline",
+              "tutor_message": "Before match 1, write down your robot's current settings: attack speed, scan speed, line threshold, counter-attack delay. This is your baseline — you'll compare everything to this.",
+              "student_prompt": "Record your baseline settings.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-matches",
+              "tutor_message": "Run 3 matches. After each, write one sentence: what failed and what you'll change. Only change ONE parameter between matches so you can isolate cause and effect.",
+              "student_prompt": "Run 3 matches and log one change between each.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 600
+            },
+            {
+              "id": "step-analysis",
+              "tutor_message": "Compare your final performance to the baseline. What improved? What made things worse unexpectedly? This process — run, measure, adjust — is engineering in its purest form.",
+              "reflection_question": "If you could only make one more change, what would it be and why? Back it up with data from your match log.",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-tournament",
+            "name": "Iterative Engineer",
+            "description": "Ran a 3-match improvement tournament",
+            "icon": "🏆"
+          },
+          "prerequisite_challenge_ids": [
+            "su-counter-attack"
+          ]
+        },
+        {
+          "id": "su-gyro-balance",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Gyro-Assisted Heading",
+          "subtitle": "Hold direction under push",
+          "description": "When pushed sideways, a robot with only wheel encoders drifts off its attack line. A gyroscope measures angular velocity and can correct heading in real time.",
+          "subjects": [
+            "engineering",
+            "science"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 28,
+          "learning_objectives": [
+            "Understand gyroscope integration for heading",
+            "Implement heading-lock feedback control",
+            "Distinguish between gyro drift and real turns"
+          ],
+          "steps": [
+            {
+              "id": "step-gyro",
+              "tutor_message": "A gyroscope measures angular velocity (°/s). Integrate it over time → heading angle. If heading drifts from target, increase one motor and decrease the other to correct. This is a simple P-controller on heading.",
+              "reflection_question": "Gyroscopes drift over time — the angle slowly creeps even when stationary. How do you calibrate out the offset?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement heading-lock: set target_heading at match start. Every 10ms: error = target - current_heading. motor_correction = Kp × error. left_motor -= correction, right_motor += correction.",
+              "student_prompt": "Implement and tune the heading-lock P-controller. What Kp value works best?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-test",
+              "tutor_message": "Test it: drive toward a target while someone pushes you sideways. Does the robot recover to the original heading? How many seconds does it take?",
+              "reflection_question": "What happens to your heading-lock if the gyro saturates (spins faster than max measurable rate)?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-gyro",
+            "name": "Heading Controller",
+            "description": "Implemented gyro-based heading lock",
+            "icon": "🧭"
+          },
+          "prerequisite_challenge_ids": [
+            "su-tournament"
+          ]
+        },
+        {
+          "id": "su-force-feedback",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Force Feedback Control",
+          "subtitle": "Read motor current to sense impact",
+          "description": "Motor current is proportional to torque — and torque spikes when you hit something hard. Use current sensing as a collision detector and impact force estimator.",
+          "subjects": [
+            "engineering",
+            "science"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 25,
+          "learning_objectives": [
+            "Relate motor current to mechanical force",
+            "Implement current-threshold collision detection",
+            "Use impact force data to control response"
+          ],
+          "steps": [
+            {
+              "id": "step-current-force",
+              "tutor_message": "F = k·I where I is motor current and k is the motor's torque constant. A sudden current spike (e.g., 2× normal) means a collision. The bigger the spike, the harder the hit. You can estimate opponent mass from how much the spike decays.",
+              "reflection_question": "What other sources could cause a current spike besides collision? (Hills, sticky mats, wheel jamming)",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-log",
+              "tutor_message": "Drive into a wall at three speeds (25%, 50%, 75% power). Log the current spike peak each time. Plot it — is the relationship linear?",
+              "student_prompt": "Log current spikes at 3 speeds and plot the result.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-adaptive",
+              "tutor_message": "Use impact magnitude to adapt strategy: small spike (light opponent) → increase push speed. Large spike (heavy opponent) → drop low and push longer with max power. Adaptive behavior from a single sensor.",
+              "reflection_question": "If the spike sensor triggers on a wall corner instead of an opponent, how could you add a second check to distinguish them?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-force",
+            "name": "Impact Analyst",
+            "description": "Used motor current to estimate collision force",
+            "icon": "📊"
+          },
+          "prerequisite_challenge_ids": [
+            "su-gyro-balance"
+          ]
+        },
+        {
+          "id": "su-pid-drive",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "PID Push Control",
+          "subtitle": "Tune a controller for maximum push",
+          "description": "A PID controller makes a motor system track a target precisely. Use it to maintain maximum pushing force without wheel slip, even as the opponent resists.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 30,
+          "learning_objectives": [
+            "Implement a full PID controller in code",
+            "Tune Kp, Ki, Kd parameters systematically",
+            "Understand integral windup and how to prevent it"
+          ],
+          "steps": [
+            {
+              "id": "step-pid",
+              "tutor_message": "PID: output = Kp·e + Ki·∫e·dt + Kd·de/dt, where e = target_speed - current_speed. Kp reacts to current error. Ki corrects persistent offset. Kd dampens oscillation. Use encoder feedback for current_speed.",
+              "reflection_question": "What happens if Ki is too large when the robot is being pushed? (Hint: the integral term keeps accumulating)",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-tune",
+              "tutor_message": "Start with Kd=0, Ki=0. Increase Kp until the robot oscillates. Halve it — that's your starting Kp. Then slowly add Kd to reduce oscillation. Add Ki only if you see steady-state offset. Log speed vs time for each step.",
+              "student_prompt": "Tune Kp, Ki, Kd using the Ziegler-Nichols method described above.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 300
+            },
+            {
+              "id": "step-windup",
+              "tutor_message": "Integral windup: when the robot is stuck against a wall, the integral term keeps growing. When the wall is removed, the robot lurches. Fix: clamp the integral term to a max value.",
+              "reflection_question": "How do you choose the integral clamp value? Too small defeats the purpose; too large allows windup.",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-pid",
+            "name": "PID Tuner",
+            "description": "Implemented and tuned a PID push controller",
+            "icon": "📈"
+          },
+          "prerequisite_challenge_ids": [
+            "su-force-feedback"
+          ]
+        },
+        {
+          "id": "su-vision-edge",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Vision-Based Edge Detection",
+          "subtitle": "See the ring boundary with a camera",
+          "description": "Replace IR line sensors with computer vision: detect the white ring boundary using a downward-facing camera and image segmentation.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 35,
+          "learning_objectives": [
+            "Apply color thresholding to detect the ring boundary",
+            "Convert image coordinates to robot-relative positions",
+            "Integrate vision-based detection into the state machine"
+          ],
+          "steps": [
+            {
+              "id": "step-threshold",
+              "tutor_message": "The ring boundary is white on black — high contrast. In HSV color space, white has high Value (V > 200) and low Saturation (S < 30). Threshold on these values to get a binary mask. The white pixels ARE the boundary.",
+              "reflection_question": "What would happen to your threshold if the arena is under uneven lighting?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement: capture frame → convert to HSV → threshold → find contours → if white contour area in bottom 20% of image > threshold → 'line ahead'. The position of the contour tells you left/right/center approach.",
+              "student_prompt": "Implement the vision-based edge detector and test it against the physical ring.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 300
+            },
+            {
+              "id": "step-compare",
+              "tutor_message": "Compare vision-based detection to your original IR sensors: reaction time, false positive rate, and performance under different lighting. Vision is slower but gives positional information (left vs right vs center) that IR can't easily provide.",
+              "reflection_question": "Name one scenario where IR sensors would outperform camera-based detection, and one where camera wins.",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-vision",
+            "name": "Vision Guard",
+            "description": "Replaced IR sensors with camera-based edge detection",
+            "icon": "📷"
+          },
+          "prerequisite_challenge_ids": [
+            "su-pid-drive"
+          ]
+        },
+        {
+          "id": "su-autonomous-agent",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Autonomous Sumo Agent",
+          "subtitle": "A full AI-driven strategy",
+          "description": "Combine everything: vision edge detection, PID push control, gyro heading, and an adaptive decision tree. Build a complete autonomous sumo agent.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Integrate multiple subsystems into a coherent agent",
+            "Understand software architecture for autonomous robots",
+            "Debug emergent behavior in complex systems"
+          ],
+          "steps": [
+            {
+              "id": "step-architecture",
+              "tutor_message": "Your agent needs layers: PERCEPTION (read all sensors → produce state estimate), PLANNING (current state → desired action), CONTROL (desired action → motor commands). This is the classic sense-plan-act loop. Draw your architecture before coding.",
+              "student_prompt": "Draw your system architecture: inputs, processing layers, and outputs.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-integrate",
+              "tutor_message": "Wire all subsystems together: vision_edge → escape_behavior, range_sensor → attack_planner, gyro → heading_lock, current_sensor → force_adapter. Each subsystem publishes its output; the planner reads them all.",
+              "student_prompt": "Integrate all previous challenge subsystems into one agent and test.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 600
+            },
+            {
+              "id": "step-emergent",
+              "tutor_message": "When multiple systems interact, emergent behaviors appear — sometimes good, sometimes not. Log unexpected behaviors during the match. These 'bugs' are often the most interesting robotics research.",
+              "reflection_question": "What was the most surprising behavior your agent exhibited? Was it a bug or an accidental feature?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-agent",
+            "name": "Autonomous Agent",
+            "description": "Built a complete autonomous sumo agent",
+            "icon": "🤖"
+          },
+          "prerequisite_challenge_ids": [
+            "su-vision-edge"
+          ]
+        },
+        {
+          "id": "su-multi-robot",
+          "pack_id": "sumo-arena",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Multi-Robot Dynamics",
+          "subtitle": "Two robots, one ring — the physics of chaos",
+          "description": "With two robots on the same team in a ring, coordination becomes critical. Study multi-robot collision dynamics and design a cooperative strategy.",
+          "subjects": [
+            "engineering",
+            "science",
+            "coding"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 40,
+          "learning_objectives": [
+            "Model multi-robot collision physics",
+            "Design inter-robot communication protocol",
+            "Coordinate attack patterns between two autonomous agents"
+          ],
+          "steps": [
+            {
+              "id": "step-friendly-fire",
+              "tutor_message": "Two autonomous robots in a ring will eventually collide with each other. That's 'friendly fire' — and it can push your own robot out. Fix: assign unique IDs and have each robot broadcast its position. Never push a robot with your own team ID.",
+              "reflection_question": "What's the simplest possible communication between two robots that prevents friendly fire?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-coordinate",
+              "tutor_message": "A simple cooperative strategy: Robot A sweeps left, Robot B sweeps right. They push the opponent toward the center between them — then both drive in simultaneously. This 'pincer' move is hard to escape.",
+              "student_prompt": "Implement a pincer strategy: assign roles (A=left, B=right) and coordinate via local broadcast.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 300
+            },
+            {
+              "id": "step-game-theory",
+              "tutor_message": "If the opponent has TWO robots too, this becomes a 4-agent game. Teams with centralized coordination can outplan teams where each robot acts independently. This is why drones need swarm intelligence.",
+              "reflection_question": "In a 2v2 match, what's the best target assignment strategy: both attack the same opponent, or each picks one?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-su-multi",
+            "name": "Swarm Tactician",
+            "description": "Coordinated two robots in a shared arena",
+            "icon": "🤝"
+          },
+          "prerequisite_challenge_ids": [
+            "su-autonomous-agent"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "maze-marathon",
+      "concept_id": "maze-marathon",
+      "robot_id": "sketchbot",
+      "name": "Maze Marathon",
+      "description": "Navigate labyrinths from simple wall-following to full SLAM. Every path teaches a new algorithm.",
+      "challenges": [
+        {
+          "id": "mz-wall-follower",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Left-Hand Rule",
+          "subtitle": "Always hug the left wall",
+          "description": "The left-hand rule is the oldest maze algorithm: keep your left hand on the wall and you'll eventually find the exit — if it exists. Learn when it works and when it fails.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 12,
+          "learning_objectives": [
+            "Implement left-wall following behavior",
+            "Understand algorithm completeness and correctness",
+            "Identify maze topologies where left-hand rule fails"
+          ],
+          "steps": [
+            {
+              "id": "step-rule",
+              "tutor_message": "The left-hand rule: IF left wall absent → turn left. ELSE IF front wall absent → go straight. ELSE IF right wall absent → turn right. ELSE → turn around (dead end). It's only three decisions — but it solves most simple mazes!",
+              "reflection_question": "Draw a small maze on paper and trace the left-hand rule by hand. Did it find the exit?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement the rule using sensor readings: left_wall, front_wall, right_wall (boolean). Use the Rules editor: trigger = no_left_wall, action = turn_left. Add all four cases.",
+              "student_prompt": "Implement all four left-hand rule cases in the Rules editor or Blocks.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-fail-case",
+              "tutor_message": "The left-hand rule fails on 'island mazes' — mazes where the exit is inside a loop not connected to the outer wall. The robot just circles the loop forever. Can you design such a maze?",
+              "reflection_question": "What's the minimum maze structure that defeats the left-hand rule?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-wall",
+            "name": "Wall Hugger",
+            "description": "Implemented left-hand wall following",
+            "icon": "🧱"
+          },
+          "prerequisite_challenge_ids": []
+        },
+        {
+          "id": "mz-right-turn",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Right-Turn Only",
+          "subtitle": "A navigation constraint",
+          "description": "What if you can ONLY turn right? Some mazes are designed to be solved with only right turns. Explore how a constraint changes what paths are reachable.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 10,
+          "learning_objectives": [
+            "Understand how navigation constraints limit reachable paths",
+            "Compare right-turn-only vs left-hand rule coverage",
+            "Identify when constraints are advantages"
+          ],
+          "steps": [
+            {
+              "id": "step-constraint",
+              "tutor_message": "With only right turns available, you can still navigate — but some mazes become impossible. The path you take is always the rightmost option at every junction. This guarantees a specific traversal order of the maze's rooms.",
+              "reflection_question": "On which type of maze does right-turn-only ALWAYS find the exit — and which type does it always fail?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement right-turn-only: IF right wall absent → turn right. ELSE IF front wall absent → go straight. ELSE IF left wall absent → turn left. ELSE → dead end, but NO backing up allowed — you must rotate 180° in place.",
+              "student_prompt": "Implement right-turn-only in the Rules editor.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-compare",
+              "tutor_message": "Run both algorithms (left-hand and right-turn-only) on the same maze. Map the paths they take. One might be shorter — why?",
+              "reflection_question": "Is there a maze where right-turn-only is faster than left-hand rule, and vice versa?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-right",
+            "name": "Right-Turner",
+            "description": "Navigated with a single-turn constraint",
+            "icon": "↪️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-wall-follower"
+          ]
+        },
+        {
+          "id": "mz-dead-end",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Dead End Escape",
+          "subtitle": "Backtrack when stuck",
+          "description": "Dead ends are unavoidable in complex mazes. Learn to detect them, mark them as visited, and backtrack — this is the core of depth-first search.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 14,
+          "learning_objectives": [
+            "Detect and classify dead ends",
+            "Implement backtracking",
+            "Understand visited-state tracking"
+          ],
+          "steps": [
+            {
+              "id": "step-detect",
+              "tutor_message": "A dead end is any cell with walls on 3 sides (only one opening: the way you came in). Detect it by reading front, left, and right sensors simultaneously. All three blocked → dead end.",
+              "reflection_question": "How do you know which direction is 'the way you came in' when you're inside the dead end?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-mark",
+              "tutor_message": "Mark dead ends in a grid: store a 2D array where each cell is 'visited' or 'dead_end'. On backtrack, don't revisit dead_end cells. This prevents the robot from re-exploring the same dead ends.",
+              "student_prompt": "Add a visited grid to your wall-follower and mark dead ends.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-backtrack",
+              "tutor_message": "Backtracking: store a stack of directions taken. At a dead end, pop the stack and reverse the direction. If all neighbors are marked dead, pop again. This is exactly how DFS explores a graph.",
+              "reflection_question": "What data structure is a 'stack'? How does it enable backtracking?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-dead",
+            "name": "Backtracker",
+            "description": "Implemented dead-end detection and backtracking",
+            "icon": "↩️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-right-turn"
+          ]
+        },
+        {
+          "id": "mz-junction",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Junction Decisions",
+          "subtitle": "Choosing at T and cross intersections",
+          "description": "T-junctions and crossroads are decision points. What rule should govern which path to take first? Order matters for how quickly you find the exit.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 16,
+          "learning_objectives": [
+            "Classify junction types (T, cross, Y)",
+            "Implement a consistent junction decision policy",
+            "Understand how decision ordering affects traversal time"
+          ],
+          "steps": [
+            {
+              "id": "step-classify",
+              "tutor_message": "Junctions by open directions: 2-way = hallway (no decision). 3-way (T) = one fork. 4-way (cross) = three options (you came from one side). Draw each type on paper and label which directions are available.",
+              "student_prompt": "Draw a T-junction and cross-junction and label all possible next moves.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-policy",
+              "tutor_message": "Your decision policy at junctions determines the traversal order. Three common policies: (1) Always go straight first. (2) Always take the leftmost turn. (3) Go toward unexplored cells (requires a map). Implement option 1 and 2 and compare.",
+              "student_prompt": "Implement a junction policy in Blocks and test it on a maze with at least 3 junctions.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-heuristic",
+              "tutor_message": "A smarter heuristic: at each junction, go toward the direction closest to the (known or estimated) goal. This is a greedy strategy — not always optimal, but usually faster than random.",
+              "reflection_question": "When does the greedy junction heuristic fail? Design a maze where it leads to the longest possible path.",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-junction",
+            "name": "Junction Master",
+            "description": "Implemented and compared junction decision policies",
+            "icon": "🔀"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-dead-end"
+          ]
+        },
+        {
+          "id": "mz-race",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Speed Run",
+          "subtitle": "Solve the maze as fast as possible",
+          "description": "First solve the maze slowly to map it. Then run it at full speed using the known map. This two-phase approach is how competition maze robots work.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 20,
+          "learning_objectives": [
+            "Separate exploration phase from exploitation phase",
+            "Optimize motor speed for a known path",
+            "Understand the explore-exploit tradeoff"
+          ],
+          "steps": [
+            {
+              "id": "step-map",
+              "tutor_message": "Phase 1 (exploration): run the maze slowly, logging every turn at every junction as a string like 'LRSLLS' (Left, Right, Straight). When you reach the exit, you have the complete path.",
+              "student_prompt": "Run the maze and record the turn string.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-optimize",
+              "tutor_message": "Simplify the path string: LBL = S (left-back-left = straight), RBR = S. These cancel out: you went into a dead end and came back. Remove all unnecessary detours, leaving the shortest path string.",
+              "student_prompt": "Simplify your turn string using cancellation rules.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-speed-run",
+              "tutor_message": "Phase 2 (exploitation): run the optimized path at maximum speed using only the stored turn string — no sensor scanning needed. Just count junctions and execute the next turn.",
+              "reflection_question": "What can go wrong during the speed run that didn't happen during the slow exploration?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-race",
+            "name": "Speed Solver",
+            "description": "Explored then exploited the optimal path",
+            "icon": "⏱️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-junction"
+          ]
+        },
+        {
+          "id": "mz-draw-map",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Draw the Map",
+          "subtitle": "Sketch the maze as you navigate",
+          "description": "SketchBot's pen can draw the maze map in real time as it explores. Each cell visited gets drawn. The result is a physical record of the exploration.",
+          "subjects": [
+            "engineering",
+            "art",
+            "coding"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 18,
+          "learning_objectives": [
+            "Maintain a 2D occupancy grid from sensor data",
+            "Visualize exploration state as a drawing",
+            "Understand dead reckoning with wheel encoders"
+          ],
+          "steps": [
+            {
+              "id": "step-grid",
+              "tutor_message": "Maintain a 2D grid where each cell represents one maze corridor. As you drive, track your position using wheel encoders (dead reckoning). When you sense a wall, mark that cell's wall. When you visit a cell, mark it 'visited'.",
+              "reflection_question": "Dead reckoning accumulates error — small wheel slip causes position drift. After 10 cells, how far off might your position estimate be?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "After exploring the maze, send the grid to SketchBot and let it draw the map: explored cells as light squares, walls as thick lines, the path taken as a dashed line.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a hand-drawn maze map showing explored cells as open squares with light lines, unvisited cells as filled dark squares, walls as thick borders, and the exploration path as a dashed line through visited cells"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-compare",
+              "tutor_message": "Compare the drawn map to the actual maze. Where did dead reckoning drift? Are the walls in the right places? How could you use AprilTags to correct position drift?",
+              "reflection_question": "What sensor could give absolute position (not relative) and eliminate dead reckoning drift entirely?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-map",
+            "name": "Cartographer",
+            "description": "Drew a real-time maze map from sensor data",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-race"
+          ]
+        },
+        {
+          "id": "mz-dfs",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Depth-First Search",
+          "subtitle": "Explore every branch before backtracking",
+          "description": "DFS is the foundational graph search algorithm. It follows one path as deep as possible before backtracking. Implement it for maze navigation.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 25,
+          "learning_objectives": [
+            "Implement DFS using a stack",
+            "Understand time and space complexity of DFS",
+            "Apply graph theory to physical maze navigation"
+          ],
+          "steps": [
+            {
+              "id": "step-algorithm",
+              "tutor_message": "DFS pseudocode: push(start). WHILE stack not empty: cell = pop(). IF cell == goal → done. FOR each unvisited neighbor: mark visited, push neighbor. The stack is the robot's 'memory' of where to backtrack to.",
+              "reflection_question": "What determines the ORDER that DFS visits cells? How does the order neighbors are pushed affect the path?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement DFS in Python for the maze: represent the maze as a dictionary {cell: [neighbors]}. Run DFS and print the path from start to goal. Then simulate it on the physical robot.",
+              "student_prompt": "Code DFS in Python on the given maze representation and run it.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-complexity",
+              "tutor_message": "DFS time complexity: O(V + E) — visits every vertex and edge once. Space: O(V) for the visited set + O(depth) for the stack. In the worst case (linear maze), the stack depth equals the entire maze length.",
+              "reflection_question": "Does DFS guarantee the shortest path? If not, what algorithm does?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-dfs",
+            "name": "Deep Searcher",
+            "description": "Implemented depth-first search for maze navigation",
+            "icon": "📚"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-draw-map"
+          ]
+        },
+        {
+          "id": "mz-bfs",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Breadth-First Search",
+          "subtitle": "Find the shortest path guaranteed",
+          "description": "BFS explores level by level — all cells one step away first, then two steps, and so on. This guarantees the shortest path in unweighted graphs.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 25,
+          "learning_objectives": [
+            "Implement BFS using a queue",
+            "Prove BFS finds shortest path in unweighted graphs",
+            "Compare BFS vs DFS path quality"
+          ],
+          "steps": [
+            {
+              "id": "step-algorithm",
+              "tutor_message": "BFS uses a QUEUE (FIFO) instead of a stack. enqueue(start). WHILE queue not empty: cell = dequeue(). IF cell == goal → done. FOR each unvisited neighbor: mark visited, track parent, enqueue. Trace back parents from goal to start to get the path.",
+              "reflection_question": "Why does FIFO ordering guarantee BFS explores by distance? What would happen if you used a random-access structure instead?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement BFS in Python on the same maze as DFS. Track parent pointers so you can reconstruct the path. Compare the path length from both algorithms.",
+              "student_prompt": "Code BFS with parent tracking and extract the shortest path.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-compare",
+              "tutor_message": "BFS guarantees shortest path in unweighted mazes. But in a physical robot, 'shortest' by cell count isn't always fastest — a path with fewer turns is faster to execute. This is why A* uses a cost function that includes turn penalties.",
+              "reflection_question": "Design a maze where the BFS shortest path (fewest cells) takes longer to drive than a slightly longer path (more cells, fewer turns).",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-bfs",
+            "name": "Shortest Pather",
+            "description": "Implemented BFS to guarantee the shortest maze path",
+            "icon": "📡"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-dfs"
+          ]
+        },
+        {
+          "id": "mz-astar",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "A* Pathfinding",
+          "subtitle": "Heuristic-guided shortest path",
+          "description": "A* combines BFS's guarantee of shortest path with a heuristic that guides it toward the goal — exploring smarter, not harder.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 28,
+          "learning_objectives": [
+            "Understand the f = g + h formula",
+            "Choose and evaluate admissible heuristics",
+            "Implement A* with a priority queue"
+          ],
+          "steps": [
+            {
+              "id": "step-heuristic",
+              "tutor_message": "A* scores each cell: f = g + h. g = cost from start (known). h = estimated cost to goal (heuristic). For a grid maze, a good h is Manhattan distance: |x_goal - x| + |y_goal - y|. An admissible heuristic never overestimates — this guarantees optimality.",
+              "reflection_question": "Is Euclidean distance an admissible heuristic for a grid maze? Why or why not?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement A* with a priority queue (heapq in Python). Always expand the cell with the lowest f score. Track g and parent for each cell. The path to goal is found by tracing parents.",
+              "student_prompt": "Implement A* in Python with Manhattan distance heuristic.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-compare",
+              "tutor_message": "On a 10×10 maze, compare cells explored: DFS (many), BFS (many), A* (fewer). A* typically explores far fewer cells because the heuristic prunes the wrong directions early.",
+              "reflection_question": "What happens to A* performance when the heuristic is h=0 (always)? What algorithm does it become?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-astar",
+            "name": "Pathfinder",
+            "description": "Implemented A* with an admissible heuristic",
+            "icon": "⭐"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-bfs"
+          ]
+        },
+        {
+          "id": "mz-dynamic",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Dynamic Maze",
+          "subtitle": "Walls that appear and disappear",
+          "description": "A static maze is solved once. A dynamic maze — where walls can change while you navigate — requires replanning. This is the core of robotics in the real world.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 25,
+          "learning_objectives": [
+            "Understand the need for replanning in dynamic environments",
+            "Implement a simple replanning trigger",
+            "Compare reactive vs deliberative responses to change"
+          ],
+          "steps": [
+            {
+              "id": "step-dynamic",
+              "tutor_message": "Real environments change. A human walks in front of the robot. A door closes. A new obstacle appears. Your static A* plan is now wrong. The simplest fix: if the sensor detects something unexpected → replan from current position.",
+              "reflection_question": "How often should you replan? After every step? Only on obstacle detection? What's the tradeoff?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement: run A* to get plan. Execute one step. Check sensors for new obstacles. If obstacle found: update map, re-run A* from current position. Repeat. This is called 'Lifelong Planning A*' (LPA*).",
+              "student_prompt": "Implement replanning A* and test it by physically placing a new obstacle mid-run.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 240
+            },
+            {
+              "id": "step-latency",
+              "tutor_message": "Replanning takes time — during which the robot must stop or keep moving on the old plan. If replanning takes 200ms and the robot moves at 30cm/s, the robot travels 6cm on a potentially wrong plan. This latency trade-off matters.",
+              "reflection_question": "Name two techniques to make replanning fast enough to avoid stopping.",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-dynamic",
+            "name": "Dynamic Navigator",
+            "description": "Implemented replanning in a changing maze",
+            "icon": "🔄"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-astar"
+          ]
+        },
+        {
+          "id": "mz-generator",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Maze Generator",
+          "subtitle": "Code a maze and draw it",
+          "description": "Generate a random solvable maze using Recursive Backtracking and have SketchBot draw it on paper. Then solve what you just generated.",
+          "subjects": [
+            "coding",
+            "math"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 30,
+          "learning_objectives": [
+            "Implement recursive backtracking maze generation",
+            "Understand that all mazes generated this way are perfect (no loops)",
+            "Connect generation to solution algorithms"
+          ],
+          "steps": [
+            {
+              "id": "step-generate",
+              "tutor_message": "Recursive Backtracking: start at a random cell. Mark it visited. Pick a random unvisited neighbor → knock down the wall between them → recurse. When stuck, backtrack. Result: a perfect maze (exactly one path between any two cells).",
+              "student_prompt": "Implement recursive backtracking maze generation in Python for a 10×10 grid.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-draw",
+              "tutor_message": "Export your generated maze as wall coordinates and have SketchBot draw it — a real physical maze, generated by your own code!",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a 10x10 cell maze with thick wall lines, clear corridors, a marked START in the top-left cell and FINISH in the bottom-right cell, clean grid-aligned lines"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 300
+            },
+            {
+              "id": "step-solve",
+              "tutor_message": "Now run BFS or A* on the generated maze structure and plot the solution path on the drawing. You built the puzzle AND the solver.",
+              "student_prompt": "Run your pathfinding algorithm on the generated maze and overlay the solution path.",
+              "reflection_question": "Recursive backtracking always generates a perfect maze. What algorithm generates mazes with loops (multiple paths between cells)?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-gen",
+            "name": "Maze Architect",
+            "description": "Generated and solved a maze from code",
+            "icon": "🏗️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-dynamic"
+          ]
+        },
+        {
+          "id": "mz-slam",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "SLAM Basics",
+          "subtitle": "Map and locate at the same time",
+          "description": "Simultaneous Localization and Mapping: build a map while knowing where you are in it. The challenge is that both are unknowns — you need to solve them together.",
+          "subjects": [
+            "engineering",
+            "science",
+            "coding"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 35,
+          "learning_objectives": [
+            "Understand the SLAM problem formulation",
+            "Implement a simple EKF-based 2D SLAM",
+            "Identify landmark-based vs feature-based SLAM"
+          ],
+          "steps": [
+            {
+              "id": "step-chicken-egg",
+              "tutor_message": "The SLAM paradox: to build a map you need to know where you are. To know where you are, you need a map. Extended Kalman Filter SLAM solves this by maintaining a joint probability distribution over both robot pose and landmark positions — updating both simultaneously.",
+              "reflection_question": "If you had perfect odometry (no wheel slip, no drift), would you still need SLAM? What would make odometry 'perfect'?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-landmarks",
+              "tutor_message": "In landmark-based SLAM, you identify repeatable features (corners, AprilTags) and track them. Each landmark sighting: update the robot's position estimate AND the landmark's position estimate. Each improves the other.",
+              "student_prompt": "Place 4 AprilTags in the maze. Implement landmark detection and build a 2D landmark map.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 240
+            },
+            {
+              "id": "step-loop-closure",
+              "tutor_message": "Loop closure: when the robot returns to a known location, it can correct accumulated drift in all previous estimates. This is the 'ah-ha!' moment of SLAM — suddenly the whole map snaps into better alignment.",
+              "reflection_question": "Without loop closure, does SLAM still work? What happens to map quality over long distances?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-slam",
+            "name": "SLAM Pioneer",
+            "description": "Implemented basic landmark SLAM",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-generator"
+          ]
+        },
+        {
+          "id": "mz-occupancy",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Occupancy Grid",
+          "subtitle": "A probabilistic map of the maze",
+          "description": "An occupancy grid stores the probability that each cell is occupied. Sensor readings update the probabilities using Bayes' theorem — the robot is always 'uncertain' about the world.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 30,
+          "learning_objectives": [
+            "Implement a Bayesian occupancy grid update",
+            "Understand log-odds representation for numerical stability",
+            "Visualize uncertainty in a sensor map"
+          ],
+          "steps": [
+            {
+              "id": "step-bayes",
+              "tutor_message": "Bayes rule for occupancy: P(occ | z) = P(z | occ) × P(occ) / P(z). We use log-odds: L = log(p/(1-p)). When sensor sees obstacle: L += log_odds_occ. When sensor sees free: L += log_odds_free. This is numerically stable and fast.",
+              "reflection_question": "Why use log-odds instead of just accumulating probabilities directly?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement a 20×20 occupancy grid. For each ultrasonic reading: mark cells along the beam as 'free' (reduce log-odds), mark the cell at the detected range as 'occupied' (increase log-odds). Visualize the grid.",
+              "student_prompt": "Implement and visualize the occupancy grid from ultrasonic sweeps.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 240
+            },
+            {
+              "id": "step-uncertainty",
+              "tutor_message": "Notice cells that never get a clear reading — they stay near 0.5 probability (maximum uncertainty). These are the robot's 'blind spots'. Plan exploration to reduce uncertainty in those regions first.",
+              "reflection_question": "What value of log-odds corresponds to P(occupied) = 0.5? What does that mean for that cell?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-occ",
+            "name": "Probabilistic Mapper",
+            "description": "Built a Bayesian occupancy grid",
+            "icon": "📊"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-slam"
+          ]
+        },
+        {
+          "id": "mz-rrt",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "RRT Path Planning",
+          "subtitle": "Rapidly-exploring random trees",
+          "description": "RRT grows a tree of reachable configurations by sampling random points in space — it works in continuous state spaces where grid-based methods can't.",
+          "subjects": [
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 32,
+          "learning_objectives": [
+            "Implement the RRT algorithm",
+            "Understand why RRT is better than grid search for continuous spaces",
+            "Visualize the tree growth and extracted path"
+          ],
+          "steps": [
+            {
+              "id": "step-algorithm",
+              "tutor_message": "RRT: start with root at start position. LOOP: sample random point q_rand. Find nearest node in tree. Extend toward q_rand by step_size. If no collision, add to tree. UNTIL q_new is close to goal. The tree 'rapidly explores' the space.",
+              "reflection_question": "Why is RRT well-suited for high-dimensional spaces (like robot arm joint angles) where grid search fails?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement RRT in Python on a 2D map with obstacle rectangles. Visualize the tree growth and final path. Compare path quality to A* on the same map.",
+              "student_prompt": "Implement RRT and visualize the tree and extracted path.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 240
+            },
+            {
+              "id": "step-rrtstar",
+              "tutor_message": "RRT* improves RRT by 'rewiring' the tree: when adding a new node, check if nearby nodes would have a shorter path through the new node. Over time, RRT* converges to the optimal path. RRT never does.",
+              "reflection_question": "What's the tradeoff between RRT (fast, suboptimal) and RRT* (slower, optimal)?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-rrt",
+            "name": "Random Planner",
+            "description": "Implemented RRT path planning",
+            "icon": "🌲"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-occupancy"
+          ]
+        },
+        {
+          "id": "mz-visual-odometry",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Visual Odometry",
+          "subtitle": "Track position from camera images",
+          "description": "Visual odometry estimates how far the robot has moved by comparing consecutive camera frames. Features tracked across frames reveal the camera's motion — no wheel encoders needed.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 40,
+          "learning_objectives": [
+            "Implement feature tracking with optical flow",
+            "Estimate camera translation from feature displacement",
+            "Understand scale ambiguity in monocular VO"
+          ],
+          "steps": [
+            {
+              "id": "step-features",
+              "tutor_message": "Visual odometry steps: (1) Detect keypoints (corners, edges) in frame 1. (2) Track those keypoints in frame 2 using optical flow. (3) The average displacement of all tracked points = camera motion. More points = more robust estimate.",
+              "reflection_question": "What happens to VO accuracy when the robot moves through a featureless white wall? How do you recover?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement monocular VO: use OpenCV's goodFeaturesToTrack + calcOpticalFlowPyrLK. Track features between consecutive frames and estimate translation from median feature displacement vector.",
+              "student_prompt": "Implement monocular visual odometry on camera frames from the maze navigation.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 300
+            },
+            {
+              "id": "step-scale",
+              "tutor_message": "Monocular VO has a scale ambiguity problem: you can estimate direction and relative motion but not absolute scale. A robot that's 10cm tall looks identical to one that's 1m tall from the camera's math. Fix: use known object size (AprilTag) as a scale reference.",
+              "reflection_question": "How does stereo visual odometry solve the scale ambiguity problem? What's the minimum baseline between cameras?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-vo",
+            "name": "Vision Odometrist",
+            "description": "Estimated robot position from camera frames",
+            "icon": "👁️"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-rrt"
+          ]
+        },
+        {
+          "id": "mz-full-autonomy",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Full Autonomy",
+          "subtitle": "Solve an unknown maze with no human input",
+          "description": "Given an unseen maze, navigate from start to finish using SLAM for mapping, A* for planning, and visual odometry for localization. Zero human intervention.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 60,
+          "learning_objectives": [
+            "Integrate SLAM, planning, and control into one pipeline",
+            "Handle unexpected situations autonomously",
+            "Evaluate autonomy by a formal metric (completion rate, time, accuracy)"
+          ],
+          "steps": [
+            {
+              "id": "step-pipeline",
+              "tutor_message": "Your full autonomy pipeline: VO provides pose updates → occupancy grid builds the map → A* plans from current pose to goal → PID controller executes the plan → loop. If plan fails: replan. If localization fails: stop and recover.",
+              "student_prompt": "Draw and describe your complete system pipeline.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-run",
+              "tutor_message": "Run 3 trials on different maze configurations you haven't seen. Log: completion rate, time to finish, distance traveled vs optimal. These metrics evaluate your system's autonomy level.",
+              "student_prompt": "Run 3 blind trials and log all metrics.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 1200
+            },
+            {
+              "id": "step-failure",
+              "tutor_message": "Full autonomy rarely works perfectly on the first try. Identify the most common failure mode and design a targeted fix. Autonomous systems improve through structured failure analysis.",
+              "reflection_question": "What SAE autonomy level (0–5) does your system achieve? What would it take to get to the next level?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-auto",
+            "name": "Full Autonomy",
+            "description": "Solved an unknown maze with zero human intervention",
+            "icon": "🚀"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-visual-odometry"
+          ]
+        },
+        {
+          "id": "mz-multi-robot",
+          "pack_id": "maze-marathon",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Two Robots, One Maze",
+          "subtitle": "Cooperative multi-robot exploration",
+          "description": "Two robots can map a maze twice as fast if they coordinate — each explores the areas the other hasn't visited. Design a cooperative frontier-based exploration strategy.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 50,
+          "learning_objectives": [
+            "Implement frontier-based exploration",
+            "Coordinate exploration between two agents without conflict",
+            "Merge two partial maps into one consistent map"
+          ],
+          "steps": [
+            {
+              "id": "step-frontier",
+              "tutor_message": "A 'frontier' is the boundary between explored free space and unknown space. Frontier-based exploration: identify all frontiers, assign one to each robot, move there to explore it. When no frontiers remain — the map is complete.",
+              "reflection_question": "How do you prevent both robots from going to the same frontier simultaneously?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-coordinate",
+              "tutor_message": "Robot A broadcasts its claimed frontier. Robot B reads the claimed set and picks the closest UNCLAIMED frontier. Each robot marks its frontier as claimed before moving toward it. When finished, it un-claims and picks a new one.",
+              "student_prompt": "Implement frontier claiming via local broadcast and run a coordinated exploration.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 600
+            },
+            {
+              "id": "step-merge",
+              "tutor_message": "Merge partial maps: use known landmark (AprilTag at maze entrance) as shared origin. Transform Robot B's map into Robot A's coordinate frame and average overlapping cells. The merged map should be more accurate than either individual map.",
+              "reflection_question": "What happens to the merged map if the two robots have different position drift errors?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-mz-multi",
+            "name": "Swarm Explorer",
+            "description": "Coordinated two robots for cooperative maze mapping",
+            "icon": "🤝"
+          },
+          "prerequisite_challenge_ids": [
+            "mz-full-autonomy"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cone-ring-gauntlet",
+      "concept_id": "cone-ring-gauntlet",
+      "robot_id": "sketchbot",
+      "name": "Cone Ring Gauntlet",
+      "description": "Hunt, dodge, and sort cones inside a ring arena. Combines robotics, computer vision, and competitive speed.",
+      "challenges": [
+        {
+          "id": "cg-spot-cone",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Spot the Cone",
+          "subtitle": "Identify a cone in the camera view",
+          "description": "Before the robot can interact with cones, it must see them. Learn how cameras detect objects by color, shape, and size.",
+          "subjects": [
+            "engineering",
+            "science"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 10,
+          "learning_objectives": [
+            "Understand color-based object detection",
+            "Identify a cone using HSV thresholding",
+            "Find the cone's center in the image"
+          ],
+          "steps": [
+            {
+              "id": "step-color",
+              "tutor_message": "Traffic cones are bright orange — that's intentional! In HSV color space, orange is: H=5–20°, S=180–255, V=150–255. Anything in that range is probably a cone. Filter the camera image for those values and see what lights up.",
+              "reflection_question": "Why do we use HSV instead of RGB for color detection? What happens to the RGB values of orange under dim vs bright lighting?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-detect",
+              "tutor_message": "Apply the HSV mask and find connected regions. The largest connected orange region is probably the cone. Compute its centroid — that's where the cone is in image coordinates.",
+              "robot_action": {
+                "type": "draw-prompt",
+                "payload": {
+                  "prompt": "a camera view diagram showing an orange cone with an HSV color mask overlay highlighting the cone region, centroid marked with a crosshair, bounding box drawn"
+                }
+              },
+              "completion_condition": "automatic",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-noise",
+              "tutor_message": "Orange sunlight, warning labels, and clothing can all trigger false detections. Apply a minimum area filter: ignore any orange region smaller than 500 pixels². Large blobs are cones; small blobs are noise.",
+              "reflection_question": "If two cones are visible, how would you detect BOTH and determine which is closer?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-spot",
+            "name": "Cone Spotter",
+            "description": "Detected a cone using color segmentation",
+            "icon": "🔶"
+          },
+          "prerequisite_challenge_ids": []
+        },
+        {
+          "id": "cg-drive-around",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Drive Around",
+          "subtitle": "Navigate around a single cone",
+          "description": "Detecting a cone is step one. Step two: don't hit it. Program a simple avoidance maneuver using the cone's image position to steer around it.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 12,
+          "learning_objectives": [
+            "Convert image coordinates to steering commands",
+            "Implement a simple obstacle avoidance behavior",
+            "Tune avoidance turning radius"
+          ],
+          "steps": [
+            {
+              "id": "step-steer",
+              "tutor_message": "When the cone centroid is in the LEFT half of the image, the cone is to your left — turn right. If it's in the RIGHT half, turn left. If it's centered, it's straight ahead — turn more sharply to pick a side.",
+              "reflection_question": "What happens when the cone is at the very top of the image (far away) vs the bottom (very close)?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement: steering_angle = Kp × (image_center_x - cone_x). Positive angle → turn right. Drive forward while steering. When cone leaves the camera frame, straighten out.",
+              "student_prompt": "Implement the steering law and test avoidance on a single cone.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-tune",
+              "tutor_message": "Too high Kp → robot swerves wildly. Too low → robot drives into the cone before turning enough. Find the Kp that gives a smooth arc around the cone.",
+              "reflection_question": "How wide should the avoidance arc be? What determines the minimum safe passing distance?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-around",
+            "name": "Cone Dodger",
+            "description": "Navigated around a single cone autonomously",
+            "icon": "↩️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-spot-cone"
+          ]
+        },
+        {
+          "id": "cg-slalom",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Slalom Intro",
+          "subtitle": "Weave through 3 cones",
+          "description": "A slalom is the classic speed-accuracy test. 3 cones in a line — alternate left and right of each one. First without a time limit, then as fast as you can.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 1,
+          "estimated_minutes": 15,
+          "learning_objectives": [
+            "Sequence multi-cone avoidance",
+            "Coordinate side-of-cone alternation",
+            "Balance speed and accuracy"
+          ],
+          "steps": [
+            {
+              "id": "step-sequence",
+              "tutor_message": "In a slalom you alternate sides: go right of cone 1, left of cone 2, right of cone 3. The tricky part: after passing cone 1, you need to start turning toward cone 2 early — not just avoid, but aim ahead.",
+              "reflection_question": "How do you know you've successfully 'passed' a cone and should switch to tracking the next one?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement cone sequencing: maintain a counter (current_cone). After passing current cone (it leaves view behind), increment counter. Use a side flag (left/right) that alternates with each increment.",
+              "student_prompt": "Implement slalom sequencing and run the 3-cone course.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-time",
+              "tutor_message": "Run the slalom 3 times, recording your time and any cones knocked over. A penalty of 5 seconds per cone touched is standard. Plot speed vs accuracy — find your optimal operating point.",
+              "reflection_question": "At what speed does accuracy start to degrade? Can you predict this from the geometry of the cone spacing?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-slalom",
+            "name": "Slalom Starter",
+            "description": "Completed a 3-cone slalom course",
+            "icon": "🏁"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-drive-around"
+          ]
+        },
+        {
+          "id": "cg-ring-aim",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Ring Gate",
+          "subtitle": "Drive precisely through a ring",
+          "description": "A ring gate requires precision — not just avoidance, but centering. The robot must drive exactly through the middle of a hoop placed on the ground.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 18,
+          "learning_objectives": [
+            "Detect a ring using ellipse fitting",
+            "Center the robot relative to the ring's detected position",
+            "Implement approach and pass-through control"
+          ],
+          "steps": [
+            {
+              "id": "step-detect-ring",
+              "tutor_message": "A ring on the ground appears as an ellipse in the camera image due to perspective. Use edge detection + Hough ellipse fitting to find it. The ellipse center is the gate center; the axes tell you its orientation and distance.",
+              "reflection_question": "When the ring is directly ahead (perpendicular to the camera), what shape does it appear in the image?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-center",
+              "tutor_message": "Control law: lateral error = ring_center_x - image_center_x. Steer to reduce this error (like the cone law). As you approach, the ellipse grows in the image — use its size to estimate distance.",
+              "student_prompt": "Implement ring gate detection and centering. Test on a physical ring.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-passthrough",
+              "tutor_message": "When the ring fills > 60% of the image height, drive straight through at reduced speed. Slowing down near the gate dramatically improves pass-through accuracy.",
+              "reflection_question": "How would you handle a ring that's tilted 30° — not flat on the ground?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-ring",
+            "name": "Ring Threader",
+            "description": "Navigated precisely through a ring gate",
+            "icon": "⭕"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-slalom"
+          ]
+        },
+        {
+          "id": "cg-course-run",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Cone Course",
+          "subtitle": "Complete a 5-cone obstacle course",
+          "description": "A 5-cone course with a ring gate combines all previous skills. Slalom 4 cones, pass through the ring gate, reach the finish line.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 20,
+          "learning_objectives": [
+            "Sequence multiple navigation tasks into one program",
+            "Detect and classify multiple object types",
+            "Handle state transitions between task segments"
+          ],
+          "steps": [
+            {
+              "id": "step-layout",
+              "tutor_message": "Set up the course: 4 cones in slalom formation, 1 ring gate at the end. The robot must: slalom the cones, switch to ring-detection mode, thread the gate, then go straight to finish.",
+              "student_prompt": "Set up the physical course and describe your plan for transitioning between task segments.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-run",
+              "tutor_message": "Run the course. Your state machine should: SLALOM (count cones, alternate sides) → when ring detected → GATE (center on ring, pass through) → FINISH (drive straight). Log any failures and which state they occurred in.",
+              "student_prompt": "Run 3 complete course attempts and log success/failure per segment.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 300
+            },
+            {
+              "id": "step-improve",
+              "tutor_message": "Most failures happen at state transitions — the moment the robot switches from slalom to gate detection. The brief window where it's searching for the ring is when it's most likely to veer off course.",
+              "reflection_question": "How can you make the state transition smoother so there's no 'dead zone' between task segments?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-course",
+            "name": "Course Completer",
+            "description": "Completed the 5-cone obstacle course",
+            "icon": "🏅"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-ring-aim"
+          ]
+        },
+        {
+          "id": "cg-time-trial",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Time Trial",
+          "subtitle": "Fastest clean run wins",
+          "description": "Optimize your 5-cone course program for speed. This isn't about changing the hardware — it's about finding the fastest PARAMETERS that still complete the course cleanly.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 2,
+          "estimated_minutes": 25,
+          "learning_objectives": [
+            "Systematic parameter optimization",
+            "Understand the speed-accuracy Pareto frontier",
+            "Use timed runs as a feedback signal for tuning"
+          ],
+          "steps": [
+            {
+              "id": "step-baseline",
+              "tutor_message": "Record your current best time and success rate. Write down all tunable parameters: slalom Kp, approach speed, gate threshold, transition speed. These are your optimization levers.",
+              "student_prompt": "Document baseline time, success rate, and all tunable parameters.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 30
+            },
+            {
+              "id": "step-sweep",
+              "tutor_message": "Parameter sweep: change one parameter at a time, run 3 trials each, record mean time and DNF rate. Plot time vs parameter value. Find the sweet spot before accuracy degrades.",
+              "student_prompt": "Sweep at least 2 parameters and plot the results.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 600
+            },
+            {
+              "id": "step-optimize",
+              "tutor_message": "Combine your best parameter settings. Run a final 5-trial comparison: baseline vs optimized. Calculate mean, standard deviation, and improvement percentage.",
+              "reflection_question": "Did your optimization improve mean time, consistency, or both? Which matters more in a competition?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-time",
+            "name": "Optimizer",
+            "description": "Systematically improved course time through parameter tuning",
+            "icon": "⏱️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-course-run"
+          ]
+        },
+        {
+          "id": "cg-color-cones",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Color-Coded Cones",
+          "subtitle": "Navigate differently based on cone color",
+          "description": "Red and blue cones mean different things: red = go right of this cone, blue = go left. The robot must read the color and execute the correct maneuver.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 22,
+          "learning_objectives": [
+            "Detect multiple distinct colors simultaneously",
+            "Map color to action in a lookup table",
+            "Handle ambiguous colors under different lighting"
+          ],
+          "steps": [
+            {
+              "id": "step-multi-color",
+              "tutor_message": "Extend your color detector: add blue (H=100–130°) alongside orange and red. Classify each detected blob by dominant hue. Build a color → action lookup: RED = pass_right, BLUE = pass_left, ORANGE = free choice.",
+              "reflection_question": "Under warm (orange-tinted) lighting, how might your red vs orange classifier be confused?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Add cone color classification to your detection pipeline. Test with individual cones of each color. Log the detection results under different lighting conditions.",
+              "student_prompt": "Implement multi-color detection and test it under at least 2 lighting conditions.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-course",
+              "tutor_message": "Set up a 6-cone course with alternating red/blue cones in non-standard order (e.g. red, red, blue, red, blue, blue). The robot must read and respond correctly — not just alternate sides.",
+              "student_prompt": "Run the color-coded course and log success rate per cone.",
+              "reflection_question": "What minimum area (pixels²) is needed to reliably classify cone color vs just detecting it?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-color",
+            "name": "Color Classifier",
+            "description": "Navigated a course using cone color commands",
+            "icon": "🎨"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-time-trial"
+          ]
+        },
+        {
+          "id": "cg-moving-obstacles",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Dynamic Obstacles",
+          "subtitle": "Cones that move",
+          "description": "Real environments have moving objects — people, vehicles, other robots. Test your avoidance algorithm against cones that are slowly moved by hand during the run.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 20,
+          "learning_objectives": [
+            "Track moving objects using velocity estimation",
+            "Predict object position ahead of reaction time",
+            "Distinguish stopped from moving obstacles"
+          ],
+          "steps": [
+            {
+              "id": "step-tracking",
+              "tutor_message": "To track a moving cone, estimate its velocity: position_t - position_(t-1) / delta_t. Predict where it will be in 200ms: predicted = position_t + velocity × 0.2. Steer to avoid the PREDICTED position, not the current one.",
+              "reflection_question": "What's the minimum number of frames needed to estimate a cone's velocity? What's the tradeoff with using more frames?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-predict",
+              "tutor_message": "Implement position tracking + linear velocity prediction. For cones being pushed slowly (< 10cm/s), how much does prediction help vs just avoiding the current position?",
+              "student_prompt": "Implement cone velocity estimation and predictive avoidance.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 180
+            },
+            {
+              "id": "step-test",
+              "tutor_message": "Run the course while someone slowly pushes two cones across the path. Record: how many collisions without prediction vs with prediction. Quantify the improvement.",
+              "reflection_question": "When does your linear prediction model fail? What kind of motion would it handle poorly?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-moving",
+            "name": "Dynamic Dodger",
+            "description": "Avoided moving obstacles using predictive tracking",
+            "icon": "🎯"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-color-cones"
+          ]
+        },
+        {
+          "id": "cg-precision-park",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Precision Parking",
+          "subtitle": "Park between cone markers",
+          "description": "Parking between cones tests lateral precision. The robot must stop exactly centered between two marker cones — within 2cm — without touching them.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 22,
+          "learning_objectives": [
+            "Implement a position-accuracy control loop",
+            "Use visual feedback for fine lateral correction",
+            "Understand the stopping accuracy vs approach speed tradeoff"
+          ],
+          "steps": [
+            {
+              "id": "step-geometry",
+              "tutor_message": "Two cones define a parking space. The robot must center between them. In the camera image: left_cone_x and right_cone_x → target_x = (left_x + right_x)/2. Steer to minimize |camera_center_x - target_x|.",
+              "reflection_question": "How does the robot know when it's 'inside' the parking space and should stop, vs still approaching it from outside?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement: detect both cones simultaneously, compute target centerline, approach at low speed while correcting lateral error. Stop when the robot length is fully inside the cone markers (estimated from depth).",
+              "student_prompt": "Implement precision parking and test for ±2cm centering accuracy.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 240
+            },
+            {
+              "id": "step-measure",
+              "tutor_message": "Measure actual parking accuracy with a ruler: distance from each cone after parking. Run 10 trials and report mean and standard deviation of lateral error.",
+              "reflection_question": "What's causing the residual error? Sensor noise, control lag, or wheel slip during stopping?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-park",
+            "name": "Precision Parker",
+            "description": "Parked within 2cm of center between cone markers",
+            "icon": "🅿️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-moving-obstacles"
+          ]
+        },
+        {
+          "id": "cg-ring-size",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Ring Sort",
+          "subtitle": "Classify rings by size",
+          "description": "Three rings of different sizes are placed around the course. The robot must detect each ring, estimate its real-world diameter from the image, and navigate them in order: smallest to largest.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 25,
+          "learning_objectives": [
+            "Estimate real-world size from apparent image size and distance",
+            "Sort detected objects by a derived property",
+            "Sequence tasks based on classification results"
+          ],
+          "steps": [
+            {
+              "id": "step-size-estimation",
+              "tutor_message": "Apparent size (pixels) and real size (cm) relate through distance: real_size = apparent_size_px × distance / focal_length_px. If you know the focal length and can estimate distance (from the ellipse shape), you can compute real diameter.",
+              "reflection_question": "Two rings of the same size at different distances appear different sizes in the image. How do you tell them apart?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-classify",
+              "tutor_message": "Do a scanning pass: drive slowly around the arena, detect all three rings, estimate their diameters. Sort them: small < medium < large. Then plan the order of navigation: smallest first.",
+              "student_prompt": "Implement ring detection, size estimation, and sorting. Verify with physical measurements.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 240
+            },
+            {
+              "id": "step-navigate",
+              "tutor_message": "Execute the sorted sequence: drive to smallest ring, pass through, drive to medium, pass through, drive to largest. All three must be passed in order without re-scanning.",
+              "reflection_question": "What happens if two rings have nearly identical diameters? How much size difference is needed for reliable classification?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-size",
+            "name": "Size Sorter",
+            "description": "Classified and navigated rings by estimated real-world size",
+            "icon": "📏"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-precision-park"
+          ]
+        },
+        {
+          "id": "cg-full-gauntlet",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Full Gauntlet",
+          "subtitle": "Color cones, moving obstacles, ring gates — all at once",
+          "description": "The complete gauntlet: 4 color-coded cones, 2 moving obstacles, 3 ring gates of different sizes. Complete all tasks in the correct order with no human input.",
+          "subjects": [
+            "engineering",
+            "coding"
+          ],
+          "difficulty": 3,
+          "estimated_minutes": 35,
+          "learning_objectives": [
+            "Integrate multiple detection and navigation behaviors",
+            "Handle unexpected task sequencing",
+            "Evaluate system robustness under combined challenge conditions"
+          ],
+          "steps": [
+            {
+              "id": "step-plan",
+              "tutor_message": "Map out the gauntlet: identify all task segments and their order. Draw a state machine with transitions. Identify which sensor configurations trigger each transition.",
+              "student_prompt": "Draw the complete state machine for the full gauntlet.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-run",
+              "tutor_message": "Run the full gauntlet 3 times. Score: +10 per cone passed correctly, +15 per ring gate threaded, -10 per collision. Log your score and the failure point for each attempt.",
+              "student_prompt": "Run 3 attempts and log score + failure point each time.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 600
+            },
+            {
+              "id": "step-debug",
+              "tutor_message": "The most common failure: wrong state transition at the wrong time. Review your logs: which state triggered unexpectedly? What sensor reading caused it? Fix the threshold and re-run.",
+              "reflection_question": "What's the biggest bottleneck in your system — perception, planning, or control? How would you test each in isolation?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-gauntlet",
+            "name": "Gauntlet Champion",
+            "description": "Completed the full multi-challenge gauntlet",
+            "icon": "🏆"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-ring-size"
+          ]
+        },
+        {
+          "id": "cg-cone-detect",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Deep Cone Detector",
+          "subtitle": "Train a neural detector for cones",
+          "description": "Color thresholding is fragile. A trained neural network handles lighting variation, partial occlusion, and novel cone colors. Train a lightweight cone detector.",
+          "subjects": [
+            "coding",
+            "science",
+            "engineering"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 40,
+          "learning_objectives": [
+            "Understand object detection vs classification",
+            "Collect and label a small training dataset",
+            "Train and evaluate a MobileNet SSD-style detector"
+          ],
+          "steps": [
+            {
+              "id": "step-dataset",
+              "tutor_message": "Collect 200 images of cones under varied conditions: different angles, distances, lighting, backgrounds. Label each with bounding boxes. This is the hardest part of ML — clean data wins over fancy models.",
+              "student_prompt": "Collect and label 200 cone images using a labeling tool.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 600
+            },
+            {
+              "id": "step-train",
+              "tutor_message": "Fine-tune a MobileNetV2 backbone on your dataset using transfer learning. Use 80% for training, 20% for validation. Track mAP (mean Average Precision) — aim for >0.85 on validation.",
+              "student_prompt": "Train the detector and report validation mAP.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 1200
+            },
+            {
+              "id": "step-deploy",
+              "tutor_message": "Export to TFLite or ONNX for real-time inference on the robot. Measure inference speed (ms per frame). Compare detection quality vs your old HSV threshold method under 3 different lighting conditions.",
+              "reflection_question": "When does the neural detector FAIL that the HSV threshold succeeds? When does HSV fail that neural succeeds?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-nn",
+            "name": "Neural Detector",
+            "description": "Trained a neural cone detector from real images",
+            "icon": "🧠"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-full-gauntlet"
+          ]
+        },
+        {
+          "id": "cg-depth-est",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Monocular Depth",
+          "subtitle": "Estimate cone distance from a single camera",
+          "description": "A single camera can't directly measure distance — but apparent size, position, and learned priors can give useful estimates. Implement monocular depth estimation for cones.",
+          "subjects": [
+            "science",
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 35,
+          "learning_objectives": [
+            "Apply the pinhole camera model for depth estimation",
+            "Use known object size as a depth reference",
+            "Evaluate accuracy vs a ground-truth distance sensor"
+          ],
+          "steps": [
+            {
+              "id": "step-pinhole",
+              "tutor_message": "Pinhole camera model: object_height_px = (real_height × focal_length) / distance. Rearranged: distance = (real_height × focal_length) / object_height_px. If a cone is 30cm tall and appears 120px tall in a camera with 400px focal length: distance = (30 × 400)/120 = 100cm.",
+              "student_prompt": "Calibrate your camera's focal length using the formula and a cone at a known distance.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement per-cone distance estimation: detect cone bounding box height, apply the formula. Test at 30, 60, 90, 120, 150cm ground truth distances. Plot estimated vs actual.",
+              "student_prompt": "Implement and evaluate monocular depth at 5 distances.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 240
+            },
+            {
+              "id": "step-error",
+              "tutor_message": "Error increases with distance because small pixel changes correspond to large real-world changes. Near (30cm): maybe ±2cm error. Far (150cm): maybe ±15cm. This non-linear error is inherent to the pinhole model.",
+              "reflection_question": "How would lens distortion (barrel/pincushion) affect these depth estimates, and how do you correct for it?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-depth",
+            "name": "Depth Estimator",
+            "description": "Estimated cone distance from monocular camera",
+            "icon": "📏"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-cone-detect"
+          ]
+        },
+        {
+          "id": "cg-optimal-path",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Optimal Path Through Cones",
+          "subtitle": "Traveling Salesman for the gauntlet",
+          "description": "With all cone and ring positions known, find the shortest path through them all. This is related to the Traveling Salesman Problem — NP-hard in general, but solvable for small N.",
+          "subjects": [
+            "coding",
+            "math",
+            "engineering"
+          ],
+          "difficulty": 4,
+          "estimated_minutes": 35,
+          "learning_objectives": [
+            "Formulate the course as an optimization problem",
+            "Implement a greedy nearest-neighbor heuristic",
+            "Compare greedy vs brute-force for small N"
+          ],
+          "steps": [
+            {
+              "id": "step-tsp",
+              "tutor_message": "The Traveling Salesman Problem: given N waypoints, find the shortest route that visits all of them exactly once. For the gauntlet: N = 4 cones + 3 rings = 7 waypoints. Brute force is 7! = 5040 routes. Fast enough to check all!",
+              "reflection_question": "At what N does brute force become impractical? What's your laptop's approximate limit?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 45
+            },
+            {
+              "id": "step-brute",
+              "tutor_message": "Implement brute-force TSP for N≤10: generate all permutations of waypoints, compute total path length for each, return the minimum. For N=7, this runs in milliseconds.",
+              "student_prompt": "Implement brute-force TSP and find the optimal gauntlet order.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 120
+            },
+            {
+              "id": "step-run",
+              "tutor_message": "Execute the optimal order vs your original hand-designed order. Measure the distance difference. How much shorter is the optimal route?",
+              "reflection_question": "The gauntlet has ordering constraints (must pass red before blue). How do you add constraints to the TSP formulation?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-tsp",
+            "name": "Route Optimizer",
+            "description": "Found and executed the optimal path through the gauntlet",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-depth-est"
+          ]
+        },
+        {
+          "id": "cg-ring-pose",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Ring Pose Estimation",
+          "subtitle": "Find the ring's 3D orientation",
+          "description": "A tilted ring requires knowing its full 3D pose — not just where it is in the image, but which direction its axis points. Implement PnP-based ring pose estimation.",
+          "subjects": [
+            "science",
+            "coding",
+            "engineering"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Understand the PnP (Perspective-n-Point) problem",
+            "Use solvePnP to recover 3D pose from 2D correspondences",
+            "Decompose the rotation matrix into Euler angles"
+          ],
+          "steps": [
+            {
+              "id": "step-pnp",
+              "tutor_message": "PnP: given N 3D world points and their corresponding 2D image projections, find the camera-to-world transformation (rotation R and translation t). For a ring, 8 points on its perimeter give a robust estimate.",
+              "reflection_question": "Why do you need at least 4 point correspondences for PnP? What degeneracy occurs with only 3?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 60
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Sample 8 equidistant points on the ring's detected ellipse. Map them to 3D world coordinates (assuming known ring radius). Call cv2.solvePnP. Extract rotation vector rvec → Rodrigues → rotation matrix → Euler angles.",
+              "student_prompt": "Implement ring PnP pose estimation and verify roll/pitch/yaw against a protractor.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 360
+            },
+            {
+              "id": "step-navigation",
+              "tutor_message": "Use the ring's 3D pose to plan the approach trajectory: align the robot's direction with the ring's axis, not just the ring's center. A tilted ring requires approaching from a specific angle to pass through cleanly.",
+              "reflection_question": "At what tilt angle does it become impossible to pass through a ring without the robot frame catching the edge?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-pose",
+            "name": "Pose Estimator",
+            "description": "Estimated full 3D ring pose using PnP",
+            "icon": "📐"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-optimal-path"
+          ]
+        },
+        {
+          "id": "cg-full-autonomous",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Autonomous Gauntlet",
+          "subtitle": "Zero human input, all 10 elements",
+          "description": "The complete autonomous gauntlet: the robot is placed in a start position and must detect, plan, and complete all course elements without any human intervention.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 60,
+          "learning_objectives": [
+            "Operate a full perception-planning-control pipeline autonomously",
+            "Handle task failure and recovery without human help",
+            "Evaluate autonomy under real-world variation"
+          ],
+          "steps": [
+            {
+              "id": "step-pipeline",
+              "tutor_message": "Your autonomous pipeline: SCAN (sweep for all objects, build position map) → PLAN (TSP on waypoints) → EXECUTE (navigate each waypoint, handle failures) → RECOVER (if stuck, replan). All of this runs without interruption.",
+              "student_prompt": "Document your pipeline architecture with data flow between each stage.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-run",
+              "tutor_message": "Run 5 trials on a freshly randomized course (cones moved between trials). Record: completion %, mean time, score. Your system should handle course variation without re-programming.",
+              "student_prompt": "Run 5 autonomous trials with randomized cone positions each time.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 1800
+            },
+            {
+              "id": "step-analysis",
+              "tutor_message": "Calculate robustness metrics: how sensitive is completion rate to cone position variation? What's the tightest course layout that still works? This analysis defines your system's operational design domain (ODD).",
+              "reflection_question": "What's your system's biggest single point of failure? If you had one more day to fix it, what would you change?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-auto",
+            "name": "Autonomous Champion",
+            "description": "Completed the full gauntlet with zero human input",
+            "icon": "🤖"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-ring-pose"
+          ]
+        },
+        {
+          "id": "cg-cone-slam",
+          "pack_id": "cone-ring-gauntlet",
+          "robot_id": "sketchbot",
+          "required_modules": [],
+          "title": "Cone SLAM",
+          "subtitle": "Map cone positions as dynamic landmarks",
+          "description": "Treat cones as SLAM landmarks: build a map of cone positions while simultaneously localizing the robot. The cone map persists across the full run.",
+          "subjects": [
+            "engineering",
+            "coding",
+            "science"
+          ],
+          "difficulty": 5,
+          "estimated_minutes": 50,
+          "learning_objectives": [
+            "Extend SLAM to use detected objects as landmarks",
+            "Handle landmark initialization and data association",
+            "Maintain a consistent map under repeated observations"
+          ],
+          "steps": [
+            {
+              "id": "step-landmarks",
+              "tutor_message": "In cone SLAM, each detected cone is a landmark. On first detection: initialize a new landmark with estimated world position (from depth + heading). On subsequent detection: update the landmark's position using EKF. Track landmark ID across frames using color + position.",
+              "reflection_question": "Two orange cones look identical. How do you solve the data association problem — knowing that observation #7 belongs to landmark #3, not #5?",
+              "completion_condition": "student-confirms",
+              "duration_hint": 90
+            },
+            {
+              "id": "step-implement",
+              "tutor_message": "Implement a simplified cone SLAM: maintain a dictionary {cone_id: (x, y, color)}. On detection, find the nearest known cone by position and color. If distance < threshold → update. Else → new landmark. Track uncertainty with a covariance estimate.",
+              "student_prompt": "Implement cone SLAM and visualize the landmark map at the end of a full course run.",
+              "completion_condition": "student-confirms",
+              "duration_hint": 600
+            },
+            {
+              "id": "step-loop-closure",
+              "tutor_message": "Loop closure: when the robot returns near a known cone and re-detects it, the position error between expected and observed provides a correction for all recent poses. This is SLAM's loop-closure benefit applied to cone landmarks.",
+              "reflection_question": "How many unique cones are needed as landmarks for reliable localization? What's the minimum spatial coverage?",
+              "completion_condition": "student-confirms"
+            }
+          ],
+          "completion_badge": {
+            "id": "badge-cg-cslam",
+            "name": "Cone SLAM Master",
+            "description": "Mapped cone positions as SLAM landmarks",
+            "icon": "🗺️"
+          },
+          "prerequisite_challenge_ids": [
+            "cg-full-autonomous"
+          ]
+        }
+      ]
+    }
+  ]
+}

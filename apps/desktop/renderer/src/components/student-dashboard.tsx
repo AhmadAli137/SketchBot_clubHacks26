@@ -95,6 +95,7 @@ export function StudentDashboard({
   const reducedMotion = usePrefersReducedMotion();
   const sessionActorRole: 'teacher' | 'student' = userRole === 'teacher' ? 'teacher' : 'student';
   const uploadDisabled = userRole === 'student' && classroomRestrictions && !canUpload(classroomRestrictions);
+  const isRobotChallenge = conceptId != null && (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(conceptId);
   type WorkspaceTab = 'simulator' | 'live' | 'programming';
 
   const [activeLayer, setActiveLayer] = useState<ConceptLayer>('intuitive');
@@ -509,8 +510,6 @@ export function StudentDashboard({
       );
     }
 
-    const isRobotChallenge = conceptId != null && (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(conceptId);
-
     return (
       <div className="workspace-programming">
         {blockRunnerNotice && (
@@ -787,8 +786,8 @@ export function StudentDashboard({
           ) : null}
         </div>
 
-        {/* Floating prompt bar — sandbox/free-draw mode only */}
-        {appMode === 'sandbox' && (
+        {/* Floating prompt bar — free-draw and drawing concepts only, never for robot challenges */}
+        {appMode === 'sandbox' && !isRobotChallenge && (
         <div className="floating-prompt-bar" data-tour="session-prompt">
           <form
             className="floating-prompt-form"
@@ -939,7 +938,7 @@ export function StudentDashboard({
         </div>
       </div>
 
-      {pendingTask && !lessonPlan && (
+      {pendingTask && !lessonPlan && !isRobotChallenge && (
         <div className="sketch-notify-card" role="dialog" aria-live="polite" aria-labelledby="sketch-notify-title">
           <div className="sketch-notify-avatar" aria-hidden="true">🤖</div>
           <div className="sketch-notify-body">
