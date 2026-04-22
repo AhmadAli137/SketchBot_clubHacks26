@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText, BookOpen, HelpCircle } from 'lucide-react';
+import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText, BookOpen, HelpCircle, ArrowLeft } from 'lucide-react';
 
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { useGuidedTour } from '@/components/guided-tour/guided-tour-context';
@@ -74,6 +74,7 @@ type HomeScreenProps = {
   apiBase?: string;
   onStartSession: (conceptId?: string, starterPrompt?: string, ageGroup?: AgeGroup, options?: StartSessionOptions) => void;
   onSignOut: () => void;
+  onBackToMenu?: () => void;
   onClassroomSaved?: (profile: ClassroomProfile) => void;
   onOpenTeacherDashboard?: () => void;
 };
@@ -87,6 +88,7 @@ export function HomeScreen({
   apiBase = '',
   onStartSession,
   onSignOut,
+  onBackToMenu,
   onClassroomSaved,
   onOpenTeacherDashboard,
 }: HomeScreenProps) {
@@ -352,6 +354,19 @@ export function HomeScreen({
       <div className="auth-bg-orb auth-bg-orb-a" />
       <div className="auth-bg-orb auth-bg-orb-b" />
       <div className="auth-bg-orb auth-bg-orb-c" />
+
+      {/* Top-left back button */}
+      {onBackToMenu && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onBackToMenu}
+          style={{ position: 'fixed', top: 14, left: 14, zIndex: 10, fontSize: '0.75rem', minHeight: 32, gap: 5 } as React.CSSProperties}
+        >
+          <ArrowLeft size={13} />
+          Menu
+        </Button>
+      )}
 
       {/* Top-right toolbar — leave 52px gap on right for the persistent profile button */}
       <div style={{ position: 'fixed', top: 14, right: 58, display: 'flex', gap: 8, zIndex: 10, alignItems: 'center' }}>

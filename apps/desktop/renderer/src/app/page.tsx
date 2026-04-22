@@ -1137,6 +1137,7 @@ export default function HomePage() {
               apiBase={apiBase}
               onStartSession={handleStartSession}
               onSignOut={handleSignOut}
+              onBackToMenu={() => setView('plan')}
               onClassroomSaved={handleClassroomSaved}
               onOpenTeacherDashboard={userRole === 'teacher' ? () => setShowTeacherDash(true) : undefined}
             />
