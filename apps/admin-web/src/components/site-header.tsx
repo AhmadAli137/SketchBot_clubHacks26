@@ -24,6 +24,7 @@ const NAV_LINKS = [
   { href: '/#spark', label: 'AI Tutor' },
   { href: '/#apps', label: 'Apps' },
   { href: '/pricing', label: 'Pricing' },
+  { href: '/download', label: 'Download' },
   { href: '/dashboard', label: 'Dashboard' },
 ];
 

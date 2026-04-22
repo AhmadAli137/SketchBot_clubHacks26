@@ -122,7 +122,7 @@ export function StudentDashboard({
   const [blockRunnerNotice, setBlockRunnerNotice] = useState<string | null>(null);
   const [tutorCollapsed, setTutorCollapsed] = useState(false);
   const [primaryTab, setPrimaryTab] = useState<WorkspaceTab>('simulator');
-  const [secondaryTab, setSecondaryTab] = useState<WorkspaceTab | null>('programming');
+  const [secondaryTab, setSecondaryTab] = useState<WorkspaceTab | null>(null);
   const [showPromptGallery, setShowPromptGallery] = useState(false);
   const workspaceCameraRef = useRef<HTMLDivElement | null>(null);
 
@@ -139,12 +139,13 @@ export function StudentDashboard({
     if (!activeChallengeId) setEffectiveChallengeId(null);
   }, [conceptId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (appMode === 'sandbox') return;
     if (effectiveChallengeId) return;
     if (!conceptId || challengePacks.length === 0) return;
     const match = challengePacks.find((p) => p.conceptId === conceptId);
     const first = match?.challenges[0];
     if (first) setEffectiveChallengeId(first.id);
-  }, [effectiveChallengeId, conceptId, challengePacks]);
+  }, [appMode, effectiveChallengeId, conceptId, challengePacks]);
   const activeChallenge = useMemo(() => {
     if (!effectiveChallengeId) return null;
     for (const pack of challengePacks) {
@@ -747,7 +748,7 @@ export function StudentDashboard({
             </div>
             <div className="workspace-pane-body" style={{ position: 'relative' }}>
               {renderWorkspace(primaryTab)}
-              {lessonPlan && (
+              {lessonPlan && appMode !== 'sandbox' && (
                 <LessonHud
                   plan={lessonPlan}
                   studentName={studentName}

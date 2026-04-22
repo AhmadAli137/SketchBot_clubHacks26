@@ -14333,3 +14333,63 @@ select.block-param-input{width:auto;padding-right:20px}
 
 .lesson-hud-finish-btn:hover { opacity: 0.85; }
 
+/* ── Sandbox Hero Scene (guest home screen) ───────────────────────────── */
+
+.sandbox-hero {
+  --sand-h: 72px;
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin: 8px auto 28px;
+  height: 230px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(196, 146, 42, 0.22);
+  background: linear-gradient(180deg,
+    #060c1e 0%,
+    #091428 55%,
+    #0e1e38 75%,
+    transparent 100%);
+}
+
+.sandbox-hero-sky {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 35% 25%, rgba(93,228,255,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 75% 20%, rgba(168,85,247,0.06) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.sandbox-hero-ground {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--sand-h);
+  background: linear-gradient(180deg, #c4892a 0%, #8b5e1a 100%);
+  border-top: 2px solid rgba(255, 185, 60, 0.28);
+  border-radius: 0 0 20px 20px;
+  z-index: 2;
+}
+
+/* Clips the mini bots so only their heads show above the sand */
+.sandbox-buried-wrap { z-index: 1; }
+.sandbox-buried-clip {
+  overflow: hidden;
+  height: 26px;  /* show only top 26 px of the 60 px xs bot */
+  display: flex;
+  align-items: flex-start;
+  opacity: 0.82;
+  filter: saturate(0.7) brightness(0.9);
+}
+
+/* Main Spark stands on the sand surface */
+.sandbox-main-bot {
+  position: absolute;
+  bottom: var(--sand-h);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+

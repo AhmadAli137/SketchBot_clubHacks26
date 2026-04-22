@@ -72,7 +72,7 @@ export function SimPlayground({
   score,
   maxScore,
 }: SimPlaygroundProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('2d');
+  const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [showGrid, setShowGrid] = useState(true);
   const [showAxes, setShowAxes] = useState(true);
   const [showCamera, setShowCamera] = useState(true);

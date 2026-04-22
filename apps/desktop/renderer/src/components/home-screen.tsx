@@ -31,6 +31,7 @@ import { TeacherFeedbackModal } from '@/components/teacher-feedback-modal';
 import type { ChallengePack, ClassroomProfile } from '@/lib/platform-types';
 import { useChallenges } from '@/lib/use-challenges';
 import { RobotHub } from '@/components/robot-hub';
+import { SandboxHeroScene } from '@/components/sandbox-scene';
 import { getDifficultyLevel } from '@/lib/progress-store';
 
 import type { AuthRole } from './auth-screen';
@@ -445,15 +446,18 @@ export function HomeScreen({
         </div>
 
         {role === 'guest' && (
-          <div className="guest-unlock-nudge">
-            <span className="guest-unlock-icon">🎓</span>
-            <span className="guest-unlock-text">
-              Want lessons, XP, and badges?
-            </span>
-            <button type="button" className="guest-unlock-btn" onClick={onSignOut}>
-              Switch to Personal Tutor →
-            </button>
-          </div>
+          <>
+            <SandboxHeroScene />
+            <div className="guest-unlock-nudge">
+              <span className="guest-unlock-icon">🎓</span>
+              <span className="guest-unlock-text">
+                Want lessons, XP, and badges?
+              </span>
+              <button type="button" className="guest-unlock-btn" onClick={onSignOut}>
+                Switch to Personal Tutor →
+              </button>
+            </div>
+          </>
         )}
 
         {role === 'teacher' && (
@@ -789,8 +793,12 @@ export function HomeScreen({
         ) : (
           <div className="home-hero-section">
             <div className="home-hero-copy">
-              <h2>Ready for the classroom?</h2>
-              <p>Select a concept and launch a session for your class.</p>
+              <h2>{role === 'guest' ? 'Start exploring' : 'Ready for the classroom?'}</h2>
+              <p>
+                {role === 'guest'
+                  ? 'Free-draw with any prompt, or pick a concept to try.'
+                  : 'Select a concept and launch a session for your class.'}
+              </p>
             </div>
             {role === 'guest' && (
               <div className="home-age-group-selector">

@@ -5,6 +5,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { setupAutoUpdater } = require('./updater.cjs');
 
 // Custom protocol — serves the static Next.js export as app://localhost/
 // This avoids file:// limitations (broken /_next/ absolute paths, missing CORS, no fetch API).
@@ -421,6 +422,11 @@ async function createMainWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Auto-update: only check in packaged builds, never during dev
+  if (app.isPackaged) {
+    setupAutoUpdater(mainWindow);
+  }
 }
 
 ipcMain.handle('desktop:get-launch-state', () => launchState);
