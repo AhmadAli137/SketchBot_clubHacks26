@@ -116,6 +116,15 @@ async def my_sessions(request: Request) -> dict:
     return {"sessions": sessions}
 
 
+@router.get("/history")
+async def session_history(request: Request) -> dict:
+    teacher_id = _teacher_id_from_request(request)
+    if not teacher_id:
+        return {"sessions": []}
+    sessions = svc.teacher_session_history(teacher_id)
+    return {"sessions": sessions}
+
+
 # ─── Shared routes ────────────────────────────────────────────────────────────
 
 @router.get("/validate/{join_code}")

@@ -3,7 +3,8 @@
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
+import { Cpu, Video, Code2, Send, Loader2, ChevronRight } from 'lucide-react';
 
 import { ConceptMap } from '@/components/concept-map';
 import { ProgressMap } from '@/components/progress-map';
@@ -35,6 +36,10 @@ import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { canUpload } from '@/lib/classroom-restrictions';
 import { useEntitlements } from '@/lib/use-entitlements';
 import { PaywallOverlay } from '@/components/paywall-overlay';
+import { LessonPlayer } from '@/components/lesson-player';
+import { BotAvatar } from '@/components/lesson-player/bot-avatar';
+import { useChallenges } from '@/lib/use-challenges';
+import { challengeToLessonPlan } from '@/lib/challenge-to-lesson';
 
 export function StudentDashboard({
   topStatus,
@@ -69,6 +74,8 @@ export function StudentDashboard({
   studentName = '',
   apiBase = '',
   lessonPlanActive = false,
+  activeChallengeId = null,
+  onChallengeComplete,
   appMode = 'sandbox',
   classroomRestrictions,
   userRole = 'student',
@@ -98,8 +105,8 @@ export function StudentDashboard({
   const difficultyLevel = studentName ? (getDifficultyLevel(studentName) ?? ageGroupProp) : ageGroupProp;
   const { entitlements, refresh: refreshEntitlements } = useEntitlements(userRole !== 'guest');
   const [paywallVisible, setPaywallVisible] = useState(false);
-  const [interactionMode, setInteractionMode] = useState<'rules' | 'blocks' | 'code'>(
-    difficultyLevel === 'explorer' ? 'rules' : 'blocks',
+  const [interactionMode, setInteractionMode] = useState<'rules' | 'blocks' | 'code' | 'arduino'>(
+    difficultyLevel === 'explorer' ? 'rules' : difficultyLevel === 'engineer' ? 'arduino' : 'blocks',
   );
   const [codeGeneratedSvg, setCodeGeneratedSvg] = useState<string | null>(null);
   const [blockPreviewSvg, setBlockPreviewSvg] = useState<string | null>(null);
@@ -115,6 +122,36 @@ export function StudentDashboard({
   const [secondaryTab, setSecondaryTab] = useState<WorkspaceTab | null>(null);
   const [showPromptGallery, setShowPromptGallery] = useState(false);
   const workspaceCameraRef = useRef<HTMLDivElement | null>(null);
+
+  // Challenge lesson player
+  const { packs: challengePacks } = useChallenges('sketchbot');
+  const [lessonPlayerOpen, setLessonPlayerOpen] = useState(false);
+  useEffect(() => {
+    if (activeChallengeId) setLessonPlayerOpen(true);
+  }, [activeChallengeId]);
+  const activeChallenge = useMemo(() => {
+    if (!activeChallengeId) return null;
+    for (const pack of challengePacks) {
+      const found = pack.challenges.find((c) => c.id === activeChallengeId);
+      if (found) return { challenge: found, pack };
+    }
+    return null;
+  }, [activeChallengeId, challengePacks]);
+  const lessonPlan = useMemo(
+    () => (activeChallenge ? challengeToLessonPlan(activeChallenge.challenge, ageGroup) : null),
+    [activeChallenge, ageGroup],
+  );
+  const handleDrawingRequest = (drawPrompt: string) => {
+    onPromptChange(drawPrompt);
+    setLastSubmittedPrompt(drawPrompt);
+    awaitingResultRef.current = true;
+    trackInputMode('language');
+    onSubmitPrompt({ preventDefault: () => {} } as FormEvent);
+  };
+  const handleLessonComplete = () => {
+    setLessonPlayerOpen(false);
+    onChallengeComplete?.();
+  };
 
   // Confirmation flow: a newly-generated drawing must be approved by the
   // student before the simulator actually starts drawing it.
@@ -321,9 +358,9 @@ export function StudentDashboard({
   const sysLabel = sysStatus === 'live' ? 'Live' : sysStatus === 'error' ? 'Offline' : 'Simulator';
 
   const featuredSvgContent = useMemo(() => {
-    return interactionMode === 'blocks'
-      ? blockPreviewSvg ?? codeGeneratedSvg ?? featuredTasks[0]?.svg_content ?? null
-      : codeGeneratedSvg ?? featuredTasks[0]?.svg_content ?? null;
+    if (interactionMode === 'blocks') return blockPreviewSvg ?? codeGeneratedSvg ?? featuredTasks[0]?.svg_content ?? null;
+    if (interactionMode === 'arduino') return featuredTasks[0]?.svg_content ?? null;
+    return codeGeneratedSvg ?? featuredTasks[0]?.svg_content ?? null;
   }, [blockPreviewSvg, codeGeneratedSvg, featuredTasks, interactionMode]);
 
   useEffect(() => {
@@ -355,11 +392,11 @@ export function StudentDashboard({
     onSubmitPrompt(event);
   };
 
-  const handleInteractionModeChange = (mode: 'rules' | 'blocks' | 'code') => {
+  const handleInteractionModeChange = (mode: 'rules' | 'blocks' | 'code' | 'arduino') => {
     setInteractionMode(mode);
     setPrimaryTab('programming');
     setBlockRunnerNotice(null);
-    if (mode !== 'rules') trackInputMode(mode);
+    if (mode !== 'rules' && mode !== 'arduino') trackInputMode(mode);
   };
 
   // Watch for newly generated SVG content. On the very first non-null value
@@ -634,7 +671,7 @@ export function StudentDashboard({
                   }}
                   disabled={secondaryTab === tab}
                 >
-                  {tab === 'simulator' ? '🤖 Simulator' : tab === 'live' ? '📷 Live Camera' : '✏️ Code'}
+                  {tab === 'simulator' ? <><Cpu size={13} />Simulator</> : tab === 'live' ? <><Video size={13} />Live Camera</> : <><Code2 size={13} />Code</>}
                 </button>
               ))}
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -679,7 +716,7 @@ export function StudentDashboard({
                     onClick={() => setSecondaryTab(tab)}
                     disabled={primaryTab === tab}
                   >
-                    {tab === 'simulator' ? '🤖 Simulator' : tab === 'live' ? '📷 Live Camera' : '✏️ Code'}
+                    {tab === 'simulator' ? <><Cpu size={13} />Simulator</> : tab === 'live' ? <><Video size={13} />Live Camera</> : <><Code2 size={13} />Code</>}
                   </button>
                 ))}
                 <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
@@ -751,7 +788,9 @@ export function StudentDashboard({
               }
               transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 28 }}
             >
-              {composing ? '⏳' : '▶ Generate'}
+              {composing
+                ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} />
+                : <><Send size={13} />Generate</>}
             </motion.button>
           </form>
 
@@ -799,27 +838,33 @@ export function StudentDashboard({
         </div>{/* end workspace-column */}
 
         {tutorCollapsed ? (
-          <button
+          <motion.button
             type="button"
             className={`tutor-drawer-handle ${pendingTask ? 'has-notification' : ''}`}
             onClick={() => setTutorCollapsed(false)}
             title={pendingTask ? 'Sketch has a drawing ready!' : 'Open Sketch tutor'}
             aria-label="Open Sketch tutor"
+            initial={reducedMotion ? false : { x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={reducedMotion ? undefined : { x: 20, opacity: 0 }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 30 }}
+            whileHover={reducedMotion ? undefined : { scale: 1.08 }}
+            whileTap={reducedMotion ? undefined : { scale: 0.93 }}
           >
-            🤖
+            <BotAvatar emotion={pendingTask ? 'excited' : 'idle'} size={28} />
             {pendingTask && <span className="tutor-drawer-badge" aria-hidden="true">1</span>}
-          </button>
+          </motion.button>
         ) : null}
 
         <div className={`tutor-dock ${tutorCollapsed ? 'collapsed' : ''}`}>
           <div className="tutor-dock-header">
-            <div className="tutor-dock-avatar">🤖</div>
+            <BotAvatar emotion="idle" size={32} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="tutor-dock-title">Sketch</div>
               <div className="tutor-dock-subtitle">Your robot tutor</div>
             </div>
             <button type="button" className="btn-ghost tutor-dock-minimize" onClick={() => setTutorCollapsed(true)} title="Minimize">
-              ‹
+              <ChevronRight size={14} />
             </button>
           </div>
           <div className="tutor-dock-body">
@@ -909,6 +954,102 @@ export function StudentDashboard({
           </div>
         </div>
       )}
+
+      {/* Challenge Lesson Player overlay */}
+      <AnimatePresence>
+        {lessonPlayerOpen && lessonPlan && (
+          <motion.div
+            key="lesson-overlay"
+            className="lesson-overlay"
+            initial={{ opacity: 0, y: 32 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 32 }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 32 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 120,
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'var(--bg)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {lessonPlan.title}
+              </span>
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                onClick={() => setLessonPlayerOpen(false)}
+                aria-label="Minimize lesson player"
+              >
+                Minimize
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                onClick={handleLessonComplete}
+                aria-label="Exit lesson"
+              >
+                ✕ Exit
+              </button>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <LessonPlayer
+                plan={lessonPlan}
+                studentName={studentName}
+                apiBase={apiBase}
+                onDrawingRequest={handleDrawingRequest}
+                onComplete={handleLessonComplete}
+                onXPChange={refreshGamification}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Re-open button when lesson is minimized */}
+      <AnimatePresence>
+        {activeChallengeId && !lessonPlayerOpen && (
+          <motion.button
+            key="lesson-resume-fab"
+            type="button"
+            className="lesson-resume-fab"
+            onClick={() => setLessonPlayerOpen(true)}
+            title="Resume lesson"
+            initial={reducedMotion ? false : { y: 16, opacity: 0, scale: 0.92 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={reducedMotion ? undefined : { y: 16, opacity: 0, scale: 0.92 }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 }}
+            whileHover={reducedMotion ? undefined : { scale: 1.05 }}
+            whileTap={reducedMotion ? undefined : { scale: 0.95 }}
+            style={{
+              position: 'fixed',
+              bottom: 80,
+              right: 16,
+              zIndex: 110,
+              background: 'var(--cyan)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 24,
+              padding: '8px 18px',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(93,228,255,0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+            }}
+          >
+            <Send size={13} />
+            Resume Lesson
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       <LevelUpCelebration
         show={Boolean(levelUpData)}

@@ -1,5 +1,6 @@
 'use client';
 
+import { ArduinoEditor } from '@/components/arduino-editor';
 import { BlockEditor } from '@/components/block-editor';
 import { CodeEditor } from '@/components/code-editor';
 import { NLRulesEditor } from '@/components/nl-rules-editor';
@@ -28,42 +29,61 @@ export function PromptComposer({
   onUploadFile: _onUploadFile,
   onLoadTask: _onLoadTask,
 }: PromptComposerProps) {
-  // Explorer mode: rules tab only — no code or blocks
   const isExplorer = difficultyLevel === 'explorer';
+  const isEngineer = difficultyLevel === 'engineer';
 
-  // Ensure interactionMode is valid for this difficulty level
-  const effectiveMode = isExplorer ? 'rules' : (interactionMode === 'rules' ? 'blocks' : interactionMode);
+  // Clamp effectiveMode to what's valid at this difficulty level
+  const effectiveMode = (() => {
+    if (isExplorer) return 'rules';
+    if (interactionMode === 'rules') return isEngineer ? 'arduino' : 'blocks';
+    if (interactionMode === 'arduino' && !isEngineer) return 'blocks';
+    return interactionMode;
+  })();
 
   return (
     <div className="learn-prompt-bar" data-tour="session-prompt-composer">
       <div className="learn-mode-row">
         {isExplorer ? (
-          <button
-            type="button"
-            className="learn-mode-tab active"
-          >
+          <button type="button" className="learn-mode-tab active">
             🎛️ Rules
           </button>
         ) : (
           <>
-            <button
-              type="button"
-              className={`learn-mode-tab ${effectiveMode === 'blocks' ? 'active' : ''}`}
-              onClick={() => onInteractionModeChange('blocks')}
-            >
-              ⬛ Blocks
-            </button>
+            {/* Blocks tab — not shown for engineer (they skip straight to code/arduino) */}
+            {!isEngineer && (
+              <button
+                type="button"
+                className={`learn-mode-tab ${effectiveMode === 'blocks' ? 'active' : ''}`}
+                onClick={() => onInteractionModeChange('blocks')}
+              >
+                ⬛ Blocks
+              </button>
+            )}
+
+            {/* Python Code tab */}
             <button
               type="button"
               className={`learn-mode-tab ${effectiveMode === 'code' ? 'active' : ''}`}
               onClick={() => onInteractionModeChange('code')}
             >
-              {'</>'} Code
+              {'</>'} Python
             </button>
+
+            {/* C++/Arduino tab — engineer only */}
+            {isEngineer && (
+              <button
+                type="button"
+                className={`learn-mode-tab ard-tab ${effectiveMode === 'arduino' ? 'active' : ''}`}
+                onClick={() => onInteractionModeChange('arduino')}
+              >
+                <span className="ard-tab-icon">⚡</span> C++ / Arduino
+              </button>
+            )}
           </>
         )}
 
-        {!isExplorer && (
+        {/* Expand/Compact toggle — only for non-explorer non-arduino modes */}
+        {!isExplorer && effectiveMode !== 'arduino' && (
           <button
             type="button"
             className={`learn-mode-tab ${showCodeFocus ? 'active' : ''}`}
@@ -90,6 +110,10 @@ export function PromptComposer({
 
       {!isExplorer && effectiveMode === 'code' && (
         <CodeEditor apiBase={apiBase} conceptId={conceptId} onSvgResult={onCodeSvgResult} />
+      )}
+
+      {isEngineer && effectiveMode === 'arduino' && (
+        <ArduinoEditor apiBase={apiBase} conceptId={conceptId} />
       )}
     </div>
   );

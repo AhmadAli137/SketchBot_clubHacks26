@@ -22,7 +22,7 @@ export default function HomePage() {
                 { value: '3',    suffix: ' age groups',  label: 'Explorer · Builder · Engineer' },
                 { value: '5',    suffix: ' challenges',  label: 'Maze · Sumo · Cones · Waypoints · Drawing' },
                 { value: 'AI',   suffix: ' tutor',       label: 'Claude-powered, speaks aloud via TTS' },
-                { value: '< 60', suffix: 's',            label: 'Time to first drawing on real paper' },
+                { value: '< 60', suffix: 's',            label: 'From launch to first drawing on real paper' },
               ].map(({ value, suffix, label }) => (
                 <div key={label} className="stat-item">
                   <div className="stat-value grad-text">{value}<span style={{ fontSize: '1.1rem' }}>{suffix}</span></div>
@@ -177,9 +177,9 @@ export default function HomePage() {
               },
               {
                 emoji: '🧑‍💻', color: 'card-icon-purple', label: 'Engineer · Ages 15+',
-                title: 'Python SDK',
-                body: 'Write real Python in the code editor. Import sketchbot, plot parametric curves, implement PID gains, read AprilTag poses. Spark switches to formal math notation.',
-                tags: ['Python SDK', 'Code editor', 'Math-level tutor'],
+                title: 'Python + C++ / Arduino',
+                body: 'Write Python with the sketchbot SDK or drop into C++ Arduino sketches and flash the ESP32-C5 directly. Spark switches to formal math notation and HAL-level explanations.',
+                tags: ['Python SDK', 'C++ / Arduino', 'Flash to robot', 'Math-level tutor'],
               },
             ].map(c => (
               <div key={c.title} className="audience-card">

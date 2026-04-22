@@ -14,7 +14,7 @@ export function QuizStep({ quiz, selectedAnswer, onAnswer }: QuizStepProps) {
   const isCorrect = selectedAnswer === quiz.correct_index;
 
   return (
-    <div className="lesson-quiz">
+    <div className="lesson-quiz" data-tour="lesson-quiz-section">
       <p className="lesson-quiz-question">{quiz.question}</p>
 
       <div className="lesson-quiz-options">

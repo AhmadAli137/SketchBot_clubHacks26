@@ -56,7 +56,7 @@ function LessonStepRail({ steps, currentStepIndex, onSeek }: StepRailProps) {
   }, [steps]);
 
   return (
-    <div className="lesson-step-rail">
+    <div className="lesson-step-rail" data-tour="lesson-progress-bar">
       {steps.map((step, i) => {
         const done   = i < currentStepIndex;
         const active = i === currentStepIndex;

@@ -22,7 +22,7 @@ export function ChallengeStep({ challenge, isComplete, onSubmit }: ChallengeStep
   };
 
   return (
-    <div className="lesson-challenge">
+    <div className="lesson-challenge" data-tour="lesson-challenge-section">
       <div className="lesson-challenge-header">
         <span className="lesson-challenge-icon">🎯</span>
         <p className="lesson-challenge-instruction">{challenge.instruction}</p>

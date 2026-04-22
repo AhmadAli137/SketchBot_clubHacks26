@@ -203,12 +203,30 @@ async def stripe_webhook(request: Request):
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    sub_obj = event.get("data", {}).get("object", {})
-    if event["type"] in ("customer.subscription.created", "customer.subscription.updated"):
-        _sync_subscription(sub_obj)
-    elif event["type"] == "customer.subscription.deleted":
-        _downgrade_subscription(sub_obj)
+    obj = event.get("data", {}).get("object", {})
+    event_type = event["type"]
+    if event_type == "checkout.session.completed":
+        _link_customer_to_user(obj)
+    elif event_type in ("customer.subscription.created", "customer.subscription.updated"):
+        _sync_subscription(obj)
+    elif event_type == "customer.subscription.deleted":
+        _downgrade_subscription(obj)
     return {"received": True}
+
+
+def _link_customer_to_user(session_obj: dict) -> None:
+    """On checkout.session.completed, store stripe_customer_id on the user's subscription row.
+    This must run before customer.subscription.created so the lookup by customer ID works."""
+    user_id = session_obj.get("client_reference_id")
+    customer_id = session_obj.get("customer")
+    if not user_id or not customer_id:
+        return
+    client = _supabase()
+    sub = _get_or_create_subscription(client, user_id)
+    client.table("user_subscriptions").update({
+        "stripe_customer_id": customer_id,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("user_id", sub["user_id"]).execute()
 
 
 def _price_to_tier(price_id: str) -> str:

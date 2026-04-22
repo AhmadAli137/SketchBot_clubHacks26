@@ -3418,6 +3418,40 @@ body {
   max-width: 740px;
 }
 
+.home-age-group-selector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.home-age-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 140, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.home-age-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+.home-age-pill.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--pill-color, var(--cyan));
+  color: var(--text);
+}
+.home-age-pill-sub {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
 .home-hero-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -7464,6 +7498,220 @@ select.block-param-input{width:auto;padding-right:20px}
   to   { transform: rotate(360deg); }
 }
 
+/* ─── Arduino Editor ──────────────────────────────────────────────────────── */
+
+.ard-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+.ard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0 8px;
+}
+
+.ard-header-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.ard-header-copy strong {
+  font-size: 0.86rem;
+  color: var(--text);
+}
+
+.ard-header-copy span {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.ard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0 6px;
+}
+
+.ard-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ard-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ard-lang-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  color: var(--violet, #a78bfa);
+  background: rgba(167, 139, 250, 0.08);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.ard-board-select {
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 0.72rem;
+  cursor: pointer;
+  outline: none;
+  max-width: 220px;
+}
+
+.ard-board-select:focus {
+  border-color: rgba(167, 139, 250, 0.45);
+}
+
+/* Tab pill in the mode row */
+.ard-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ard-tab-icon {
+  font-size: 0.8em;
+}
+
+/* ── Port row + footer ── */
+
+.ard-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0 0;
+  flex-wrap: wrap;
+}
+
+.ard-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ard-port-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.ard-port-select {
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 0.74rem;
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.ard-port-select:focus {
+  border-color: rgba(167, 139, 250, 0.45);
+}
+
+.ard-port-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ard-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+
+.ard-refresh-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ard-refresh-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ard-flash-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--violet, #a78bfa);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.12s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.ard-flash-btn:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.ard-flash-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Build output panel ── */
+
+.ard-output {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    SIM PLAYGROUND — 3D + 2D dual simulation environment
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -9273,7 +9521,7 @@ select.block-param-input{width:auto;padding-right:20px}
 }
 .plan-boot-fill {
   position: absolute; left: 0; top: 0; bottom: 0;
-  width: 42%;
+  width: 12%;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--cyan, #5de4ff), var(--violet, #a855f7));
   overflow: hidden;
@@ -9762,6 +10010,477 @@ select.block-param-input{width:auto;padding-right:20px}
   margin: 0;
   max-width: 320px;
 }
+
+/* ─── Profile circle (top-right controls) ────────────────────────────────── */
+.plan-profile-wrap {
+  position: relative;
+}
+.plan-profile-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(93, 228, 255, 0.55);
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.22), rgba(107, 124, 255, 0.18));
+  color: var(--cyan, #5de4ff);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.plan-profile-btn:hover {
+  border-color: var(--cyan, #5de4ff);
+  box-shadow: 0 0 10px rgba(93, 228, 255, 0.3);
+}
+.plan-profile-btn.is-guest {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.18);
+  border-style: dashed;
+  color: rgba(255, 255, 255, 0.45);
+}
+.plan-profile-btn.is-guest:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.7);
+}
+/* Sign-in options inside dropdown */
+.plan-profile-signin-opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 4px;
+  background: none;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.78rem;
+  color: var(--text, #e8eaf6);
+  cursor: pointer;
+  transition: color 0.14s;
+  text-align: left;
+}
+.plan-profile-signin-opt:first-of-type { border-top: none; margin-top: 4px; }
+.plan-profile-signin-opt:hover { color: var(--cyan, #5de4ff); }
+.plan-profile-signin-arrow { margin-left: auto; opacity: 0.4; }
+:root[data-theme='light'] .plan-profile-btn.is-guest {
+  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(0, 0, 0, 0.4);
+}
+:root[data-theme='light'] .plan-profile-signin-opt { color: var(--text); }
+:root[data-theme='light'] .plan-profile-signin-opt:hover { color: var(--cyan, #0ea5e9); }
+.plan-profile-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 160px;
+  background: var(--card-bg, #111827);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+}
+.plan-profile-dropdown-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text, #e8eaf6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.plan-profile-dropdown-role {
+  font-size: 0.7rem;
+  color: var(--muted, rgba(255,255,255,0.4));
+  margin-top: 1px;
+  margin-bottom: 8px;
+}
+.plan-profile-switch {
+  display: block;
+  width: 100%;
+  padding: 5px 0;
+  background: none;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  text-align: left;
+  padding-top: 8px;
+  transition: color 0.14s;
+}
+.plan-profile-switch:hover { color: rgba(255, 255, 255, 0.75); }
+
+:root[data-theme='light'] .plan-profile-btn {
+  color: var(--cyan, #0ea5e9);
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.45);
+}
+:root[data-theme='light'] .plan-profile-dropdown {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+:root[data-theme='light'] .plan-profile-dropdown-name { color: var(--text); }
+:root[data-theme='light'] .plan-profile-dropdown-role { color: var(--muted); }
+:root[data-theme='light'] .plan-profile-switch {
+  border-color: rgba(0, 0, 0, 0.08);
+  color: var(--muted);
+}
+
+/* ─── Returning-user welcome greeting ────────────────────────────────────── */
+.plan-welcome-back {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 2px;
+}
+.plan-welcome-text {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cyan, #5de4ff);
+}
+.plan-welcome-switch {
+  background: none;
+  border: none;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.14s;
+}
+.plan-welcome-switch:hover { color: rgba(255, 255, 255, 0.6); }
+:root[data-theme='light'] .plan-welcome-text { color: var(--cyan, #0ea5e9); }
+:root[data-theme='light'] .plan-welcome-switch { color: var(--muted); }
+
+/* ─── Progress hint inside plan card ─────────────────────────────────────── */
+.plan-card-progress {
+  font-size: 0.7rem;
+  color: var(--cyan, #5de4ff);
+  margin-top: 4px;
+  opacity: 0.85;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+:root[data-theme='light'] .plan-card-progress { color: var(--cyan, #0ea5e9); }
+
+/* ─── Fixed app-level profile button ─────────────────────────────────────── */
+.app-profile-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 180;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(93, 228, 255, 0.5);
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.2), rgba(107, 124, 255, 0.15));
+  color: var(--cyan, #5de4ff);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.app-profile-btn:hover {
+  border-color: var(--cyan, #5de4ff);
+  box-shadow: 0 0 16px rgba(93, 228, 255, 0.35);
+}
+:root[data-theme='light'] .app-profile-btn {
+  color: var(--cyan, #0ea5e9);
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ─── User account slide-in panel ────────────────────────────────────────── */
+.account-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  z-index: 200;
+}
+.account-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  z-index: 201;
+  background: var(--card-bg, #0d1117);
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px 20px;
+  overflow-y: auto;
+}
+.account-panel-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.14s;
+  display: flex;
+  align-items: center;
+}
+.account-panel-close:hover { color: rgba(255, 255, 255, 0.75); }
+
+.account-panel-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px 0 24px;
+  text-align: center;
+}
+.account-panel-avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--cyan, #5de4ff), #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.account-panel-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text, #e8eaf6);
+}
+.account-panel-email {
+  font-size: 0.75rem;
+  color: var(--muted, rgba(255,255,255,0.4));
+  word-break: break-all;
+}
+.account-panel-role-badge {
+  margin-top: 4px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(93, 228, 255, 0.12);
+  color: var(--cyan, #5de4ff);
+  border: 1px solid rgba(93, 228, 255, 0.25);
+}
+
+.account-panel-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.account-stat {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.account-stat-icon {
+  color: var(--cyan, #5de4ff);
+  opacity: 0.75;
+  margin-bottom: 2px;
+}
+.account-stat-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text, #e8eaf6);
+}
+.account-stat-label {
+  font-size: 0.67rem;
+  color: var(--muted, rgba(255,255,255,0.4));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.account-xp-wrap {
+  margin-bottom: 8px;
+}
+.account-xp-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--muted, rgba(255,255,255,0.35));
+  margin-bottom: 5px;
+}
+.account-xp-track {
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.account-xp-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--cyan, #5de4ff), #6366f1);
+}
+
+.account-panel-gap { flex: 1; }
+
+.account-panel-signout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 80, 80, 0.25);
+  background: rgba(255, 80, 80, 0.07);
+  color: rgba(255, 120, 120, 0.9);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.account-panel-signout:hover {
+  background: rgba(255, 80, 80, 0.14);
+  border-color: rgba(255, 80, 80, 0.4);
+  color: #ff6b6b;
+}
+
+/* light mode */
+:root[data-theme='light'] .account-panel {
+  background: #fff;
+  border-color: rgba(0,0,0,0.08);
+}
+:root[data-theme='light'] .account-panel-close { color: var(--muted); }
+:root[data-theme='light'] .account-panel-name { color: var(--text); }
+:root[data-theme='light'] .account-panel-email { color: var(--muted); }
+:root[data-theme='light'] .account-panel-role-badge {
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--cyan, #0ea5e9);
+  border-color: rgba(14, 165, 233, 0.2);
+}
+:root[data-theme='light'] .account-stat {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.07);
+}
+:root[data-theme='light'] .account-stat-value { color: var(--text); }
+:root[data-theme='light'] .account-xp-track { background: rgba(0,0,0,0.08); }
+
+/* ─── Account panel: badges row ─────────────────────────────────────────── */
+.account-panel-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+.account-panel-tier-badge {
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(107, 124, 255, 0.14);
+  color: #a5b4fc;
+  border: 1px solid rgba(107, 124, 255, 0.25);
+}
+.account-panel-tier-badge.is-free {
+  background: rgba(255, 200, 60, 0.1);
+  color: #fbbf24;
+  border-color: rgba(255, 200, 60, 0.25);
+}
+
+/* ─── Account panel: credits card ───────────────────────────────────────── */
+.account-credits-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 4px;
+}
+.account-credits-card.is-low { border-color: rgba(255, 180, 0, 0.25); }
+.account-credits-card.is-exhausted { border-color: rgba(255, 80, 80, 0.3); }
+.account-credits-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+}
+.account-credits-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted, rgba(255,255,255,0.45));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.account-credits-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text, #e8eaf6);
+}
+.account-credits-zero { color: #f87171; }
+.account-credits-of { color: var(--muted, rgba(255,255,255,0.35)); font-weight: 400; }
+.account-credits-track {
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.account-credits-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--cyan, #5de4ff), #6366f1);
+  transition: width 0.6s ease;
+}
+.account-credits-card.is-exhausted .account-credits-fill { background: #f87171; }
+.account-credits-card.is-low .account-credits-fill { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+.account-credits-note {
+  font-size: 0.72rem;
+  color: var(--muted, rgba(255,255,255,0.4));
+  margin: 0 0 6px;
+  line-height: 1.4;
+}
+.account-credits-note--warn { color: #f87171; }
+.account-credits-upgrade {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.account-credits-upgrade .account-credits-note { margin: 0; }
+.account-upgrade-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--cyan, #5de4ff);
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.account-upgrade-btn:hover { opacity: 0.75; }
+
+:root[data-theme='light'] .account-credits-card { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+:root[data-theme='light'] .account-credits-label { color: var(--muted); }
+:root[data-theme='light'] .account-credits-count { color: var(--text); }
+:root[data-theme='light'] .account-credits-track { background: rgba(0,0,0,0.07); }
 
 /* Separator between Spark and plan cards */
 .plan-divider {

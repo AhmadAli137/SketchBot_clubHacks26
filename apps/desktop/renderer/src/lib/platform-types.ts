@@ -120,6 +120,7 @@ export type Challenge = {
 export type ChallengePack = {
   id: string;
   robotId: string;
+  conceptId?: string;
   name: string;
   description: string;
   challenges: Challenge[];

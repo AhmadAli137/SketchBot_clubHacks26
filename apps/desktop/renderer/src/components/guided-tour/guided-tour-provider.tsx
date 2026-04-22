@@ -29,11 +29,13 @@ export function GuidedTourProvider({
   activeView,
   userRole,
   lessonActive = false,
+  lessonPlayerActive = false,
   children,
 }: {
   activeView: AppView;
   userRole: AuthRole;
   lessonActive?: boolean;
+  lessonPlayerActive?: boolean;
   children: ReactNode;
 }) {
   const [phase, setPhase] = useState<TourPhase>(null);
@@ -58,7 +60,7 @@ export function GuidedTourProvider({
     return () => window.clearTimeout(id);
   }, [activeView, userRole]);
 
-  // Trigger challenge tour whenever a lesson/challenge is opened in session view
+  // Trigger challenge tour whenever a teacher-assigned lesson plan is opened
   useEffect(() => {
     if (!lessonActive) return;
     if (userRole !== 'student') return;
@@ -71,6 +73,19 @@ export function GuidedTourProvider({
 
     return () => window.clearTimeout(id);
   }, [lessonActive, activeView, userRole]);
+
+  // Trigger lesson player tour when the challenge lesson overlay opens
+  useEffect(() => {
+    if (!lessonPlayerActive) return;
+    if (userRole !== 'student') return;
+    if (readDone(GUIDED_TOUR_STORAGE.lessonPlayer)) return;
+
+    const id = window.setTimeout(() => {
+      setPhase({ kind: 'intro', flow: 'lessonPlayer' });
+    }, 1200);
+
+    return () => window.clearTimeout(id);
+  }, [lessonPlayerActive, userRole]);
 
   const onSkipIntro = useCallback(() => {
     setPhase((p) => {

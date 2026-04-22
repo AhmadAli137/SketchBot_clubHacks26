@@ -5,7 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronRight, ChevronLeft, SkipForward } from 'lucide-react';
 
-import { stepsForFlow, markTourDone } from '@/lib/guided-tour/config';
+import { stepsForFlow } from '@/lib/guided-tour/config';
 import type { TourFlowId, TourStep } from '@/lib/guided-tour/types';
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 
@@ -248,10 +248,13 @@ export function GuidedTourOverlay({
               <div className="tour-intro-body">
                 <div className="tour-intro-label">✨ Quick tour</div>
                 <h2 className="tour-intro-title">
-                  {introPhase.flow === 'planPicker' ? 'Welcome to AIbotics!' :
-                   introPhase.flow === 'studentSession' ? 'New to this workspace?' :
-                   introPhase.flow === 'progressMap' ? 'Your learning map awaits!' :
-                   introPhase.flow === 'challenge' ? 'Challenge time!' :
+                  {introPhase.flow === 'planPicker'    ? 'Welcome to AIbotics!'       :
+                   introPhase.flow === 'studentSession' ? 'New to this workspace?'     :
+                   introPhase.flow === 'progressMap'   ? 'Your learning map awaits!'  :
+                   introPhase.flow === 'challenge'     ? 'Challenge time!'             :
+                   introPhase.flow === 'lessonPlayer'  ? 'Guided lesson started!'      :
+                   introPhase.flow === 'blockEditor'   ? 'Block editor unlocked!'      :
+                   introPhase.flow === 'simPlayground' ? 'Welcome to the simulator!'  :
                    'Want a quick walkthrough?'}
                 </h2>
                 <p className="tour-intro-desc">
@@ -263,6 +266,12 @@ export function GuidedTourOverlay({
                     ? "I'll walk you through the map, chests, Sparks, and the Avatar Shop."
                     : introPhase.flow === 'challenge'
                     ? "New challenge? Let me explain the rules and scoring before you start."
+                    : introPhase.flow === 'lessonPlayer'
+                    ? "I'll walk you through the lesson steps, quizzes, and the challenge at the end. Takes 20 seconds!"
+                    : introPhase.flow === 'blockEditor'
+                    ? "Drag blocks to build programs — no typing needed! I'll show you how it works."
+                    : introPhase.flow === 'simPlayground'
+                    ? "This 3D simulator is your safe sandbox. Let me point out the key controls!"
                     : "I'll highlight the key areas — you can skip anytime."}
                 </p>
                 <div className="tour-intro-actions">

@@ -163,7 +163,7 @@ export function LearningHeader({
 
         <div className="learn-header-divider" />
 
-        <div className="gamification-bar" title={`Level ${level}: ${levelName} — ${xp} XP (${Math.round(xpProgress * 100)}% to next)`}>
+        <div className="gamification-bar" data-tour="gamification-bar" title={`Level ${level}: ${levelName} — ${xp} XP (${Math.round(xpProgress * 100)}% to next)`}>
           <span className="gamification-level-badge">
             <span className="gamification-level-emoji">{levelEmoji}</span>
             <span className="gamification-level-num">Lv.{level}</span>
@@ -266,6 +266,7 @@ export function LearningHeader({
           onClick={onOpenConceptMap}
           title="Learning path — lessons, unlocks, and your stats"
           className="rounded-[var(--radius-md)]"
+          data-tour="header-map-btn"
         >
           <Map size={13} />
           Map

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Users, GraduationCap, ChevronLeft, Loader2, Cpu, Zap, Trophy, Volume2, VolumeX } from 'lucide-react';
+import { Sparkles, Users, GraduationCap, ChevronLeft, ChevronRight, Loader2, Cpu, Zap, Trophy, Volume2, VolumeX, UserRound } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -12,15 +12,20 @@ import { SparkStage3D } from '@/components/spark-robot/spark-scene-3d';
 import { setClassSession } from '@/lib/session-store';
 import { playSfx } from '@/lib/game-audio';
 import { useMenuMusic } from '@/lib/menu-music';
-import type { AuthResult } from '@/components/auth-screen';
+import { getProgressSummary } from '@/lib/progress-store';
+import type { AuthResult, AuthRole } from '@/components/auth-screen';
 
 type Plan = 'pick' | 'join-class';
 
+type SavedSession = { role: AuthRole; name: string; email?: string };
+
 type PlanPickerProps = {
   apiBase: string;
+  savedSession?: SavedSession;
   onPicked: (result: AuthResult, sessionCode?: string) => void;
   onTeacherAuth: () => void;
   onPersonalTutor: () => void;
+  onClearSavedSession?: () => void;
 };
 
 const SCENE_POSES: SparkPose[] = ['wave', 'point', 'celebrate', 'thumbsup', 'think'];
@@ -41,7 +46,7 @@ const TUTOR_LINES = [
   "Four robots to start, more coming. Waypoint racing, sumo, drawing, maze solving. I'll adapt the curriculum to your exact brain.",
 ];
 
-export function PlanPicker({ apiBase, onPicked, onTeacherAuth, onPersonalTutor }: PlanPickerProps) {
+export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onPersonalTutor, onClearSavedSession }: PlanPickerProps) {
   const [plan, setPlan] = useState<Plan>('pick');
   const [joinCode, setJoinCode] = useState('');
   const [studentName, setStudentName] = useState('');
@@ -51,8 +56,14 @@ export function PlanPicker({ apiBase, onPicked, onTeacherAuth, onPersonalTutor }
   const [isDark, setIsDark] = useState(
     () => typeof document !== 'undefined' ? document.documentElement.dataset.theme !== 'light' : true,
   );
+  const [profileOpen, setProfileOpen] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
   const { muted, toggleMute } = useMenuMusic();
+
+  const studentProgress = useMemo(() => {
+    if (!savedSession || savedSession.role !== 'student') return null;
+    return getProgressSummary(savedSession.name);
+  }, [savedSession]);
 
   useEffect(() => {
     const check = () => setIsDark(document.documentElement.dataset.theme !== 'light');
@@ -225,6 +236,66 @@ export function PlanPicker({ apiBase, onPicked, onTeacherAuth, onPersonalTutor }
                   {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                 </motion.button>
                 <ThemeToggle variant="icon" />
+                {/* Profile / sign-in button — always visible */}
+                <div className="plan-profile-wrap">
+                  <motion.button
+                    type="button"
+                    className={`plan-profile-btn${!savedSession ? ' is-guest' : ''}`}
+                    onClick={() => setProfileOpen((v) => !v)}
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.92 }}
+                    title={savedSession ? savedSession.name : 'Sign in'}
+                  >
+                    {savedSession ? (savedSession.name.trim()[0]?.toUpperCase() ?? '?') : <UserRound size={15} />}
+                  </motion.button>
+                  <AnimatePresence>
+                    {profileOpen && (
+                      <motion.div
+                        className="plan-profile-dropdown"
+                        initial={{ opacity: 0, y: -6, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.95 }}
+                        transition={{ duration: 0.16 }}
+                      >
+                        {savedSession ? (
+                          <>
+                            <div className="plan-profile-dropdown-name">{savedSession.name}</div>
+                            <div className="plan-profile-dropdown-role">
+                              {savedSession.role === 'teacher' ? 'Teacher account' : 'Student account'}
+                            </div>
+                            <button
+                              type="button"
+                              className="plan-profile-switch"
+                              onClick={() => { setProfileOpen(false); playSfx('click'); onClearSavedSession?.(); }}
+                            >
+                              Switch user
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <div className="plan-profile-dropdown-name">Sign in</div>
+                            <button
+                              type="button"
+                              className="plan-profile-signin-opt"
+                              onClick={() => { setProfileOpen(false); playSfx('click'); onPersonalTutor(); }}
+                            >
+                              <GraduationCap size={13} /> Student / Tutor
+                              <ChevronRight size={11} className="plan-profile-signin-arrow" />
+                            </button>
+                            <button
+                              type="button"
+                              className="plan-profile-signin-opt"
+                              onClick={() => { setProfileOpen(false); playSfx('click'); onTeacherAuth(); }}
+                            >
+                              <Users size={13} /> Teacher
+                              <ChevronRight size={11} className="plan-profile-signin-arrow" />
+                            </button>
+                          </>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               {/* Vertically centred content */}
@@ -268,6 +339,25 @@ export function PlanPicker({ apiBase, onPicked, onTeacherAuth, onPersonalTutor }
                   </AnimatePresence>
                 </div>
 
+                {/* ── Returning-user welcome greeting ── */}
+                {savedSession && (
+                  <motion.div
+                    className="plan-welcome-back"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.28 }}
+                  >
+                    <span className="plan-welcome-text">Welcome back, {savedSession.name}!</span>
+                    <button
+                      type="button"
+                      className="plan-welcome-switch"
+                      onClick={() => { playSfx('click'); onClearSavedSession?.(); }}
+                    >
+                      Switch user
+                    </button>
+                  </motion.div>
+                )}
+
                 <div className="plan-divider" />
 
                 {/* ── Plan cards ── */}
@@ -279,20 +369,25 @@ export function PlanPicker({ apiBase, onPicked, onTeacherAuth, onPersonalTutor }
                       {
                         cls: 'plan-card--solo',  icon: <Sparkles size={20} />,     title: 'Just Play',
                         desc: 'Sandbox mode — free draw, no account needed.',
+                        progressHint: undefined as string | undefined,
                         onCLick: handleJustPlay, tourId: 'plan-card-solo',
                       },
                       {
                         cls: 'plan-card--tutor', icon: <GraduationCap size={20} />, title: 'Personal Tutor',
                         desc: 'AI lessons with Spark, XP, badges, progress sync.',
+                        progressHint: studentProgress
+                          ? `${studentProgress.levelEmoji} Lv.${studentProgress.level} ${studentProgress.levelName} · ${studentProgress.xp} XP`
+                          : undefined,
                         onCLick: () => { playSfx('click'); onPersonalTutor(); }, tourId: 'plan-card-tutor',
                       },
                       {
                         cls: 'plan-card--class', icon: <Users size={20} />,         title: 'Join a Class',
                         desc: "Enter your teacher's room code.",
+                        progressHint: undefined as string | undefined,
                         onCLick: () => { playSfx('click'); setPlan('join-class'); setTimeout(() => codeRef.current?.focus(), 80); },
                         tourId: 'plan-card-class',
                       },
-                    ].map(({ cls, icon, title, desc, onCLick, tourId }, i) => (
+                    ].map(({ cls, icon, title, desc, progressHint, onCLick, tourId }, i) => (
                       <motion.button
                         key={title}
                         type="button"
@@ -309,6 +404,7 @@ export function PlanPicker({ apiBase, onPicked, onTeacherAuth, onPersonalTutor }
                         <div className="plan-card-body">
                           <div className="plan-card-title">{title}</div>
                           <div className="plan-card-desc">{desc}</div>
+                          {progressHint && <div className="plan-card-progress">{progressHint}</div>}
                         </div>
                         <div className="plan-card-arrow" aria-hidden>→</div>
                       </motion.button>

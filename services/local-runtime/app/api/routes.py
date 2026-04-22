@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api import (
     agent,
+    arduino,
     block_runner,
     camera,
     code_runner,
@@ -44,3 +45,4 @@ api_router.include_router(code_runner.router)
 api_router.include_router(block_runner.router)
 api_router.include_router(agent.router)
 api_router.include_router(sessions.router)
+api_router.include_router(arduino.router)

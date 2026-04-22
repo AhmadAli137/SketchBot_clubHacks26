@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText } from 'lucide-react';
+import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText, BookOpen } from 'lucide-react';
 
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 
@@ -26,7 +26,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { ClassroomSettingsModal } from '@/components/classroom-settings-modal';
 import { TeacherFeedbackModal } from '@/components/teacher-feedback-modal';
-import type { ClassroomProfile } from '@/lib/platform-types';
+import type { ChallengePack, ClassroomProfile } from '@/lib/platform-types';
+import { useChallenges } from '@/lib/use-challenges';
+import { RobotHub } from '@/components/robot-hub';
+import { getDifficultyLevel } from '@/lib/progress-store';
 
 import type { AuthRole } from './auth-screen';
 import { getClassSession } from '@/lib/session-store';
@@ -47,7 +50,7 @@ type LeaderboardEntry = {
   streak_days: number;
 };
 
-export type StartSessionOptions = { lessonPlanning?: boolean; conceptTitle?: string };
+export type StartSessionOptions = { lessonPlanning?: boolean; conceptTitle?: string; challengeId?: string };
 
 type HomeScreenProps = {
   role: AuthRole;
@@ -92,7 +95,11 @@ export function HomeScreen({
   });
   const [showAllTopics, setShowAllTopics] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
   const reducedMotion = usePrefersReducedMotion();
+
+  const { packs } = useChallenges('sketchbot');
+  const difficultyLevel = userName ? (getDifficultyLevel(userName) ?? ageGroup) : ageGroup;
 
   const cardGridContainer = useMemo(
     () => ({
@@ -231,6 +238,19 @@ export function HomeScreen({
     onStartSession(concept?.id, concept?.starterPrompt, ageGroup);
   };
 
+  const handleStartChallenge = (challengeId: string) => {
+    const pack = packs.find((p) => p.challenges.some((c) => c.id === challengeId));
+    const challenge = pack?.challenges.find((c) => c.id === challengeId);
+    if (!challenge || !pack) return;
+    if (userName) incrementSessions(userName);
+    onStartSession(
+      pack.conceptId ?? '',
+      undefined,
+      ageGroup,
+      { challengeId: challenge.id, conceptTitle: pack.name },
+    );
+  };
+
   const handleAgeGroupChange = (nextAgeGroup: AgeGroup) => {
     setAgeGroupState(nextAgeGroup);
     if (userName) {
@@ -301,7 +321,8 @@ export function HomeScreen({
       <div className="auth-bg-orb auth-bg-orb-b" />
       <div className="auth-bg-orb auth-bg-orb-c" />
 
-      <div style={{ position: 'fixed', top: 14, right: 14, display: 'flex', gap: 8, zIndex: 10 }}>
+      {/* Top-right toolbar — leave 52px gap on right for the persistent profile button */}
+      <div style={{ position: 'fixed', top: 14, right: 58, display: 'flex', gap: 8, zIndex: 10 }}>
         {role === 'teacher' && (
           <>
             <Button
@@ -334,14 +355,16 @@ export function HomeScreen({
             )}
           </>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onSignOut}
-          style={{ fontSize: '0.75rem', minHeight: 32 } as React.CSSProperties}
-        >
-          {role === 'guest' ? 'Switch mode' : 'Sign out'}
-        </Button>
+        {role === 'guest' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSignOut}
+            style={{ fontSize: '0.75rem', minHeight: 32 } as React.CSSProperties}
+          >
+            Switch mode
+          </Button>
+        )}
       </div>
 
       <div className="onboarding-inner">
@@ -577,6 +600,10 @@ export function HomeScreen({
                     <strong>{studentStats.drawings}</strong>
                     <span>Drawings</span>
                   </div>
+                  <div>
+                    <strong>{studentStats.conceptsMastered ?? 0}</strong>
+                    <span>Mastered</span>
+                  </div>
                 </div>
                 <div className="student-profile-actions">
                   <Button
@@ -630,8 +657,23 @@ export function HomeScreen({
 
             <div className="home-hero-section">
               <div className="home-hero-copy">
-                <h2>Today’s adventure</h2>
+                <h2>Today's adventure</h2>
                 <p>Choose one of these top activities to continue your learning.</p>
+              </div>
+              <div className="home-age-group-selector">
+                {(['explorer', 'builder', 'engineer'] as AgeGroup[]).map((ag) => (
+                  <button
+                    key={ag}
+                    type="button"
+                    className={`home-age-pill${ageGroup === ag ? ' active' : ''}`}
+                    style={{ '--pill-color': AGE_GROUP_META[ag].color } as React.CSSProperties}
+                    onClick={() => handleAgeGroupChange(ag)}
+                  >
+                    <span>{AGE_GROUP_META[ag].emoji}</span>
+                    <span>{AGE_GROUP_META[ag].label}</span>
+                    <span className="home-age-pill-sub">{AGE_GROUP_META[ag].description}</span>
+                  </button>
+                ))}
               </div>
               <motion.div
                 className="home-hero-card-grid"
@@ -691,6 +733,23 @@ export function HomeScreen({
               <h2>Ready for the classroom?</h2>
               <p>Select a concept and launch a session for your class.</p>
             </div>
+            {role === 'guest' && (
+              <div className="home-age-group-selector">
+                {(['explorer', 'builder', 'engineer'] as AgeGroup[]).map((ag) => (
+                  <button
+                    key={ag}
+                    type="button"
+                    className={`home-age-pill${ageGroup === ag ? ' active' : ''}`}
+                    style={{ '--pill-color': AGE_GROUP_META[ag].color } as React.CSSProperties}
+                    onClick={() => handleAgeGroupChange(ag)}
+                  >
+                    <span>{AGE_GROUP_META[ag].emoji}</span>
+                    <span>{AGE_GROUP_META[ag].label}</span>
+                    <span className="home-age-pill-sub">{AGE_GROUP_META[ag].description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <motion.div
               className="home-hero-card-grid"
               variants={cardGridContainer}
@@ -803,6 +862,44 @@ export function HomeScreen({
             </button>
           )}
         </div>
+
+        {packs.length > 0 && (
+          <div className="concept-domain-section">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <BookOpen size={16} style={{ color: 'var(--cyan)' }} />
+              <h2 style={{ margin: 0 }}>Challenge Library</h2>
+            </div>
+            <div className="tap-to-enter-hint" style={{ marginBottom: 16 }}>
+              Pick a guided challenge — the tutor walks you through every step.
+            </div>
+            <RobotHub
+              isRobotConnected={isRobotConnected}
+              selectedChallengeId={selectedChallengeId}
+              difficultyLevel={difficultyLevel}
+              packs={packs}
+              onSelectChallenge={(id) => setSelectedChallengeId(id)}
+              onStartFreeSession={() => handleStart(null)}
+            />
+            {selectedChallengeId !== null && (
+              <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => handleStartChallenge(selectedChallengeId)}
+                >
+                  Start challenge →
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={() => setSelectedChallengeId(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         <AnimatePresence>
           {showProfileModal && (

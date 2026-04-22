@@ -518,5 +518,45 @@
     "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
     "image_data_url": null,
     "path_count": 5
+  },
+  {
+    "id": "8b3c7c69-f211-48a9-b3d3-17b2828aebe0",
+    "name": "code sketch",
+    "source_type": "code",
+    "prompt": "student code",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 297.0 210.0\" width=\"297.0\" height=\"210.0\">\n  <rect width=\"297.0\" height=\"210.0\" fill=\"white\"/>\n  <path d=\"M 208.50 105.00 L 208.42 101.86 L 208.17 98.73 L 207.76 95.61 L 207.19 92.53 L 206.46 89.47 L 205.56 86.46 L 204.51 83.50 L 203.31 80.60 L 201.96 77.76 L 200.46 75.00 L 198.82 72.32 L 197.04 69.73 L 195.13 67.24 L 193.09 64.85 L 190.93 62.57 L 188.65 60.41 L 186.26 58.37 L 183.77 56.46 L 181.18 54.68 L 178.50 53.04 L 175.74 51.54 L 172.90 50.19 L 170.00 48.99 L 167.04 47.94 L 164.03 47.04 L 160.97 46.31 L 157.89 45.74 L 154.77 45.33 L 151.64 45.08 L 148.50 45.00 L 145.36 45.08 L 142.23 45.33 L 139.11 45.74 L 136.03 46.31 L 132.97 47.04 L 129.96 47.94 L 127.00 48.99 L 124.10 50.19 L 121.26 51.54 L 118.50 53.04 L 115.82 54.68 L 113.23 56.46 L 110.74 58.37 L 108.35 60.41 L 106.07 62.57 L 103.91 64.85 L 101.87 67.24 L 99.96 69.73 L 98.18 72.32 L 96.54 75.00 L 95.04 77.76 L 93.69 80.60 L 92.49 83.50 L 91.44 86.46 L 90.54 89.47 L 89.81 92.53 L 89.24 95.61 L 88.83 98.73 L 88.58 101.86 L 88.50 105.00 L 88.58 108.14 L 88.83 111.27 L 89.24 114.39 L 89.81 117.47 L 90.54 120.53 L 91.44 123.54 L 92.49 126.50 L 93.69 129.40 L 95.04 132.24 L 96.54 135.00 L 98.18 137.68 L 99.96 140.27 L 101.87 142.76 L 103.91 145.15 L 106.07 147.43 L 108.35 149.59 L 110.74 151.63 L 113.23 153.54 L 115.82 155.32 L 118.50 156.96 L 121.26 158.46 L 124.10 159.81 L 127.00 161.01 L 129.96 162.06 L 132.97 162.96 L 136.03 163.69 L 139.11 164.26 L 142.23 164.67 L 145.36 164.92 L 148.50 165.00 L 151.64 164.92 L 154.77 164.67 L 157.89 164.26 L 160.97 163.69 L 164.03 162.96 L 167.04 162.06 L 170.00 161.01 L 172.90 159.81 L 175.74 158.46 L 178.50 156.96 L 181.18 155.32 L 183.77 153.54 L 186.26 151.63 L 188.65 149.59 L 190.93 147.43 L 193.09 145.15 L 195.13 142.76 L 197.04 140.27 L 198.82 137.68 L 200.46 135.00 L 201.96 132.24 L 203.31 129.40 L 204.51 126.50 L 205.56 123.54 L 206.46 120.53 L 207.19 117.47 L 207.76 114.39 L 208.17 111.27 L 208.42 108.14 L 208.50 105.00\" fill=\"none\" stroke=\"black\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 1
+  },
+  {
+    "id": "8724a369-16a6-4b23-b6c4-0ada97d15ba2",
+    "name": "bicycle",
+    "source_type": "prompt",
+    "prompt": "bicycle",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"#ffffff\"/>\n  <g fill=\"none\" stroke=\"#000000\" stroke-width=\"16\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n    <circle cx=\"150\" cy=\"360\" r=\"90\"/>\n    <circle cx=\"362\" cy=\"360\" r=\"90\"/>\n    <path d=\"M150 360 L220 250 L300 360 L238 360 L190 290\"/>\n    <path d=\"M220 250 L285 250 L320 210\"/>\n    <path d=\"M300 360 L362 360\"/>\n    <path d=\"M238 360 L362 360\"/>\n    <path d=\"M190 290 L170 250 L220 250\"/>\n    <path d=\"M320 210 L360 210 L345 245\"/>\n    <path d=\"M210 240 L235 240\"/>\n    <path d=\"M160 250 L185 250\"/>\n  </g>\n</svg>",
+    "image_data_url": null,
+    "path_count": 3
+  },
+  {
+    "id": "a436ad62-0801-4ffc-abe3-4aef071512f8",
+    "name": "draw a cat face",
+    "source_type": "prompt",
+    "prompt": "draw a cat face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n  <rect width=\"512\" height=\"512\" fill=\"#ffffff\"/>\n  <g fill=\"none\" stroke=\"#000000\" stroke-width=\"16\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n    <path d=\"M128 208 L176 112 L236 184\"/>\n    <path d=\"M384 208 L336 112 L276 184\"/>\n    <path d=\"M148 192 C148 128 196 88 256 88 C316 88 364 128 364 192 C364 292 318 372 256 404 C194 372 148 292 148 192 Z\"/>\n    <circle cx=\"208\" cy=\"236\" r=\"16\"/>\n    <circle cx=\"304\" cy=\"236\" r=\"16\"/>\n    <path d=\"M256 262 L240 286 L272 286 Z\"/>\n    <path d=\"M256 286 L256 318\"/>\n    <path d=\"M256 318 C244 332 226 336 208 334\"/>\n    <path d=\"M256 318 C268 332 286 336 304 334\"/>\n    <path d=\"M228 286 L152 274\"/>\n    <path d=\"M228 302 L148 302\"/>\n    <path d=\"M228 318 L156 330\"/>\n    <path d=\"M284 286 L360 274\"/>\n    <path d=\"M284 302 L364 302\"/>\n    <path d=\"M284 318 L356 330\"/>\n  </g>\n</svg>",
+    "image_data_url": null,
+    "path_count": 6
+  },
+  {
+    "id": "b9326b08-6c9a-4650-90da-bf8fce6e31aa",
+    "name": "simple smiley face",
+    "source_type": "prompt",
+    "prompt": "simple smiley face",
+    "original_filename": null,
+    "svg_content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" width=\"200\" height=\"200\">\n  <rect width=\"200\" height=\"200\" fill=\"white\"/>\n  <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"black\" stroke-width=\"8\"/>\n  <circle cx=\"75\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <circle cx=\"125\" cy=\"80\" r=\"7\" fill=\"black\"/>\n  <path d=\"M65 120 Q100 150 135 120\" fill=\"none\" stroke=\"black\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n</svg>",
+    "image_data_url": null,
+    "path_count": 5
   }
 ]

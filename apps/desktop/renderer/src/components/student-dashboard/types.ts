@@ -6,7 +6,7 @@ import type { AgeGroup, ConceptLayer } from '@/lib/concept-types';
 import type { BlockProgram } from '@/components/block-editor';
 
 export type DashboardStatusItem = { label: string; value: string };
-export type InteractionMode = 'rules' | 'blocks' | 'code';
+export type InteractionMode = 'rules' | 'blocks' | 'code' | 'arduino';
 
 export type StudentDashboardProps = {
   topStatus: DashboardStatusItem[];
@@ -53,6 +53,10 @@ export type StudentDashboardProps = {
   apiBase?: string;
   /** Set when the session was started from lesson-planning flow. */
   lessonPlanActive?: boolean;
+  /** Challenge ID selected from the home-screen challenge library. */
+  activeChallengeId?: string | null;
+  /** Called when the active challenge lesson completes or is dismissed. */
+  onChallengeComplete?: () => void;
   /** Drives which UI surfaces are shown. 'sandbox' = free draw, prompt bar visible. */
   appMode?: 'sandbox' | 'tutor' | 'classroom';
   /** Classroom policy from teacher profile (student sessions only). */

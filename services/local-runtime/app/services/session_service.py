@@ -242,3 +242,22 @@ def teacher_active_sessions(teacher_id: str) -> list[dict[str, Any]]:
             s for s in _mem_sessions.values()
             if s.get("teacher_id") == teacher_id and s.get("status") == "live"
         ]
+
+
+def teacher_session_history(teacher_id: str, limit: int = 20) -> list[dict[str, Any]]:
+    """Return the most recent closed sessions for a teacher."""
+    rows = sb.get_rows(
+        "classroom_sessions",
+        {"teacher_id": f"eq.{teacher_id}", "status": "eq.closed"},
+    )
+    if rows is not None:
+        rows.sort(key=lambda r: r.get("closed_at") or r.get("created_at") or "", reverse=True)
+        return rows[:limit]
+
+    with _lock:
+        closed = [
+            s for s in _mem_sessions.values()
+            if s.get("teacher_id") == teacher_id and s.get("status") == "closed"
+        ]
+    closed.sort(key=lambda s: s.get("closed_at") or s.get("created_at") or "", reverse=True)
+    return closed[:limit]

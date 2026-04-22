@@ -24,10 +24,10 @@ export type AuthResult = {
   role: AuthRole;
   name: string;
   email?: string;
-  authSource: 'account' | 'classroom_device';
+  authSource: 'account' | 'classroom_device' | 'saved_session';
 };
 
-type Phase = 'signin' | 'classroom' | 'teacher-pin';
+type Phase = 'signin';
 type AuthFormMode = 'signin' | 'signup';
 
 type AuthScreenProps = {
@@ -65,33 +65,10 @@ export function AuthScreen({ onAuthenticated, onBack, authMode = 'teacher' }: Au
   const [confirmPassword, setConfirmPassword] = useState('');
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
-  // Classroom fields
-  const [selectedName, setSelectedName] = useState('');
-  const [roster, setRoster] = useState<string[]>([]);
-  const [pin, setPin] = useState('');
-  const [pinError, setPinError] = useState(false);
-  const [savedPin, setSavedPin] = useState<string | null>(null);
-  const [classroomTab, setClassroomTab] = useState<'student' | 'teacher'>('student');
-
   const [account, setAccount] = useState(() => loadAccount());
   const [supabaseSessionEmail, setSupabaseSessionEmail] = useState<string | null>(null);
 
   const showQuick = Boolean(account && shouldShowQuickContinue(account, supabaseSessionEmail));
-
-  useEffect(() => {
-    try {
-      const authRaw = localStorage.getItem('sketchbot-auth-v1');
-      if (authRaw) {
-        const parsed = JSON.parse(authRaw) as { pin?: string };
-        if (parsed.pin) setSavedPin(parsed.pin);
-      }
-      const profileRaw = localStorage.getItem('sketchbot-classroom-profile');
-      if (profileRaw) {
-        const parsed = JSON.parse(profileRaw) as { students?: string[] };
-        setRoster(parsed.students ?? []);
-      }
-    } catch { /* ignore */ }
-  }, []);
 
   useEffect(() => {
     const a = loadAccount();
@@ -189,35 +166,6 @@ export function AuthScreen({ onAuthenticated, onBack, authMode = 'teacher' }: Au
     })();
   };
 
-  const handleStudentContinue = () => {
-    const name = selectedName.trim();
-    if (!name || !roster.includes(name)) return;
-    onAuthenticated({ role: 'student', name, authSource: 'classroom_device' });
-  };
-
-  const handlePinKey = (k: string) => {
-    if (k === '⌫') {
-      setPin((p) => p.slice(0, -1));
-    } else if (pin.length < 4) {
-      const next = pin + k;
-      setPin(next);
-      if (next.length === 4) setTimeout(() => submitPin(next), 100);
-    }
-  };
-
-  const submitPin = (value: string) => {
-    if (!savedPin) {
-      localStorage.setItem('sketchbot-auth-v1', JSON.stringify({ pin: value }));
-      onAuthenticated({ role: 'teacher', name: 'Teacher', authSource: 'classroom_device' });
-    } else if (value === savedPin) {
-      onAuthenticated({ role: 'teacher', name: 'Teacher', authSource: 'classroom_device' });
-    } else {
-      setPinError(true);
-      setPin('');
-      setTimeout(() => setPinError(false), 700);
-    }
-  };
-
   const switchMode = (m: AuthFormMode) => {
     setFormMode(m);
     setAuthError(null);
@@ -225,8 +173,6 @@ export function AuthScreen({ onAuthenticated, onBack, authMode = 'teacher' }: Au
     setConfirmPassword('');
     setNeedsConfirmation(false);
   };
-
-  const canContinueStudent = Boolean(selectedName.trim()) && roster.includes(selectedName.trim());
 
   return (
     <div className="entry-shell">
@@ -440,124 +386,11 @@ export function AuthScreen({ onAuthenticated, onBack, authMode = 'teacher' }: Au
                     )}
                   </AnimatePresence>
 
-                  {formMode === 'signin' && (
-                    <>
-                      <div className="entry-divider"><span /><span>or</span><span /></div>
-                      <motion.button
-                        type="button"
-                        className="entry-ghost-btn"
-                        onClick={() => { setPhase('classroom'); setClassroomTab('student'); setSelectedName(''); }}
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        Use this computer as a shared classroom device
-                      </motion.button>
-                      <p className="entry-hint">Classroom sign-in uses the roster on this machine. Your account is for individual use and sync.</p>
-                    </>
-                  )}
                 </>
               )}
             </>
           )}
 
-          {phase === 'classroom' && (
-            <div className="entry-classroom">
-              <motion.button
-                type="button" className="entry-back"
-                onClick={() => { setPhase('signin'); setClassroomTab('student'); setSelectedName(''); }}
-                whileHover={{ x: -2 }} whileTap={{ scale: 0.95 }}
-              >
-                <ChevronLeft size={16} /> Back to account sign-in
-              </motion.button>
-              <div className="entry-classroom-head">
-                <h2 className="entry-classroom-title">Classroom device</h2>
-                <p className="entry-classroom-desc">Pick a role for this shared computer — no email required.</p>
-              </div>
-              <div className="entry-role-row entry-role-row--wide">
-                <button type="button" className={`entry-seg ${classroomTab === 'student' ? 'active' : ''}`} onClick={() => { setClassroomTab('student'); setSelectedName(''); }}>Student</button>
-                <button type="button" className={`entry-seg ${classroomTab === 'teacher' ? 'active' : ''}`} onClick={() => { setClassroomTab('teacher'); setPhase('teacher-pin'); setPin(''); setPinError(false); }}>Teacher</button>
-              </div>
-              {classroomTab === 'student' && (
-                <>
-                  <h3 className="entry-subhead">Who are you?</h3>
-                  <p className="entry-muted">{roster.length > 0 ? 'Choose your name from the roster your teacher saved on this device.' : 'No roster yet — ask your teacher to add students in Settings.'}</p>
-                  {roster.length > 0 ? (
-                    <div className="auth-roster-grid">
-                      {roster.map((name, i) => (
-                        <motion.button
-                          key={name}
-                          type="button"
-                          className={`auth-roster-card ${selectedName === name ? 'active' : ''}`}
-                          onClick={() => setSelectedName(name)}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.03 * Math.min(i, 12) }}
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                        >
-                          <span className="auth-roster-avatar" aria-hidden>{initials(name)}</span>
-                          <span className="auth-roster-name">{name}</span>
-                        </motion.button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="auth-roster-empty"><p>Your teacher can open Settings and save a class list for this computer.</p></div>
-                  )}
-                  <Button variant="primary" size="lg" className="entry-submit" disabled={!canContinueStudent} onClick={handleStudentContinue}>
-                    {canContinueStudent ? `Continue as ${selectedName.trim()}` : 'Select your name'}
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-
-          {phase === 'teacher-pin' && (
-            <div className="entry-classroom">
-              <motion.button
-                type="button" className="entry-back"
-                onClick={() => { setPhase('classroom'); setClassroomTab('student'); setPin(''); setPinError(false); }}
-                whileHover={{ x: -2 }} whileTap={{ scale: 0.95 }}
-              >
-                <ChevronLeft size={16} /> Back
-              </motion.button>
-              <div className="entry-classroom-head">
-                <h2 className="entry-classroom-title">{savedPin ? 'Teacher unlock' : 'Create teacher PIN'}</h2>
-                <p className="entry-classroom-desc">{savedPin ? 'Enter the PIN for this device.' : 'Protect teacher tools on this shared computer.'}</p>
-              </div>
-              <motion.div
-                className={`auth-pin-row ${pinError ? 'error' : ''}`}
-                animate={pinError ? { x: [0, -8, 8, -6, 6, 0] } : {}}
-                transition={{ duration: 0.35 }}
-              >
-                {[0, 1, 2, 3].map((i) => (
-                  <motion.div
-                    key={i}
-                    className={`auth-pin-dot ${pin.length > i ? 'filled' : ''}`}
-                    animate={{ scale: pin.length === i + 1 ? [1, 1.25, 1] : 1 }}
-                    transition={{ duration: 0.2 }}
-                  />
-                ))}
-              </motion.div>
-              <div className="auth-numpad">
-                {(['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'] as const).map((k, idx) => (
-                  <motion.button
-                    key={idx}
-                    type="button"
-                    className={`auth-numpad-key ${k === '' ? 'empty' : ''}`}
-                    disabled={k === ''}
-                    onClick={() => { if (k !== '') handlePinKey(k); }}
-                    whileHover={{ scale: k !== '' ? 1.08 : 1 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    {k}
-                  </motion.button>
-                ))}
-              </div>
-              <Button variant="primary" size="lg" className="entry-submit" disabled={pin.length < 4} onClick={() => submitPin(pin)}>
-                {savedPin ? 'Unlock' : 'Save PIN & continue'}
-              </Button>
-            </div>
-          )}
         </motion.div>
       </AnimatePresence>
     </div>

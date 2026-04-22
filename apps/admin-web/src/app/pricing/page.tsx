@@ -3,78 +3,7 @@ import Link from 'next/link';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { Reveal, RevealGroup } from '@/components/reveal';
-
-const plans = [
-  {
-    id: 'explorer',
-    name: 'Explorer',
-    tagline: 'Try SketchBot with the simulator — no robot required.',
-    audience: 'Curious learners & demos',
-    price: 'Free',
-    priceNote: 'No credit card',
-    seats: '1 seat',
-    robots: 'Simulator only',
-    credits: '50 AI credits / mo',
-    features: ['Desktop app with simulator', 'Starter concept library', 'Block editor & prompt composer', 'Community support'],
-    cta: { label: 'Download free', href: '/sign-up' },
-    badge: 'Free forever',
-  },
-  {
-    id: 'home',
-    name: 'Home',
-    tagline: 'One learner, one robot, full access.',
-    audience: 'Parent-paid, 1 child',
-    price: '$12',
-    priceNote: '/mo · or $99/yr',
-    seats: '1 learner + parent',
-    robots: '1 robot',
-    credits: '300 AI credits / mo',
-    features: ['Full concept library', 'Camera Buddy companion app', 'XP, streaks & progress', 'Email support'],
-    cta: { label: 'Start Home plan', href: '/sign-up?plan=home' },
-  },
-  {
-    id: 'classroom',
-    name: 'Classroom',
-    tagline: 'One teacher, one room, 30 students.',
-    audience: 'K–8 teachers & clubs',
-    price: '$49',
-    priceNote: '/mo · or $399/yr',
-    seats: '1 teacher + 30 students',
-    robots: 'Up to 4 robots',
-    credits: '2,500 AI credits / mo',
-    features: ['Classroom join codes', 'Teacher dashboard', 'Lesson plans by concept', 'Priority email support'],
-    cta: { label: 'Start Classroom', href: '/sign-up?plan=classroom' },
-    badge: 'Most popular',
-    featured: true,
-  },
-  {
-    id: 'school',
-    name: 'School',
-    tagline: 'Building-wide license with SSO.',
-    audience: 'Principals & tech coordinators',
-    price: '$249',
-    priceNote: '/mo · or $2,000/yr',
-    seats: '10 teachers + unlimited students',
-    robots: 'Up to 20 robots',
-    credits: '15,000 AI credits / mo',
-    features: ['Google Workspace SSO', 'Clever & Classlink rostering', 'Admin console + usage reports', 'Onboarding & PD hours'],
-    cta: { label: 'Start School plan', href: '/sign-up?plan=school' },
-  },
-  {
-    id: 'district',
-    name: 'District',
-    tagline: 'Multi-school with procurement terms.',
-    audience: 'Districts & ministries',
-    price: 'Custom',
-    priceNote: 'From $10,000/yr',
-    seats: 'Unlimited',
-    robots: 'Unlimited',
-    credits: '100k+ AI credits / mo',
-    features: ['SAML SSO & data residency', 'Dedicated success manager', 'Custom rostering & SLA', 'On-prem cloud option'],
-    cta: { label: 'Talk to sales', href: 'mailto:sales@sketchbot.app' },
-    badge: 'Enterprise',
-  },
-];
+import { PricingCards } from './pricing-cards';
 
 const creditTable = [
   { action: 'Block program run', credits: '0' },
@@ -122,22 +51,15 @@ export default function PricingPage() {
               AI credits pool at the license level — no per-student caps.
               Start free, add hardware when you&#39;re ready.
             </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div className="pricing-hero-pills">
               {[
                 { label: 'Seats scale by plan', sub: '1 learner → unlimited students' },
-                { label: 'Credits pool at the license', sub: 'One shared quota' },
+                { label: 'Credits pool at the license', sub: 'One shared quota, no per-student caps' },
                 { label: 'Annual saves ~17%', sub: 'Two months free on every tier' },
               ].map(({ label, sub }) => (
-                <div key={label} style={{
-                  padding: '10px 18px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  fontSize: '0.85rem',
-                  textAlign: 'center',
-                }}>
-                  <strong style={{ display: 'block', color: 'var(--text)', marginBottom: 2 }}>{label}</strong>
-                  <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{sub}</span>
+                <div key={label} className="pricing-hero-pill">
+                  <strong>{label}</strong>
+                  <span>{sub}</span>
                 </div>
               ))}
             </div>
@@ -148,55 +70,7 @@ export default function PricingPage() {
       {/* Plan cards */}
       <section className="section-sm" style={{ position: 'relative', zIndex: 1 }}>
         <div className="container">
-          <RevealGroup stagger={0.08} className="pricing-grid">
-            {plans.map((plan) => (
-              <article key={plan.id} className={`plan-card${plan.featured ? ' featured' : ''}`}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                    <div className="plan-name">{plan.name}</div>
-                    {plan.badge && <span className="plan-badge-pill">{plan.badge}</span>}
-                  </div>
-                  <div className="plan-tagline">{plan.tagline}</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: 4 }}>{plan.audience}</div>
-                </div>
-
-                <div className="plan-price-block">
-                  <span className={`plan-price${plan.featured ? ' grad-text' : ''}`}>{plan.price}</span>
-                  <span className="plan-price-note">{plan.priceNote}</span>
-                </div>
-
-                <div className="plan-divider" />
-
-                <div className="plan-specs">
-                  {[
-                    { label: 'Seats', val: plan.seats },
-                    { label: 'Robots', val: plan.robots },
-                    { label: 'AI credits', val: plan.credits },
-                  ].map(({ label, val }) => (
-                    <div key={label} className="plan-spec-row">
-                      <span className="plan-spec-label">{label}</span>
-                      <span className="plan-spec-val">{val}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="plan-divider" />
-
-                <ul className="plan-features-list">
-                  {plan.features.map((f) => (
-                    <li key={f} className="plan-feature">
-                      <span className="plan-feature-check">✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href={plan.cta.href} className="plan-cta-btn">
-                  {plan.cta.label}
-                </Link>
-              </article>
-            ))}
-          </RevealGroup>
+          <PricingCards />
         </div>
       </section>
 
@@ -220,9 +94,9 @@ export default function PricingPage() {
                   </thead>
                   <tbody>
                     {creditTable.map((r) => (
-                      <tr key={r.action}>
+                      <tr key={r.action} className={r.credits === '0' ? 'free-action' : ''}>
                         <td>{r.action}</td>
-                        <td className="num">{r.credits}</td>
+                        <td className="num">{r.credits === '0' ? 'Free' : r.credits}</td>
                       </tr>
                     ))}
                   </tbody>

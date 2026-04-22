@@ -250,7 +250,7 @@ export function SimPlayground({
       </div>
 
       {/* ── Viewport area ── */}
-      <div className="sim-playground-viewport">
+      <div className="sim-playground-viewport" data-tour="sim-viewport">
         {/* 3D view */}
         {show3D && (
           <div
@@ -316,6 +316,7 @@ export function SimPlayground({
             <motion.div
               key={conceptId}
               className="sim-env-badge"
+              data-tour="sim-env-badge"
               initial={{ opacity: 0, y: -8, scale: 0.92 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.92 }}
@@ -331,6 +332,7 @@ export function SimPlayground({
         {conceptId && (
           <motion.button
             className="sim-tutorial-btn"
+            data-tour="sim-tutorial-btn"
             onClick={() => { setShowTutorial((v) => !v); setTutorialStep(0); playSfx('click'); }}
             whileHover={{ scale: 1.06 }}
             whileTap={{ scale: 0.94 }}
@@ -346,6 +348,7 @@ export function SimPlayground({
             <motion.button
               key="score"
               className="sim-score-badge"
+              data-tour="sim-score-btn"
               initial={{ opacity: 0, scale: 0.8, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8 }}

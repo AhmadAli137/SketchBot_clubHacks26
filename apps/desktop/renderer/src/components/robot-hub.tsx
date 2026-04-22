@@ -1,7 +1,14 @@
 'use client';
 
-import { ArrowRight, BookOpen, Pencil, Rocket, Sparkles, Star } from 'lucide-react';
+import { BookOpen, Sparkles, Star } from 'lucide-react';
+import type { AgeGroup } from '@/lib/concept-types';
 import type { Challenge, ChallengePack } from '@/lib/platform-types';
+
+const DIFFICULTY_CAP: Record<AgeGroup, number> = {
+  explorer: 2,
+  builder: 3,
+  engineer: 5,
+};
 
 // ─── Static SketchBot definition for v1 ──────────────────────────────────────
 // Future: load from /api/robots endpoint
@@ -182,6 +189,8 @@ function ChallengeCard({ challenge, selected, onSelect }: ChallengeCardProps) {
 type RobotHubProps = {
   isRobotConnected: boolean;
   selectedChallengeId: string | null;
+  activeConceptId?: string | null;
+  difficultyLevel?: AgeGroup;
   onSelectChallenge: (id: string | null) => void;
   onStartFreeSession: () => void;
   packs?: ChallengePack[];
@@ -190,10 +199,21 @@ type RobotHubProps = {
 export function RobotHub({
   isRobotConnected,
   selectedChallengeId,
+  activeConceptId,
+  difficultyLevel = 'builder',
   onSelectChallenge,
   onStartFreeSession,
   packs = SEED_PACKS,
 }: RobotHubProps) {
+  const cap = DIFFICULTY_CAP[difficultyLevel];
+
+  const visiblePacks = packs
+    .filter((p) => !activeConceptId || !p.conceptId || p.conceptId === activeConceptId)
+    .map((p) => ({
+      ...p,
+      challenges: p.challenges.filter((c) => c.difficulty <= cap),
+    }))
+    .filter((p) => p.challenges.length > 0);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Robot card */}
@@ -251,7 +271,7 @@ export function RobotHub({
           className={`challenge-card ${selectedChallengeId !== null ? 'active' : ''}`}
           onClick={() => {
             if (selectedChallengeId === null) {
-              onSelectChallenge(packs[0]?.challenges[0]?.id ?? null);
+              onSelectChallenge(visiblePacks[0]?.challenges[0]?.id ?? null);
             }
           }}
           style={{ textAlign: 'left' }}
@@ -269,7 +289,7 @@ export function RobotHub({
       {/* Challenge library */}
       {selectedChallengeId !== null && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {packs.map((pack) => (
+          {visiblePacks.map((pack) => (
             <div key={pack.id}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
                 <Star size={11} style={{ color: 'var(--amber)' }} />

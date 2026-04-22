@@ -182,9 +182,9 @@ export const STUDENT_SESSION_STEPS: TourStep[] = [
   {
     id: 'layers',
     title: 'Unlock deeper layers',
-    body: 'Complete the Intuitive layer to unlock Structural. Complete all 3 layers to master the concept and earn a badge + Sparks!',
-    targetSelector: 'session-layer-pills',
-    placement: 'bottom',
+    body: 'Complete the Intuitive layer to unlock Structural. When you\'re ready, I\'ll suggest going deeper right here in the tutor panel — complete all 3 layers to earn a badge + Sparks!',
+    targetSelector: 'session-tutor',
+    placement: 'left',
     spotlightColor: 'rgba(168, 85, 247, 0.5)',
     tutorSpeech: 'Three stars = mastered! Can you do it? 🌟',
     emoji: '🏆',
@@ -458,12 +458,12 @@ export function storageKeyForFlow(flow: TourFlowId): string {
 
 export function hasDoneTour(flow: TourFlowId): boolean {
   if (typeof window === 'undefined') return false;
-  return localStorage.getItem(storageKeyForFlow(flow)) === 'done';
+  return localStorage.getItem(storageKeyForFlow(flow)) === '1';
 }
 
 export function markTourDone(flow: TourFlowId): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(storageKeyForFlow(flow), 'done');
+  localStorage.setItem(storageKeyForFlow(flow), '1');
 }
 
 export function resetTour(flow: TourFlowId): void {

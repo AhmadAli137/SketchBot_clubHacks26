@@ -11,6 +11,66 @@
       "drawings_count": 8,
       "concepts_started": 3,
       "concepts_mastered": 0
+    },
+    "Ava": {
+      "student_name": "Ava",
+      "xp": 65,
+      "level": 2,
+      "level_name": "Sketcher",
+      "level_emoji": "\ud83d\udd8a\ufe0f",
+      "badge_count": 2,
+      "streak_days": 2,
+      "drawings_count": 0,
+      "concepts_started": 1,
+      "concepts_mastered": 0
+    },
+    "Teacher": {
+      "student_name": "Teacher",
+      "xp": 15,
+      "level": 1,
+      "level_name": "Doodler",
+      "level_emoji": "\u270f\ufe0f",
+      "badge_count": 0,
+      "streak_days": 1,
+      "drawings_count": 0,
+      "concepts_started": 0,
+      "concepts_mastered": 0
+    },
+    "Player": {
+      "student_name": "Player",
+      "xp": 175,
+      "level": 3,
+      "level_name": "Artist",
+      "level_emoji": "\ud83c\udfa8",
+      "badge_count": 4,
+      "streak_days": 2,
+      "drawings_count": 6,
+      "concepts_started": 7,
+      "concepts_mastered": 0
+    },
+    "ali174": {
+      "student_name": "ali174",
+      "xp": 40,
+      "level": 1,
+      "level_name": "Doodler",
+      "level_emoji": "\u270f\ufe0f",
+      "badge_count": 1,
+      "streak_days": 1,
+      "drawings_count": 0,
+      "concepts_started": 5,
+      "concepts_mastered": 0
+    },
+    "ahmad100307": {
+      "student_name": "ahmad100307",
+      "xp": 115,
+      "level": 2,
+      "level_name": "Sketcher",
+      "level_emoji": "\ud83d\udd8a\ufe0f",
+      "badge_count": 2,
+      "streak_days": 2,
+      "drawings_count": 0,
+      "concepts_started": 8,
+      "concepts_mastered": 0
     }
   }
 }

@@ -14,6 +14,7 @@ import { TeacherDashboard } from '@/components/classroom/teacher-dashboard';
 import { GuidedTourProvider } from '@/components/guided-tour/guided-tour-provider';
 import { HomeScreen } from '@/components/home-screen';
 import { StudentDashboard } from '@/components/student-dashboard';
+import { UserAccountPanel } from '@/components/user-account-panel';
 import { useRuntimeConfig } from '@/lib/config';
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { useDesktopShell } from '@/lib/desktop-shell';
@@ -116,6 +117,9 @@ export default function HomePage() {
   const [studentCount, setStudentCount] = useState(0);
   const [classroomRestrictions, setClassroomRestrictions] = useState<ClassroomProfile['restrictions']>(undefined);
   const [lessonPlanActive, setLessonPlanActive] = useState(false);
+  const [activeChallengeId, setActiveChallengeId] = useState<string | null>(null);
+  const [savedSession, setSavedSession] = useState<{ role: AuthRole; name: string; email?: string } | null>(null);
+  const [accountPanelOpen, setAccountPanelOpen] = useState(false);
 
   // ─── Learning system state ─────────────────────────────────────────────
   const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null);
@@ -123,19 +127,15 @@ export default function HomePage() {
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>('builder');
   const [sessionStartPrompt, setSessionStartPrompt] = useState<string>('');
 
-  // Load persisted session on mount
+  // Load persisted session on mount — always start at plan screen so returning
+  // users see the Spark landing page. The saved credentials are stored in
+  // savedSession so PlanPicker can offer a one-tap "Continue as [name]" path.
   useEffect(() => {
     try {
       const raw = localStorage.getItem('sketchbot-session-v1');
       if (raw) {
         const saved = JSON.parse(raw) as { role: AuthRole; name: string; view: AppView; email?: string };
-        setUserRole(saved.role);
-        setUserName(saved.name);
-        setUserEmail(typeof saved.email === 'string' ? saved.email : '');
-        // Restore to home if previously authenticated, skip plan picker
-        const restoredView = saved.view === 'session' ? 'home' : saved.view;
-        const safeViews: AppView[] = ['home', 'session'];
-        setView(safeViews.includes(restoredView as AppView) ? (restoredView as AppView) : 'plan');
+        setSavedSession({ role: saved.role, name: saved.name, email: saved.email });
       }
       const profile = loadClassroomProfile();
       setClassroomName(profile.classroomName);
@@ -210,6 +210,7 @@ export default function HomePage() {
     }
     if (ageGroup) setSelectedAgeGroup(ageGroup);
     setLessonPlanActive(Boolean(options?.lessonPlanning));
+    setActiveChallengeId(options?.challengeId ?? null);
     setView('session');
     localStorage.setItem(
       'sketchbot-session-v1',
@@ -248,7 +249,9 @@ export default function HomePage() {
     setUserName('');
     setUserEmail('');
     setLessonPlanActive(false);
+    setActiveChallengeId(null);
     setShowTeacherDash(false);
+    setSavedSession(null);
     clearClassSession();
     localStorage.removeItem('sketchbot-session-v1');
   };
@@ -984,7 +987,7 @@ export default function HomePage() {
 
   // ─── Auth / home / session with shared motion shell ───────────────────
   return (
-    <GuidedTourProvider activeView={view === 'plan' || view === 'difficulty-onboarding' ? 'auth' : view as 'auth' | 'home' | 'session'} userRole={userRole} lessonActive={lessonPlanActive}>
+    <GuidedTourProvider activeView={view === 'plan' || view === 'difficulty-onboarding' ? 'auth' : view as 'auth' | 'home' | 'session'} userRole={userRole} lessonActive={lessonPlanActive} lessonPlayerActive={activeChallengeId !== null}>
       <AnimatePresence mode="wait">
         {view === 'plan' && (!musicReady || launchState.phase === 'starting') && (
           <motion.div
@@ -1027,7 +1030,19 @@ export default function HomePage() {
                   {launchState.phase === 'starting' ? launchState.message : 'Getting music ready\u2026'}
                 </div>
                 <div className="plan-boot-track" aria-hidden="true">
-                  <div className="plan-boot-fill" />
+                  <motion.div
+                    className="plan-boot-fill"
+                    animate={{
+                      width: (() => {
+                        if (musicReady && launchState.phase !== 'starting') return '100%';
+                        if (launchState.phase === 'ready') return '90%';
+                        if (launchState.message.includes('Loading the workspace')) return '72%';
+                        if (launchState.message.includes('Waking up')) return '42%';
+                        return '12%';
+                      })(),
+                    }}
+                    transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  />
                 </div>
               </div>
             </div>
@@ -1045,9 +1060,14 @@ export default function HomePage() {
           >
             <PlanPicker
               apiBase={apiBase}
-              onPicked={handleAuthenticated}
+              savedSession={savedSession ?? undefined}
+              onPicked={(result) => {
+                setSavedSession(null);
+                handleAuthenticated(result);
+              }}
               onTeacherAuth={() => { setAuthMode('teacher'); setView('auth'); }}
               onPersonalTutor={() => { setAuthMode('personal'); setView('auth'); }}
+              onClearSavedSession={() => handleSignOut()}
             />
           </motion.div>
         )}
@@ -1157,6 +1177,8 @@ export default function HomePage() {
       apiBase={apiBase}
       userRole={userRole}
       lessonPlanActive={lessonPlanActive}
+      activeChallengeId={activeChallengeId}
+      onChallengeComplete={() => setActiveChallengeId(null)}
       classroomRestrictions={userRole === 'student' ? classroomRestrictions : undefined}
       onConceptSelect={handleConceptSelect}
       onBackToHome={() => {
@@ -1209,6 +1231,35 @@ export default function HomePage() {
       onLoadTask={(task) => void loadTask(task)}
             />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Persistent profile button (all authenticated views) ── */}
+      {(view === 'home' || view === 'session' || view === 'difficulty-onboarding') && userRole !== 'guest' && (
+        <motion.button
+          type="button"
+          className="app-profile-btn"
+          onClick={() => setAccountPanelOpen(true)}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
+          title="Account"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        >
+          {userName.trim()[0]?.toUpperCase() ?? '?'}
+        </motion.button>
+      )}
+
+      <AnimatePresence>
+        {accountPanelOpen && (
+          <UserAccountPanel
+            role={userRole}
+            name={userName}
+            email={userEmail || undefined}
+            onSignOut={() => { setAccountPanelOpen(false); handleSignOut(); }}
+            onClose={() => setAccountPanelOpen(false)}
+          />
         )}
       </AnimatePresence>
     </GuidedTourProvider>
