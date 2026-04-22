@@ -299,7 +299,7 @@ def _sync_subscription(sub_obj: dict) -> None:
         import stripe as _stripe  # type: ignore[import]
         _stripe.api_key = settings.stripe_secret_key
         customer = _stripe.Customer.retrieve(customer_id)
-        email = customer.get("email", "")
+        email = (customer.email if hasattr(customer, "email") else customer.get("email", "")) or ""
         if not email:
             return
         users = sb.auth.admin.list_users()
