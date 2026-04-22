@@ -1,8 +1,11 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronLeft, ChevronRight, Play, Pause, RotateCcw, CheckCircle2 } from 'lucide-react';
+import {
+  ChevronLeft, ChevronRight, Play, Pause, RotateCcw,
+  CheckCircle2, X, BookOpen,
+} from 'lucide-react';
 
 import { useLessonTimeline } from '@/lib/use-lesson-timeline';
 import { useLessonAudio } from '@/lib/use-lesson-audio';
@@ -11,19 +14,7 @@ import { awardLessonXP, awardQuizXP, scheduleProgressSync } from '@/lib/progress
 import { useXPToast } from '@/components/gamification';
 import { BotAvatar } from './bot-avatar';
 
-// ─── Step type metadata ───────────────────────────────────────────────────────
-
-function stepLabel(step: LessonStep, narrationIndex: number): string {
-  if (step.phase) return step.phase;
-  switch (step.type) {
-    case 'narration': return narrationIndex === 0 ? 'Intro' : 'Concept';
-    case 'challenge': return 'Try It';
-    case 'quiz':      return 'Quiz';
-    case 'drawing':   return 'Draw!';
-    case 'celebrate': return 'Done!';
-    default:          return 'Step';
-  }
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function stepAccent(step: LessonStep): string {
   switch (step.type) {
@@ -35,75 +26,81 @@ function stepAccent(step: LessonStep): string {
   }
 }
 
-// ─── Step Rail ────────────────────────────────────────────────────────────────
+function stepTypeLabel(step: LessonStep): string {
+  switch (step.type) {
+    case 'narration': return '📖 Lesson';
+    case 'challenge': return '🎯 Try It';
+    case 'drawing':   return '✏️ Drawing';
+    case 'quiz':      return '❓ Quiz';
+    case 'celebrate': return '🎉 Complete!';
+    default:          return '📌 Step';
+  }
+}
 
-type RailProps = {
-  steps: LessonStep[];
-  currentIndex: number;
-  onSeek: (i: number) => void;
+// ─── Intro splash ─────────────────────────────────────────────────────────────
+
+function LessonIntroBanner({ plan, onBegin, reducedMotion }: {
+  plan: LessonPlan;
+  onBegin: () => void;
   reducedMotion: boolean;
-};
-
-function HudStepRail({ steps, currentIndex, onSeek, reducedMotion }: RailProps) {
-  let narrationCount = 0;
-  const labels = steps.map((s) => {
-    const label = stepLabel(s, s.type === 'narration' ? narrationCount : -1);
-    if (s.type === 'narration') narrationCount++;
-    return label;
-  });
-
+}) {
   return (
-    <div className="lesson-hud-rail">
-      {steps.map((step, i) => {
-        const done   = i < currentIndex;
-        const active = i === currentIndex;
-        return (
-          <Fragment key={step.id}>
-            {i > 0 && (
-              <motion.div
-                className="lesson-hud-rail-line"
-                animate={{ scaleX: done || active ? 1 : 0.2, opacity: done ? 1 : 0.25 }}
-                transition={{ duration: reducedMotion ? 0 : 0.4, ease: 'easeOut' }}
-                style={{ transformOrigin: 'left' }}
-              />
-            )}
-            <button
-              type="button"
-              className="lesson-hud-rail-node-col"
-              onClick={() => onSeek(i)}
-              title={labels[i]}
-            >
-              <motion.div
-                className={`lesson-hud-rail-dot${done ? ' done' : active ? ' active' : ''}`}
-                animate={active && !reducedMotion ? {
-                  boxShadow: [
-                    '0 0 0 0 rgba(93,228,255,0.5)',
-                    '0 0 0 6px rgba(93,228,255,0)',
-                    '0 0 0 0 rgba(93,228,255,0)',
-                  ],
-                } : {}}
-                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
-              >
-                {done && <CheckCircle2 size={9} strokeWidth={3} />}
-              </motion.div>
-              <span className={`lesson-hud-rail-label${active ? ' active' : done ? ' done' : ''}`}>
-                {labels[i]}
-              </span>
-            </button>
-          </Fragment>
-        );
-      })}
-    </div>
+    <motion.div
+      className="lesson-intro-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22 }}
+    >
+      <motion.div
+        className="lesson-intro-card"
+        initial={reducedMotion ? false : { scale: 0.86, y: 28, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={reducedMotion ? undefined : { scale: 0.92, y: 14, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 240, damping: 22 }}
+      >
+        <motion.div
+          className="lesson-intro-bot"
+          animate={reducedMotion ? {} : { y: [0, -10, 0] }}
+          transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <BotAvatar emotion="excited" size={88} />
+        </motion.div>
+
+        <div className="lesson-intro-eyebrow">📚 Guided Lesson</div>
+        <h2 className="lesson-intro-title">{plan.title}</h2>
+        <p className="lesson-intro-desc">
+          {plan.steps.length} steps — narration, activities &amp; a challenge at the end. I'll walk you through every one!
+        </p>
+
+        <div className="lesson-intro-actions">
+          <button type="button" className="lesson-intro-skip" onClick={onBegin}>
+            Skip intro
+          </button>
+          <motion.button
+            type="button"
+            className="lesson-intro-begin"
+            onClick={onBegin}
+            whileHover={reducedMotion ? {} : { scale: 1.04 }}
+            whileTap={reducedMotion ? {} : { scale: 0.96 }}
+          >
+            Let's go! <ChevronRight size={15} />
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
-// ─── Floating card ────────────────────────────────────────────────────────────
+// ─── Right side panel ─────────────────────────────────────────────────────────
 
-type CardProps = {
+function LessonSidePanel({
+  plan, step, stepIndex, isPlaying, reducedMotion,
+  onPrev, onNext, onPlayPause, onRestart, onDone, onSubmitChallenge, onClose,
+}: {
+  plan: LessonPlan;
   step: LessonStep;
   stepIndex: number;
-  stepCount: number;
-  stepProgress: number;
   isPlaying: boolean;
   reducedMotion: boolean;
   onPrev: () => void;
@@ -111,154 +108,161 @@ type CardProps = {
   onPlayPause: () => void;
   onRestart: () => void;
   onDone: () => void;
-  onSubmitChallenge: (input: string) => void;
-};
+  onSubmitChallenge: (v: string) => void;
+  onClose: () => void;
+}) {
+  const [input, setInput]   = useState('');
+  const [done, setDone]     = useState(false);
+  const isCelebrate         = step.type === 'celebrate';
+  const accent              = stepAccent(step);
 
-function HudCard({
-  step, stepIndex, stepCount, stepProgress, isPlaying, reducedMotion,
-  onPrev, onNext, onPlayPause, onRestart, onDone, onSubmitChallenge,
-}: CardProps) {
-  const [challengeInput, setChallengeInput] = useState('');
-  const [challengeDone, setChallengeDone] = useState(false);
+  useEffect(() => { setInput(''); setDone(false); }, [stepIndex]);
 
-  useEffect(() => {
-    setChallengeInput('');
-    setChallengeDone(false);
-  }, [stepIndex]);
-
-  const handleChallengeSubmit = () => {
-    setChallengeDone(true);
-    onSubmitChallenge(challengeInput);
+  const handleSubmit = () => {
+    setDone(true);
+    onSubmitChallenge(input);
   };
-
-  const isCelebrate = step.type === 'celebrate';
-  const accent = stepAccent(step);
 
   return (
     <motion.div
-      className="lesson-hud-card"
+      className="lesson-panel"
       style={{ '--lesson-accent': accent } as React.CSSProperties}
-      layout
+      initial={reducedMotion ? false : { x: 60, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={reducedMotion ? undefined : { x: 60, opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 26 }}
     >
-      {/* Step progress bar */}
-      <div className="lesson-hud-card-progress">
+      {/* Coloured top accent bar */}
+      <div className="lesson-panel-accent-bar" />
+
+      {/* Progress dots */}
+      <div className="lesson-panel-rail">
+        {plan.steps.map((_, i) => (
+          <motion.div
+            key={i}
+            className={`lesson-panel-dot ${i < stepIndex ? 'done' : i === stepIndex ? 'active' : ''}`}
+            animate={i === stepIndex && !reducedMotion ? { scale: [1, 1.4, 1] } : {}}
+            transition={{ duration: 1.6, repeat: Infinity }}
+          />
+        ))}
+      </div>
+
+      {/* Header */}
+      <div className="lesson-panel-header">
+        <span className="lesson-panel-lesson-name">{plan.title}</span>
+        <button type="button" className="lesson-panel-close" onClick={onClose} aria-label="Minimize lesson">
+          <X size={13} />
+        </button>
+      </div>
+
+      {/* Bot */}
+      <div className="lesson-panel-bot-wrap">
         <motion.div
-          className="lesson-hud-card-progress-fill"
-          animate={{ width: `${stepProgress * 100}%` }}
-          transition={{ duration: 0.12, ease: 'linear' }}
+          animate={reducedMotion ? {} : { y: [0, -8, 0] }}
+          transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <BotAvatar emotion={step.bot_emotion ?? 'idle'} size={isCelebrate ? 72 : 58} />
+        </motion.div>
+        <div className="lesson-panel-step-num">{stepIndex + 1} / {plan.steps.length}</div>
+      </div>
+
+      {/* Content */}
+      <div className="lesson-panel-body">
+        <div className="lesson-panel-type-tag">{stepTypeLabel(step)}</div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`step-${stepIndex}`}
+            initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.24, ease: 'easeOut' }}
+          >
+            {step.narration && (
+              <div className="lesson-panel-speech">
+                <p className="lesson-panel-speech-text">{step.narration.text}</p>
+              </div>
+            )}
+
+            {step.type === 'drawing' && step.drawing && (
+              <motion.div
+                className="lesson-panel-drawing-tag"
+                initial={reducedMotion ? false : { scale: 0.85, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.12, type: 'spring', stiffness: 280 }}
+              >
+                ✏️ Drawing: <strong>{step.drawing.prompt}</strong>
+              </motion.div>
+            )}
+
+            {step.type === 'challenge' && step.challenge && (
+              <div className="lesson-panel-challenge">
+                <p className="lesson-panel-challenge-q">{step.challenge.instruction}</p>
+                {!done ? (
+                  <div className="lesson-panel-challenge-row">
+                    <input
+                      className="lesson-panel-challenge-input"
+                      placeholder="Your answer…"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                    />
+                    <button type="button" className="lesson-panel-submit-btn" onClick={handleSubmit}>
+                      Done
+                    </button>
+                  </div>
+                ) : (
+                  <motion.div
+                    className="lesson-panel-done-msg"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                  >
+                    <CheckCircle2 size={15} /> Nice work!
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            {isCelebrate && (
+              <motion.div
+                className="lesson-panel-celebrate"
+                animate={reducedMotion ? {} : { scale: [1, 1.07, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                🎉 Lesson complete!
+              </motion.div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Progress bar */}
+      <div className="lesson-panel-progress-track">
+        <motion.div
+          className="lesson-panel-progress-fill"
+          animate={{ width: `${((stepIndex + 1) / plan.steps.length) * 100}%` }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
         />
       </div>
 
-      {/* Card body */}
-      <div className="lesson-hud-card-body">
-        {/* Bot avatar + step badge */}
-        <div className="lesson-hud-card-avatar-col">
-          <BotAvatar
-            emotion={step.bot_emotion ?? 'idle'}
-            size={isCelebrate ? 44 : 36}
-          />
-          <span className="lesson-hud-card-step-badge">
-            {stepIndex + 1}/{stepCount}
-          </span>
-        </div>
-
-        {/* Content */}
-        <div className="lesson-hud-card-content">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`step-${stepIndex}`}
-              initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
-            >
-              {/* Narration / celebrate */}
-              {step.narration && (
-                <p className="lesson-hud-card-text">
-                  {step.narration.text}
-                </p>
-              )}
-
-              {/* Drawing indicator */}
-              {step.type === 'drawing' && step.drawing && (
-                <motion.div
-                  className="lesson-hud-drawing-badge"
-                  initial={reducedMotion ? false : { scale: 0.85, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 22 }}
-                >
-                  <span>🤖✏️</span>
-                  <span>Drawing: <strong>{step.drawing.prompt}</strong></span>
-                </motion.div>
-              )}
-
-              {/* Challenge instruction */}
-              {step.type === 'challenge' && step.challenge && (
-                <div className="lesson-hud-challenge">
-                  <p className="lesson-hud-challenge-instruction">
-                    {step.challenge.instruction}
-                  </p>
-                  {!challengeDone ? (
-                    <div className="lesson-hud-challenge-actions">
-                      <input
-                        className="lesson-hud-challenge-input"
-                        placeholder="Type your answer or reflection…"
-                        value={challengeInput}
-                        onChange={(e) => setChallengeInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleChallengeSubmit(); }}
-                      />
-                      <button type="button" className="lesson-hud-challenge-btn" onClick={handleChallengeSubmit}>
-                        Done
-                      </button>
-                    </div>
-                  ) : (
-                    <motion.div
-                      className="lesson-hud-challenge-done"
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    >
-                      <CheckCircle2 size={16} />
-                      Nice work!
-                    </motion.div>
-                  )}
-                </div>
-              )}
-
-              {/* Celebrate */}
-              {isCelebrate && (
-                <motion.div
-                  className="lesson-hud-celebrate"
-                  animate={reducedMotion ? {} : { scale: [1, 1.05, 1] }}
-                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                  <span>🎉</span>
-                  <span>Lesson complete!</span>
-                </motion.div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-
       {/* Controls */}
-      <div className="lesson-hud-card-controls">
+      <div className="lesson-panel-controls">
         <button type="button" className="lesson-hud-ctrl" onClick={onPrev} disabled={stepIndex === 0} title="Previous">
-          <ChevronLeft size={13} />
+          <ChevronLeft size={14} />
         </button>
-        <button type="button" className="lesson-hud-ctrl lesson-hud-ctrl-play" onClick={onPlayPause} title={isPlaying ? 'Pause' : 'Play'}>
-          {isPlaying ? <Pause size={12} /> : <Play size={12} />}
+        <button type="button" className="lesson-hud-ctrl lesson-hud-ctrl-play" onClick={onPlayPause}>
+          {isPlaying ? <Pause size={13} /> : <Play size={13} />}
         </button>
-        <button type="button" className="lesson-hud-ctrl" onClick={onNext} disabled={stepIndex >= stepCount - 1} title="Next">
-          <ChevronRight size={13} />
+        <button type="button" className="lesson-hud-ctrl" onClick={onNext} disabled={stepIndex >= plan.steps.length - 1} title="Next">
+          <ChevronRight size={14} />
         </button>
         <button type="button" className="lesson-hud-ctrl" onClick={onRestart} title="Restart">
-          <RotateCcw size={11} />
+          <RotateCcw size={12} />
         </button>
-        <div style={{ flex: 1 }} />
         {isCelebrate && (
-          <button type="button" className="lesson-hud-finish-btn" onClick={onDone}>
-            Finish lesson
+          <button type="button" className="lesson-panel-finish-btn" onClick={onDone}>
+            Finish ✓
           </button>
         )}
       </div>
@@ -266,7 +270,33 @@ function HudCard({
   );
 }
 
-// ─── Main HUD ─────────────────────────────────────────────────────────────────
+// ─── Minimized FAB ────────────────────────────────────────────────────────────
+
+function LessonFab({ stepIndex, stepCount, onReopen }: {
+  stepIndex: number;
+  stepCount: number;
+  onReopen: () => void;
+}) {
+  return (
+    <motion.button
+      type="button"
+      className="lesson-fab"
+      onClick={onReopen}
+      title="Resume lesson"
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0, opacity: 0 }}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.94 }}
+      transition={{ type: 'spring', stiffness: 360, damping: 24 }}
+    >
+      <BookOpen size={16} />
+      <span>{stepIndex + 1} / {stepCount}</span>
+    </motion.button>
+  );
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
 
 export type LessonHudProps = {
   plan: LessonPlan | null;
@@ -287,43 +317,53 @@ export function LessonHud({
   onComplete,
   onXPChange,
 }: LessonHudProps) {
-  const xpToast = useXPToast();
-  const timeline = useLessonTimeline(plan);
+  const xpToast    = useXPToast();
+  const timeline   = useLessonTimeline(plan);
   const {
     currentStep, currentStepIndex, isPlaying, isComplete,
-    stepProgress, play, pause, nextStep, prevStep, restart, seekStep,
+    play, pause, nextStep, prevStep, restart,
   } = timeline;
 
-  const audio = useLessonAudio({ apiBase, enabled: true });
-  const drawnRef = useRef(false);
+  const audio       = useLessonAudio({ apiBase, enabled: true });
+  const drawnRef    = useRef(false);
+  const planTitleRef = useRef<string | null>(null);
+  const [phase, setPhase] = useState<'intro' | 'panel' | 'fab'>('intro');
+
+  // Reset to intro when a new lesson loads
+  useEffect(() => {
+    if (plan && plan.title !== planTitleRef.current) {
+      planTitleRef.current = plan.title;
+      setPhase('intro');
+    }
+  }, [plan?.title]); // eslint-disable-line
 
   // Auto-play when lesson first loads
   useEffect(() => {
     if (plan && plan.steps.length > 0) play();
-  }, [plan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [plan]); // eslint-disable-line
 
-  // Speak on step change
+  // Narration TTS on step change
   useEffect(() => {
     if (currentStep?.narration?.text) void audio.speakStep(currentStep);
     else audio.stop();
     drawnRef.current = false;
-  }, [currentStepIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentStepIndex]); // eslint-disable-line
 
-  // Pause audio when not playing
+  // Sync audio pause state
   useEffect(() => {
     if (!isPlaying) audio.pause();
     else audio.resume();
-  }, [isPlaying]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isPlaying]); // eslint-disable-line
 
-  // Trigger drawing prompt once per drawing step
+  // Fire drawing request once per drawing step
   useEffect(() => {
     if (currentStep?.type === 'drawing' && currentStep.drawing?.prompt && !drawnRef.current) {
       drawnRef.current = true;
       onDrawingRequest?.(currentStep.drawing.prompt);
     }
-  }, [currentStepIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentStepIndex]); // eslint-disable-line
 
-  // Award XP on complete
+  // XP on lesson complete
   useEffect(() => {
     if (!isComplete) return;
     if (studentName) {
@@ -334,7 +374,7 @@ export function LessonHud({
         onXPChange?.();
       }
     }
-  }, [isComplete]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isComplete]); // eslint-disable-line
 
   const handleChallengeSubmit = useCallback((input: string) => {
     if (currentStep?.type === 'quiz') {
@@ -356,37 +396,21 @@ export function LessonHud({
 
   return (
     <div className="lesson-hud-root" aria-label="Lesson guidance">
-      {/* Step progress rail — top of workspace */}
-      <motion.div
-        className="lesson-hud-rail-wrap"
-        initial={reducedMotion ? false : { opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={reducedMotion ? undefined : { opacity: 0, y: -12 }}
-        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <HudStepRail
-          steps={plan.steps}
-          currentIndex={currentStepIndex}
-          onSeek={seekStep}
-          reducedMotion={reducedMotion}
-        />
-      </motion.div>
-
-      {/* Floating lesson card — bottom of workspace */}
-      <AnimatePresence>
-        <motion.div
-          key="hud-card-wrap"
-          className="lesson-hud-card-wrap"
-          initial={reducedMotion ? false : { opacity: 0, y: 24, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={reducedMotion ? undefined : { opacity: 0, y: 16, scale: 0.97 }}
-          transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-        >
-          <HudCard
+      <AnimatePresence mode="wait">
+        {phase === 'intro' && (
+          <LessonIntroBanner
+            key="intro"
+            plan={plan}
+            reducedMotion={reducedMotion}
+            onBegin={() => { setPhase('panel'); play(); }}
+          />
+        )}
+        {phase === 'panel' && (
+          <LessonSidePanel
+            key="panel"
+            plan={plan}
             step={currentStep}
             stepIndex={currentStepIndex}
-            stepCount={plan.steps.length}
-            stepProgress={stepProgress}
             isPlaying={isPlaying}
             reducedMotion={reducedMotion}
             onPrev={prevStep}
@@ -395,8 +419,17 @@ export function LessonHud({
             onRestart={restart}
             onDone={() => onComplete?.()}
             onSubmitChallenge={handleChallengeSubmit}
+            onClose={() => setPhase('fab')}
           />
-        </motion.div>
+        )}
+        {phase === 'fab' && (
+          <LessonFab
+            key="fab"
+            stepIndex={currentStepIndex}
+            stepCount={plan.steps.length}
+            onReopen={() => setPhase('panel')}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

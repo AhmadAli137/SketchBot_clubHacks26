@@ -1,14 +1,14 @@
 import type { TourFlowId, TourStep } from './types';
 
 export const GUIDED_TOUR_STORAGE: Record<TourFlowId, string> = {
-  studentSession: 'aibotics-tour-session-v1',
-  studentHome:    'aibotics-tour-home-v1',
-  planPicker:     'aibotics-tour-plan-v1',
-  progressMap:    'aibotics-tour-map-v1',
-  challenge:      'aibotics-tour-challenge-v1',
-  lessonPlayer:   'aibotics-tour-lesson-v1',
-  blockEditor:    'aibotics-tour-blocks-v1',
-  simPlayground:  'aibotics-tour-sim-v1',
+  studentSession: 'aibotics-tour-session-v2',
+  studentHome:    'aibotics-tour-home-v2',
+  planPicker:     'aibotics-tour-plan-v2',
+  progressMap:    'aibotics-tour-map-v2',
+  challenge:      'aibotics-tour-challenge-v2',
+  lessonPlayer:   'aibotics-tour-lesson-v2',
+  blockEditor:    'aibotics-tour-blocks-v2',
+  simPlayground:  'aibotics-tour-sim-v2',
 };
 
 // ─── Plan Picker ─────────────────────────────────────────────────────────────
