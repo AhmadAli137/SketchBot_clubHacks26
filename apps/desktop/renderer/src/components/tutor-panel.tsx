@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, Download, Lightbulb, Mic, MicOff, RefreshCw, RotateCcw, Send, Square, TrendingUp, Volume2, VolumeX, WifiOff, X } from 'lucide-react';
 import { AGE_GROUP_META, LAYER_META, type AgeGroup, type ConceptLayer } from '@/lib/concept-types';
+import { ROBOT_LAB_CONCEPT_IDS } from '@/lib/concept-catalog';
 import { concatFloat32, pcmToWavBlob, resamplePcmTo16k } from '@/lib/audio-utils';
 import { useLocalWhisper } from '@/lib/use-local-whisper';
 import {
@@ -1191,6 +1192,8 @@ export function TutorPanel({
   // Notify tutor when a drawing is submitted
   useEffect(() => {
     if (sessionActorRole === 'teacher') return;
+    // Robot challenges don't use the drawing evaluation pipeline
+    if (conceptId && (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(conceptId)) return;
     if (!drawingPrompt) return;
     if (!messages.length) return; // Don't react before greeting loads
 
@@ -1689,7 +1692,7 @@ export function TutorPanel({
         )}
       </div>
 
-      {evaluationNotice && (
+      {evaluationNotice && !(conceptId && (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(conceptId)) && (
         <div className={`tutor-evaluation-card ${evaluationNotice.passed ? 'passed' : 'pending'}`}>
           <div className="tutor-evaluation-title">
             {evaluationNotice.mastered
