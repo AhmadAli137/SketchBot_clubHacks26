@@ -42,7 +42,7 @@ def _get_or_create_subscription(client, user_id: str) -> dict:
         .maybe_single()
         .execute()
     )
-    if resp.data:
+    if resp is not None and resp.data:
         return resp.data
     new = {
         "user_id": user_id,
@@ -63,7 +63,7 @@ def _get_credits_used(client, user_id: str, month: str) -> int:
         .maybe_single()
         .execute()
     )
-    return resp.data["credits_used"] if resp.data else 0
+    return resp.data["credits_used"] if (resp is not None and resp.data) else 0
 
 
 def deduct_credits(user_id: str, amount: int = 1) -> None:
@@ -224,13 +224,17 @@ async def stripe_webhook(request: Request):
     sig = request.headers.get("stripe-signature", "")
     try:
         import stripe  # type: ignore[import]
+        import json as _json
         stripe.api_key = settings.stripe_secret_key
-        event = stripe.Webhook.construct_event(body, sig, settings.stripe_webhook_secret)
+        # Verify signature — raises if invalid
+        stripe.Webhook.construct_event(body, sig, settings.stripe_webhook_secret)
+        # Parse body as plain dict (stripe v10 Event object doesn't support .get())
+        event_dict = _json.loads(body.decode("utf-8"))
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    obj = event.get("data", {}).get("object", {})
-    event_type = event["type"]
+    obj = event_dict.get("data", {}).get("object", {})
+    event_type = event_dict.get("type", "")
     try:
         if event_type == "checkout.session.completed":
             _link_customer_to_user(obj)
@@ -286,7 +290,7 @@ def _sync_subscription(sub_obj: dict) -> None:
         .maybe_single()
         .execute()
     )
-    if not resp.data:
+    if resp is None or not resp.data:
         # checkout.session.completed may not have fired yet — look up user by email via auth
         from app.auth import _supabase_client
         sb = _supabase_client()
@@ -339,7 +343,7 @@ def _downgrade_subscription(sub_obj: dict) -> None:
         .maybe_single()
         .execute()
     )
-    if not resp.data:
+    if resp is None or not resp.data:
         return
     client.table("user_subscriptions").update({
         "tier": "free",
