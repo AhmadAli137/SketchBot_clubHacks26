@@ -53,6 +53,17 @@ type LeaderboardEntry = {
 
 export type StartSessionOptions = { lessonPlanning?: boolean; conceptTitle?: string; challengeId?: string };
 
+function friendlyName(name: string): string {
+  if (!name) return 'there';
+  // If auto-generated from email prefix (all lowercase + digits, no spaces), extract only alpha part
+  if (/^[a-z][a-z0-9._-]*$/.test(name)) {
+    const alpha = name.replace(/[0-9._-].*/, '').trim();
+    const base = alpha || name;
+    return base.charAt(0).toUpperCase() + base.slice(1);
+  }
+  return name;
+}
+
 type HomeScreenProps = {
   role: AuthRole;
   userName: string;
@@ -366,17 +377,17 @@ export function HomeScreen({
             Switch mode
           </Button>
         )}
-        <ThemeToggle />
+        <ThemeToggle variant="icon" />
       </div>
 
       <div className="onboarding-inner">
         <div className="onboarding-greeting">
           <h1>
             {role === 'teacher'
-              ? `Welcome back, ${userName}`
+              ? `Welcome back, ${friendlyName(userName)}`
               : role === 'guest'
                 ? 'Sandbox Mode'
-                : `Hi, ${userName}!`}
+                : `Hi, ${friendlyName(userName)}!`}
           </h1>
           <p>
             {role === 'teacher'
@@ -554,7 +565,7 @@ export function HomeScreen({
                     />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="student-profile-name">{userName}</div>
+                    <div className="student-profile-name">{friendlyName(userName)}</div>
                     <div className="student-profile-subtitle">
                       {gamification
                         ? `${gamification.levelEmoji} Lv.${gamification.level} ${gamification.levelName}`

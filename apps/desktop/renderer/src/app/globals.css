@@ -3771,7 +3771,7 @@ body {
   background:
     radial-gradient(100% 120% at 0% 0%, rgba(93, 228, 255, 0.12), transparent 52%),
     radial-gradient(90% 80% at 100% 100%, rgba(167, 139, 250, 0.1), transparent 48%),
-    rgba(255, 255, 255, 0.96);
+    var(--panel-strong);
   overflow: hidden;
 }
 

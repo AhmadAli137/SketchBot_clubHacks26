@@ -120,7 +120,7 @@ export function AuthScreen({ onAuthenticated, onBack, authMode = 'teacher' }: Au
     setBusy(true);
     try {
       const { ok, error: signUpError, needsConfirmation: confirm } = await signUpWithPassword({
-        email, password, displayName: displayName.trim() || email.split('@')[0], lastRole: accountRole,
+        email, password, displayName: displayName.trim() || email.split('@')[0].replace(/[0-9._-].*/, '') || 'Learner', lastRole: accountRole,
       });
       if (!ok) { setAuthError(signUpError ?? 'Sign up failed.'); return; }
       if (confirm) {
