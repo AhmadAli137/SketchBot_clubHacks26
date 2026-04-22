@@ -12,6 +12,7 @@ export type Entitlements = {
   credits_remaining: number;
   status: string;
   period_end: string | null;
+  trial_end: string | null;
   can_connect_robot: boolean;
   can_use_ai: boolean;
 };
@@ -23,6 +24,7 @@ const DEFAULT_FREE: Entitlements = {
   credits_remaining: 50,
   status: 'active',
   period_end: null,
+  trial_end: null,
   can_connect_robot: false,
   can_use_ai: true,
 };

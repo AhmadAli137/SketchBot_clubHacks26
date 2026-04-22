@@ -652,6 +652,23 @@ export function StudentDashboard({
         onClosePopover={() => setShowSystemStatus(false)}
       />
 
+      {entitlements?.status === 'trialing' && entitlements.trial_end && (() => {
+        const msLeft = new Date(entitlements.trial_end).getTime() - Date.now();
+        const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+        return (
+          <div className="trial-banner" role="status">
+            <span className="trial-banner-icon">⏳</span>
+            <span>
+              <strong>{daysLeft === 0 ? 'Trial ends today' : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left in your trial`}</strong>
+              {' — '}your {entitlements.tier} plan features are active until trial ends.
+            </span>
+            <a href="https://sketch-bot-club-hacks26.vercel.app/pricing" target="_blank" rel="noreferrer" className="trial-banner-link">
+              Manage plan →
+            </a>
+          </div>
+        );
+      })()}
+
       <div className={`workspace-root${tutorCollapsed ? ' tutor-collapsed' : ''}`} style={{ flex: 1, minHeight: 0 }}>
         {/* Workspace column: canvas panes + floating prompt bar */}
         <div className="workspace-column">

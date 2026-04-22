@@ -1214,6 +1214,34 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+.trial-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  font-size: 0.76rem;
+  background: linear-gradient(90deg, rgba(245,158,11,0.12), rgba(251,191,36,0.08));
+  border-bottom: 1px solid rgba(245,158,11,0.25);
+  color: var(--text);
+}
+.trial-banner-icon { flex-shrink: 0; font-size: 0.85rem; }
+.trial-banner strong { color: #d97706; }
+.trial-banner-link {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #d97706;
+  text-decoration: none;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(217,119,6,0.35);
+  background: rgba(245,158,11,0.10);
+  transition: background 120ms;
+}
+.trial-banner-link:hover { background: rgba(245,158,11,0.2); }
+
 /* ─── Topbar ────────────────────────────────────────────────────────────── */
 .app-topbar {
   height: 52px;
