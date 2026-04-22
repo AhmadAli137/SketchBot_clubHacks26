@@ -40,6 +40,7 @@ import { LessonPlayer } from '@/components/lesson-player';
 import { BotAvatar } from '@/components/lesson-player/bot-avatar';
 import { useChallenges } from '@/lib/use-challenges';
 import { challengeToLessonPlan } from '@/lib/challenge-to-lesson';
+import { ROBOT_LAB_CONCEPT_IDS } from '@/lib/concept-catalog';
 
 export function StudentDashboard({
   topStatus,
@@ -490,6 +491,8 @@ export function StudentDashboard({
       );
     }
 
+    const isRobotChallenge = conceptId != null && (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(conceptId);
+
     return (
       <div className="workspace-programming">
         {blockRunnerNotice && (
@@ -500,7 +503,7 @@ export function StudentDashboard({
             </button>
           </div>
         )}
-        <PromptComposer
+        {!isRobotChallenge && <PromptComposer
           interactionMode={interactionMode}
           difficultyLevel={difficultyLevel}
           activeLayer={activeLayer}
@@ -537,7 +540,7 @@ export function StudentDashboard({
             }
           }}
           onToggleCodeFocus={() => setShowCodeFocus((value) => !value)}
-        />
+        />}
       </div>
     );
   };
