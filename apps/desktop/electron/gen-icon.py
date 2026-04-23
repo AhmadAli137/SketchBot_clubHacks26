@@ -72,7 +72,8 @@ def create_frame(size: int) -> Image.Image:
     d.rounded_rectangle([vx, vy, vx + vw, vy + vh],
                          radius=vr, fill=(8, 18, 38, 255))
     # subtle sheen inside visor top
-    d.rounded_rectangle([vx + 1, vy + 1, vx + vw - 1, vy + vh * 0.28],
+    sheen_y1 = max(vy + 2, vy + vh * 0.28)
+    d.rounded_rectangle([vx + 1, vy + 1, vx + vw - 1, sheen_y1],
                          radius=vr, fill=(255, 255, 255, 12))
 
     # ── Eyes — glowing cyan circles ────────────────────────────────────────
