@@ -46,6 +46,12 @@ jobs:
       - name: Install all dependencies
         run: npm ci
 
+      # Workspace-local packages (e.g. qrcode) may not be hoisted by root
+      # npm ci, so install them explicitly in the renderer directory.
+      - name: Install renderer local dependencies
+        working-directory: apps/desktop/renderer
+        run: npm install --no-package-lock
+
       # ── Build renderer (Next.js static export) ───────────────────────────
       - name: Build Next.js (static export)
         working-directory: apps/desktop/renderer
