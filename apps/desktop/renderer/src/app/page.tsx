@@ -1181,6 +1181,7 @@ export default function HomePage() {
       studentName={userName}
       apiBase={apiBase}
       userRole={userRole}
+      appMode={lessonPlanActive ? 'classroom' : selectedConceptId ? 'tutor' : 'sandbox'}
       lessonPlanActive={lessonPlanActive}
       activeChallengeId={activeChallengeId}
       onChallengeComplete={() => setActiveChallengeId(null)}
