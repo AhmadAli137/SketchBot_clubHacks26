@@ -105,7 +105,8 @@ function resolvePythonCommand() {
   const runtimeDir = runtimeWorkingDirectory();
   const candidates = [
     process.env.SKETCHBOT_PYTHON,
-    path.join(runtimeDir, '.venv', 'Scripts', 'python.exe'),
+    path.join(runtimeDir, 'python-dist', 'python.exe'),  // portable embeddable Python (production)
+    path.join(runtimeDir, '.venv', 'Scripts', 'python.exe'),  // local dev venv
     path.join(runtimeDir, '.venv', 'bin', 'python'),
     'python',
     'py',

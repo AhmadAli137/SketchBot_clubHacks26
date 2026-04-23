@@ -45,8 +45,8 @@
         "to": "local-runtime/data"
       },
       {
-        "from": "../../services/local-runtime/.venv",
-        "to": "local-runtime/.venv"
+        "from": "../../services/local-runtime/python-dist",
+        "to": "local-runtime/python-dist"
       },
       {
         "from": "../../services/local-runtime/requirements.txt",

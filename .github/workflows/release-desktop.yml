@@ -42,13 +42,28 @@ jobs:
       - name: Generate Spark icon
         run: python apps/desktop/electron/gen-icon.py
 
-      # ── Bundle local-runtime Python venv ────────────────────────────────
-      # .venv is gitignored so we create it fresh in CI before packaging.
-      - name: Create local-runtime venv and install deps
+      # ── Bundle portable Python (embeddable distribution) ─────────────────
+      # A venv is not portable — its pyvenv.cfg points to the CI runner's
+      # Python path which won't exist on end-user machines. The embeddable
+      # distribution IS designed to be shipped with applications.
+      - name: Bundle embeddable Python + runtime deps
+        shell: bash
         run: |
-          python -m venv services/local-runtime/.venv
-          services/local-runtime/.venv/Scripts/pip install --upgrade pip
-          services/local-runtime/.venv/Scripts/pip install -r services/local-runtime/requirements.txt
+          PY_VER="3.11.9"
+          PY_DIR="services/local-runtime/python-dist"
+          curl -sL -o python-embed.zip \
+            "https://www.python.org/ftp/python/${PY_VER}/python-${PY_VER}-embed-amd64.zip"
+          mkdir -p "$PY_DIR"
+          unzip -q python-embed.zip -d "$PY_DIR"
+          # Enable site-packages so pip-installed packages are importable
+          echo "import site" >> "$PY_DIR/python311._pth"
+          # Bootstrap pip
+          curl -sL -o get-pip.py "https://bootstrap.pypa.io/get-pip.py"
+          "$PY_DIR/python.exe" get-pip.py --quiet
+          # Install runtime requirements
+          "$PY_DIR/python.exe" -m pip install \
+            -r services/local-runtime/requirements.txt \
+            --quiet --no-warn-script-location
 
       # ── Install all workspace dependencies from repo root ───────────────
       - name: Install all dependencies
