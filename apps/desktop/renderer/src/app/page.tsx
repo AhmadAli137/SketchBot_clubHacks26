@@ -30,6 +30,7 @@ import type {
 import type { AgeGroup } from '@/lib/concept-types';
 import { signOutAuth } from '@/lib/account-storage';
 import { getDifficultyLevel, setDifficultyLevel, getStudentProgress } from '@/lib/progress-store';
+import { StudentProfileAvatar } from '@/components/student-profile-avatar';
 import { loadClassroomProfile, saveClassroomProfile } from '@/lib/classroom-profile';
 import { getClassSession, setClassSession, type ClassSession } from '@/lib/session-store';
 import { canUpload, canUseFreeDraw, isConceptAllowed } from '@/lib/classroom-restrictions';
@@ -137,6 +138,19 @@ export default function HomePage() {
   const [selectedConceptTitle, setSelectedConceptTitle] = useState<string>('Free Draw');
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>('builder');
   const [sessionStartPrompt, setSessionStartPrompt] = useState<string>('');
+
+  // Derive avatar from stored profile so the PFP button always shows the
+  // user's chosen emoji/robot, not just their name initial.
+  const profileAvatar = useMemo(() => {
+    if (!userName || userRole === 'guest') return null;
+    const sp = getStudentProgress(userName, selectedAgeGroup);
+    return {
+      kind: sp.profile_avatar_kind ?? 'emoji',
+      emoji: sp.avatar ?? '🤖',
+      robotPreset: sp.robot_preset ?? 'orbit',
+      color: sp.favorite_color ?? 'var(--cyan)',
+    } as const;
+  }, [userName, selectedAgeGroup, userRole]);
 
   // Load persisted session on mount — always start at plan screen so returning
   // users see the Spark landing page. The saved credentials are stored in
@@ -1266,7 +1280,10 @@ export default function HomePage() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', stiffness: 400, damping: 30 }}
         >
-          {userRole === 'guest' ? <UserRound size={16} /> : (userName.trim()[0]?.toUpperCase() ?? '?')}
+          {userRole === 'guest' || !profileAvatar
+            ? <UserRound size={16} />
+            : <StudentProfileAvatar kind={profileAvatar.kind} emoji={profileAvatar.emoji} robotPresetId={profileAvatar.robotPreset} accent={profileAvatar.color} size={28} />
+          }
         </motion.button>
       )}
 
