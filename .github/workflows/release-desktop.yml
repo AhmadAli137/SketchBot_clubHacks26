@@ -42,19 +42,14 @@ jobs:
       - name: Generate Spark icon
         run: python apps/desktop/electron/gen-icon.py
 
-      # ── Build renderer (Next.js static export) ───────────────────────────
-      - name: Install renderer dependencies
-        working-directory: apps/desktop/renderer
+      # ── Install all workspace dependencies from repo root ───────────────
+      - name: Install all dependencies
         run: npm ci
 
+      # ── Build renderer (Next.js static export) ───────────────────────────
       - name: Build Next.js (static export)
         working-directory: apps/desktop/renderer
         run: npm run build
-
-      # ── Build Electron installer ─────────────────────────────────────────
-      - name: Install desktop dependencies
-        working-directory: apps/desktop
-        run: npm ci
 
       - name: Build Windows NSIS installer
         working-directory: apps/desktop
