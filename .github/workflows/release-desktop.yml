@@ -42,6 +42,14 @@ jobs:
       - name: Generate Spark icon
         run: python apps/desktop/electron/gen-icon.py
 
+      # ── Bundle local-runtime Python venv ────────────────────────────────
+      # .venv is gitignored so we create it fresh in CI before packaging.
+      - name: Create local-runtime venv and install deps
+        run: |
+          python -m venv services/local-runtime/.venv
+          services/local-runtime/.venv/Scripts/pip install --upgrade pip
+          services/local-runtime/.venv/Scripts/pip install -r services/local-runtime/requirements.txt
+
       # ── Install all workspace dependencies from repo root ───────────────
       - name: Install all dependencies
         run: npm ci
