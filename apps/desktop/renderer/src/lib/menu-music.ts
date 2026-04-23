@@ -423,7 +423,7 @@ export { getShortLoopBuffer, getLoopBuffer };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useMenuMusic() {
+export function useMenuMusic(paused = false) {
   const [muted, setMuted] = useState(false);
   const ctxRef = useRef<AudioContext | null>(null);
   const srcRef = useRef<AudioBufferSourceNode | null>(null);
@@ -438,7 +438,7 @@ export function useMenuMusic() {
       ctxRef.current = null;
     };
 
-    if (muted) { stopAll(); return; }
+    if (muted || paused) { stopAll(); return; }
 
     const go = async () => {
       const ctx = new AudioContext();
@@ -480,7 +480,7 @@ export function useMenuMusic() {
       cancelled = true;
       stopAll();
     };
-  }, [muted]);
+  }, [muted, paused]);
 
   return { muted, toggleMute: () => setMuted(m => !m) };
 }

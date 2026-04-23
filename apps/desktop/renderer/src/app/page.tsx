@@ -1,8 +1,9 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getShortLoopBuffer } from '@/lib/menu-music'; // triggers offline render immediately
+import { getShortLoopBuffer, useMenuMusic } from '@/lib/menu-music'; // triggers offline render immediately
 import { AnimatePresence, motion } from 'motion/react';
+import { Volume2, VolumeX, UserRound } from 'lucide-react';
 
 import { AiboticsLogo } from '@/components/aibotics-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -110,6 +111,9 @@ export default function HomePage() {
     const t = setInterval(() => setBootPct(prev => Math.min(prev + 0.6, 85)), 500);
     return () => clearInterval(t);
   }, [launchState.phase, launchState.message]);
+
+  // ─── Music — persists across all views, paused during sessions ────────────
+  const { muted, toggleMute } = useMenuMusic(false);
 
   // ─── Auth / routing state ──────────────────────────────────────────────
   const [view, setView] = useState<AppView>('plan');
@@ -1234,23 +1238,35 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* ── Global theme toggle — fixed bottom-right on every screen ── */}
-      <ThemeToggle variant="icon" />
-
-      {/* ── Persistent profile button (all authenticated views) ── */}
-      {(view === 'home' || view === 'session' || view === 'difficulty-onboarding') && userRole !== 'guest' && (
+      {/* ── Global bottom-right controls: sound + theme ── */}
+      <div className="app-global-br-controls">
         <motion.button
           type="button"
-          className="app-profile-btn"
-          onClick={() => setAccountPanelOpen(true)}
+          className="app-sound-btn"
+          onClick={toggleMute}
+          title={muted ? 'Unmute music' : 'Mute music'}
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.92 }}
-          title="Account"
+        >
+          {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        </motion.button>
+        <ThemeToggle variant="icon" />
+      </div>
+
+      {/* ── Persistent profile button — every view, every role ── */}
+      {(view === 'home' || view === 'session' || view === 'difficulty-onboarding') && (
+        <motion.button
+          type="button"
+          className={`app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}`}
+          onClick={() => userRole === 'guest' ? setView('plan') : setAccountPanelOpen(true)}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
+          title={userRole === 'guest' ? 'Sign in' : 'Account'}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', stiffness: 400, damping: 30 }}
         >
-          {userName.trim()[0]?.toUpperCase() ?? '?'}
+          {userRole === 'guest' ? <UserRound size={16} /> : (userName.trim()[0]?.toUpperCase() ?? '?')}
         </motion.button>
       )}
 

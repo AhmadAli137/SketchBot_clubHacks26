@@ -2725,11 +2725,19 @@ body {
   gap: 8px;
 }
 
-.auth-theme-fab {
+/* Global bottom-right controls: sound + theme — always fixed, always visible */
+.app-global-br-controls {
   position: fixed;
   bottom: 16px;
   right: 16px;
   z-index: 180;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-sound-btn,
+.auth-theme-fab {
   width: 34px;
   height: 34px;
   border-radius: 50%;
@@ -2742,18 +2750,21 @@ body {
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
+.app-sound-btn:hover,
 .auth-theme-fab:hover {
   background: rgba(93, 228, 255, 0.15);
   color: #5de4ff;
   border-color: rgba(93, 228, 255, 0.3);
 }
 
+:root[data-theme='light'] .app-sound-btn,
 :root[data-theme='light'] .auth-theme-fab {
   background: rgba(0, 0, 0, 0.06);
   border-color: rgba(0, 0, 0, 0.1);
   color: var(--muted);
 }
 
+:root[data-theme='light'] .app-sound-btn:hover,
 :root[data-theme='light'] .auth-theme-fab:hover {
   background: rgba(14, 165, 233, 0.12);
   color: var(--cyan);
@@ -10329,6 +10340,16 @@ select.block-param-input{width:auto;padding-right:20px}
   background: rgba(14, 165, 233, 0.12);
   border-color: rgba(14, 165, 233, 0.4);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.app-profile-btn.is-guest {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+}
+.app-profile-btn.is-guest:hover {
+  border-color: rgba(93, 228, 255, 0.4);
+  color: #5de4ff;
+  box-shadow: none;
 }
 
 /* ─── User account slide-in panel ────────────────────────────────────────── */

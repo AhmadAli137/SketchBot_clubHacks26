@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Users, GraduationCap, ChevronLeft, ChevronRight, Loader2, Cpu, Zap, Trophy, Volume2, VolumeX, UserRound } from 'lucide-react';
+import { Sparkles, Users, GraduationCap, ChevronLeft, ChevronRight, Loader2, Cpu, Zap, Trophy, UserRound } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { MotrixLogo } from '@/components/motrix-logo';
@@ -10,7 +10,6 @@ import { SparkSceneBackground, SparkRobot, type SparkPose } from '@/components/s
 import { SparkStage3D } from '@/components/spark-robot/spark-scene-3d';
 import { setClassSession } from '@/lib/session-store';
 import { playSfx } from '@/lib/game-audio';
-import { useMenuMusic } from '@/lib/menu-music';
 import { getProgressSummary } from '@/lib/progress-store';
 import type { AuthResult, AuthRole } from '@/components/auth-screen';
 
@@ -57,7 +56,6 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
   );
   const [profileOpen, setProfileOpen] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
-  const { muted, toggleMute } = useMenuMusic();
 
   const studentProgress = useMemo(() => {
     if (!savedSession || savedSession.role !== 'student') return null;
@@ -224,16 +222,6 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
             >
               {/* Controls anchored top-right, out of flow */}
               <div className="plan-right-controls">
-                <motion.button
-                  type="button"
-                  className="plan-music-btn"
-                  onClick={toggleMute}
-                  title={muted ? 'Unmute music' : 'Mute music'}
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.92 }}
-                >
-                  {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                </motion.button>
                 {/* Profile / sign-in button — always visible */}
                 <div className="plan-profile-wrap">
                   <motion.button
