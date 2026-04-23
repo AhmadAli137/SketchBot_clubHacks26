@@ -18,7 +18,7 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 const DEV_RENDERER_URL = process.env.SKETCHBOT_RENDERER_URL || 'http://127.0.0.1:3001';
 const RUNTIME_CONNECT_HOST = '127.0.0.1';
-const RUNTIME_BIND_HOST = process.env.SKETCHBOT_LOCAL_RUNTIME_BIND_HOST || '0.0.0.0';
+const RUNTIME_BIND_HOST = process.env.SKETCHBOT_LOCAL_RUNTIME_BIND_HOST || (app.isPackaged ? '127.0.0.1' : '0.0.0.0');
 const RUNTIME_PORT = process.env.SKETCHBOT_LOCAL_RUNTIME_PORT || '8787';
 const isDev = !app.isPackaged;
 
