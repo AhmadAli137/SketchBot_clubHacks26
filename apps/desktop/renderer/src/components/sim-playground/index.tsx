@@ -291,8 +291,8 @@ export function SimPlayground({
           </div>
         )}
 
-        {/* Empty state */}
-        {!svgContent && !isGenerating && (
+        {/* Empty state — only shown in free-draw mode (no lesson loaded) */}
+        {!svgContent && !isGenerating && !conceptId && (
           <div className="sim-empty-overlay">
             <div className="sim-empty-icon">🤖</div>
             <div className="sim-empty-title">3D Simulator Ready</div>
