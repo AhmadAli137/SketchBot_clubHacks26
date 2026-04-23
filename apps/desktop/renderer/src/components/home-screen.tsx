@@ -25,7 +25,6 @@ import {
   getProgressSummary,
 } from '@/lib/progress-store';
 import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { ClassroomSettingsModal } from '@/components/classroom-settings-modal';
 import { TeacherFeedbackModal } from '@/components/teacher-feedback-modal';
 import type { ChallengePack, ClassroomProfile } from '@/lib/platform-types';
@@ -424,7 +423,6 @@ export function HomeScreen({
             <HelpCircle size={14} />
           </button>
         )}
-        <ThemeToggle variant="icon" />
       </div>
 
       <div className="onboarding-inner">

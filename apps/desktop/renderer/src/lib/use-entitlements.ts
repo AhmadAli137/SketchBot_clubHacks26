@@ -41,45 +41,62 @@ export function tierLabel(tier: PlanTier): string {
   return TIER_LABEL[tier] ?? tier;
 }
 
+// Module-level cache shared across all hook instances so any component that
+// calls useEntitlements gets the already-fetched result immediately on mount.
+let _cachedEntitlements: Entitlements | null = null;
+let _cachedAt = 0;
+let _inflight: Promise<Entitlements> | null = null;
+
 export function useEntitlements(isAuthenticated: boolean): {
   entitlements: Entitlements | null;
   loading: boolean;
   refresh: () => void;
 } {
   const token = useCloudAuthToken();
-  const [entitlements, setEntitlements] = useState<Entitlements | null>(null);
+  const [entitlements, setEntitlements] = useState<Entitlements | null>(_cachedEntitlements);
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
-  const cachedAtRef = useRef<number>(0);
 
   useEffect(() => {
     if (!isAuthenticated || token === undefined) return;
     if (!token) {
-      // Unauthenticated — show free defaults
       setEntitlements(DEFAULT_FREE);
       return;
     }
 
-    // Don't re-fetch if we refreshed less than 2 minutes ago
-    const age = Date.now() - cachedAtRef.current;
-    if (entitlements && age < 120_000) return;
+    // Serve from cache if fresh (< 2 min)
+    const age = Date.now() - _cachedAt;
+    if (_cachedEntitlements && age < 120_000 && tick === 0) {
+      setEntitlements(_cachedEntitlements);
+      return;
+    }
 
-    setLoading(true);
-    fetch(`${CLOUD_API_URL}/api/subscriptions/entitlements`, {
-      headers: cloudHeaders(token),
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`${res.status}`);
-        return res.json() as Promise<Entitlements>;
+    // Deduplicate: reuse any in-flight request
+    if (!_inflight) {
+      setLoading(true);
+      _inflight = fetch(`${CLOUD_API_URL}/api/subscriptions/entitlements`, {
+        headers: cloudHeaders(token),
       })
-      .then((data) => {
-        setEntitlements(data);
-        cachedAtRef.current = Date.now();
-      })
-      .catch(() => {
-        // Network failure → fall back to free defaults so UI isn't broken
-        if (!entitlements) setEntitlements(DEFAULT_FREE);
-      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`${res.status}`);
+          return res.json() as Promise<Entitlements>;
+        })
+        .then((data) => {
+          _cachedEntitlements = data;
+          _cachedAt = Date.now();
+          return data;
+        })
+        .catch(() => {
+          const fallback = _cachedEntitlements ?? DEFAULT_FREE;
+          _cachedEntitlements = fallback;
+          _cachedAt = Date.now();
+          return fallback;
+        })
+        .finally(() => { _inflight = null; });
+    }
+
+    _inflight
+      .then((data) => setEntitlements(data))
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, isAuthenticated, tick]);
@@ -88,7 +105,8 @@ export function useEntitlements(isAuthenticated: boolean): {
     entitlements,
     loading,
     refresh: () => {
-      cachedAtRef.current = 0;
+      _cachedAt = 0;
+      _cachedEntitlements = null;
       setTick((t) => t + 1);
     },
   };

@@ -5,7 +5,6 @@ import { ChevronLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { MotrixLogo } from '@/components/motrix-logo';
 import {
   loadAccount,
@@ -183,11 +182,7 @@ export function AuthScreen({ onAuthenticated, onBack, authMode = 'teacher' }: Au
       <div className="auth-bg-orb auth-bg-orb-c" aria-hidden />
       <div className="auth-bg-orb auth-bg-orb-d" aria-hidden />
 
-      <div className="auth-screen-top-actions">
-        <ThemeToggle variant="icon" />
-      </div>
-
-      <AnimatePresence mode="wait">
+<AnimatePresence mode="wait">
         <motion.div
           key={phase + formMode}
           className="entry-card"

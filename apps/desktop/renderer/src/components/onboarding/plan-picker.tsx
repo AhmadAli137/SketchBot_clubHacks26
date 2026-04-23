@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Users, GraduationCap, ChevronLeft, ChevronRight, Loader2, Cpu, Zap, Trophy, Volume2, VolumeX, UserRound } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { MotrixLogo } from '@/components/motrix-logo';
 import { SparkSceneBackground, SparkRobot, type SparkPose } from '@/components/spark-robot';
 import { SparkStage3D } from '@/components/spark-robot/spark-scene-3d';
@@ -235,7 +234,6 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
                 >
                   {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                 </motion.button>
-                <ThemeToggle variant="icon" />
                 {/* Profile / sign-in button — always visible */}
                 <div className="plan-profile-wrap">
                   <motion.button

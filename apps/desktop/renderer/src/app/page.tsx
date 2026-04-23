@@ -97,13 +97,19 @@ export default function HomePage() {
   const companionBackendUrl = useMemo(() => pairingTargets[0] ?? apiBase, [pairingTargets, apiBase]);
   const classroomJoinCode = useMemo(() => classroomJoinCodeFromUrl(companionBackendUrl), [companionBackendUrl]);
 
-  // ─── Music ready gate — audio buffer must be done before plan picker shows ─
-  const [musicReady, setMusicReady] = useState(false);
+  // ─── Boot progress trickle — continuous animation during startup ───────────
+  const [bootPct, setBootPct] = useState(12);
   useEffect(() => {
-    getShortLoopBuffer()
-      .then(() => setMusicReady(true))
-      .catch(() => setMusicReady(true)); // never block forever on audio failure
-  }, []);
+    if (launchState.phase !== 'starting') {
+      setBootPct(100);
+      return;
+    }
+    if (launchState.message.toLowerCase().includes('waking')) {
+      setBootPct(prev => Math.max(prev, 28));
+    }
+    const t = setInterval(() => setBootPct(prev => Math.min(prev + 0.6, 85)), 500);
+    return () => clearInterval(t);
+  }, [launchState.phase, launchState.message]);
 
   // ─── Auth / routing state ──────────────────────────────────────────────
   const [view, setView] = useState<AppView>('plan');
@@ -992,7 +998,7 @@ export default function HomePage() {
   return (
     <GuidedTourProvider activeView={view === 'plan' || view === 'difficulty-onboarding' ? 'auth' : view as 'auth' | 'home' | 'session'} userRole={userRole} lessonActive={lessonPlanActive} lessonPlayerActive={activeChallengeId !== null}>
       <AnimatePresence mode="wait">
-        {view === 'plan' && (!musicReady || launchState.phase === 'starting') && (
+        {view === 'plan' && launchState.phase === 'starting' && (
           <motion.div
             key="loading"
             className="plan-boot-screen"
@@ -1001,11 +1007,6 @@ export default function HomePage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
           >
-            {/* Theme toggle — top-right corner */}
-            <div style={{ position: 'absolute', top: 18, right: 20, zIndex: 10 }}>
-              <ThemeToggle variant="icon" />
-            </div>
-
             {/* Animated blobs */}
             <div className="plan-boot-blobs" aria-hidden="true">
               <div className="plan-boot-blob-a" />
@@ -1030,28 +1031,20 @@ export default function HomePage() {
               {/* Progress bar + status */}
               <div className="plan-boot-load-area">
                 <div className="plan-boot-message">
-                  {launchState.phase === 'starting' ? launchState.message : 'Getting music ready\u2026'}
+                  {launchState.message}
                 </div>
                 <div className="plan-boot-track" aria-hidden="true">
                   <motion.div
                     className="plan-boot-fill"
-                    animate={{
-                      width: (() => {
-                        if (musicReady && launchState.phase !== 'starting') return '100%';
-                        if (launchState.phase === 'ready') return '90%';
-                        if (launchState.message.includes('Loading the workspace')) return '72%';
-                        if (launchState.message.includes('Waking up')) return '42%';
-                        return '12%';
-                      })(),
-                    }}
-                    transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
+                    animate={{ width: `${bootPct}%` }}
+                    transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
                   />
                 </div>
               </div>
             </div>
           </motion.div>
         )}
-        {view === 'plan' && musicReady && launchState.phase !== 'starting' && (
+        {view === 'plan' && launchState.phase !== 'starting' && (
           <motion.div
             key="plan"
             className="min-h-[100dvh]"
@@ -1240,6 +1233,9 @@ export default function HomePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Global theme toggle — fixed bottom-right on every screen ── */}
+      <ThemeToggle variant="icon" />
 
       {/* ── Persistent profile button (all authenticated views) ── */}
       {(view === 'home' || view === 'session' || view === 'difficulty-onboarding') && userRole !== 'guest' && (

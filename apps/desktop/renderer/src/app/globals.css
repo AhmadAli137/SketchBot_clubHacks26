@@ -2726,22 +2726,38 @@ body {
 }
 
 .auth-theme-fab {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 180;
   width: 34px;
   height: 34px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg-2);
-  color: var(--muted);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .auth-theme-fab:hover {
+  background: rgba(93, 228, 255, 0.15);
+  color: #5de4ff;
   border-color: rgba(93, 228, 255, 0.3);
+}
+
+:root[data-theme='light'] .auth-theme-fab {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: var(--muted);
+}
+
+:root[data-theme='light'] .auth-theme-fab:hover {
+  background: rgba(14, 165, 233, 0.12);
   color: var(--cyan);
-  background: rgba(93, 228, 255, 0.06);
+  border-color: rgba(14, 165, 233, 0.3);
 }
 
 /* ─── Step headings ─────────────────────────────────────────────────────── */
