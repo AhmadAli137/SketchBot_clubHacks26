@@ -10,7 +10,8 @@ import { SparkSceneBackground, SparkRobot, type SparkPose } from '@/components/s
 import { SparkStage3D } from '@/components/spark-robot/spark-scene-3d';
 import { setClassSession } from '@/lib/session-store';
 import { playSfx } from '@/lib/game-audio';
-import { getProgressSummary } from '@/lib/progress-store';
+import { getProgressSummary, getStudentProgress } from '@/lib/progress-store';
+import { StudentProfileAvatar } from '@/components/student-profile-avatar';
 import type { AuthResult, AuthRole } from '@/components/auth-screen';
 
 type Plan = 'pick' | 'join-class';
@@ -60,6 +61,17 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
   const studentProgress = useMemo(() => {
     if (!savedSession || savedSession.role !== 'student') return null;
     return getProgressSummary(savedSession.name);
+  }, [savedSession]);
+
+  const savedAvatar = useMemo(() => {
+    if (!savedSession) return null;
+    const sp = getStudentProgress(savedSession.name, 'builder');
+    return {
+      kind: sp.profile_avatar_kind ?? 'emoji',
+      emoji: sp.avatar ?? '🤖',
+      robotPreset: sp.robot_preset ?? 'orbit',
+      color: sp.favorite_color ?? 'var(--cyan)',
+    } as const;
   }, [savedSession]);
 
   useEffect(() => {
@@ -232,7 +244,10 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
                     whileTap={{ scale: 0.92 }}
                     title={savedSession ? savedSession.name : 'Sign in'}
                   >
-                    {savedSession ? (savedSession.name.trim()[0]?.toUpperCase() ?? '?') : <UserRound size={15} />}
+                    {savedSession && savedAvatar
+                      ? <StudentProfileAvatar kind={savedAvatar.kind} emoji={savedAvatar.emoji} robotPresetId={savedAvatar.robotPreset} accent={savedAvatar.color} size={26} />
+                      : <UserRound size={15} />
+                    }
                   </motion.button>
                   <AnimatePresence>
                     {profileOpen && (
