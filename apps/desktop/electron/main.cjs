@@ -270,7 +270,7 @@ function waitForUrl(url, timeoutMs = 30000) {
   });
 }
 
-async function waitForRuntime(timeoutMs = 45000) {
+async function waitForRuntime(timeoutMs = 120000) {
   await waitForUrl(localRuntimeUrl('/health'), timeoutMs);
 }
 
