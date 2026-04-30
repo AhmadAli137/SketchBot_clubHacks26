@@ -8530,6 +8530,47 @@ select.block-param-input{width:auto;padding-right:20px}
   color: rgb(216, 180, 254);
 }
 
+/* Welcome-overlay close button (top-right X) */
+.sim-sandbox-welcome-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+.sim-sandbox-welcome-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* "Skip — start with an empty canvas →" subtle text link */
+.sim-sandbox-skip {
+  margin-top: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: var(--muted-2);
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+.sim-sandbox-skip:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 /* ── Empty / loading states ── */
 .sim-empty-overlay {
   position: absolute;

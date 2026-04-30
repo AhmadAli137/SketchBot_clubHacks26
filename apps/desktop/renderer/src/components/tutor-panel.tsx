@@ -56,6 +56,8 @@ type TutorPanelProps = {
   classroomRestrictions?: ClassroomRestrictions | null;
   /** Active SavedSession id — when set, chat is loaded from and persisted to this session. */
   sessionId?: string | null;
+  /** Hide Academy-only affordances (Hint, Go Deeper, layer pills) in sandbox sessions. */
+  isSandbox?: boolean;
 };
 
 type EvaluationNotice = {
@@ -975,6 +977,7 @@ export function TutorPanel({
   lessonPlanActive = false,
   classroomRestrictions,
   sessionId = null,
+  isSandbox = false,
 }: TutorPanelProps) {
   const sessionActorRole: 'teacher' | 'student' = sessionActorRoleProp ?? 'student';
   const [messages, setMessages] = useState<TutorMessage[]>([]);
@@ -1586,11 +1589,10 @@ export function TutorPanel({
   const canGoDeeper = LAYERS.indexOf(activeLayer) < LAYERS.length - 1;
 
   // Starter chips — context-aware quick replies shown before first user message
-  const starterChips = messages.length <= 1
-    ? (drawingPrompt
-        ? ['What did the robot just do?', 'How can I make this more complex?', 'Explain the math behind this']
-        : ['🤔 Help me start something cool', '🎯 Build me a challenge', '🤖 How does the robot work?'])
-    : [];
+  // Suggested-prompt chips were noisy and discouraged direct interaction —
+  // disabled in favour of emphasising the mic + text input. Re-enable by
+  // returning a non-empty array if needed for guided onboarding.
+  const starterChips: string[] = [];
 
   return (
     <div className="tutor-panel" data-tour="session-tutor">
@@ -1762,7 +1764,9 @@ export function TutorPanel({
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action buttons — Hint / Go Deeper are Academy-only.
+          In sandbox we still show Stop while streaming so the user can
+          interrupt Spark. */}
       <div className="tutor-actions">
         {tutorStreaming ? (
           <button
@@ -1773,7 +1777,7 @@ export function TutorPanel({
             <Square size={11} />
             Stop
           </button>
-        ) : (
+        ) : !isSandbox ? (
           <button
             type="button"
             className="tutor-action-btn"
@@ -1783,8 +1787,8 @@ export function TutorPanel({
             <Lightbulb size={12} />
             Hint
           </button>
-        )}
-        {canGoDeeper && !tutorStreaming && (
+        ) : null}
+        {!isSandbox && canGoDeeper && !tutorStreaming && (
           <button
             type="button"
             className="tutor-action-btn deeper"

@@ -982,6 +982,7 @@ export function StudentDashboard({
               lessonPlanActive={lessonPlanActive}
               classroomRestrictions={userRole === 'student' ? classroomRestrictions : undefined}
               sessionId={sessionId}
+              isSandbox={appMode === 'sandbox'}
             />
           </div>
         </div>

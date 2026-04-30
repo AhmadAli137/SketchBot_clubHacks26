@@ -109,6 +109,16 @@ export function SimPlayground({
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null);
   const [showPlacementGrid, setShowPlacementGrid] = useState(true);
   const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
+  /** When true, the sandbox welcome overlay is dismissed and the user gets
+   *  a clean empty canvas to explore (orbit, zoom, hit Build later, etc). */
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+
+  // Reset dismissal whenever a new sandbox session is opened (sceneObjects
+  // resets to empty AND builder is off → fresh empty state, show welcome again).
+  useEffect(() => {
+    if (sceneObjects.length === 0 && !builderEnabled) return; // no change needed
+    setWelcomeDismissed(false);
+  }, [sceneObjects.length, builderEnabled]);
 
   /** Drop a starter preset into the sandbox — used by empty-state chips. */
   const handleApplyPreset = (preset: SandboxPreset) => {
@@ -540,14 +550,22 @@ export function SimPlayground({
         )}
 
         {/* Empty state — different copy for sandbox vs free-draw */}
-        {!svgContent && !isGenerating && !conceptId && sceneObjects.length === 0 && !builderEnabled && (
+        {!svgContent && !isGenerating && !conceptId && sceneObjects.length === 0 && !builderEnabled && !welcomeDismissed && (
           builderAvailable ? (
             <div className="sim-sandbox-welcome">
+              <button
+                type="button"
+                className="sim-sandbox-welcome-close"
+                onClick={() => setWelcomeDismissed(true)}
+                aria-label="Dismiss welcome"
+                title="Skip — start with an empty canvas"
+              >
+                <X size={14} />
+              </button>
               <div className="sim-sandbox-mascot" aria-hidden>🤖</div>
               <div className="sim-sandbox-welcome-title">Your sandbox is empty</div>
               <div className="sim-sandbox-welcome-sub">
-                Click <strong>Add things</strong> to drop in walls, cones, and robots.
-                Or pick a starter to see it built right now:
+                Pick a starter, click <strong>Add things</strong> to place objects yourself, or just dive in.
               </div>
               <div className="sim-sandbox-starters">
                 {SANDBOX_PRESETS.map((preset) => (
@@ -563,6 +581,13 @@ export function SimPlayground({
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                className="sim-sandbox-skip"
+                onClick={() => setWelcomeDismissed(true)}
+              >
+                Skip — start with an empty canvas →
+              </button>
               <div className="sim-sandbox-hint">
                 <Sparkles size={11} /> Tip: ask Spark in the chat — “build me a sumo arena”
               </div>
