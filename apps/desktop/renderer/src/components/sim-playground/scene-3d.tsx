@@ -136,56 +136,87 @@ function SumoRing({ radius }: { radius: number }) {
   );
 }
 
-// ─── Stage lights — colorful corner lamps for the sandbox ────────────────────
+// ─── Sandbox atmosphere — warm playspace lighting ────────────────────────────
 
-const STAGE_LAMP_HEIGHT = 1.9;
-const STAGE_LAMP_DIST   = 3.4;
-const STAGE_LAMPS = [
-  { x: -STAGE_LAMP_DIST, z: -STAGE_LAMP_DIST, color: '#a855f7' }, // back-left  · purple
-  { x:  STAGE_LAMP_DIST, z: -STAGE_LAMP_DIST, color: '#5de4ff' }, // back-right · cyan
-  { x: -STAGE_LAMP_DIST, z:  STAGE_LAMP_DIST, color: '#ffc96b' }, // front-left · amber
-  { x:  STAGE_LAMP_DIST, z:  STAGE_LAMP_DIST, color: '#ff4fd8' }, // front-right · magenta
+/** Floating soft orbs at varying heights — fairy-light vibe, no industrial poles. */
+const SANDBOX_ORBS = [
+  { x: -2.8, y: 1.3, z: -2.8, color: '#a855f7', size: 0.10 }, // back-left  · purple
+  { x:  2.8, y: 1.6, z: -2.6, color: '#5de4ff', size: 0.11 }, // back-right · cyan
+  { x: -2.6, y: 1.4, z:  2.8, color: '#ffc96b', size: 0.10 }, // front-left · amber
+  { x:  2.8, y: 1.2, z:  2.8, color: '#ff8fc8', size: 0.11 }, // front-right · soft pink
+  { x:  0.0, y: 2.4, z: -3.0, color: '#b8a4ff', size: 0.08 }, // back-center high · lavender
+  { x:  0.0, y: 1.8, z:  3.0, color: '#9be8d4', size: 0.08 }, // front-center · mint
 ];
 
-function StageLamp({ x, z, color }: { x: number; z: number; color: string }) {
-  const bulbRef = useRef<THREE.Mesh>(null);
+function FloatingOrb({
+  x, y, z, color, size,
+}: { x: number; y: number; z: number; color: string; size: number }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const bulbRef  = useRef<THREE.Mesh>(null);
   const off = useRef(Math.random() * Math.PI * 2);
-  // Subtle breathing pulse so the stage feels alive
+
   useFrame(({ clock }) => {
-    if (!bulbRef.current) return;
-    const mat = bulbRef.current.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = 1.3 + Math.sin(clock.elapsedTime * 1.6 + off.current) * 0.35;
+    if (groupRef.current) {
+      // Gentle bob in air — like a paper lantern
+      groupRef.current.position.y = y + Math.sin(clock.elapsedTime * 0.7 + off.current) * 0.08;
+    }
+    if (bulbRef.current) {
+      const mat = bulbRef.current.material as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = 1.6 + Math.sin(clock.elapsedTime * 1.4 + off.current) * 0.4;
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[x, y, z]}>
+      {/* Soft outer halo */}
+      <mesh>
+        <sphereGeometry args={[size * 1.9, 16, 16]} />
+        <meshBasicMaterial color={color} transparent opacity={0.18} />
+      </mesh>
+      {/* Glowing core */}
+      <mesh ref={bulbRef}>
+        <sphereGeometry args={[size, 24, 24]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.6} roughness={0.2} />
+      </mesh>
+      {/* Real point light */}
+      <pointLight intensity={1.6} color={color} distance={8} decay={1.5} />
+    </group>
+  );
+}
+
+/** Soft glowing circular playmat under the workspace — defines the "stage". */
+function Playmat() {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const mat = ref.current.material as THREE.MeshStandardMaterial;
+    mat.emissiveIntensity = 0.18 + Math.sin(clock.elapsedTime * 0.6) * 0.04;
   });
   return (
-    <group position={[x, 0, z]}>
-      {/* Pole */}
-      <mesh position={[0, STAGE_LAMP_HEIGHT / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.018, 0.022, STAGE_LAMP_HEIGHT, 8]} />
-        <meshStandardMaterial color="#1a1f2e" roughness={0.7} metalness={0.4} />
+    <group>
+      {/* Inner bright disc — the "stage" */}
+      <mesh position={[0, -0.014, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[2.8, 64]} />
+        <meshStandardMaterial
+          color="#3a447a"
+          emissive="#5060a0"
+          emissiveIntensity={0.18}
+          roughness={0.85}
+          metalness={0.05}
+        />
       </mesh>
-      {/* Base disc */}
-      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 0.01, 16]} />
-        <meshStandardMaterial color="#222838" roughness={0.7} />
+      {/* Outer glow ring */}
+      <mesh ref={ref} position={[0, -0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[2.78, 2.95, 64]} />
+        <meshStandardMaterial
+          color="#a855f7"
+          emissive="#a855f7"
+          emissiveIntensity={0.6}
+          transparent
+          opacity={0.55}
+          side={THREE.DoubleSide}
+        />
       </mesh>
-      {/* Cone shade */}
-      <mesh position={[0, STAGE_LAMP_HEIGHT - 0.06, 0]} castShadow>
-        <coneGeometry args={[0.075, 0.13, 16, 1, true]} />
-        <meshStandardMaterial color="#1a1f2e" side={THREE.DoubleSide} roughness={0.7} metalness={0.5} />
-      </mesh>
-      {/* Glowing bulb */}
-      <mesh ref={bulbRef} position={[0, STAGE_LAMP_HEIGHT - 0.04, 0]}>
-        <sphereGeometry args={[0.055, 16, 16]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.4} roughness={0.2} />
-      </mesh>
-      {/* Actual point light (does the real illumination) */}
-      <pointLight
-        position={[0, STAGE_LAMP_HEIGHT - 0.05, 0]}
-        intensity={1.4}
-        color={color}
-        distance={9}
-        decay={1.6}
-      />
     </group>
   );
 }
@@ -193,10 +224,14 @@ function StageLamp({ x, z, color }: { x: number; z: number; color: string }) {
 function StageLights() {
   return (
     <>
-      {/* Soft fill lift so the sandbox isn't pitch-black between lights */}
-      <ambientLight intensity={0.22} color="#c0d0ff" />
-      {STAGE_LAMPS.map((l, i) => (
-        <StageLamp key={i} x={l.x} z={l.z} color={l.color} />
+      {/* Soft warm fill so the playspace stays bright between the orbs */}
+      <ambientLight intensity={0.55} color="#d8d4ff" />
+      {/* Top-down warm key — like an overhead studio softbox */}
+      <directionalLight position={[0, 8, 1.5]} intensity={0.55} color="#ffe9d0" />
+
+      <Playmat />
+      {SANDBOX_ORBS.map((o, i) => (
+        <FloatingOrb key={i} {...o} />
       ))}
     </>
   );
@@ -508,8 +543,10 @@ function SceneContent({
         <ChallengeSim mode={simMode} sumoRingRadius={env.sumoRingRadius} />
       ))}
 
-      {showAxes && <CoordAxes />}
-      {showCamera && isDrawingMode && <OverheadCamera />}
+      {/* Coord axes + overhead camera frustum hidden in sandbox by default —
+          they read as "industrial debug overlay" rather than play space. */}
+      {showAxes && !isSandboxEnv && <CoordAxes />}
+      {showCamera && isDrawingMode && !isSandboxEnv && <OverheadCamera />}
 
       <OrbitControls makeDefault enablePan enableZoom enableRotate={!isDragging}
         minDistance={1.5} maxDistance={14} maxPolarAngle={Math.PI * 0.88} target={[0, 0.2, 0]} />

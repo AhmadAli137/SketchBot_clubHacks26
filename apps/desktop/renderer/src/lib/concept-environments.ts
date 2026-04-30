@@ -89,17 +89,19 @@ function ringCones(count: number, radius: number, scale = 1): ConeProp[] {
 export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
 
   // Clean blank canvas — no cones, walls, or waypoints. Used by Sandbox / blank sessions.
+  // Tuned for "warm play space" — softer twilight backdrop, brighter floor, warmer
+  // ambient so kids don't feel like they've walked into a server room.
   'sandbox': {
     label: 'Sandbox',
     arenaType: 'open',
-    background: '#070a14',
-    fog: ['#070a14', 14, 36],
-    groundColor: '#0a0e1a',
-    gridColor: '#1a2238',
-    sectionColor: '#2a3554',
-    ambientColor: '#a8c0ff',
-    keyLightColor: '#fff5eb',
-    fillLightColor: '#a8c8ff',
+    background: '#1a1d3a',
+    fog: ['#1a1d3a', 16, 40],
+    groundColor: '#202648',
+    gridColor: '#3a4170',
+    sectionColor: '#5060a0',
+    ambientColor: '#d8d8ff',
+    keyLightColor: '#fff8ee',
+    fillLightColor: '#cfd8ff',
     accentColor: '#5de4ff',
     tutorials: {
       intuitive: [
