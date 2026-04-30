@@ -501,17 +501,23 @@ export function SimPlayground({
               isAnimating={isAnimating}
               width={topViewSize.w || 300}
               height={topViewSize.h || 400}
+              mode={builderAvailable ? 'sandbox' : 'drawing'}
+              sceneObjects={sceneObjects}
             />
           </div>
         )}
 
-        {/* Empty state — only shown in free-draw mode (no lesson loaded) */}
-        {!svgContent && !isGenerating && !conceptId && (
+        {/* Empty state — different copy for sandbox vs free-draw */}
+        {!svgContent && !isGenerating && !conceptId && sceneObjects.length === 0 && !builderEnabled && (
           <div className="sim-empty-overlay">
-            <div className="sim-empty-icon">🤖</div>
-            <div className="sim-empty-title">3D Simulator Ready</div>
+            <div className="sim-empty-icon">🧱</div>
+            <div className="sim-empty-title">
+              {builderAvailable ? 'Empty sandbox' : '3D Simulator Ready'}
+            </div>
             <div className="sim-empty-body">
-              Generate a drawing from the prompt bar — the SketchBot robot will drive it live in 3D.
+              {builderAvailable
+                ? 'Click Build to start placing walls, cones, bots, and waypoints. Or describe a setup in the prompt bar to have Spark build one for you.'
+                : 'Generate a drawing from the prompt bar — the SketchBot robot will drive it live in 3D.'}
             </div>
           </div>
         )}

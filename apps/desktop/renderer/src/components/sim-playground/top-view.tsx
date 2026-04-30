@@ -2,14 +2,19 @@
 
 /**
  * TopView — 2D orthographic overhead view of the workspace.
- * Shows the paper, drawn paths, robot footprint, and coordinate grid.
- * Rendered with a plain Canvas2D (no Three.js overhead) for snappiness.
+ *
+ * Two modes:
+ *  - 'drawing'  → paper, drawn paths, robot footprint, coordinate grid
+ *  - 'sandbox'  → user-placed scene objects on a metric grid (mirrors 3D)
+ *
+ * Rendered with plain Canvas2D for snappiness.
  */
 
 import { useEffect, useRef } from 'react';
 
 import type { SimPoint } from '@/lib/sim-path-utils';
 import { CANVAS_W, CANVAS_H } from '@/lib/sim-path-utils';
+import { GRID_SIZE, type SceneObject } from '@/lib/scene-builder';
 
 type Props = {
   settledLines: SimPoint[][];
@@ -18,6 +23,9 @@ type Props = {
   isAnimating: boolean;
   width: number;
   height: number;
+  /** When 'sandbox', renders user-placed scene objects on a metric grid. */
+  mode?: 'drawing' | 'sandbox';
+  sceneObjects?: SceneObject[];
 };
 
 // Map normalized [0,1] coords to canvas2D pixel coords
@@ -34,7 +42,7 @@ function toPixel(
   };
 }
 
-export function TopView({ settledLines, activeLine, penPos, isAnimating, width, height }: Props) {
+export function TopView({ settledLines, activeLine, penPos, isAnimating, width, height, mode = 'drawing', sceneObjects = [] }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -70,6 +78,12 @@ export function TopView({ settledLines, activeLine, penPos, isAnimating, width, 
     vignette.addColorStop(1, 'rgba(0,0,0,0.35)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, width, height);
+
+    // ── Sandbox mode: render scene objects on a metric grid ──
+    if (mode === 'sandbox') {
+      drawSandboxTopView(ctx, width, height, sceneObjects);
+      return;
+    }
 
     // ── Compute paper rect (letterboxed) ──
     const aspect = CANVAS_W / CANVAS_H;
@@ -274,7 +288,7 @@ export function TopView({ settledLines, activeLine, penPos, isAnimating, width, 
       ctx.fillText(`X:${xMm} Y:${yMm} mm`, paperLeft + 4, paperTop + paperH - 5);
     }
 
-  }, [settledLines, activeLine, penPos, isAnimating, width, height]);
+  }, [settledLines, activeLine, penPos, isAnimating, width, height, mode, sceneObjects]);
 
   return (
     <canvas
@@ -282,4 +296,172 @@ export function TopView({ settledLines, activeLine, penPos, isAnimating, width, 
       style={{ display: 'block', width: '100%', height: '100%' }}
     />
   );
+}
+
+// ─── Sandbox top-down renderer ───────────────────────────────────────────────
+
+function drawSandboxTopView(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  objects: SceneObject[],
+) {
+  // Auto-fit: compute world bbox of placed objects, default to ±2 m.
+  const margin = 24;
+  const baseHalf = 2.0;
+  let half = baseHalf;
+  if (objects.length > 0) {
+    let max = 0;
+    for (const o of objects) {
+      max = Math.max(max, Math.abs(o.gx * GRID_SIZE), Math.abs(o.gz * GRID_SIZE));
+    }
+    half = Math.max(baseHalf, max + 0.5);
+  }
+
+  const scale = Math.min(
+    (width  - margin * 2) / (half * 2),
+    (height - margin * 2) / (half * 2),
+  );
+  const cx = width  / 2;
+  const cy = height / 2;
+  const m2px = (mx: number, mz: number) => ({ px: cx + mx * scale, py: cy + mz * scale });
+
+  // ── Minor grid (0.25 m) ──
+  ctx.strokeStyle = 'rgba(120,140,255,0.07)';
+  ctx.lineWidth = 0.6;
+  const minStep = GRID_SIZE;
+  const minHalf = Math.ceil(half / minStep) * minStep;
+  for (let g = -minHalf; g <= minHalf + 1e-6; g += minStep) {
+    const x = cx + g * scale;
+    const y = cy + g * scale;
+    ctx.beginPath(); ctx.moveTo(x, cy - half * scale); ctx.lineTo(x, cy + half * scale); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - half * scale, y); ctx.lineTo(cx + half * scale, y); ctx.stroke();
+  }
+
+  // ── Major grid (1 m) ──
+  ctx.strokeStyle = 'rgba(168,85,247,0.18)';
+  ctx.lineWidth = 0.8;
+  for (let g = -Math.ceil(half); g <= Math.ceil(half); g += 1) {
+    const x = cx + g * scale;
+    const y = cy + g * scale;
+    ctx.beginPath(); ctx.moveTo(x, cy - half * scale); ctx.lineTo(x, cy + half * scale); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - half * scale, y); ctx.lineTo(cx + half * scale, y); ctx.stroke();
+  }
+
+  // ── Origin crosshair ──
+  ctx.strokeStyle = 'rgba(93,228,255,0.55)';
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(cx - 9, cy); ctx.lineTo(cx + 9, cy);
+  ctx.moveTo(cx, cy - 9); ctx.lineTo(cx, cy + 9);
+  ctx.stroke();
+
+  // ── Empty state ──
+  if (objects.length === 0) {
+    ctx.fillStyle = 'rgba(120,140,255,0.5)';
+    ctx.font = `600 ${Math.max(11, width * 0.04)}px 'Segoe UI', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('Empty sandbox', cx, cy - 26);
+    ctx.fillStyle = 'rgba(120,140,255,0.35)';
+    ctx.font = `${Math.max(9, width * 0.028)}px 'Segoe UI', sans-serif`;
+    ctx.fillText('Open Build to place objects', cx, cy - 8);
+    return;
+  }
+
+  // ── Objects ──
+  for (const o of objects) {
+    const wx = o.gx * GRID_SIZE;
+    const wz = o.gz * GRID_SIZE;
+    const { px, py } = m2px(wx, wz);
+    const rotY = (o.rotY ?? 0) * Math.PI / 2;
+
+    switch (o.type) {
+      case 'wall': {
+        const w = GRID_SIZE * 0.95 * scale;
+        const d = GRID_SIZE * 0.22 * scale;
+        ctx.save(); ctx.translate(px, py); ctx.rotate(rotY);
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(-w / 2, -d / 2, w, d);
+        ctx.restore();
+        break;
+      }
+      case 'block': {
+        const w = GRID_SIZE * 0.85 * scale;
+        ctx.save(); ctx.translate(px, py); ctx.rotate(rotY);
+        ctx.fillStyle = o.color || '#5dadff';
+        ctx.fillRect(-w / 2, -w / 2, w, w);
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 0.6;
+        ctx.strokeRect(-w / 2, -w / 2, w, w);
+        ctx.restore();
+        break;
+      }
+      case 'cone': {
+        const r = 0.07 * scale;
+        ctx.fillStyle = '#ff8c00';
+        ctx.shadowColor = '#ff5500';
+        ctx.shadowBlur = 6;
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        break;
+      }
+      case 'sphere': {
+        const r = 0.1 * scale;
+        ctx.fillStyle = o.color || '#a855f7';
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case 'cylinder': {
+        const r = 0.07 * scale;
+        ctx.fillStyle = o.color || '#cccccc';
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = 0.6; ctx.stroke();
+        break;
+      }
+      case 'waypoint': {
+        const r = 0.06 * scale;
+        const col = o.color || '#4dffb8';
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        break;
+      }
+      case 'apriltag': {
+        const w = 0.18 * scale;
+        ctx.save(); ctx.translate(px, py); ctx.rotate(rotY);
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(-w / 2, -w / 2, w, w);
+        ctx.fillStyle = '#f3eee0';
+        ctx.fillRect(-w * 0.36, -w * 0.36, w * 0.72, w * 0.72);
+        ctx.restore();
+        break;
+      }
+      case 'bot': {
+        const isSumo = o.botVariant === 'sumo';
+        const r = (isSumo ? 0.13 : 0.10) * scale;
+        ctx.fillStyle   = isSumo ? '#cc1818' : '#3a4d8a';
+        ctx.strokeStyle = isSumo ? '#ffaa00' : '#5de4ff';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // Direction nub
+        const nubX = px + Math.cos(rotY) * r * 1.05;
+        const nubY = py + Math.sin(rotY) * r * 1.05;
+        ctx.fillStyle = isSumo ? '#ffaa00' : '#5de4ff';
+        ctx.beginPath(); ctx.arc(nubX, nubY, r * 0.32, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+    }
+  }
+
+  // ── Axis labels in the corner ──
+  ctx.font = `600 10px 'JetBrains Mono', monospace`;
+  ctx.fillStyle = 'rgba(93,228,255,0.7)';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${objects.length} object${objects.length === 1 ? '' : 's'}`, 10, height - 12);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(168,85,247,0.6)';
+  ctx.fillText(`${(half * 2).toFixed(1)} × ${(half * 2).toFixed(1)} m`, width - 10, height - 12);
 }

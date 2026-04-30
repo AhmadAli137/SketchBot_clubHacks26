@@ -319,7 +319,7 @@ export default function HomePage() {
   const [phoneViewerReady, setPhoneViewerReady] = useState(false);
   const [phoneViewerError, setPhoneViewerError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
-  const [prompt, setPrompt] = useState('simple smiley face');
+  const [prompt, setPrompt] = useState('');
   const [uploading, setUploading] = useState(false);
   const [composing, setComposing] = useState(false);
   const [sourceSaving, setSourceSaving] = useState(false);

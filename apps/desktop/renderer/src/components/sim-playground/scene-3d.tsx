@@ -278,6 +278,9 @@ function SceneContent({
 }: SceneContentProps) {
   const simMode = getSimMode(conceptId);
   const isDrawingMode = simMode === 'drawing';
+  // True for blank/sandbox sessions — no paper, no auto-anim, no demo robot.
+  // These sessions are pure 3D workspaces where the user places scene objects.
+  const isSandboxEnv = env.label === 'Sandbox';
 
   // Cursor grid coords for the builder ghost preview
   const [cursor, setCursor] = useState<{ gx: number; gz: number } | null>(null);
@@ -351,8 +354,8 @@ function SceneContent({
           fadeDistance={20} fadeStrength={1.65} infiniteGrid followCamera={false} />
       )}
 
-      {/* Paper canvas only for drawing mode */}
-      {isDrawingMode && (
+      {/* Paper canvas only for drawing mode (and not for raw sandbox env) */}
+      {isDrawingMode && !isSandboxEnv && (
         <CanvasSurface settledLines={settledLines} activeLine={activeLine} showGrid={showGrid} />
       )}
 
@@ -416,8 +419,9 @@ function SceneContent({
         />
       )}
 
-      {/* Robot/simulation — drawing or autonomous (suppressed in builder mode) */}
-      {!builderEnabled && (isDrawingMode ? (
+      {/* Robot/simulation — drawing or autonomous.
+          Suppressed in builder mode and in sandbox env (pure user-built workspace). */}
+      {!builderEnabled && !isSandboxEnv && (isDrawingMode ? (
         <>
           <AprilTagMarker position={[-CANVAS_W/2-0.45, 0, -CANVAS_H/2-0.45]} />
           <AprilTagMarker position={[CANVAS_W/2+0.45, 0, -CANVAS_H/2-0.45]} />

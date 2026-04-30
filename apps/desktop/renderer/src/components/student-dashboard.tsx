@@ -450,10 +450,14 @@ export function StudentDashboard({
   // Watch for newly generated SVG content. On the very first non-null value
   // (initial load or restored state), auto-approve silently. After that, every
   // change requires explicit confirmation from the student.
+  //
+  // Sandbox sessions are exempt — a fresh sandbox should never auto-load a
+  // cached drawing from featuredTasks. The user must explicitly generate.
   useEffect(() => {
     if (!featuredSvgContent) return;
     if (featuredSvgContent === approvedSvg) return;
     if (pendingTask && pendingTask.svg === featuredSvgContent) return;
+    if (appMode === 'sandbox' && !awaitingResultRef.current) return;
 
     if (!hasInitializedSvgRef.current && !awaitingResultRef.current) {
       setApprovedSvg(featuredSvgContent);
