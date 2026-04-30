@@ -40,17 +40,24 @@ function sceneSlug(scene: number): string {
 type Props = {
   /** SPARK_SCENES value (0–23) */
   scene: number;
+  /** Voice-linked art variant. Mark uses the root image set; Lori uses /lori. */
+  variant?: 'mark' | 'lori';
   /** Square render size in CSS pixels. */
   size?: number;
   className?: string;
 };
 
-export function SparkStateImage({ scene, size = 320, className }: Props) {
+export function SparkStateImage({ scene, variant = 'mark', size = 320, className }: Props) {
   const slug = sceneSlug(scene);
   const [missing, setMissing] = useState<Record<string, boolean>>({});
+  const assetPath =
+    variant === 'lori'
+      ? `${IMAGE_BASE}/lori/${slug}.${IMAGE_EXT}`
+      : `${IMAGE_BASE}/${slug}.${IMAGE_EXT}`;
+  const missingKey = `${variant}:${slug}`;
 
   // If we know this image is missing → fall back to the CSS rig.
-  if (missing[slug]) {
+  if (missing[missingKey]) {
     return (
       <div
         className={className}
@@ -76,11 +83,11 @@ export function SparkStateImage({ scene, size = 320, className }: Props) {
     >
       <AnimatePresence mode="wait">
         <motion.img
-          key={slug}
-          src={`${IMAGE_BASE}/${slug}.${IMAGE_EXT}`}
+          key={`${variant}-${slug}`}
+          src={assetPath}
           alt=""
           aria-hidden="true"
-          onError={() => setMissing((m) => ({ ...m, [slug]: true }))}
+          onError={() => setMissing((m) => ({ ...m, [missingKey]: true }))}
           loading="eager"
           decoding="async"
           initial={{ opacity: 0, scale: 0.92, y: 14 }}

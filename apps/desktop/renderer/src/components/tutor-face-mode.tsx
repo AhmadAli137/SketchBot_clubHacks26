@@ -160,10 +160,11 @@ function deriveState(latest: TutorMessage | undefined, isStreaming: boolean): {
 type Props = {
   messages: TutorMessage[];
   ttsSpeaking: boolean;
+  sparkVariant?: 'mark' | 'lori';
   onExit: () => void;
 };
 
-export function TutorFaceMode({ messages, ttsSpeaking, onExit }: Props) {
+export function TutorFaceMode({ messages, ttsSpeaking, sparkVariant = 'mark', onExit }: Props) {
   const latest = messages.at(-1);
   const isStreaming = Boolean(latest?.isStreaming);
 
@@ -231,6 +232,7 @@ export function TutorFaceMode({ messages, ttsSpeaking, onExit }: Props) {
           >
             <SparkStateImage
               scene={scene}
+              variant={sparkVariant}
               size={320}
             />
           </motion.div>

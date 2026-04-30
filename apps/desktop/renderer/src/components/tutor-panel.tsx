@@ -1679,6 +1679,7 @@ export function TutorPanel({
         <TutorFaceMode
           messages={messages}
           ttsSpeaking={tts.speaking}
+          sparkVariant={tts.voice.alias}
           onExit={() => setDisplayMode('chat')}
         />
       )}
