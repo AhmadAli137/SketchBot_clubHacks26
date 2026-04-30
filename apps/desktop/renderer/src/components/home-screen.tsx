@@ -35,6 +35,13 @@ import { getDifficultyLevel } from '@/lib/progress-store';
 
 import type { AuthRole } from './auth-screen';
 import { getClassSession } from '@/lib/session-store';
+import {
+  createSession,
+  groupForHome,
+  getSession,
+  type SavedSession,
+} from '@/lib/session-storage';
+import { SessionTile } from '@/components/session-tiles';
 
 const CONCEPT_PREVIEWS: ConceptPreview[] = getConceptPreviews();
 
@@ -52,7 +59,13 @@ type LeaderboardEntry = {
   streak_days: number;
 };
 
-export type StartSessionOptions = { lessonPlanning?: boolean; conceptTitle?: string; challengeId?: string };
+export type StartSessionOptions = {
+  lessonPlanning?: boolean;
+  conceptTitle?: string;
+  challengeId?: string;
+  /** When provided, the session view restores this saved workspace instead of creating a new one. */
+  sessionId?: string;
+};
 
 function friendlyName(name: string): string {
   if (!name) return 'there';
@@ -111,6 +124,8 @@ export function HomeScreen({
   const [showAllTopics, setShowAllTopics] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
+  // Session library — bumps on rename/delete so tiles re-read storage
+  const [sessionsRev, setSessionsRev] = useState(0);
   const reducedMotion = usePrefersReducedMotion();
   const { triggerTour } = useGuidedTour();
 
@@ -251,26 +266,58 @@ export function HomeScreen({
       incrementSessions(userName);
     }
 
+    // Create a fresh session record so the workspace persists from the first message.
+    const conceptTitle = concept?.title ?? 'Sandbox';
+    const newSession = createSession(userName || 'guest', {
+      conceptId: concept?.id ?? null,
+      conceptTitle,
+      ageGroup,
+      prompt: concept?.starterPrompt ?? '',
+    });
+
     // If there's a matching challenge pack for this concept, auto-launch the first challenge
     if (concept && packs.length > 0) {
       const matchingPack = packs.find((p) => p.conceptId === concept.id);
       if (matchingPack && matchingPack.challenges.length > 0) {
         onStartSession(concept.id, concept.starterPrompt, ageGroup, {
           challengeId: matchingPack.challenges[0].id,
-          conceptTitle: concept.title,
+          conceptTitle,
+          sessionId: newSession.id,
         });
         return;
       }
     }
 
-    // Always pass conceptTitle so the header doesn't stay stuck on "Free Draw"
     onStartSession(
       concept?.id,
       concept?.starterPrompt,
       ageGroup,
-      concept ? { conceptTitle: concept.title } : undefined,
+      { conceptTitle, sessionId: newSession.id },
     );
   };
+
+  const handleResumeSession = (id: string) => {
+    const session = getSession(userName || 'guest', id);
+    if (!session) {
+      // Tile referenced a deleted session — refresh the list
+      setSessionsRev((n) => n + 1);
+      return;
+    }
+    onStartSession(
+      session.conceptId ?? undefined,
+      session.prompt || undefined,
+      session.ageGroup,
+      {
+        conceptTitle: session.conceptTitle ?? 'Sandbox',
+        sessionId: session.id,
+      },
+    );
+  };
+
+  const sessionGroups = useMemo(() => {
+    void sessionsRev; // re-read when rev bumps
+    return groupForHome(userName || 'guest');
+  }, [sessionsRev, userName]);
 
   const handleStartChallenge = (challengeId: string) => {
     const pack = packs.find((p) => p.challenges.some((c) => c.id === challengeId));
@@ -401,16 +448,6 @@ export function HomeScreen({
               </Button>
             )}
           </>
-        )}
-        {role === 'guest' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onSignOut}
-            style={{ fontSize: '0.75rem', minHeight: 32 } as React.CSSProperties}
-          >
-            Switch mode
-          </Button>
         )}
         {(role === 'student' || role === 'guest') && (
           <button
@@ -599,6 +636,7 @@ export function HomeScreen({
         )}
 
         {role === 'student' ? (
+          <>
           <div className="dashboard-top-grid">
             <section className="student-profile-panel" data-tour="home-profile">
               <div className="student-profile-card" style={{ borderColor: profile.favorite_color }}>
@@ -685,42 +723,9 @@ export function HomeScreen({
                 </div>
               </div>
 
-              {leaderboard.length > 1 && (
-                <div className="home-leaderboard">
-                  <div className="home-leaderboard-title">
-                    <Trophy size={14} />
-                    <span>Classroom Leaderboard</span>
-                  </div>
-                  <div className="home-leaderboard-list">
-                    {leaderboard.slice(0, 8).map((entry) => (
-                      <div
-                        key={entry.student_name}
-                        className={`home-leaderboard-row ${entry.student_name === userName ? 'is-me' : ''}`}
-                      >
-                        <span className="home-lb-rank">#{entry.rank}</span>
-                        <span className="home-lb-name">{entry.student_name}</span>
-                        <span className="home-lb-level">{entry.level_emoji} Lv.{entry.level}</span>
-                        {entry.streak_days > 0 && (
-                          <span className="home-lb-streak">
-                            <Flame size={10} />
-                            {entry.streak_days}
-                          </span>
-                        )}
-                        <span className="home-lb-xp">
-                          {entry.student_name === userName ? `${entry.xp} XP` : `${entry.badge_count} badges`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </section>
 
             <div className="home-hero-section">
-              <div className="home-hero-copy">
-                <h2>Today's adventure</h2>
-                <p>Choose one of these top activities to continue your learning.</p>
-              </div>
               <div className="home-age-group-selector">
                 {(['explorer', 'builder', 'engineer'] as AgeGroup[]).map((ag) => (
                   <button
@@ -737,84 +742,92 @@ export function HomeScreen({
                 ))}
               </div>
               <motion.div
-                className="home-hero-card-grid"
+                className="concept-card-grid"
+                data-tour="home-topics"
                 variants={cardGridContainer}
                 initial="hidden"
                 animate="show"
               >
                 <motion.button
                   type="button"
-                  className="hero-card hero-card-primary"
+                  className="concept-card free-explore"
                   variants={cardGridItem}
                   onClick={() => handleStart(null)}
                   {...cardHoverTap}
                 >
-                  <span className="hero-card-emoji">🎨</span>
-                  <div className="hero-card-title">Free Draw</div>
-                  <div className="hero-card-copy">Any prompt, any idea — just jump in and draw.</div>
+                  <span className="concept-card-emoji">Draw</span>
+                  <div className="concept-card-title">Free Draw</div>
+                  <div className="concept-card-subtitle">Open prompt, any subject — no guided steps</div>
+                  <div className="concept-card-domain-badge" style={{ color: 'var(--pink)', background: 'rgba(255,79,216,0.12)', borderColor: 'transparent' }}>
+                    freestyle
+                  </div>
                 </motion.button>
-                {featuredConcepts.map((concept) => {
-                  const isRobotLab = (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(concept.id);
-                  return (
-                    <motion.button
-                      key={concept.id}
-                      type="button"
-                      data-concept={concept.id}
-                      className={`hero-card ${isRobotLab ? 'hero-card--robot-lab' : ''}`}
-                      variants={cardGridItem}
-                      onClick={() => handleStart(concept)}
-                      {...cardHoverTap}
-                    >
-                      <motion.span
-                        className="hero-card-emoji"
-                        animate={
-                          !reducedMotion && isRobotLab
-                            ? { y: [0, -4, 0], rotate: [0, -2, 2, 0] }
-                            : {}
-                        }
-                        transition={
-                          isRobotLab
-                            ? { duration: 3.8, repeat: Infinity, ease: 'easeInOut' }
-                            : {}
-                        }
-                      >
-                        {concept.emoji}
-                      </motion.span>
-                      <div className="hero-card-title">{concept.title}</div>
-                      <div className="hero-card-copy">{concept.subtitle}</div>
-                    </motion.button>
-                  );
-                })}
+                {visibleConcepts.map((concept) => (
+                  <motion.button
+                    key={concept.id}
+                    type="button"
+                    data-concept={concept.id}
+                    className={`concept-card ${(ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(concept.id) ? 'concept-card--robot-lab' : ''}`}
+                    variants={cardGridItem}
+                    onClick={() => handleStart(concept)}
+                    {...cardHoverTap}
+                  >
+                    <span className="concept-card-emoji">{concept.emoji}</span>
+                    <div className="concept-card-title">{concept.title}</div>
+                    <div className="concept-card-subtitle">{concept.subtitle}</div>
+                    <div className="concept-card-domain-badge">{concept.domain}</div>
+                  </motion.button>
+                ))}
               </motion.div>
+              {!showAllTopics && CONCEPT_PREVIEWS.length > visibleConcepts.length && (
+                <button type="button" className="show-all-topics-btn" onClick={() => setShowAllTopics(true)}>
+                  Show all topics
+                </button>
+              )}
+              {showAllTopics && (
+                <button type="button" className="show-all-topics-btn" onClick={() => setShowAllTopics(false)}>
+                  Show fewer topics
+                </button>
+              )}
             </div>
           </div>
-        ) : (
-          <div className="home-hero-section">
-            <div className="home-hero-copy">
-              <h2>{role === 'guest' ? 'Start exploring' : 'Ready for the classroom?'}</h2>
-              <p>
-                {role === 'guest'
-                  ? 'Free-draw with any prompt, or pick a concept to try.'
-                  : 'Select a concept and launch a session for your class.'}
-              </p>
-            </div>
-            {role === 'guest' && (
-              <div className="home-age-group-selector">
-                {(['explorer', 'builder', 'engineer'] as AgeGroup[]).map((ag) => (
-                  <button
-                    key={ag}
-                    type="button"
-                    className={`home-age-pill${ageGroup === ag ? ' active' : ''}`}
-                    style={{ '--pill-color': AGE_GROUP_META[ag].color } as React.CSSProperties}
-                    onClick={() => handleAgeGroupChange(ag)}
+
+          {leaderboard.length > 1 && (
+            <div className="home-leaderboard home-leaderboard--wide">
+              <div className="home-leaderboard-title">
+                <Trophy size={14} />
+                <span>Classroom Leaderboard</span>
+              </div>
+              <div className="home-leaderboard-list home-leaderboard-list--wide">
+                {leaderboard.slice(0, 8).map((entry) => (
+                  <div
+                    key={entry.student_name}
+                    className={`home-leaderboard-row ${entry.student_name === userName ? 'is-me' : ''}`}
                   >
-                    <span>{AGE_GROUP_META[ag].emoji}</span>
-                    <span>{AGE_GROUP_META[ag].label}</span>
-                    <span className="home-age-pill-sub">{AGE_GROUP_META[ag].description}</span>
-                  </button>
+                    <span className="home-lb-rank">#{entry.rank}</span>
+                    <span className="home-lb-name">{entry.student_name}</span>
+                    <span className="home-lb-level">{entry.level_emoji} Lv.{entry.level}</span>
+                    {entry.streak_days > 0 && (
+                      <span className="home-lb-streak">
+                        <Flame size={10} />
+                        {entry.streak_days}
+                      </span>
+                    )}
+                    <span className="home-lb-xp">
+                      {entry.student_name === userName ? `${entry.xp} XP` : `${entry.badge_count} badges`}
+                    </span>
+                  </div>
                 ))}
               </div>
-            )}
+            </div>
+          )}
+          </>
+        ) : role === 'teacher' ? (
+          <div className="home-hero-section">
+            <div className="home-hero-copy">
+              <h2>Ready for the classroom?</h2>
+              <p>Select a concept and launch a session for your class.</p>
+            </div>
             <motion.div
               className="home-hero-card-grid"
               variants={cardGridContainer}
@@ -832,45 +845,95 @@ export function HomeScreen({
                 <div className="hero-card-title">Free Draw</div>
                 <div className="hero-card-copy">Any prompt, any idea — just jump in and draw.</div>
               </motion.button>
-              {featuredConcepts.map((concept) => {
-                const isRobotLab = (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(concept.id);
-                return (
-                  <motion.button
-                    key={concept.id}
-                    type="button"
-                    data-concept={concept.id}
-                    className={`hero-card ${isRobotLab ? 'hero-card--robot-lab' : ''}`}
-                    variants={cardGridItem}
-                    onClick={() => handleStart(concept)}
-                    {...cardHoverTap}
-                  >
-                    <motion.span
-                      className="hero-card-emoji"
-                      animate={
-                        !reducedMotion && isRobotLab
-                          ? { y: [0, -4, 0], rotate: [0, -2, 2, 0] }
-                          : {}
-                      }
-                      transition={
-                        isRobotLab ? { duration: 3.8, repeat: Infinity, ease: 'easeInOut' } : {}
-                      }
-                    >
-                      {concept.emoji}
-                    </motion.span>
-                    <div className="hero-card-title">{concept.title}</div>
-                    <div className="hero-card-copy">{concept.subtitle}</div>
-                  </motion.button>
-                );
-              })}
+              {featuredConcepts.map((concept) => (
+                <motion.button
+                  key={concept.id}
+                  type="button"
+                  data-concept={concept.id}
+                  className="hero-card"
+                  variants={cardGridItem}
+                  onClick={() => handleStart(concept)}
+                  {...cardHoverTap}
+                >
+                  <span className="hero-card-emoji">{concept.emoji}</span>
+                  <div className="hero-card-title">{concept.title}</div>
+                  <div className="hero-card-copy">{concept.subtitle}</div>
+                </motion.button>
+              ))}
             </motion.div>
           </div>
-        )}
+        ) : null}
 
+        {role !== 'student' && (
         <div className="concept-domain-section">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <h2>More to explore</h2>
-            <div className="tap-to-enter-hint">Tap a card to launch the experience instantly.</div>
+            <h2>{role === 'guest' ? 'Start a new session' : 'Activities'}</h2>
+            {role === 'guest' && (
+              <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--muted)' }}>
+                Pick a template or start blank — every session saves your chats and code.
+              </p>
+            )}
           </div>
+
+          {/* Age-group pills (guest only) */}
+          {role === 'guest' && (
+            <div className="home-age-group-selector" style={{ marginTop: 4 }}>
+              {(['explorer', 'builder', 'engineer'] as AgeGroup[]).map((ag) => (
+                <button
+                  key={ag}
+                  type="button"
+                  className={`home-age-pill${ageGroup === ag ? ' active' : ''}`}
+                  style={{ '--pill-color': AGE_GROUP_META[ag].color } as React.CSSProperties}
+                  onClick={() => handleAgeGroupChange(ag)}
+                >
+                  <span>{AGE_GROUP_META[ag].emoji}</span>
+                  <span>{AGE_GROUP_META[ag].label}</span>
+                  <span className="home-age-pill-sub">{AGE_GROUP_META[ag].description}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Continue + Saved sessions (guest only) */}
+          {role === 'guest' && (sessionGroups.continueWith || sessionGroups.saved.length > 0) && (
+            <div className="session-rows">
+              {sessionGroups.continueWith && (
+                <div className="session-row">
+                  <div className="session-row-label">Pick up where you left off</div>
+                  <div className="session-row-grid">
+                    <SessionTile
+                      session={sessionGroups.continueWith}
+                      variant="continue"
+                      userName={userName || 'guest'}
+                      onResume={handleResumeSession}
+                      onChange={() => setSessionsRev((n) => n + 1)}
+                    />
+                  </div>
+                </div>
+              )}
+              {sessionGroups.saved.length > 0 && (
+                <div className="session-row">
+                  <div className="session-row-label">Saved sessions</div>
+                  <div className="session-row-grid">
+                    {sessionGroups.saved.map((s: SavedSession) => (
+                      <SessionTile
+                        key={s.id}
+                        session={s}
+                        variant="saved"
+                        userName={userName || 'guest'}
+                        onResume={handleResumeSession}
+                        onChange={() => setSessionsRev((n) => n + 1)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {role === 'guest' && (
+            <div className="session-row-label" style={{ marginTop: 8 }}>Templates</div>
+          )}
 
           <motion.div
             className="concept-card-grid"
@@ -886,11 +949,11 @@ export function HomeScreen({
               onClick={() => handleStart(null)}
               {...cardHoverTap}
             >
-              <span className="concept-card-emoji">Draw</span>
-              <div className="concept-card-title">Free Draw</div>
-              <div className="concept-card-subtitle">Open prompt, any subject - no guided steps</div>
+              <span className="concept-card-emoji">🎨</span>
+              <div className="concept-card-title">Blank session</div>
+              <div className="concept-card-subtitle">Free-draw, no template — start from scratch</div>
               <div className="concept-card-domain-badge" style={{ color: 'var(--pink)', background: 'rgba(255,79,216,0.12)', borderColor: 'transparent' }}>
-                freestyle
+                sandbox
               </div>
             </motion.button>
 
@@ -927,6 +990,7 @@ export function HomeScreen({
             </button>
           )}
         </div>
+        )}
 
         {packs.length > 0 && (
           <div className="concept-domain-section">

@@ -52,6 +52,8 @@ type TutorPanelProps = {
   sessionActorRole?: 'teacher' | 'student';
   lessonPlanActive?: boolean;
   classroomRestrictions?: ClassroomRestrictions | null;
+  /** Active SavedSession id — when set, chat is loaded from and persisted to this session. */
+  sessionId?: string | null;
 };
 
 type EvaluationNotice = {
@@ -970,9 +972,55 @@ export function TutorPanel({
   sessionActorRole: sessionActorRoleProp,
   lessonPlanActive = false,
   classroomRestrictions,
+  sessionId = null,
 }: TutorPanelProps) {
   const sessionActorRole: 'teacher' | 'student' = sessionActorRoleProp ?? 'student';
   const [messages, setMessages] = useState<TutorMessage[]>([]);
+  // Load chat history from the active SavedSession on mount / when sessionId changes
+  const sessionLoadedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sessionId || sessionLoadedRef.current === sessionId) return;
+    sessionLoadedRef.current = sessionId;
+    try {
+      // Lazy import to avoid SSR localStorage access
+      void (async () => {
+        const { getSession } = await import('@/lib/session-storage');
+        const saved = getSession(studentName || 'guest', sessionId);
+        if (saved && saved.chat.length > 0) {
+          setMessages(
+            saved.chat.map((m) => ({
+              id: m.id,
+              role: m.role === 'tutor' ? 'tutor' : 'student',
+              content: m.text,
+            })),
+          );
+        }
+      })();
+    } catch {
+      // ignore — session storage failures shouldn't break the panel
+    }
+  }, [sessionId, studentName]);
+
+  // Persist chat history (debounced) whenever messages change
+  useEffect(() => {
+    if (!sessionId) return;
+    const handle = setTimeout(() => {
+      void (async () => {
+        const { updateSession } = await import('@/lib/session-storage');
+        updateSession(studentName || 'guest', sessionId, {
+          chat: messages
+            .filter((m) => !m.isStreaming) // don't persist mid-stream tokens
+            .map((m) => ({
+              id: m.id,
+              role: m.role === 'tutor' ? 'tutor' : 'user',
+              text: m.content,
+              ts: Date.now(),
+            })),
+        });
+      })();
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [messages, sessionId, studentName]);
   const [studentInput, setStudentInput] = useState('');
   /** True while any tutor SSE reply is in flight (greeting, hint, student reply, etc.). */
   const [tutorStreaming, setTutorStreaming] = useState(false);

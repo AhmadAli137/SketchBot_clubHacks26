@@ -74,6 +74,7 @@ export function StudentDashboard({
   ageGroup: ageGroupProp = 'explorer',
   studentName = '',
   apiBase = '',
+  sessionId = null,
   lessonPlanActive = false,
   activeChallengeId = null,
   onChallengeComplete,
@@ -940,6 +941,7 @@ export function StudentDashboard({
               sessionActorRole={sessionActorRole}
               lessonPlanActive={lessonPlanActive}
               classroomRestrictions={userRole === 'student' ? classroomRestrictions : undefined}
+              sessionId={sessionId}
             />
           </div>
         </div>

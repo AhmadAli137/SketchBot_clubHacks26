@@ -63,6 +63,8 @@ export type StudentDashboardProps = {
   classroomRestrictions?: ClassroomProfile['restrictions'];
   /** Signed-in role from desktop auth (for UI policy). */
   userRole?: 'teacher' | 'student' | 'guest';
+  /** Active SavedSession id this workspace persists to. null = ephemeral session. */
+  sessionId?: string | null;
   onConceptSelect?: (conceptId: string, conceptTitle: string) => void;
   onBackToHome?: () => void;
   onChangeDifficulty?: () => void;

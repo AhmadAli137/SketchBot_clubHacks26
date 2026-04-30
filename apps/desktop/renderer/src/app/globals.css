@@ -3323,7 +3323,7 @@ body {
   justify-content: flex-start;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 32px 24px 24px;
+  padding: 18px 24px 20px;
   background: radial-gradient(circle at 15% 10%, rgba(93, 228, 255, 0.12), transparent 16%),
     radial-gradient(circle at 80% 8%, rgba(255, 79, 216, 0.09), transparent 14%),
     radial-gradient(circle at 50% 90%, rgba(107, 124, 255, 0.08), transparent 24%),
@@ -3341,12 +3341,12 @@ body {
   width: min(1100px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 16px;
 }
 
 @media (max-width: 900px) {
   .onboarding-inner {
-    gap: 20px;
+    gap: 14px;
   }
 }
 
@@ -3355,15 +3355,16 @@ body {
 }
 
 .onboarding-greeting h1 {
-  margin: 0 0 6px;
-  font-size: clamp(1.4rem, 4vw, 2rem);
+  margin: 0 0 3px;
+  font-size: clamp(1.25rem, 2.4vw, 1.55rem);
   font-weight: 800;
   color: var(--text);
+  letter-spacing: -0.01em;
 }
 
 .onboarding-greeting p {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   color: var(--muted);
 }
 
@@ -3440,26 +3441,26 @@ body {
 
 .home-hero-section {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .home-hero-copy {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
 }
 
 .home-hero-copy h2 {
   margin: 0;
-  font-size: clamp(1.65rem, 2.6vw, 2.25rem);
-  letter-spacing: -0.03em;
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 
 .home-hero-copy p {
   margin: 0;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 0.9rem;
   max-width: 740px;
 }
 
@@ -4151,6 +4152,48 @@ body {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   min-width: 50px;
+  text-align: right;
+}
+
+/* Full-width leaderboard below the dashboard grid */
+.home-leaderboard--wide {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto 28px;
+  padding: 18px 20px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+.home-leaderboard--wide .home-leaderboard-title {
+  font-size: 0.82rem;
+  margin-bottom: 14px;
+}
+.home-leaderboard-list--wide {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.home-leaderboard--wide .home-leaderboard-row {
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  border-radius: 10px;
+  border: 1px solid rgba(120, 140, 255, 0.08);
+  background: rgba(255, 255, 255, 0.018);
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.home-leaderboard--wide .home-leaderboard-row.is-me {
+  background: rgba(93, 228, 255, 0.07);
+  border-color: rgba(93, 228, 255, 0.22);
+}
+.home-leaderboard--wide .home-lb-name {
+  flex: 1 1 100%;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.home-leaderboard--wide .home-lb-xp {
+  margin-left: auto;
   text-align: right;
 }
 
@@ -11183,16 +11226,15 @@ select.block-param-input{width:auto;padding-right:20px}
 .guest-unlock-nudge {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 8px 14px;
   border-radius: var(--radius-md);
   border: 1px dashed rgba(168, 85, 247, 0.35);
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.06), rgba(107, 124, 255, 0.05));
   width: 100%;
-  max-width: 660px;
-  margin: 0 auto 8px;
+  max-width: 600px;
+  margin: 0 auto;
   flex-wrap: wrap;
-  gap: 8px;
 }
 
 .guest-unlock-icon {
@@ -14377,15 +14419,15 @@ select.block-param-input{width:auto;padding-right:20px}
 /* ── Sandbox Hero Scene (guest home screen) ───────────────────────────── */
 
 .sandbox-hero {
-  --sand-h: 72px;
+  --sand-h: 56px;
   position: relative;
   width: 100%;
-  max-width: 720px;
-  margin: 8px auto 28px;
-  height: 230px;
-  border-radius: 20px;
+  max-width: 640px;
+  margin: 0 auto 4px;
+  height: 168px;
+  border-radius: 18px;
   overflow: hidden;
-  border: 1px solid rgba(196, 146, 42, 0.22);
+  border: 1px solid rgba(196, 146, 42, 0.28);
   background: linear-gradient(180deg,
     #060c1e 0%,
     #091428 55%,
@@ -14397,28 +14439,16 @@ select.block-param-input{width:auto;padding-right:20px}
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 60% 40% at 35% 25%, rgba(93,228,255,0.07) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 30% at 75% 20%, rgba(168,85,247,0.06) 0%, transparent 65%);
+    radial-gradient(ellipse 60% 40% at 35% 25%, rgba(93,228,255,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 75% 20%, rgba(168,85,247,0.07) 0%, transparent 65%);
   pointer-events: none;
-}
-
-.sandbox-hero-ground {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: var(--sand-h);
-  background: linear-gradient(180deg, #c4892a 0%, #8b5e1a 100%);
-  border-top: 2px solid rgba(255, 185, 60, 0.28);
-  border-radius: 0 0 20px 20px;
-  z-index: 2;
 }
 
 /* Clips the mini bots so only their heads show above the sand */
 .sandbox-buried-wrap { z-index: 1; }
 .sandbox-buried-clip {
   overflow: hidden;
-  height: 26px;  /* show only top 26 px of the 60 px xs bot */
+  height: 26px;
   display: flex;
   align-items: flex-start;
   opacity: 0.82;
@@ -14432,5 +14462,216 @@ select.block-param-input{width:auto;padding-right:20px}
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;
+}
+
+/* ── Session tiles (Continue + Saved on home) ────────────────────────────── */
+
+.session-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.session-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-row-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.session-row-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.session-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(120, 140, 255, 0.18);
+  background: linear-gradient(180deg, rgba(20, 24, 50, 0.55) 0%, rgba(12, 16, 36, 0.55) 100%);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.session-tile:hover {
+  border-color: rgba(168, 85, 247, 0.45);
+  background: linear-gradient(180deg, rgba(28, 32, 64, 0.7) 0%, rgba(16, 20, 44, 0.7) 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.session-tile--continue {
+  border-color: rgba(93, 228, 255, 0.35);
+  background: linear-gradient(180deg, rgba(11, 30, 50, 0.6) 0%, rgba(8, 14, 30, 0.6) 100%);
+}
+
+.session-tile--continue:hover {
+  border-color: rgba(93, 228, 255, 0.55);
+  box-shadow: 0 8px 24px rgba(93, 228, 255, 0.12);
+}
+
+.session-tile-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.session-tile--continue .session-tile-eyebrow {
+  color: var(--cyan);
+}
+
+.session-tile--saved .session-tile-eyebrow {
+  color: rgba(168, 85, 247, 0.85);
+}
+
+.session-tile-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  animation: session-tile-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes session-tile-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.45; transform: scale(0.7); }
+}
+
+.session-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.session-tile-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.session-tile-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-tile-sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.session-tile-meta {
+  font-size: 0.72rem;
+  color: rgba(168, 85, 247, 0.85);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.session-tile-rename {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-tile-rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  border-radius: 6px;
+  outline: none;
+}
+
+.session-tile-rename-input:focus {
+  border-color: rgba(168, 85, 247, 0.75);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.session-tile-rename-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  color: rgb(110, 231, 183);
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.session-tile-rename-btn:hover {
+  background: rgba(16, 185, 129, 0.22);
+}
+
+.session-tile-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.session-tile:hover .session-tile-actions {
+  opacity: 1;
+}
+
+.session-tile-action {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 18, 38, 0.82);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+}
+
+.session-tile-action:hover {
+  color: var(--text);
+  background: rgba(30, 36, 70, 0.95);
+  border-color: rgba(168, 85, 247, 0.45);
+}
+
+.session-tile-action.danger:hover {
+  color: rgb(252, 165, 165);
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(60, 20, 28, 0.6);
 }
 

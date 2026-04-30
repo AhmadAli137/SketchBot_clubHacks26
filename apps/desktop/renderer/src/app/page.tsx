@@ -36,9 +36,29 @@ import { getClassSession, setClassSession, type ClassSession } from '@/lib/sessi
 import { canUpload, canUseFreeDraw, isConceptAllowed } from '@/lib/classroom-restrictions';
 import type { ClassroomProfile } from '@/lib/platform-types';
 import type { StartSessionOptions } from '@/components/home-screen';
+import { updateSession as updateSavedSession } from '@/lib/session-storage';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 type AppView = 'plan' | 'auth' | 'difficulty-onboarding' | 'home' | 'session';
+type SavedSession = { role: AuthRole; name: string; email?: string };
+
+function readSavedSession(): (SavedSession & { view?: AppView }) | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('sketchbot-session-v1');
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as { role?: AuthRole; name?: string; email?: string; view?: AppView };
+    if ((saved.role !== 'student' && saved.role !== 'teacher') || !saved.name) return null;
+    return { role: saved.role, name: saved.name, email: saved.email, view: saved.view };
+  } catch {
+    return null;
+  }
+}
+
+function resumeViewFromSavedSession(saved: { view?: AppView }): AppView {
+  const v = saved.view === 'session' ? 'home' : saved.view;
+  return (!v || v === 'plan' || v === 'auth') ? 'home' : v;
+}
 
 function svgToDataUrl(svg: string | null | undefined) {
   if (!svg) return null;
@@ -117,20 +137,22 @@ export default function HomePage() {
   const { muted, toggleMute } = useMenuMusic(false);
 
   // ─── Auth / routing state ──────────────────────────────────────────────
+  // Persisted browser state hydrates after mount so SSR and first client render match.
   const [view, setView] = useState<AppView>('plan');
-  const [showDifficultyModal, setShowDifficultyModal] = useState(false);
-  const [showTeacherDash, setShowTeacherDash] = useState(false);
-  const [authMode, setAuthMode] = useState<'personal' | 'teacher'>('teacher');
-  const [activeClassSession, setActiveClassSession] = useState<ClassSession | null>(() => getClassSession());
   const [userRole, setUserRole] = useState<AuthRole>('guest');
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [savedSession, setSavedSession] = useState<SavedSession | null>(null);
+
+  const [showDifficultyModal, setShowDifficultyModal] = useState(false);
+  const [showTeacherDash, setShowTeacherDash] = useState(false);
+  const [authMode, setAuthMode] = useState<'personal' | 'teacher'>('teacher');
+  const [activeClassSession, setActiveClassSession] = useState<ClassSession | null>(null);
   const [classroomName, setClassroomName] = useState('');
   const [studentCount, setStudentCount] = useState(0);
   const [classroomRestrictions, setClassroomRestrictions] = useState<ClassroomProfile['restrictions']>(undefined);
   const [lessonPlanActive, setLessonPlanActive] = useState(false);
   const [activeChallengeId, setActiveChallengeId] = useState<string | null>(null);
-  const [savedSession, setSavedSession] = useState<{ role: AuthRole; name: string; email?: string } | null>(null);
   const [accountPanelOpen, setAccountPanelOpen] = useState(false);
 
   // ─── Learning system state ─────────────────────────────────────────────
@@ -138,6 +160,8 @@ export default function HomePage() {
   const [selectedConceptTitle, setSelectedConceptTitle] = useState<string>('Free Draw');
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>('builder');
   const [sessionStartPrompt, setSessionStartPrompt] = useState<string>('');
+  /** ID of the active SavedSession this workspace persists to. Set when home starts/resumes a session. */
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   // Derive avatar from stored profile so the PFP button always shows the
   // user's chosen emoji/robot, not just their name initial.
@@ -152,16 +176,21 @@ export default function HomePage() {
     } as const;
   }, [userName, selectedAgeGroup, userRole]);
 
-  // Load persisted session on mount — always start at plan screen so returning
-  // users see the Spark landing page. The saved credentials are stored in
-  // savedSession so PlanPicker can offer a one-tap "Continue as [name]" path.
+  // Load persisted browser-only state after mount.
+  useEffect(() => {
+    const saved = readSavedSession();
+    if (!saved) return;
+    setUserRole(saved.role);
+    setUserName(saved.name);
+    setUserEmail(saved.email ?? '');
+    setSavedSession({ role: saved.role, name: saved.name, email: saved.email });
+    setActiveClassSession(getClassSession());
+    setView(resumeViewFromSavedSession(saved));
+  }, []);
+
+  // Load classroom profile on mount.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('sketchbot-session-v1');
-      if (raw) {
-        const saved = JSON.parse(raw) as { role: AuthRole; name: string; view: AppView; email?: string };
-        setSavedSession({ role: saved.role, name: saved.name, email: saved.email });
-      }
       const profile = loadClassroomProfile();
       setClassroomName(profile.classroomName);
       setStudentCount(profile.students.length);
@@ -238,6 +267,7 @@ export default function HomePage() {
     if (ageGroup) setSelectedAgeGroup(ageGroup);
     setLessonPlanActive(Boolean(options?.lessonPlanning));
     setActiveChallengeId(options?.challengeId ?? null);
+    setCurrentSessionId(options?.sessionId ?? null);
     setView('session');
     localStorage.setItem(
       'sketchbot-session-v1',
@@ -310,6 +340,15 @@ export default function HomePage() {
   const phoneStreamRef = useRef<MediaStream | null>(null);
   const phoneDisconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Auto-persist prompt to the active SavedSession (debounced)
+  useEffect(() => {
+    if (!currentSessionId || view !== 'session') return;
+    const id = setTimeout(() => {
+      updateSavedSession(userName || 'guest', currentSessionId, { prompt });
+    }, 600);
+    return () => clearTimeout(id);
+  }, [prompt, currentSessionId, view, userName]);
+
   const viewerIceServers = useMemo(
     () => state.camera?.media_session?.ice_servers ?? webrtcIceServers,
     [state.camera?.media_session?.ice_servers, webrtcIceServers],
@@ -368,23 +407,28 @@ export default function HomePage() {
       }
     }, 5000);
 
-    const ws = new WebSocket(wsBase);
-    ws.onmessage = (event) => {
-      try {
-        const nextState = JSON.parse(event.data) as AppState;
-        if (!cancelled) {
-          setState(nextState);
-          setBackendReachable(true);
+    let ws: WebSocket | null = null;
+    const wsConnectTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      ws = new WebSocket(wsBase);
+      ws.onmessage = (event) => {
+        try {
+          const nextState = JSON.parse(event.data) as AppState;
+          if (!cancelled) {
+            setState(nextState);
+            setBackendReachable(true);
+          }
+        } catch {
+          // Ignore invalid snapshots.
         }
-      } catch {
-        // Ignore invalid snapshots.
-      }
-    };
+      };
+    }, 100);
 
     return () => {
       cancelled = true;
       window.clearInterval(statePoll);
-      ws.close();
+      window.clearTimeout(wsConnectTimer);
+      ws?.close();
     };
   }, [refreshState, refreshTasks, refreshWebRTCConfig, wsBase]);
 
@@ -1192,6 +1236,7 @@ export default function HomePage() {
       studentName={userName}
       apiBase={apiBase}
       userRole={userRole}
+      sessionId={currentSessionId}
       appMode={lessonPlanActive ? 'classroom' : selectedConceptId ? 'tutor' : 'sandbox'}
       lessonPlanActive={lessonPlanActive}
       activeChallengeId={activeChallengeId}
