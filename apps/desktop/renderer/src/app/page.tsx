@@ -349,6 +349,42 @@ export default function HomePage() {
     return () => clearTimeout(id);
   }, [prompt, currentSessionId, view, userName]);
 
+  // Track time spent in the active session
+  useEffect(() => {
+    if (!currentSessionId || view !== 'session') return;
+    const sessionId = currentSessionId;
+    const userKey = userName || 'guest';
+    const startMs = Date.now();
+    let lastFlush = startMs;
+
+    // Periodically flush elapsed time so closing the app doesn't lose much
+    const flushTimer = setInterval(() => {
+      const now = Date.now();
+      const delta = now - lastFlush;
+      lastFlush = now;
+      const existing = (typeof window !== 'undefined') ? (() => {
+        try {
+          const raw = window.localStorage.getItem(`sketchbot.sessions.v1.${userKey.toLowerCase()}`);
+          const arr = raw ? JSON.parse(raw) as Array<{ id: string; totalTimeMs?: number }> : [];
+          return arr.find((s) => s.id === sessionId)?.totalTimeMs ?? 0;
+        } catch { return 0; }
+      })() : 0;
+      updateSavedSession(userKey, sessionId, { totalTimeMs: existing + delta });
+    }, 30_000);
+
+    return () => {
+      clearInterval(flushTimer);
+      // Final flush on session exit
+      try {
+        const raw = window.localStorage.getItem(`sketchbot.sessions.v1.${userKey.toLowerCase()}`);
+        const arr = raw ? JSON.parse(raw) as Array<{ id: string; totalTimeMs?: number }> : [];
+        const existing = arr.find((s) => s.id === sessionId)?.totalTimeMs ?? 0;
+        const delta = Date.now() - lastFlush;
+        updateSavedSession(userKey, sessionId, { totalTimeMs: existing + delta });
+      } catch { /* noop */ }
+    };
+  }, [currentSessionId, view, userName]);
+
   const viewerIceServers = useMemo(
     () => state.camera?.media_session?.ice_servers ?? webrtcIceServers,
     [state.camera?.media_session?.ice_servers, webrtcIceServers],

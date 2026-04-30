@@ -2,17 +2,11 @@
 
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Bookmark, X, Pencil, Check } from 'lucide-react';
+import { X, Pencil, Check, Clock, MessageCircle, Box, Code2 } from 'lucide-react';
 
-import { getConceptPreviews } from '@/lib/concept-catalog';
 import type { SavedSession } from '@/lib/session-storage';
 import { deleteSession, pinSession } from '@/lib/session-storage';
-
-const PREVIEWS = getConceptPreviews();
-function previewFor(conceptId: string | null) {
-  if (!conceptId) return null;
-  return PREVIEWS.find((p) => p.id === conceptId) ?? null;
-}
+import { countLines, formatTimeSpent } from '@/lib/scene-builder';
 
 function relativeTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -36,9 +30,11 @@ type TileProps = {
 export function SessionTile({ session, variant, userName, onResume, onChange }: TileProps) {
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(session.name);
-  const preview = previewFor(session.conceptId);
-  const emoji = preview?.emoji ?? (session.conceptId ? '✨' : '🎨');
-  const subtitle = preview?.subtitle ?? (session.conceptId ? 'Saved workspace' : 'Free-draw workspace');
+
+  const objectCount = session.sceneObjects?.length ?? 0;
+  const chatCount   = session.chat?.length ?? 0;
+  const codeLines   = countLines(session.code);
+  const timeSpent   = formatTimeSpent(session.totalTimeMs);
 
   const handleSave = () => {
     pinSession(userName, session.id, draftName);
@@ -56,7 +52,7 @@ export function SessionTile({ session, variant, userName, onResume, onChange }: 
 
   const handleStartRename = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setDraftName(session.pinned ? session.name : (session.conceptTitle ?? 'My session'));
+    setDraftName(session.name);
     setRenaming(true);
   };
 
@@ -65,29 +61,35 @@ export function SessionTile({ session, variant, userName, onResume, onChange }: 
       className={`session-tile session-tile--${variant}`}
       onClick={() => !renaming && onResume(session.id)}
       whileHover={{ y: -2 }}
-      whileTap={{ scale: 0.985 }}
+      whileTap={{ scale: 0.99 }}
     >
-      <div className="session-tile-eyebrow">
-        {variant === 'continue' ? (
-          <>
-            <span className="session-tile-pulse" />
-            Continue · {relativeTime(session.lastOpenedAt)}
-          </>
+      {/* Preview thumbnail */}
+      <div className="session-tile-thumb">
+        {session.thumbnailSvg ? (
+          <div
+            className="session-tile-thumb-svg"
+            // SVG generated server-side-equivalent in scene-builder.ts — safe markup
+            dangerouslySetInnerHTML={{ __html: session.thumbnailSvg }}
+          />
         ) : (
-          <>
-            <Bookmark size={11} />
-            Saved · {relativeTime(session.lastOpenedAt)}
-          </>
+          <div className="session-tile-thumb-empty">
+            <span className="session-tile-thumb-empty-icon">🎨</span>
+            <span className="session-tile-thumb-empty-label">Empty canvas</span>
+          </div>
         )}
+        <div className="session-tile-thumb-eyebrow">
+          {variant === 'continue' ? (
+            <><span className="session-tile-pulse" /> Continue</>
+          ) : (
+            <>Saved</>
+          )}
+        </div>
       </div>
 
+      {/* Body */}
       <div className="session-tile-body">
-        <span className="session-tile-emoji">{emoji}</span>
         {renaming ? (
-          <div
-            className="session-tile-rename"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="session-tile-rename" onClick={(e) => e.stopPropagation()}>
             <input
               autoFocus
               type="text"
@@ -107,23 +109,45 @@ export function SessionTile({ session, variant, userName, onResume, onChange }: 
         ) : (
           <div className="session-tile-title">{session.name}</div>
         )}
-        <div className="session-tile-sub">{subtitle}</div>
-        {session.chat.length > 0 && (
-          <div className="session-tile-meta">
-            {session.chat.length} message{session.chat.length === 1 ? '' : 's'} with Spark
-          </div>
-        )}
+
+        <div className="session-tile-meta-row">
+          <span className="session-tile-meta-time">
+            <Clock size={11} /> {relativeTime(session.lastOpenedAt)}
+          </span>
+          {session.totalTimeMs && session.totalTimeMs > 1000 ? (
+            <span className="session-tile-meta-time">· {timeSpent} spent</span>
+          ) : null}
+        </div>
+
+        <div className="session-tile-stats">
+          {objectCount > 0 && (
+            <span className="session-tile-stat" title="Objects in scene">
+              <Box size={11} /> {objectCount}
+            </span>
+          )}
+          {chatCount > 0 && (
+            <span className="session-tile-stat" title="Chat messages with Spark">
+              <MessageCircle size={11} /> {chatCount}
+            </span>
+          )}
+          {codeLines > 0 && (
+            <span className="session-tile-stat" title="Lines of code">
+              <Code2 size={11} /> {codeLines}
+            </span>
+          )}
+        </div>
       </div>
 
+      {/* Hover actions */}
       <div className="session-tile-actions" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
           className="session-tile-action"
           onClick={handleStartRename}
-          aria-label={session.pinned ? 'Rename session' : 'Save with a name'}
-          title={session.pinned ? 'Rename' : 'Save with a name'}
+          aria-label="Rename session"
+          title="Rename"
         >
-          {session.pinned ? <Pencil size={13} /> : <Bookmark size={13} />}
+          <Pencil size={12} />
         </button>
         <button
           type="button"
@@ -132,10 +156,9 @@ export function SessionTile({ session, variant, userName, onResume, onChange }: 
           aria-label="Delete session"
           title="Delete"
         >
-          <X size={13} />
+          <X size={12} />
         </button>
       </div>
     </motion.div>
   );
 }
-

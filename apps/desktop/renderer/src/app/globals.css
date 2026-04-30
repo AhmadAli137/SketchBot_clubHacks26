@@ -14876,8 +14876,8 @@ select.block-param-input{width:auto;padding-right:20px}
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 144px;
+  gap: 10px;
+  min-height: 244px;
   padding: 20px 16px;
   border-radius: 14px;
   border: 1.5px dashed rgba(168, 85, 247, 0.4);
@@ -14886,6 +14886,12 @@ select.block-param-input{width:auto;padding-right:20px}
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   text-align: center;
+}
+
+.session-tile--new .session-tile-new-icon {
+  width: 56px;
+  height: 56px;
+  font-size: 1.8rem;
 }
 
 .session-tile--new:hover {
@@ -14961,14 +14967,13 @@ select.block-param-input{width:auto;padding-right:20px}
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
-  min-height: 144px;
+  min-height: 244px;
   height: 100%;
   border-radius: 14px;
   border: 1px solid rgba(120, 140, 255, 0.18);
   background: linear-gradient(180deg, rgba(20, 24, 50, 0.55) 0%, rgba(12, 16, 36, 0.55) 100%);
   cursor: pointer;
+  overflow: hidden;
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -14988,24 +14993,67 @@ select.block-param-input{width:auto;padding-right:20px}
   box-shadow: 0 8px 24px rgba(93, 228, 255, 0.12);
 }
 
-.session-tile-eyebrow {
+/* Thumbnail (top-down preview) */
+.session-tile-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 200 / 110;
+  background: #0a0e1a;
+  border-bottom: 1px solid rgba(120, 140, 255, 0.12);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.session-tile-thumb-svg,
+.session-tile-thumb-svg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.session-tile-thumb-empty {
+  position: absolute;
+  inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  justify-content: center;
+  gap: 4px;
   color: var(--muted);
 }
 
-.session-tile--continue .session-tile-eyebrow {
-  color: var(--cyan);
+.session-tile-thumb-empty-icon {
+  font-size: 1.6rem;
+  opacity: 0.55;
 }
 
-.session-tile--saved .session-tile-eyebrow {
-  color: rgba(168, 85, 247, 0.85);
+.session-tile-thumb-empty-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
+
+.session-tile-thumb-eyebrow {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(11, 14, 28, 0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+}
+
+.session-tile--continue .session-tile-thumb-eyebrow { color: var(--cyan); border-color: rgba(93, 228, 255, 0.35); }
+.session-tile--saved   .session-tile-thumb-eyebrow { color: rgba(216, 180, 254, 0.95); border-color: rgba(168, 85, 247, 0.35); }
 
 .session-tile-pulse {
   width: 6px;
@@ -15024,18 +15072,14 @@ select.block-param-input{width:auto;padding-right:20px}
 .session-tile-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding: 12px 14px 14px;
   min-height: 0;
-}
-
-.session-tile-emoji {
-  font-size: 1.6rem;
-  line-height: 1;
-  margin-bottom: 4px;
+  flex: 1;
 }
 
 .session-tile-title {
-  font-size: 0.98rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.01em;
@@ -15044,21 +15088,42 @@ select.block-param-input{width:auto;padding-right:20px}
   text-overflow: ellipsis;
 }
 
-.session-tile-sub {
-  font-size: 0.78rem;
+/* Last-edited / time-spent meta row */
+.session-tile-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.74rem;
   color: var(--muted);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
-.session-tile-meta {
+.session-tile-meta-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Stat pills */
+.session-tile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.session-tile-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
   font-size: 0.72rem;
-  color: rgba(168, 85, 247, 0.85);
   font-weight: 600;
-  margin-top: 4px;
+  color: var(--muted-2);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
 }
 
 .session-tile-rename {

@@ -19,7 +19,6 @@ import {
   TOOLS_BY_ID,
   makeObjectFromTool,
   newSceneObjectId,
-  saveUserTemplate,
   type SceneObject,
 } from '@/lib/scene-builder';
 
@@ -203,13 +202,6 @@ export function SimPlayground({
     setSelectedObjectId(copy.id);
   };
 
-  const handleSaveAsTemplate = () => {
-    if (sceneObjects.length === 0) return;
-    const name = window.prompt('Name your course:', 'My maze');
-    if (!name) return;
-    saveUserTemplate(studentName || 'guest', name, sceneObjects);
-    window.alert(`Saved "${name}" — find it in "Your courses" on the home screen.`);
-  };
 
   // Keyboard shortcuts when builder is on
   useEffect(() => {
@@ -470,7 +462,6 @@ export function SimPlayground({
                 onLowerSelected={handleLowerSelected}
                 onDeleteSelected={handleDeleteSelected}
                 onDuplicateSelected={handleDuplicateSelected}
-                onSaveAsTemplate={handleSaveAsTemplate}
                 objectCount={sceneObjects.length}
               />
             )}

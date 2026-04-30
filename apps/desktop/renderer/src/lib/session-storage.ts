@@ -46,6 +46,8 @@ export type SavedSession = {
   thumbnailSvg?: string;
   /** Sandbox course-builder objects placed by the user. */
   sceneObjects?: SceneObject[];
+  /** Cumulative time spent in this session, in milliseconds. */
+  totalTimeMs?: number;
 
   createdAt: number;
   lastOpenedAt: number;

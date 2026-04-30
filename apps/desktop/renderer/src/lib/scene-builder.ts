@@ -200,3 +200,81 @@ export function deleteUserTemplate(userName: string, id: string): void {
 export function cloneTemplateObjects(template: UserTemplate): SceneObject[] {
   return template.sceneObjects.map((o) => ({ ...o, id: newSceneObjectId() }));
 }
+
+// ─── Thumbnail SVG (top-down preview for session tiles) ──────────────────────
+
+const THUMB_W = 200;
+const THUMB_H = 110;
+
+const TYPE_COLORS: Record<SceneObjectType, string> = {
+  wall:     '#22c55e',
+  block:    '#5dadff',
+  cone:     '#ff8c00',
+  sphere:   '#a855f7',
+  cylinder: '#cccccc',
+  waypoint: '#4dffb8',
+  apriltag: '#f5f0e6',
+  bot:      '#5de4ff',
+};
+
+/**
+ * Render a small top-down SVG of the scene for use as a tile thumbnail.
+ * Returns null when there's nothing to draw (caller can render a placeholder).
+ */
+export function generateThumbnailSvg(objects: SceneObject[]): string | null {
+  if (objects.length === 0) return null;
+
+  // Map ARENA_HALF metres → pixel coordinate so all objects fit centred
+  const halfRange = ARENA_HALF / GRID_SIZE; // grid cells from origin
+  const sx = (THUMB_W - 16) / (halfRange * 2);
+  const sy = (THUMB_H - 16) / (halfRange * 2);
+  const cx = THUMB_W / 2;
+  const cy = THUMB_H / 2;
+
+  const px = (gx: number) => cx + gx * sx;
+  const py = (gz: number) => cy + gz * sy;
+
+  const dots = objects
+    .map((o) => {
+      const fill = TYPE_COLORS[o.type] ?? '#888';
+      const x = px(o.gx);
+      const y = py(o.gz);
+      if (o.type === 'wall' || o.type === 'block') {
+        return `<rect x="${(x - 4).toFixed(1)}" y="${(y - 4).toFixed(1)}" width="8" height="8" rx="1.5" fill="${fill}" opacity="0.85"/>`;
+      }
+      if (o.type === 'apriltag') {
+        return `<rect x="${(x - 4).toFixed(1)}" y="${(y - 4).toFixed(1)}" width="8" height="8" fill="#0a0a0a" stroke="${fill}" stroke-width="0.6"/>`;
+      }
+      if (o.type === 'bot') {
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${fill}" opacity="0.95" stroke="#fff" stroke-width="0.6"/>`;
+      }
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="${fill}" opacity="0.85"/>`;
+    })
+    .join('');
+
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${THUMB_W} ${THUMB_H}" preserveAspectRatio="xMidYMid meet">`,
+    `<rect width="${THUMB_W}" height="${THUMB_H}" fill="#0a0e1a"/>`,
+    // Subtle grid
+    Array.from({ length: 6 }).map((_, i) => `<line x1="0" y1="${(THUMB_H * (i + 1)) / 7}" x2="${THUMB_W}" y2="${(THUMB_H * (i + 1)) / 7}" stroke="rgba(120,140,255,0.08)" stroke-width="0.5"/>`).join(''),
+    Array.from({ length: 10 }).map((_, i) => `<line x1="${(THUMB_W * (i + 1)) / 11}" y1="0" x2="${(THUMB_W * (i + 1)) / 11}" y2="${THUMB_H}" stroke="rgba(120,140,255,0.08)" stroke-width="0.5"/>`).join(''),
+    dots,
+    `</svg>`,
+  ].join('');
+}
+
+// ─── Stats helpers ────────────────────────────────────────────────────────────
+
+export function countLines(text: string | undefined): number {
+  if (!text) return 0;
+  return text.split('\n').filter((l) => l.trim().length > 0).length;
+}
+
+export function formatTimeSpent(ms: number | undefined): string {
+  if (!ms || ms < 1000) return '< 1 min';
+  const totalMin = Math.floor(ms / 60_000);
+  if (totalMin < 60) return `${totalMin} min`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}

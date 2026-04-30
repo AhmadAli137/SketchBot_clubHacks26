@@ -39,16 +39,9 @@ import {
   createSession,
   groupForHome,
   getSession,
-  updateSession as updateSavedSession,
   type SavedSession,
 } from '@/lib/session-storage';
 import { SessionTile } from '@/components/session-tiles';
-import {
-  listUserTemplates,
-  deleteUserTemplate,
-  cloneTemplateObjects,
-  type UserTemplate,
-} from '@/lib/scene-builder';
 
 const CONCEPT_PREVIEWS: ConceptPreview[] = getConceptPreviews();
 
@@ -326,38 +319,6 @@ export function HomeScreen({
     return groupForHome(userName || 'guest');
   }, [sessionsRev, userName]);
 
-  // User-built course templates (Phase 2 — persisted via scene-builder lib)
-  const userTemplates: UserTemplate[] = useMemo(() => {
-    void sessionsRev;
-    return listUserTemplates(userName || 'guest');
-  }, [sessionsRev, userName]);
-
-  /** Start a new sandbox session preloaded with a saved course template. */
-  const handleStartUserTemplate = (template: UserTemplate) => {
-    if (userName) incrementSessions(userName);
-    const newSession = createSession(userName || 'guest', {
-      conceptId: null,
-      conceptTitle: template.name,
-      ageGroup,
-      prompt: '',
-      name: template.name,
-    });
-    // Seed the session with the cloned objects before launching
-    updateSavedSession(userName || 'guest', newSession.id, {
-      sceneObjects: cloneTemplateObjects(template),
-    });
-    onStartSession(undefined, undefined, ageGroup, {
-      conceptTitle: template.name,
-      sessionId: newSession.id,
-    });
-  };
-
-  const handleDeleteUserTemplate = (id: string, name: string) => {
-    if (window.confirm(`Delete "${name}"? This can't be undone.`)) {
-      deleteUserTemplate(userName || 'guest', id);
-      setSessionsRev((n) => n + 1);
-    }
-  };
 
   const handleStartChallenge = (challengeId: string) => {
     const pack = packs.find((p) => p.challenges.some((c) => c.id === challengeId));
@@ -976,106 +937,64 @@ export function HomeScreen({
             </motion.div>
           )}
 
-          {/* Your courses — user-built templates (Phase 2) */}
-          {role === 'guest' && userTemplates.length > 0 && (
+          {/* Teachers still see concept templates as their classroom CTA */}
+          {role === 'teacher' && (
             <>
-              <div className="sessions-templates-header" style={{ marginTop: 14 }}>
-                <h3>Your courses</h3>
-                <p>Built in the sandbox — click to open in a fresh session.</p>
-              </div>
-              <div className="sessions-gallery">
-                {userTemplates.map((tpl) => (
-                  <button
-                    key={tpl.id}
+              <motion.div
+                className="concept-card-grid"
+                data-tour="home-topics"
+                variants={cardGridContainer}
+                initial="hidden"
+                animate="show"
+              >
+                <motion.button
+                  type="button"
+                  className="concept-card free-explore"
+                  variants={cardGridItem}
+                  onClick={() => handleStart(null)}
+                  {...cardHoverTap}
+                >
+                  <span className="concept-card-emoji">🎨</span>
+                  <div className="concept-card-title">Free Draw</div>
+                  <div className="concept-card-subtitle">Open prompt, any subject - no guided steps</div>
+                  <div className="concept-card-domain-badge" style={{ color: 'var(--pink)', background: 'rgba(255,79,216,0.12)', borderColor: 'transparent' }}>
+                    freestyle
+                  </div>
+                </motion.button>
+
+                {visibleConcepts.map((concept) => (
+                  <motion.button
+                    key={concept.id}
                     type="button"
-                    className="user-course-tile"
-                    onClick={() => handleStartUserTemplate(tpl)}
+                    data-concept={concept.id}
+                    className={`concept-card ${
+                      (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(concept.id)
+                        ? 'concept-card--robot-lab'
+                        : ''
+                    }`}
+                    variants={cardGridItem}
+                    onClick={() => handleStart(concept)}
+                    {...cardHoverTap}
                   >
-                    <span className="user-course-tile-emoji">🧱</span>
-                    <div className="user-course-tile-title">{tpl.name}</div>
-                    <div className="user-course-tile-sub">
-                      {tpl.sceneObjects.length} object{tpl.sceneObjects.length === 1 ? '' : 's'}
-                    </div>
-                    <button
-                      type="button"
-                      className="user-course-tile-delete"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteUserTemplate(tpl.id, tpl.name);
-                      }}
-                      aria-label="Delete course"
-                      title="Delete"
-                    >
-                      ×
-                    </button>
-                  </button>
+                    <span className="concept-card-emoji">{concept.emoji}</span>
+                    <div className="concept-card-title">{concept.title}</div>
+                    <div className="concept-card-subtitle">{concept.subtitle}</div>
+                    <div className="concept-card-domain-badge">{concept.domain}</div>
+                  </motion.button>
                 ))}
-              </div>
+              </motion.div>
+
+              {!showAllTopics && CONCEPT_PREVIEWS.length > visibleConcepts.length && (
+                <button type="button" className="show-all-topics-btn" onClick={() => setShowAllTopics(true)}>
+                  Show all topics
+                </button>
+              )}
+              {showAllTopics && (
+                <button type="button" className="show-all-topics-btn" onClick={() => setShowAllTopics(false)}>
+                  Show fewer topics
+                </button>
+              )}
             </>
-          )}
-
-          {role === 'guest' && (
-            <div className="sessions-templates-header">
-              <h3>Or start from a template</h3>
-              <p>Each one opens a new session pre-loaded with a concept and starter prompt.</p>
-            </div>
-          )}
-
-          <motion.div
-            className="concept-card-grid"
-            data-tour="home-topics"
-            variants={cardGridContainer}
-            initial="hidden"
-            animate="show"
-          >
-            {role !== 'guest' && (
-              <motion.button
-                type="button"
-                className="concept-card free-explore"
-                variants={cardGridItem}
-                onClick={() => handleStart(null)}
-                {...cardHoverTap}
-              >
-                <span className="concept-card-emoji">🎨</span>
-                <div className="concept-card-title">Free Draw</div>
-                <div className="concept-card-subtitle">Open prompt, any subject - no guided steps</div>
-                <div className="concept-card-domain-badge" style={{ color: 'var(--pink)', background: 'rgba(255,79,216,0.12)', borderColor: 'transparent' }}>
-                  freestyle
-                </div>
-              </motion.button>
-            )}
-
-            {visibleConcepts.map((concept) => (
-              <motion.button
-                key={concept.id}
-                type="button"
-                data-concept={concept.id}
-                className={`concept-card ${
-                  (ROBOT_LAB_CONCEPT_IDS as readonly string[]).includes(concept.id)
-                    ? 'concept-card--robot-lab'
-                    : ''
-                }`}
-                variants={cardGridItem}
-                onClick={() => handleStart(concept)}
-                {...cardHoverTap}
-              >
-                <span className="concept-card-emoji">{concept.emoji}</span>
-                <div className="concept-card-title">{concept.title}</div>
-                <div className="concept-card-subtitle">{concept.subtitle}</div>
-                <div className="concept-card-domain-badge">{concept.domain}</div>
-              </motion.button>
-            ))}
-          </motion.div>
-
-          {!showAllTopics && CONCEPT_PREVIEWS.length > visibleConcepts.length && (
-            <button type="button" className="show-all-topics-btn" onClick={() => setShowAllTopics(true)}>
-              Show all topics
-            </button>
-          )}
-          {showAllTopics && (
-            <button type="button" className="show-all-topics-btn" onClick={() => setShowAllTopics(false)}>
-              Show fewer topics
-            </button>
           )}
         </div>
         )}

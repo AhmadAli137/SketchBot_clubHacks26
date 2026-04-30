@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Trash2, RotateCw, ArrowUp, ArrowDown, Copy, Save } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, RotateCw, ArrowUp, ArrowDown, Copy } from 'lucide-react';
 
 import {
   TOOLS,
@@ -30,7 +30,6 @@ type BuilderRailProps = {
   onLowerSelected: () => void;
   onDeleteSelected: () => void;
   onDuplicateSelected: () => void;
-  onSaveAsTemplate: () => void;
 
   objectCount: number;
 };
@@ -47,7 +46,6 @@ export function BuilderRail({
   onLowerSelected,
   onDeleteSelected,
   onDuplicateSelected,
-  onSaveAsTemplate,
   objectCount,
 }: BuilderRailProps) {
   const [activeCategory, setActiveCategory] = useState<ToolCategory>('walls');
@@ -188,17 +186,6 @@ export function BuilderRail({
                 </button>
               </div>
             </div>
-
-            {/* Save course as a reusable template */}
-            {objectCount > 0 && (
-              <button
-                type="button"
-                className="builder-save-template"
-                onClick={onSaveAsTemplate}
-              >
-                <Save size={13} /> Save as template
-              </button>
-            )}
 
             {/* Clear all */}
             {objectCount > 0 && (

@@ -14,7 +14,7 @@ import { LearningHeader } from '@/components/student-dashboard/learning-header';
 import { LearningStage } from '@/components/student-dashboard/learning-stage';
 import { PromptComposer } from '@/components/student-dashboard/prompt-composer';
 import { SimPlayground } from '@/components/sim-playground';
-import type { SceneObject } from '@/lib/scene-builder';
+import { type SceneObject, generateThumbnailSvg } from '@/lib/scene-builder';
 import { getSession as getSavedSession, updateSession as updateSavedSessionRecord } from '@/lib/session-storage';
 import type { StudentDashboardProps } from '@/components/student-dashboard/types';
 import type { AgeGroup, ConceptLayer, InputMode } from '@/lib/concept-types';
@@ -113,11 +113,15 @@ export function StudentDashboard({
     const saved = getSavedSession(studentName || 'guest', sessionId);
     setSceneObjects(saved?.sceneObjects ?? []);
   }, [sessionId, studentName]);
-  // Debounced auto-save back to the SavedSession
+  // Debounced auto-save back to the SavedSession (also regenerates thumbnail)
   useEffect(() => {
     if (!sessionId) return;
     const handle = setTimeout(() => {
-      updateSavedSessionRecord(studentName || 'guest', sessionId, { sceneObjects });
+      const thumb = generateThumbnailSvg(sceneObjects);
+      updateSavedSessionRecord(studentName || 'guest', sessionId, {
+        sceneObjects,
+        thumbnailSvg: thumb ?? undefined,
+      });
     }, 400);
     return () => clearTimeout(handle);
   }, [sceneObjects, sessionId, studentName]);
