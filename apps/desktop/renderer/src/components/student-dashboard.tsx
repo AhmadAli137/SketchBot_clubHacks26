@@ -710,6 +710,7 @@ export function StudentDashboard({
           ) : undefined
         }
         sessionId={sessionId}
+        isSandbox={appMode === 'sandbox'}
         onBackToHome={onBackToHome}
         onAgeGroupChange={setAgeGroup}
         onOpenConceptMap={() => setShowConceptMap(true)}

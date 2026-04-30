@@ -38,6 +38,7 @@ export function LearningHeader({
   planTier,
   profileAvatar,
   sessionId,
+  isSandbox = false,
   onBackToHome,
   onAgeGroupChange,
   onOpenConceptMap,
@@ -117,8 +118,9 @@ export function LearningHeader({
           <span className="learn-header-name">Aibotics</span>
         </div>
 
-        <div className="learn-header-divider" />
+        {!isSandbox && <div className="learn-header-divider" />}
 
+        {!isSandbox && (
         <div className="learn-concept-picker-wrapper" ref={conceptDropdownRef}>
           <button
             type="button"
@@ -167,9 +169,11 @@ export function LearningHeader({
             </div>
           )}
         </div>
+        )}
 
-        <div className="learn-header-divider" />
+        {!isSandbox && <div className="learn-header-divider" />}
 
+        {!isSandbox && (
         <div className="gamification-bar" data-tour="gamification-bar" title={`Level ${level}: ${levelName} — ${xp} XP (${Math.round(xpProgress * 100)}% to next)`}>
           <span className="gamification-level-badge">
             <span className="gamification-level-emoji">{levelEmoji}</span>
@@ -186,6 +190,7 @@ export function LearningHeader({
             </span>
           )}
         </div>
+        )}
 
         <div className="learn-header-spacer" />
 
@@ -261,7 +266,7 @@ export function LearningHeader({
           <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600 }}>{sysLabel}</span>
         </button>
 
-        {sparks > 0 && (
+        {!isSandbox && sparks > 0 && (
           <button
             type="button"
             className="header-sparks-pill"
@@ -276,7 +281,7 @@ export function LearningHeader({
           </button>
         )}
 
-        {creditsRemaining !== undefined && monthlyCredits !== undefined && (
+        {!isSandbox && creditsRemaining !== undefined && monthlyCredits !== undefined && (
           <div
             className={`header-credits-pill ${creditsRemaining <= 0 ? 'depleted' : creditsRemaining < monthlyCredits * 0.15 ? 'low' : ''}`}
             title={`${creditsRemaining} of ${monthlyCredits} AI credits remaining this month${planTier ? ` · ${planTier} plan` : ''}`}
@@ -286,17 +291,19 @@ export function LearningHeader({
           </div>
         )}
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onOpenConceptMap}
-          title="Learning path — lessons, unlocks, and your stats"
-          className="rounded-[var(--radius-md)]"
-          data-tour="header-map-btn"
-        >
-          <Map size={13} />
-          Map
-        </Button>
+        {!isSandbox && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenConceptMap}
+            title="Learning path — lessons, unlocks, and your stats"
+            className="rounded-[var(--radius-md)]"
+            data-tour="header-map-btn"
+          >
+            <Map size={13} />
+            Map
+          </Button>
+        )}
 
         <button
           type="button"

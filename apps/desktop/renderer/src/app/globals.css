@@ -5213,7 +5213,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 60px 0 14px; /* right padding reserves space for fixed app-profile-btn */
+  padding: 0 76px 0 14px; /* right padding reserves space for fixed app-profile-btn */
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   backdrop-filter: blur(20px);
@@ -10726,8 +10726,8 @@ select.block-param-input{width:auto;padding-right:20px}
 /* ─── Fixed app-level profile button ─────────────────────────────────────── */
 .app-profile-btn {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: 14px;
+  right: 22px;
   z-index: 180;
   width: 36px;
   height: 36px;

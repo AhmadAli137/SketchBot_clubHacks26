@@ -103,6 +103,9 @@ export type LearningHeaderProps = {
   profileAvatar?: ReactNode;
   /** Active SavedSession id, used for the save-status indicator. */
   sessionId?: string | null;
+  /** True for free-form sandbox sessions — hides gamification + concept
+   *  + map UI from the header so the workspace feels open-ended. */
+  isSandbox?: boolean;
   onBackToHome?: () => void;
   onAgeGroupChange: (ageGroup: AgeGroup) => void;
   onOpenConceptMap: () => void;
