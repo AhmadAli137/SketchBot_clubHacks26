@@ -8,7 +8,7 @@
 
 import { useMemo, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Grid, OrbitControls } from '@react-three/drei';
+import { ContactShadows, Grid, OrbitControls, GizmoHelper, GizmoViewcube } from '@react-three/drei';
 import * as THREE from 'three';
 
 import { RobotGantry } from './robot-gantry';
@@ -438,6 +438,20 @@ function SceneContent({
 
       <OrbitControls makeDefault enablePan enableZoom enableRotate={!isDragging}
         minDistance={1.5} maxDistance={14} maxPolarAngle={Math.PI * 0.88} target={[0, 0.2, 0]} />
+
+      {/* Tinkercad-style ViewCube — click a face to snap the camera, or drag
+          the cube to orbit. Only shown in sandbox sessions. */}
+      {isSandboxEnv && (
+        <GizmoHelper alignment="top-right" margin={[64, 56]}>
+          <GizmoViewcube
+            color="rgba(20,28,60,0.9)"
+            opacity={0.95}
+            strokeColor="rgba(168,85,247,0.6)"
+            textColor="white"
+            faces={['Right', 'Left', 'Top', 'Bottom', 'Front', 'Back']}
+          />
+        </GizmoHelper>
+      )}
     </>
   );
 }

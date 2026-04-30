@@ -2,7 +2,9 @@
 
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Download, Lightbulb, Mic, MicOff, RefreshCw, RotateCcw, Send, Square, TrendingUp, Volume2, VolumeX, WifiOff, X } from 'lucide-react';
+import { ArrowRight, Download, Lightbulb, Mic, MicOff, RefreshCw, RotateCcw, Send, Square, TrendingUp, Volume2, VolumeX, WifiOff, X, MessageSquare, Video } from 'lucide-react';
+
+import { TutorFaceMode } from '@/components/tutor-face-mode';
 import { AGE_GROUP_META, LAYER_META, type AgeGroup, type ConceptLayer } from '@/lib/concept-types';
 import { ROBOT_LAB_CONCEPT_IDS } from '@/lib/concept-catalog';
 import { concatFloat32, pcmToWavBlob, resamplePcmTo16k } from '@/lib/audio-utils';
@@ -976,6 +978,8 @@ export function TutorPanel({
 }: TutorPanelProps) {
   const sessionActorRole: 'teacher' | 'student' = sessionActorRoleProp ?? 'student';
   const [messages, setMessages] = useState<TutorMessage[]>([]);
+  /** 'chat' = traditional scrollback, 'face' = video-call style with big Spark. */
+  const [displayMode, setDisplayMode] = useState<'chat' | 'face'>('chat');
   // Load chat history from the active SavedSession on mount / when sessionId changes
   const sessionLoadedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1587,6 +1591,16 @@ export function TutorPanel({
               ) : null}
             </div>
           </div>
+          {/* Chat ↔ Face mode toggle */}
+          <button
+            type="button"
+            className={`tutor-icon-btn ${displayMode === 'face' ? 'active' : ''}`}
+            onClick={() => setDisplayMode((m) => (m === 'face' ? 'chat' : 'face'))}
+            title={displayMode === 'face' ? 'Switch to chat' : 'Switch to face mode (video call with Spark)'}
+            aria-label={displayMode === 'face' ? 'Show chat history' : 'Show Spark face mode'}
+          >
+            {displayMode === 'face' ? <MessageSquare size={13} /> : <Video size={13} />}
+          </button>
           {/* Clear conversation */}
           <button
             type="button"
@@ -1660,8 +1674,21 @@ export function TutorPanel({
         </div>
       </div>
 
-      {/* Message feed */}
-      <div ref={feedRef} className="tutor-feed">
+      {/* Face mode replaces the chat scrollback when toggled on */}
+      {displayMode === 'face' && (
+        <TutorFaceMode
+          messages={messages}
+          ttsSpeaking={tts.speaking}
+          onExit={() => setDisplayMode('chat')}
+        />
+      )}
+
+      {/* Message feed (chat mode) */}
+      <div
+        ref={feedRef}
+        className="tutor-feed"
+        style={displayMode === 'face' ? { display: 'none' } : undefined}
+      >
         {messages.length === 0 && (
           <div style={{ color: 'var(--muted)', fontSize: '0.82rem', textAlign: 'center', paddingTop: 20 }}>
             Connecting to tutor…

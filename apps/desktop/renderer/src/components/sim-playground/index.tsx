@@ -312,8 +312,11 @@ export function SimPlayground({
   });
 
   const hasDimensions = containerSize.w > 10 && containerSize.h > 10;
-  const show3D = (viewMode === '3d' || viewMode === 'split') && hasDimensions;
-  const show2D = viewMode === '2d' || viewMode === 'split';
+  // Sandbox: always full 3D (ViewCube replaces the 2D split pane).
+  // Drawing mode: respect the user's view tabs.
+  const effectiveViewMode: ViewMode = builderAvailable ? '3d' : viewMode;
+  const show3D = (effectiveViewMode === '3d' || effectiveViewMode === 'split') && hasDimensions;
+  const show2D = effectiveViewMode === '2d' || effectiveViewMode === 'split';
 
   return (
     <div
@@ -339,20 +342,22 @@ export function SimPlayground({
           </button>
         )}
 
-        {/* View mode tabs — friendly icons */}
-        <div className="sim-view-tabs">
-          {(['3d', 'split', '2d'] as ViewMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              className={`sim-view-tab ${viewMode === mode ? 'active' : ''}`}
-              onClick={() => setViewMode(mode)}
-              title={mode === '3d' ? '3D view' : mode === 'split' ? 'Side-by-side' : 'Bird’s-eye'}
-            >
-              {mode === '3d' ? '3D' : mode === 'split' ? <View size={12} /> : 'Top'}
-            </button>
-          ))}
-        </div>
+        {/* View mode tabs — only in drawing mode (sandbox uses ViewCube instead) */}
+        {!builderAvailable && (
+          <div className="sim-view-tabs">
+            {(['3d', 'split', '2d'] as ViewMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={`sim-view-tab ${viewMode === mode ? 'active' : ''}`}
+                onClick={() => setViewMode(mode)}
+                title={mode === '3d' ? '3D view' : mode === 'split' ? 'Side-by-side' : 'Bird’s-eye'}
+              >
+                {mode === '3d' ? '3D' : mode === 'split' ? <View size={12} /> : 'Top'}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Drawing-mode controls — only shown when there's actually a drawing
             to play (free-draw / lesson concepts). Sandbox hides all this. */}
@@ -456,7 +461,7 @@ export function SimPlayground({
         {show3D && (
           <div
             className="sim-3d-pane"
-            style={{ flex: viewMode === 'split' ? '0 0 68%' : '1' }}
+            style={{ flex: effectiveViewMode === 'split' ? '0 0 68%' : '1' }}
           >
             <Scene3D
               settledLines={settledLines}
@@ -518,7 +523,7 @@ export function SimPlayground({
           <div
             ref={topViewRef}
             className="sim-2d-pane"
-            style={{ flex: viewMode === 'split' ? '0 0 32%' : '1' }}
+            style={{ flex: effectiveViewMode === 'split' ? '0 0 32%' : '1' }}
           >
             <div className="sim-2d-label">{builderAvailable ? 'Bird’s-eye view' : 'Top View'}</div>
             <TopView

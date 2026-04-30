@@ -8120,6 +8120,123 @@ select.block-param-input{width:auto;padding-right:20px}
   min-height: 0;
 }
 
+/* ── Tutor Face Mode (video-call vibe) ──────────────────────────────────── */
+
+.tutor-face {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 18px;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 32%, rgba(168, 85, 247, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 70% at 50% 100%, rgba(93, 228, 255, 0.12) 0%, transparent 65%),
+    linear-gradient(180deg, #0a0e22 0%, #060816 100%);
+}
+
+.tutor-face-back {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 18, 38, 0.85);
+  backdrop-filter: blur(10px);
+  color: var(--muted-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.tutor-face-back:hover {
+  background: rgba(28, 32, 70, 0.95);
+  color: var(--text);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.tutor-face-state {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(15, 18, 38, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted-2);
+}
+.tutor-face-state--thinking    { color: rgb(216, 180, 254); border-color: rgba(168, 85, 247, 0.4); }
+.tutor-face-state--talking     { color: rgb(125, 211, 252); border-color: rgba(93, 228, 255, 0.45); }
+.tutor-face-state--celebrating { color: rgb(255, 215, 116); border-color: rgba(255, 200, 80, 0.45); }
+.tutor-face-state--guiding     { color: rgb(165, 180, 252); border-color: rgba(107, 124, 255, 0.45); }
+.tutor-face-state--agreeing    { color: rgb(110, 231, 183); border-color: rgba(16, 185, 129, 0.45); }
+.tutor-face-state--idle        { color: var(--muted); }
+
+.tutor-face-stage {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  padding-top: 36px;
+  position: relative;
+}
+
+/* Pulsing aura when TTS is playing */
+.tutor-face-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 70%, rgba(93, 228, 255, 0.18) 0%, transparent 45%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.tutor-face-stage.pulsing::before { opacity: 1; }
+
+.tutor-face-caption {
+  width: 100%;
+  max-width: 460px;
+  margin-top: 12px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(15, 18, 38, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  color: var(--text);
+  font-size: 0.96rem;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+  text-align: center;
+  font-weight: 500;
+  box-shadow: 0 12px 36px rgba(168, 85, 247, 0.15);
+}
+
+.tutor-face-caption--idle {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.86rem;
+}
+
 /* ── Sandbox: friendly Build CTA + view tabs + view-options popover ── */
 
 .sim-playground-toolbar.sandbox {
