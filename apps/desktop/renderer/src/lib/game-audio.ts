@@ -463,6 +463,14 @@ let bassStepIdx = 0;
 /** Sandbox playlist state — only meaningful when conceptId === null. */
 let sandboxPlaylistIdx = 0;
 let isPlayingSandboxPlaylist = false;
+/** Set to true between detecting "track-cycle complete" and the new track
+ *  actually starting, so the next interval tick doesn't fire the advance
+ *  again from the still-running old interval. */
+let pendingPlaylistAdvance = false;
+/** Each sandbox track plays this many bars before crossfading to the next.
+ *  Full songs are ~30-40 bars (~1-2 minutes); we cut after 16 bars so
+ *  the rotation is perceivable in a typical play session. */
+const SANDBOX_BARS_PER_TRACK = 16;
 
 function stopBgmOscillators() {
   bgmOscillators.forEach(o => { try { o.stop(); } catch { /* already stopped */ } });
@@ -686,21 +694,33 @@ export function playBGM(conceptId?: string | null) {
   const beatMs = (60 / config.bpm) * 500; // 8th note in ms
 
   /** Total bars in this song. Used to detect a full song-cycle completion
-   *  so we can advance the sandbox playlist to the next track. */
+   *  for concept BGMs (which loop the song forever). For the sandbox
+   *  playlist we use SANDBOX_BARS_PER_TRACK (shorter) so rotation is
+   *  perceivable within a normal play window. */
   const totalBars = config.sections.reduce((a, s) => a + s.bars, 0);
-  const totalSteps = totalBars * 8;
+  const advanceBars = isPlayingSandboxPlaylist ? SANDBOX_BARS_PER_TRACK : totalBars;
+  const advanceSteps = advanceBars * 8;
 
   bgmInterval = setInterval(() => {
     if (!bgmGain || !bgmEnabled) return;
 
     // ── Sandbox playlist advance ───────────────────────────────────────
-    // When the song hits the end of its full structural cycle (intro →
-    // chorus → outro), rotate to the next track in the playlist. The
-    // crossfade in playBGM() handles the transition smoothly.
-    if (isPlayingSandboxPlaylist && stepIdx > 0 && stepIdx % totalSteps === 0) {
+    // After SANDBOX_BARS_PER_TRACK bars, rotate to the next track in the
+    // playlist. The crossfade in playBGM() handles the transition smoothly.
+    // pendingPlaylistAdvance prevents double-fire from the still-running
+    // old interval during the crossfade window.
+    if (
+      isPlayingSandboxPlaylist
+      && !pendingPlaylistAdvance
+      && stepIdx > 0
+      && stepIdx % advanceSteps === 0
+    ) {
+      pendingPlaylistAdvance = true;
       sandboxPlaylistIdx += 1;
-      // Defer to next tick so we don't recurse-mutate during this interval body.
-      setTimeout(() => playBGM(null), 0);
+      setTimeout(() => {
+        pendingPlaylistAdvance = false;
+        playBGM(null);
+      }, 0);
       return;
     }
 
@@ -803,6 +823,7 @@ export function stopBGM() {
   currentBgmConfig = null;
   // Reset playlist mode so a future playBGM() starts fresh
   isPlayingSandboxPlaylist = false;
+  pendingPlaylistAdvance = false;
 }
 
 // ─── Musical context for SFX ──────────────────────────────────────────────────

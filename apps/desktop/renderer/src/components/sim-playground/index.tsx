@@ -260,10 +260,13 @@ export function SimPlayground({
   const env = getEnvironment(conceptId);
   const tutorialSteps = getTutorialSteps(conceptId, activeLayer);
 
-  // BGM: play concept theme, stop on unmount
+  // BGM:
+  //  • concept session  → play that concept's theme (loops in place)
+  //  • sandbox / blank  → playBGM(null) starts the rotating sandbox playlist
+  //                        (geometry-drawing → maze-marathon → path-planning → repeat)
+  //  • on unmount       → stop
   useEffect(() => {
-    if (conceptId) playBGM(conceptId);
-    else stopBGM();
+    playBGM(conceptId ?? null);
     return () => stopBGM();
   }, [conceptId]);
 
