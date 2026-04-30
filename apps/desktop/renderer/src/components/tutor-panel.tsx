@@ -978,8 +978,27 @@ export function TutorPanel({
 }: TutorPanelProps) {
   const sessionActorRole: 'teacher' | 'student' = sessionActorRoleProp ?? 'student';
   const [messages, setMessages] = useState<TutorMessage[]>([]);
-  /** 'chat' = traditional scrollback, 'face' = video-call style with big Spark. */
-  const [displayMode, setDisplayMode] = useState<'chat' | 'face'>('chat');
+  /** 'chat' = traditional scrollback, 'face' = video-call style with big Spark.
+   *  Defaults to 'face' (kid-friendly), persisted per browser. Educators can
+   *  flip to chat for transcript/audit. */
+  const [displayMode, setDisplayMode] = useState<'chat' | 'face'>(() => {
+    if (typeof window === 'undefined') return 'face';
+    try {
+      const saved = window.localStorage.getItem('sketchbot.tutor.displayMode');
+      return saved === 'chat' ? 'chat' : 'face';
+    } catch {
+      return 'face';
+    }
+  });
+  // Persist whenever user toggles
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('sketchbot.tutor.displayMode', displayMode);
+    } catch {
+      /* ignore quota / disabled storage */
+    }
+  }, [displayMode]);
   // Load chat history from the active SavedSession on mount / when sessionId changes
   const sessionLoadedRef = useRef<string | null>(null);
   useEffect(() => {

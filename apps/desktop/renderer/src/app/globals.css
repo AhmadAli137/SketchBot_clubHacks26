@@ -4518,20 +4518,20 @@ body {
 .tutor-feed {
   flex: 1;
   overflow-y: auto;
-  padding: 14px;
+  padding: 18px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
   min-height: 0;
 }
 
-.tutor-feed::-webkit-scrollbar { width: 3px; }
+.tutor-feed::-webkit-scrollbar { width: 6px; }
 .tutor-feed::-webkit-scrollbar-track { background: transparent; }
 .tutor-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
 
 .tutor-msg-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: flex-start;
 }
 
@@ -4540,36 +4540,46 @@ body {
 }
 
 .tutor-msg-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  font-size: 11px;
+  font-size: 18px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(93, 228, 255, 0.16), rgba(107, 124, 255, 0.1));
-  border: 1px solid rgba(93, 228, 255, 0.18);
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.22), rgba(107, 124, 255, 0.14));
+  border: 1px solid rgba(93, 228, 255, 0.3);
+  box-shadow: 0 4px 14px rgba(93, 228, 255, 0.15);
+}
+
+.tutor-msg-row.from-student .tutor-msg-avatar {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.22), rgba(107, 124, 255, 0.14));
+  border-color: rgba(168, 85, 247, 0.3);
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.15);
 }
 
 .tutor-msg-bubble {
-  max-width: calc(100% - 34px);
-  padding: 9px 11px;
-  border-radius: 13px;
-  font-size: 0.84rem;
-  line-height: 1.55;
+  max-width: calc(100% - 50px);
+  padding: 14px 18px;
+  border-radius: 20px;
+  font-size: 1rem;
+  line-height: 1.6;
   color: var(--text);
+  letter-spacing: -0.005em;
 }
 
 .tutor-msg-row:not(.from-student) .tutor-msg-bubble {
-  background: linear-gradient(135deg, rgba(93, 228, 255, 0.08), rgba(107, 124, 255, 0.05));
-  border: 1px solid rgba(93, 228, 255, 0.14);
-  border-top-left-radius: 4px;
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.1), rgba(107, 124, 255, 0.06));
+  border: 1px solid rgba(93, 228, 255, 0.2);
+  border-top-left-radius: 6px;
+  box-shadow: 0 2px 12px rgba(93, 228, 255, 0.06);
 }
 
 .tutor-msg-row.from-student .tutor-msg-bubble {
-  background: linear-gradient(135deg, rgba(107, 124, 255, 0.12), rgba(168, 85, 247, 0.07));
-  border: 1px solid rgba(107, 124, 255, 0.16);
-  border-top-right-radius: 4px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.16), rgba(107, 124, 255, 0.09));
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  border-top-right-radius: 6px;
+  box-shadow: 0 2px 12px rgba(168, 85, 247, 0.08);
 }
 
 /* Spoken vs written-only sections (--- delimiter from tutor prompts) */
@@ -4580,11 +4590,12 @@ body {
 }
 
 .tutor-msg-detail {
-  padding-top: 8px;
-  margin-top: 2px;
-  border-top: 1px solid rgba(93, 228, 255, 0.12);
-  font-size: 0.92em;
-  color: var(--muted);
+  padding-top: 12px;
+  margin-top: 4px;
+  border-top: 1px dashed rgba(93, 228, 255, 0.18);
+  font-size: 0.94em;
+  line-height: 1.65;
+  color: var(--muted-2);
 }
 
 .tutor-msg-detail .tutor-para:first-child {
@@ -4699,21 +4710,26 @@ body {
 .tutor-starter-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 12px 10px;
+  gap: 8px;
+  padding: 4px 14px 12px;
 }
 
 .tutor-chip {
-  padding: 5px 11px;
+  padding: 9px 16px;
   border-radius: 999px;
-  border: 1px solid rgba(93, 228, 255, 0.18);
-  background: rgba(93, 228, 255, 0.06);
+  border: 1px solid rgba(93, 228, 255, 0.22);
+  background: rgba(93, 228, 255, 0.08);
   color: var(--cyan);
-  font-size: 0.74rem;
-  font-weight: 500;
+  font-size: 0.92rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.14s ease;
   white-space: nowrap;
+}
+.tutor-chip:hover {
+  background: rgba(93, 228, 255, 0.14);
+  border-color: rgba(93, 228, 255, 0.4);
+  transform: translateY(-1px);
 }
 .tutor-chip:hover {
   background: rgba(93, 228, 255, 0.13);
@@ -4907,16 +4923,25 @@ body {
 
 .tutor-input {
   flex: 1;
-  padding: 9px 12px;
-  border-radius: 11px;
+  padding: 14px 16px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
-  font-size: 0.84rem;
+  font-size: 1rem;
+  line-height: 1.45;
   outline: none;
-  transition: border-color 0.14s ease;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
   min-height: 0;
   resize: none;
+}
+.tutor-input:focus {
+  border-color: rgba(93, 228, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(93, 228, 255, 0.1);
+}
+.tutor-input::placeholder {
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .tutor-input::placeholder { color: var(--muted); }
