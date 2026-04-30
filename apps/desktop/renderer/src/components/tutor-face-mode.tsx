@@ -98,6 +98,16 @@ function spokenSection(text: string): string {
   return text.slice(0, dashIdx).trim();
 }
 
+/** Split spoken text into sentences. Basic but works for typical English —
+ *  splits on . / ! / ? followed by whitespace, preserves the punctuation. */
+function splitSentences(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const matches = trimmed.match(/[^.!?]+[.!?]+(?:\s|$)|\S[^.!?]*$/g);
+  if (!matches) return [trimmed];
+  return matches.map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
 /** UI labels + colors for each scene — drives the floating state chip. */
 type FaceStateMeta = { label: string; color: string };
 
@@ -128,31 +138,18 @@ const SCENE_META: Record<number, FaceStateMeta> = {
   [SPARK_SCENES.POINT_UP]:    { label: '☝️ Up there',       color: 'rgba(255,200,90,0.95)' },
 };
 
-function deriveState(latest: TutorMessage | undefined, isStreaming: boolean): {
-  scene: number;
-  caption: string;
-  meta: FaceStateMeta;
-} {
-  if (!latest) {
-    return { scene: SPARK_SCENES.IDLE, caption: '', meta: SCENE_META[SPARK_SCENES.IDLE]! };
-  }
-  if (latest.role !== 'tutor') {
-    return { scene: SPARK_SCENES.LISTENING, caption: '', meta: SCENE_META[SPARK_SCENES.LISTENING]! };
-  }
+/**
+ * Per-sentence classification. Returns the array of sentences in the message's
+ * spoken section so the face-mode component can advance through them and
+ * reflect each one's emotional beat with its own scene.
+ */
+function deriveSentences(latest: TutorMessage | undefined): string[] {
+  if (!latest || latest.role !== 'tutor') return [];
+  return splitSentences(spokenSection(latest.content));
+}
 
-  const spoken = spokenSection(latest.content);
-  if (latest.isStreaming && spoken.length === 0) {
-    return { scene: SPARK_SCENES.THINKING, caption: '…', meta: SCENE_META[SPARK_SCENES.THINKING]! };
-  }
-
-  // While streaming with text → talking animation regardless of content
-  // (the content-based scene takes over once the message settles).
-  if (latest.isStreaming) {
-    return { scene: SPARK_SCENES.TALKING, caption: spoken, meta: SCENE_META[SPARK_SCENES.TALKING]! };
-  }
-
-  const scene = classifyScene(spoken);
-  return { scene, caption: spoken, meta: SCENE_META[scene] ?? SCENE_META[SPARK_SCENES.TALKING]! };
+function metaFor(scene: number): FaceStateMeta {
+  return SCENE_META[scene] ?? SCENE_META[SPARK_SCENES.TALKING]!;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -168,11 +165,56 @@ export function TutorFaceMode({ messages, ttsSpeaking, sparkVariant = 'mark', on
   const latest = messages.at(-1);
   const isStreaming = Boolean(latest?.isStreaming);
 
-  const { scene, caption, meta } = useMemo(
-    () => deriveState(latest, isStreaming),
-    // re-derive when the latest message text/streaming state changes
-    [latest?.id, latest?.content, latest?.role, isStreaming],
-  );
+  // Sentence-aware state cycling — split the spoken section into sentences,
+  // and advance the active sentence over time so each emotional beat in a
+  // long message gets its own face animation + caption.
+  const sentences = useMemo(() => deriveSentences(latest), [latest?.id, latest?.content, latest?.role]);
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  useEffect(() => {
+    if (sentences.length === 0) {
+      setActiveIdx(0);
+      return;
+    }
+    if (isStreaming) {
+      // Pin to the latest (still-streaming) sentence so the face animates
+      // along with new tokens arriving.
+      setActiveIdx(sentences.length - 1);
+      return;
+    }
+    // Stream is done → cycle through all sentences at TTS-estimated pace.
+    setActiveIdx(0);
+    if (sentences.length === 1) return;
+
+    const charsPerSec = 14;        // typical TTS reading speed
+    const minHoldMs   = 1500;      // never cut a sentence shorter than this
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let elapsed = 0;
+    for (let i = 1; i < sentences.length; i++) {
+      const prev = sentences[i - 1] ?? '';
+      const dur = Math.max(minHoldMs, (prev.length / charsPerSec) * 1000);
+      elapsed += dur;
+      const idx = i;
+      timers.push(setTimeout(() => setActiveIdx(idx), elapsed));
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [sentences, isStreaming]);
+
+  // Resolve current scene + caption from the active sentence.
+  const { scene, caption, meta } = useMemo(() => {
+    if (!latest) {
+      return { scene: SPARK_SCENES.IDLE, caption: '', meta: metaFor(SPARK_SCENES.IDLE) };
+    }
+    if (latest.role !== 'tutor') {
+      return { scene: SPARK_SCENES.LISTENING, caption: '', meta: metaFor(SPARK_SCENES.LISTENING) };
+    }
+    if (sentences.length === 0 && isStreaming) {
+      return { scene: SPARK_SCENES.THINKING, caption: '…', meta: metaFor(SPARK_SCENES.THINKING) };
+    }
+    const active = sentences[activeIdx] ?? sentences.at(-1) ?? '';
+    const s = classifyScene(active);
+    return { scene: s, caption: active, meta: metaFor(s) };
+  }, [latest, sentences, activeIdx, isStreaming]);
 
   // Bump the speech key whenever the caption changes so SparkRobot replays the
   // entrance animation for the new line.
