@@ -14,6 +14,8 @@ import { LearningHeader } from '@/components/student-dashboard/learning-header';
 import { LearningStage } from '@/components/student-dashboard/learning-stage';
 import { PromptComposer } from '@/components/student-dashboard/prompt-composer';
 import { SimPlayground } from '@/components/sim-playground';
+import type { SceneObject } from '@/lib/scene-builder';
+import { getSession as getSavedSession, updateSession as updateSavedSessionRecord } from '@/lib/session-storage';
 import type { StudentDashboardProps } from '@/components/student-dashboard/types';
 import type { AgeGroup, ConceptLayer, InputMode } from '@/lib/concept-types';
 import {
@@ -102,6 +104,23 @@ export function StudentDashboard({
 
   const [activeLayer, setActiveLayer] = useState<ConceptLayer>('intuitive');
   const [ageGroup, setAgeGroup] = useState<AgeGroup>(ageGroupProp);
+  // Sandbox course-builder state — hydrated from the active SavedSession
+  const [sceneObjects, setSceneObjects] = useState<SceneObject[]>([]);
+  const sceneSessionLoadedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sessionId || sceneSessionLoadedRef.current === sessionId) return;
+    sceneSessionLoadedRef.current = sessionId;
+    const saved = getSavedSession(studentName || 'guest', sessionId);
+    setSceneObjects(saved?.sceneObjects ?? []);
+  }, [sessionId, studentName]);
+  // Debounced auto-save back to the SavedSession
+  useEffect(() => {
+    if (!sessionId) return;
+    const handle = setTimeout(() => {
+      updateSavedSessionRecord(studentName || 'guest', sessionId, { sceneObjects });
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [sceneObjects, sessionId, studentName]);
   const [showSystemStatus, setShowSystemStatus] = useState(false);
   const [showConceptMap, setShowConceptMap] = useState(false);
   const [celebrationBadge, setCelebrationBadge] = useState<{ emoji: string; name: string } | null>(null);
@@ -467,6 +486,9 @@ export function StudentDashboard({
           style={{ position: 'absolute', inset: 0 }}
           conceptId={conceptId}
           activeLayer={activeLayer}
+          sceneObjects={sceneObjects}
+          onSceneObjectsChange={setSceneObjects}
+          builderAvailable={appMode === 'sandbox'}
         />
       );
     }
@@ -677,7 +699,7 @@ export function StudentDashboard({
         onConceptSelect={onConceptSelect}
         onToggleSystemStatus={() => setShowSystemStatus((v) => !v)}
         onClosePopover={() => setShowSystemStatus(false)}
-        onChangeDifficulty={onChangeDifficulty}
+        onChangeDifficulty={appMode === 'sandbox' ? undefined : onChangeDifficulty}
       />
 
       {entitlements?.status === 'trialing' && entitlements.trial_end && (() => {

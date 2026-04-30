@@ -12,6 +12,7 @@
  */
 
 import type { AgeGroup } from './concept-types';
+import type { SceneObject } from './scene-builder';
 
 export type SessionChatMessage = {
   id: string;
@@ -43,6 +44,8 @@ export type SavedSession = {
   blocks?: unknown;
   /** Optional last-rendered SVG snapshot — used as a thumbnail on tiles. */
   thumbnailSvg?: string;
+  /** Sandbox course-builder objects placed by the user. */
+  sceneObjects?: SceneObject[];
 
   createdAt: number;
   lastOpenedAt: number;

@@ -8,12 +8,18 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Grid3X3, Pause, Play, RotateCcw, View, BookOpen, ChevronRight, ChevronLeft, X, Trophy } from 'lucide-react';
+import { Grid3X3, Pause, Play, RotateCcw, View, BookOpen, ChevronRight, ChevronLeft, X, Trophy, Hammer } from 'lucide-react';
 
 import { TopView } from './top-view';
+import { BuilderRail } from './builder-rail';
 import { useSimAnimation } from '@/lib/use-sim-animation';
 import { getEnvironment, getTutorialSteps } from '@/lib/concept-environments';
 import { playBGM, stopBGM, playSfx } from '@/lib/game-audio';
+import {
+  TOOLS_BY_ID,
+  makeObjectFromTool,
+  type SceneObject,
+} from '@/lib/scene-builder';
 
 const Scene3D = dynamic(() => import('./scene-3d').then((m) => ({ default: m.Scene3D })), {
   ssr: false,
@@ -57,6 +63,11 @@ type SimPlaygroundProps = {
   activeLayer?: 'intuitive' | 'structural' | 'precise';
   score?: number;
   maxScore?: number;
+  /** Sandbox course-builder objects (persisted in the active SavedSession). */
+  sceneObjects?: SceneObject[];
+  onSceneObjectsChange?: (objects: SceneObject[]) => void;
+  /** Whether the builder is available — true in sandbox/blank sessions. */
+  builderAvailable?: boolean;
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -71,6 +82,9 @@ export function SimPlayground({
   activeLayer = 'intuitive',
   score,
   maxScore,
+  sceneObjects = [],
+  onSceneObjectsChange,
+  builderAvailable = false,
 }: SimPlaygroundProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [showGrid, setShowGrid] = useState(true);
@@ -80,6 +94,88 @@ export function SimPlayground({
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const [showScore, setShowScore] = useState(false);
+
+  // ─── Builder state ─────────────────────────────────────────────────────────
+  const [builderEnabled, setBuilderEnabled] = useState(false);
+  const [railOpen, setRailOpen] = useState(true);
+  const [activeToolId, setActiveToolId] = useState<string | null>(null);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+
+  const activeTool = activeToolId ? (TOOLS_BY_ID[activeToolId] ?? null) : null;
+  const selectedObject = selectedObjectId
+    ? (sceneObjects.find((o) => o.id === selectedObjectId) ?? null)
+    : null;
+
+  // When builder loses availability (e.g. user opened a non-sandbox concept), turn it off
+  useEffect(() => {
+    if (!builderAvailable) {
+      setBuilderEnabled(false);
+      setActiveToolId(null);
+      setSelectedObjectId(null);
+    }
+  }, [builderAvailable]);
+
+  const updateObjects = (next: SceneObject[]) => {
+    onSceneObjectsChange?.(next);
+  };
+
+  const handlePlaceAt = (gx: number, gz: number) => {
+    if (!activeTool) return;
+    const obj = makeObjectFromTool(activeTool, gx, gz);
+    updateObjects([...sceneObjects, obj]);
+    setSelectedObjectId(obj.id);
+  };
+
+  const handleSelectObject = (id: string | null) => {
+    setSelectedObjectId(id);
+    if (id) setActiveToolId(null); // selecting clears the tool cursor
+  };
+
+  const handleRotateSelected = () => {
+    if (!selectedObject) return;
+    updateObjects(sceneObjects.map((o) =>
+      o.id === selectedObject.id ? { ...o, rotY: (((o.rotY ?? 0) + 1) % 4) as 0 | 1 | 2 | 3 } : o,
+    ));
+  };
+  const handleRaiseSelected = () => {
+    if (!selectedObject) return;
+    updateObjects(sceneObjects.map((o) =>
+      o.id === selectedObject.id ? { ...o, gy: Math.min((o.gy ?? 0) + 1, 6) } : o,
+    ));
+  };
+  const handleLowerSelected = () => {
+    if (!selectedObject) return;
+    updateObjects(sceneObjects.map((o) =>
+      o.id === selectedObject.id ? { ...o, gy: Math.max((o.gy ?? 0) - 1, 0) } : o,
+    ));
+  };
+  const handleDeleteSelected = () => {
+    if (!selectedObject) return;
+    updateObjects(sceneObjects.filter((o) => o.id !== selectedObject.id));
+    setSelectedObjectId(null);
+  };
+  const handleClearAll = () => {
+    updateObjects([]);
+    setSelectedObjectId(null);
+  };
+
+  // Keyboard shortcuts when builder is on
+  useEffect(() => {
+    if (!builderEnabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (!selectedObject) return;
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); handleDeleteSelected(); }
+      else if (e.key === 'r' || e.key === 'R')         { e.preventDefault(); handleRotateSelected(); }
+      else if (e.key === 'ArrowUp')                    { e.preventDefault(); handleRaiseSelected(); }
+      else if (e.key === 'ArrowDown')                  { e.preventDefault(); handleLowerSelected(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [builderEnabled, selectedObject, sceneObjects]);
 
   const env = getEnvironment(conceptId);
   const tutorialSteps = getTutorialSteps(conceptId, activeLayer);
@@ -215,6 +311,23 @@ export function SimPlayground({
           <span className="sim-toolbar-label">{speed}×</span>
         </div>
 
+        {/* Builder toggle (sandbox only) */}
+        {builderAvailable && (
+          <div className="sim-toolbar-group">
+            <button
+              type="button"
+              className={`sim-toolbar-btn ${builderEnabled ? 'active' : ''}`}
+              onClick={() => {
+                setBuilderEnabled((v) => !v);
+                setSelectedObjectId(null);
+              }}
+              title="Course builder — drag-and-drop walls, cones, waypoints"
+            >
+              <Hammer size={11} /> Build
+            </button>
+          </div>
+        )}
+
         {/* Status + replay */}
         <div className="sim-toolbar-group" style={{ marginLeft: 'auto' }}>
           <button
@@ -267,8 +380,37 @@ export function SimPlayground({
               showCamera={showCamera}
               className="sim-3d-canvas"
               conceptId={conceptId}
+              builderEnabled={builderEnabled}
+              sceneObjects={sceneObjects}
+              selectedObjectId={selectedObjectId}
+              activeTool={activeTool}
+              onPlaceAt={handlePlaceAt}
+              onSelectObject={handleSelectObject}
             />
-            <div className="sim-3d-hint">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
+            <div className="sim-3d-hint">
+              {builderEnabled
+                ? 'Click a tool, then click the floor to place · Drag to orbit'
+                : 'Drag to orbit · Scroll to zoom · Right-drag to pan'}
+            </div>
+            {/* Builder rail overlay (sandbox only) */}
+            {builderEnabled && (
+              <BuilderRail
+                activeToolId={activeToolId}
+                selectedObject={selectedObject}
+                open={railOpen}
+                onSelectTool={(id) => {
+                  setActiveToolId(id);
+                  if (id) setSelectedObjectId(null);
+                }}
+                onToggleOpen={() => setRailOpen((v) => !v)}
+                onClearAll={handleClearAll}
+                onRotateSelected={handleRotateSelected}
+                onRaiseSelected={handleRaiseSelected}
+                onLowerSelected={handleLowerSelected}
+                onDeleteSelected={handleDeleteSelected}
+                objectCount={sceneObjects.length}
+              />
+            )}
           </div>
         )}
 

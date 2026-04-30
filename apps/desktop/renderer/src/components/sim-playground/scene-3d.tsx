@@ -6,7 +6,7 @@
  * Competition/nav concepts → ChallengeSim runs autonomous robot behaviour.
  */
 
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Grid, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -14,6 +14,8 @@ import * as THREE from 'three';
 import { RobotGantry } from './robot-gantry';
 import { CanvasSurface } from './canvas-surface';
 import { ChallengeSim, getSimMode } from './challenge-sim';
+import { SceneObjectsRenderer, BuilderCursor } from './scene-objects';
+import { worldToGrid, clampToArena, type SceneObject, type ToolDef } from '@/lib/scene-builder';
 import type { SimPoint } from '@/lib/sim-path-utils';
 import { CANVAS_W, CANVAS_H } from '@/lib/sim-path-utils';
 import { getEnvironment, type ConceptEnvironment } from '@/lib/concept-environments';
@@ -251,11 +253,25 @@ type SceneContentProps = {
   showCamera: boolean;
   env: ConceptEnvironment;
   conceptId?: string | null;
+  builderEnabled?: boolean;
+  sceneObjects?: SceneObject[];
+  selectedObjectId?: string | null;
+  activeTool?: ToolDef | null;
+  onPlaceAt?: (gx: number, gz: number) => void;
+  onSelectObject?: (id: string | null) => void;
 };
 
-function SceneContent({ settledLines, activeLine, penPos, isAnimating, showGrid, showAxes, showCamera, env, conceptId }: SceneContentProps) {
+function SceneContent({
+  settledLines, activeLine, penPos, isAnimating, showGrid, showAxes, showCamera, env, conceptId,
+  builderEnabled = false, sceneObjects = [], selectedObjectId = null, activeTool = null,
+  onPlaceAt, onSelectObject,
+}: SceneContentProps) {
   const simMode = getSimMode(conceptId);
   const isDrawingMode = simMode === 'drawing';
+
+  // Cursor grid coords for the builder ghost preview
+  const [cursor, setCursor] = useState<{ gx: number; gz: number } | null>(null);
+  const showCursor = builderEnabled && activeTool !== null && cursor !== null;
 
   return (
     <>
@@ -272,7 +288,28 @@ function SceneContent({ settledLines, activeLine, penPos, isAnimating, showGrid,
       <pointLight position={[3.5, 2.2, 3]} intensity={0.28} color={env.accentColor} />
 
       {/* Ground */}
-      <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, -0.018, 0]} receiveShadow>
+      <mesh
+        rotation={[-Math.PI/2, 0, 0]}
+        position={[0, -0.018, 0]}
+        receiveShadow
+        onPointerMove={builderEnabled && activeTool ? (e) => {
+          const raw = worldToGrid(e.point.x, e.point.z);
+          const { gx, gz } = clampToArena(raw.gx, raw.gz);
+          if (!cursor || cursor.gx !== gx || cursor.gz !== gz) setCursor({ gx, gz });
+        } : undefined}
+        onPointerLeave={builderEnabled ? () => setCursor(null) : undefined}
+        onClick={builderEnabled ? (e) => {
+          e.stopPropagation();
+          if (activeTool && onPlaceAt) {
+            const raw = worldToGrid(e.point.x, e.point.z);
+            const { gx, gz } = clampToArena(raw.gx, raw.gz);
+            onPlaceAt(gx, gz);
+          } else if (onSelectObject) {
+            // Click on empty floor in select mode → clear selection
+            onSelectObject(null);
+          }
+        } : undefined}
+      >
         <planeGeometry args={[40, 40]} />
         <meshStandardMaterial color={env.groundColor} roughness={0.92} metalness={0.05} />
       </mesh>
@@ -290,11 +327,28 @@ function SceneContent({ settledLines, activeLine, penPos, isAnimating, showGrid,
         <CanvasSurface settledLines={settledLines} activeLine={activeLine} showGrid={showGrid} />
       )}
 
-      {/* Concept-specific arena props */}
-      <ConceptArenaProps env={env} skipCones={simMode === 'cone-ring'} />
+      {/* Concept-specific arena props — suppressed in builder mode so the user
+          gets a clean canvas to build on */}
+      {!builderEnabled && (
+        <ConceptArenaProps env={env} skipCones={simMode === 'cone-ring'} />
+      )}
 
-      {/* Robot/simulation — drawing or autonomous */}
-      {isDrawingMode ? (
+      {/* User-placed sceneObjects (builder mode + any session that has them) */}
+      {sceneObjects.length > 0 && (
+        <SceneObjectsRenderer
+          objects={sceneObjects}
+          selectedId={selectedObjectId}
+          onSelect={(id) => onSelectObject?.(id)}
+        />
+      )}
+
+      {/* Ghost cursor preview while a tool is active */}
+      {showCursor && cursor && activeTool && (
+        <BuilderCursor tool={activeTool} gx={cursor.gx} gz={cursor.gz} visible={true} />
+      )}
+
+      {/* Robot/simulation — drawing or autonomous (suppressed in builder mode) */}
+      {!builderEnabled && (isDrawingMode ? (
         <>
           <AprilTagMarker position={[-CANVAS_W/2-0.45, 0, -CANVAS_H/2-0.45]} />
           <AprilTagMarker position={[CANVAS_W/2+0.45, 0, -CANVAS_H/2-0.45]} />
@@ -304,7 +358,7 @@ function SceneContent({ settledLines, activeLine, penPos, isAnimating, showGrid,
         </>
       ) : (
         <ChallengeSim mode={simMode} sumoRingRadius={env.sumoRingRadius} />
-      )}
+      ))}
 
       {showAxes && <CoordAxes />}
       {showCamera && isDrawingMode && <OverheadCamera />}
@@ -327,9 +381,28 @@ type Scene3DProps = {
   showCamera?: boolean;
   className?: string;
   conceptId?: string | null;
+  /** Course-builder props — when builderEnabled, the env's default cones/walls
+   *  are hidden, the user's sceneObjects are rendered, and the floor accepts
+   *  pointer-place + cursor preview. */
+  builderEnabled?: boolean;
+  sceneObjects?: SceneObject[];
+  selectedObjectId?: string | null;
+  activeTool?: ToolDef | null;
+  onPlaceAt?: (gx: number, gz: number) => void;
+  onSelectObject?: (id: string | null) => void;
 };
 
-export function Scene3D({ settledLines, activeLine, penPos, isAnimating, showGrid = true, showAxes = true, showCamera = true, className, conceptId }: Scene3DProps) {
+export function Scene3D({
+  settledLines, activeLine, penPos, isAnimating,
+  showGrid = true, showAxes = true, showCamera = true,
+  className, conceptId,
+  builderEnabled = false,
+  sceneObjects = [],
+  selectedObjectId = null,
+  activeTool = null,
+  onPlaceAt,
+  onSelectObject,
+}: Scene3DProps) {
   const env = useMemo(() => getEnvironment(conceptId), [conceptId]);
   return (
     <Canvas
@@ -343,7 +416,9 @@ export function Scene3D({ settledLines, activeLine, penPos, isAnimating, showGri
       }}
     >
       <SceneContent settledLines={settledLines} activeLine={activeLine} penPos={penPos} isAnimating={isAnimating}
-        showGrid={showGrid} showAxes={showAxes} showCamera={showCamera} env={env} conceptId={conceptId} />
+        showGrid={showGrid} showAxes={showAxes} showCamera={showCamera} env={env} conceptId={conceptId}
+        builderEnabled={builderEnabled} sceneObjects={sceneObjects} selectedObjectId={selectedObjectId}
+        activeTool={activeTool} onPlaceAt={onPlaceAt} onSelectObject={onSelectObject} />
     </Canvas>
   );
 }
