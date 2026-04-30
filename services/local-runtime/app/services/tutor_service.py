@@ -85,6 +85,83 @@ _PERSONAS = {
     "engineer": _PERSONA_ENGINEER,
 }
 
+# ─── Sandbox build mode addendum ──────────────────────────────────────────────
+#
+# Appended to the system prompt only when the user is in the 3D sandbox
+# workspace. Lets Sketch construct courses/setups directly by emitting a
+# machine-readable [BUILD_OBJECTS] block alongside its normal reply.
+
+_SANDBOX_BUILD_ADDENDUM = """
+SANDBOX BUILD MODE (active right now — the student is in the 3D sandbox workspace):
+You can build courses and arrangements for the student by emitting a
+[BUILD_OBJECTS] block in your reply. The desktop app parses this block,
+adds the objects to the scene, and strips the markup before displaying.
+
+Use it when the student asks you to build, set up, arrange, drop in,
+or place anything in the sandbox (e.g. "build me a sumo arena",
+"set up a maze", "give me 6 cones in a ring", "drop a bot in the middle").
+
+Format (after the --- line, in the written-only section):
+
+[BUILD_OBJECTS mode="add"]
+[
+  {"type": "cone", "gx": -3, "gz": 0},
+  {"type": "wall", "gx": 0, "gz": -2, "rotY": 0},
+  {"type": "bot",  "gx": 0,  "gz": 3, "botVariant": "standard"}
+]
+[/BUILD_OBJECTS]
+
+Modes:
+  • mode="add"     — append to the existing scene (default; safest)
+  • mode="replace" — clear the scene first, then place these objects
+                     (use only when the student says "build a fresh X",
+                      "reset and make a Y", or similar replacement intent)
+  • mode="clear"   — remove everything (use the JSON `[]` body and this mode
+                     when the student says "clear", "wipe", "reset")
+
+OBJECT TYPES:
+  - "wall"     — single-cell maze segment (use rotY 0 for along-X, 1 for along-Z)
+  - "block"    — stackable cube (good for cluster obstacles)
+  - "cone"     — orange traffic cone (single point obstacle)
+  - "sphere"   — round obstacle
+  - "cylinder" — pillar obstacle
+  - "waypoint" — glowing checkpoint marker (path-planning targets)
+  - "apriltag" — flat localization marker
+  - "bot"      — robot. Add `"botVariant": "standard"` or `"sumo"`.
+
+FIELDS PER OBJECT:
+  - type     (required, one of the above)
+  - gx, gz   (required, integers): grid cell. Each cell is 25 cm. Origin
+              (0,0) is the centre. Aim for ±10 cells in any direction
+              (≈ ±2.5 m) for typical courses.
+  - gy       (optional, int ≥ 0): stack height level (0 = floor).
+  - rotY     (optional, 0|1|2|3): 90° rotation steps. Only matters for
+              walls, blocks, AprilTags, bots.
+  - color    (optional, hex string like "#5dadff"): blocks/spheres/cylinders/waypoints.
+  - botVariant (optional, "standard"|"sumo"): only for bots.
+
+GEOMETRY TIPS (be specific — Sketch should compute these, not guess):
+  - Sumo ring of cones: 6–8 cones evenly spaced on a circle of radius 4–5 cells.
+    Use round(cos/sin) to get integer grid cells.
+  - Maze: walls in a corridor pattern, leave 1-cell gaps for the bot to pass.
+  - Path-planning course: 5–7 waypoints at varied positions; a bot at the start.
+  - Cone slalom: cones spaced along a line, bot at one end.
+
+WHEN TO USE BUILD MODE:
+  - User explicitly asks for a setup, course, arena, maze, slalom, etc.
+  - User says "let me see X" or "show me X with the robot"
+  - You're suggesting a hands-on activity that needs props placed
+
+WHEN NOT TO USE IT:
+  - User is just chatting, asking conceptual questions, or in mid-explanation.
+  - Don't emit [BUILD_OBJECTS] in every message — only when there's a clear
+    placement request.
+
+Always still write your spoken acknowledgement before --- (e.g.
+"Sure, dropping a sumo ring with 6 cones now!"). The build block goes
+AFTER --- in the written-only section.
+"""
+
 # ─── In-memory session store ───────────────────────────────────────────────────
 # Keyed by (student_name, concept_id) — retains multi-turn conversation history.
 # Each entry is a list of {"role": "user"|"assistant", "content": str} dicts.

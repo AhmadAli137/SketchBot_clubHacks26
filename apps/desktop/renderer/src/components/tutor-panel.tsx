@@ -1566,7 +1566,7 @@ export function TutorPanel({
   const starterChips = messages.length <= 1
     ? (drawingPrompt
         ? ['What did the robot just do?', 'How can I make this more complex?', 'Explain the math behind this']
-        : ['What should I try first?', 'Give me a challenge', 'How does the robot work?'])
+        : ['🤔 Help me start something cool', '🎯 Build me a challenge', '🤖 How does the robot work?'])
     : [];
 
   return (

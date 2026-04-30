@@ -8,7 +8,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Grid3X3, Pause, Play, RotateCcw, View, BookOpen, ChevronRight, ChevronLeft, X, Trophy, Hammer } from 'lucide-react';
+import { Grid3X3, Pause, Play, RotateCcw, View, BookOpen, ChevronRight, ChevronLeft, X, Trophy, Hammer, Settings, Sparkles } from 'lucide-react';
 
 import { TopView } from './top-view';
 import { BuilderRail } from './builder-rail';
@@ -21,6 +21,7 @@ import {
   newSceneObjectId,
   type SceneObject,
 } from '@/lib/scene-builder';
+import { SANDBOX_PRESETS, instantiatePreset, type SandboxPreset } from '@/lib/sandbox-presets';
 
 const Scene3D = dynamic(() => import('./scene-3d').then((m) => ({ default: m.Scene3D })), {
   ssr: false,
@@ -107,6 +108,14 @@ export function SimPlayground({
   const [draggedObjectId, setDraggedObjectId] = useState<string | null>(null);
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null);
   const [showPlacementGrid, setShowPlacementGrid] = useState(true);
+  const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
+
+  /** Drop a starter preset into the sandbox — used by empty-state chips. */
+  const handleApplyPreset = (preset: SandboxPreset) => {
+    const objects = instantiatePreset(preset);
+    onSceneObjectsChange?.(objects);
+    setBuilderEnabled(true); // open the builder so the kid sees what was added
+  };
 
   const activeTool = activeToolId ? (TOOLS_BY_ID[activeToolId] ?? null) : null;
   const selectedObject = selectedObjectId
@@ -312,116 +321,134 @@ export function SimPlayground({
       className={`sim-playground-root ${className ?? ''}`}
       style={style}
     >
-      {/* ── Toolbar ── */}
-      <div className="sim-playground-toolbar">
-        {/* View mode switcher */}
-        <div className="sim-toolbar-group">
+      {/* ── Toolbar ─────────────────────────────────────────────────────── */}
+      <div className={`sim-playground-toolbar${builderAvailable ? ' sandbox' : ''}`}>
+        {/* Sandbox: Build is the hero CTA on the left */}
+        {builderAvailable && (
+          <button
+            type="button"
+            className={`sim-build-cta${builderEnabled ? ' active' : ''}`}
+            onClick={() => {
+              setBuilderEnabled((v) => !v);
+              setSelectedObjectId(null);
+            }}
+            title={builderEnabled ? 'Close builder' : 'Add walls, cones, waypoints, robots'}
+          >
+            {builderEnabled ? <X size={14} /> : <Hammer size={14} />}
+            <span>{builderEnabled ? 'Close builder' : 'Add things'}</span>
+          </button>
+        )}
+
+        {/* View mode tabs — friendly icons */}
+        <div className="sim-view-tabs">
           {(['3d', 'split', '2d'] as ViewMode[]).map((mode) => (
             <button
               key={mode}
               type="button"
-              className={`sim-toolbar-btn ${viewMode === mode ? 'active' : ''}`}
+              className={`sim-view-tab ${viewMode === mode ? 'active' : ''}`}
               onClick={() => setViewMode(mode)}
-              title={mode === '3d' ? '3D view' : mode === 'split' ? 'Split view' : 'Top-down 2D'}
+              title={mode === '3d' ? '3D view' : mode === 'split' ? 'Side-by-side' : 'Bird’s-eye'}
             >
-              {mode === '3d' ? '3D' : mode === 'split' ? <View size={11} /> : '2D'}
+              {mode === '3d' ? '3D' : mode === 'split' ? <View size={12} /> : 'Top'}
             </button>
           ))}
         </div>
 
-        {/* Scene toggles */}
-        <div className="sim-toolbar-group">
-          <button
-            type="button"
-            className={`sim-toolbar-btn ${showGrid ? 'active' : ''}`}
-            onClick={() => setShowGrid((v) => !v)}
-            title="Toggle grid"
-          >
-            <Grid3X3 size={11} />
-          </button>
-          <button
-            type="button"
-            className={`sim-toolbar-btn ${showAxes ? 'active' : ''}`}
-            onClick={() => setShowAxes((v) => !v)}
-            title="Toggle axes"
-          >
-            XYZ
-          </button>
-          <button
-            type="button"
-            className={`sim-toolbar-btn ${showCamera ? 'active' : ''}`}
-            onClick={() => setShowCamera((v) => !v)}
-            title="Toggle overhead camera"
-          >
-            CAM
-          </button>
-        </div>
+        {/* Drawing-mode controls — only shown when there's actually a drawing
+            to play (free-draw / lesson concepts). Sandbox hides all this. */}
+        {!builderAvailable && (
+          <>
+            <div className="sim-toolbar-group sim-speed-group">
+              <span className="sim-toolbar-label">Speed</span>
+              <input
+                type="range"
+                min={0.25}
+                max={4}
+                step={0.25}
+                value={speed}
+                onChange={(e) => setSpeed(Number(e.target.value))}
+                className="sim-speed-slider"
+              />
+              <span className="sim-toolbar-label">{speed}×</span>
+            </div>
 
-        {/* Speed control */}
-        <div className="sim-toolbar-group sim-speed-group">
-          <span className="sim-toolbar-label">Speed</span>
-          <input
-            type="range"
-            min={0.25}
-            max={4}
-            step={0.25}
-            value={speed}
-            onChange={(e) => setSpeed(Number(e.target.value))}
-            className="sim-speed-slider"
-          />
-          <span className="sim-toolbar-label">{speed}×</span>
-        </div>
-
-        {/* Builder toggle (sandbox only) */}
-        {builderAvailable && (
-          <div className="sim-toolbar-group">
-            <button
-              type="button"
-              className={`sim-toolbar-btn ${builderEnabled ? 'active' : ''}`}
-              onClick={() => {
-                setBuilderEnabled((v) => !v);
-                setSelectedObjectId(null);
-              }}
-              title="Course builder — drag-and-drop walls, cones, waypoints"
-            >
-              <Hammer size={11} /> Build
-            </button>
-          </div>
+            <div className="sim-toolbar-group" style={{ marginLeft: 'auto' }}>
+              <button
+                type="button"
+                className={`sim-toolbar-btn ${isAnimating ? 'active' : ''}`}
+                onClick={() => (isAnimating ? pause() : play())}
+                title={isAnimating ? 'Pause' : 'Play'}
+              >
+                {isAnimating ? <Pause size={11} /> : <Play size={11} />}
+              </button>
+              <div className="sim-status-badge">
+                <div className={`sim-status-dot ${isAnimating ? 'live' : isComplete ? 'done' : 'idle'}`} />
+                {isAnimating ? 'Drawing…' : isComplete ? 'Complete' : isGenerating ? 'Generating…' : 'Ready'}
+              </div>
+              <button type="button" className="sim-toolbar-btn" onClick={replay} title="Reset">
+                <RotateCcw size={11} />
+              </button>
+            </div>
+          </>
         )}
 
-        {/* Status + replay */}
-        <div className="sim-toolbar-group" style={{ marginLeft: 'auto' }}>
+        {/* View options popover — gear in the top-right */}
+        <div
+          className="sim-view-options"
+          style={builderAvailable ? { marginLeft: 'auto' } : undefined}
+        >
           <button
             type="button"
-            className={`sim-toolbar-btn ${isAnimating ? 'active' : ''}`}
-            onClick={() => (isAnimating ? pause() : play())}
-            title={isAnimating ? 'Pause' : 'Play'}
+            className={`sim-view-options-btn${viewOptionsOpen ? ' active' : ''}`}
+            onClick={() => setViewOptionsOpen((v) => !v)}
+            title="View options"
           >
-            {isAnimating ? <Pause size={11} /> : <Play size={11} />}
+            <Settings size={12} />
           </button>
-          <div className="sim-status-badge">
-            <div className={`sim-status-dot ${isAnimating ? 'live' : isComplete ? 'done' : 'idle'}`} />
-            {isAnimating ? 'Drawing…' : isComplete ? 'Complete' : isGenerating ? 'Generating…' : 'Ready'}
-          </div>
-          <button type="button" className="sim-toolbar-btn" onClick={replay} title="Reset">
-            <RotateCcw size={11} />
-          </button>
+          {viewOptionsOpen && (
+            <div className="sim-view-options-pop">
+              <button
+                type="button"
+                className={`sim-view-option${showGrid ? ' active' : ''}`}
+                onClick={() => setShowGrid((v) => !v)}
+              >
+                <Grid3X3 size={12} /> Grid
+              </button>
+              <button
+                type="button"
+                className={`sim-view-option${showAxes ? ' active' : ''}`}
+                onClick={() => setShowAxes((v) => !v)}
+              >
+                X · Y · Z axes
+              </button>
+              <button
+                type="button"
+                className={`sim-view-option${showCamera ? ' active' : ''}`}
+                onClick={() => setShowCamera((v) => !v)}
+              >
+                Overhead camera
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="sim-timeline">
-        <input
-          className="sim-timeline-slider"
-          type="range"
-          min={0}
-          max={1}
-          step={0.001}
-          value={Number.isFinite(progress) ? progress : 0}
-          onChange={(e) => seek(Number(e.target.value))}
-          aria-label="Simulation timeline"
-        />
-        <div className="sim-timeline-label">{Math.round((Number.isFinite(progress) ? progress : 0) * 100)}%</div>
-      </div>
+      {/* Drawing-mode timeline — hidden in sandbox */}
+      {!builderAvailable && (
+        <div className="sim-timeline">
+          <input
+            className="sim-timeline-slider"
+            type="range"
+            min={0}
+            max={1}
+            step={0.001}
+            value={Number.isFinite(progress) ? progress : 0}
+            onChange={(e) => seek(Number(e.target.value))}
+            aria-label="Simulation timeline"
+          />
+          <div className="sim-timeline-label">{Math.round((Number.isFinite(progress) ? progress : 0) * 100)}%</div>
+        </div>
+      )}
 
       {/* ── Viewport area ── */}
       <div className="sim-playground-viewport" data-tour="sim-viewport">
@@ -458,8 +485,8 @@ export function SimPlayground({
             />
             <div className="sim-3d-hint">
               {builderEnabled
-                ? 'Click a tool, then click the floor to place · Drag to orbit'
-                : 'Drag to orbit · Scroll to zoom · Right-drag to pan'}
+                ? '💡 Pick a tool · click the floor to drop it'
+                : '💡 Drag to spin · scroll to zoom'}
             </div>
             {/* Builder rail overlay (sandbox only) */}
             {builderEnabled && (
@@ -493,7 +520,7 @@ export function SimPlayground({
             className="sim-2d-pane"
             style={{ flex: viewMode === 'split' ? '0 0 32%' : '1' }}
           >
-            <div className="sim-2d-label">Top View</div>
+            <div className="sim-2d-label">{builderAvailable ? 'Bird’s-eye view' : 'Top View'}</div>
             <TopView
               settledLines={settledLines}
               activeLine={activeLine}
@@ -509,17 +536,41 @@ export function SimPlayground({
 
         {/* Empty state — different copy for sandbox vs free-draw */}
         {!svgContent && !isGenerating && !conceptId && sceneObjects.length === 0 && !builderEnabled && (
-          <div className="sim-empty-overlay">
-            <div className="sim-empty-icon">🧱</div>
-            <div className="sim-empty-title">
-              {builderAvailable ? 'Empty sandbox' : '3D Simulator Ready'}
+          builderAvailable ? (
+            <div className="sim-sandbox-welcome">
+              <div className="sim-sandbox-mascot" aria-hidden>🤖</div>
+              <div className="sim-sandbox-welcome-title">Your sandbox is empty</div>
+              <div className="sim-sandbox-welcome-sub">
+                Click <strong>Add things</strong> to drop in walls, cones, and robots.
+                Or pick a starter to see it built right now:
+              </div>
+              <div className="sim-sandbox-starters">
+                {SANDBOX_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="sim-sandbox-starter"
+                    onClick={() => handleApplyPreset(preset)}
+                  >
+                    <span className="sim-sandbox-starter-emoji">{preset.emoji}</span>
+                    <span className="sim-sandbox-starter-label">{preset.label}</span>
+                    <span className="sim-sandbox-starter-sub">{preset.description}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="sim-sandbox-hint">
+                <Sparkles size={11} /> Tip: ask Spark in the chat — “build me a sumo arena”
+              </div>
             </div>
-            <div className="sim-empty-body">
-              {builderAvailable
-                ? 'Click Build to start placing walls, cones, bots, and waypoints. Or describe a setup in the prompt bar to have Spark build one for you.'
-                : 'Generate a drawing from the prompt bar — the SketchBot robot will drive it live in 3D.'}
+          ) : (
+            <div className="sim-empty-overlay">
+              <div className="sim-empty-icon">🤖</div>
+              <div className="sim-empty-title">3D Simulator Ready</div>
+              <div className="sim-empty-body">
+                Generate a drawing from the prompt bar — the SketchBot robot will drive it live in 3D.
+              </div>
             </div>
-          </div>
+          )
         )}
 
         {/* Generating state */}

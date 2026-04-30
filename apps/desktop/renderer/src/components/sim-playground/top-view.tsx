@@ -456,12 +456,13 @@ function drawSandboxTopView(
     }
   }
 
-  // ── Axis labels in the corner ──
-  ctx.font = `600 10px 'JetBrains Mono', monospace`;
-  ctx.fillStyle = 'rgba(93,228,255,0.7)';
+  // ── Friendly footer ──
+  ctx.font = `600 11px 'Segoe UI', sans-serif`;
+  ctx.fillStyle = 'rgba(93,228,255,0.75)';
   ctx.textAlign = 'left';
-  ctx.fillText(`${objects.length} object${objects.length === 1 ? '' : 's'}`, 10, height - 12);
-  ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(168,85,247,0.6)';
-  ctx.fillText(`${(half * 2).toFixed(1)} × ${(half * 2).toFixed(1)} m`, width - 10, height - 12);
+  ctx.fillText(
+    `${objects.length} thing${objects.length === 1 ? '' : 's'} in your sandbox`,
+    10,
+    height - 12,
+  );
 }
