@@ -866,73 +866,97 @@ export function HomeScreen({
 
         {role !== 'student' && (
         <div className="concept-domain-section">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <h2>{role === 'guest' ? 'Start a new session' : 'Activities'}</h2>
+          {/* Header row: title (+ subtitle for guests) + age-pills aligned right */}
+          <div className="sessions-header">
+            <div className="sessions-header-left">
+              <h2>{role === 'guest' ? 'Your sessions' : 'Activities'}</h2>
+              {role === 'guest' && (
+                <p className="sessions-header-sub">
+                  Pick up where you left off or start a new one. Every session auto-saves chats and code.
+                </p>
+              )}
+            </div>
             {role === 'guest' && (
-              <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--muted)' }}>
-                Pick a template or start blank — every session saves your chats and code.
-              </p>
+              <div className="home-age-group-selector home-age-group-selector--inline">
+                {(['explorer', 'builder', 'engineer'] as AgeGroup[]).map((ag) => (
+                  <button
+                    key={ag}
+                    type="button"
+                    className={`home-age-pill${ageGroup === ag ? ' active' : ''}`}
+                    style={{ '--pill-color': AGE_GROUP_META[ag].color } as React.CSSProperties}
+                    onClick={() => handleAgeGroupChange(ag)}
+                  >
+                    <span>{AGE_GROUP_META[ag].emoji}</span>
+                    <span>{AGE_GROUP_META[ag].label}</span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* Age-group pills (guest only) */}
+          {/* Unified sessions gallery (guest only): [+ New] [Continue] [...Saved] [...Recent] */}
           {role === 'guest' && (
-            <div className="home-age-group-selector" style={{ marginTop: 4 }}>
-              {(['explorer', 'builder', 'engineer'] as AgeGroup[]).map((ag) => (
-                <button
-                  key={ag}
-                  type="button"
-                  className={`home-age-pill${ageGroup === ag ? ' active' : ''}`}
-                  style={{ '--pill-color': AGE_GROUP_META[ag].color } as React.CSSProperties}
-                  onClick={() => handleAgeGroupChange(ag)}
-                >
-                  <span>{AGE_GROUP_META[ag].emoji}</span>
-                  <span>{AGE_GROUP_META[ag].label}</span>
-                  <span className="home-age-pill-sub">{AGE_GROUP_META[ag].description}</span>
-                </button>
-              ))}
-            </div>
-          )}
+            <motion.div
+              className="sessions-gallery"
+              variants={cardGridContainer}
+              initial="hidden"
+              animate="show"
+            >
+              <motion.button
+                type="button"
+                className="session-tile session-tile--new"
+                variants={cardGridItem}
+                onClick={() => handleStart(null)}
+                {...cardHoverTap}
+              >
+                <div className="session-tile-new-icon">+</div>
+                <div className="session-tile-new-label">New session</div>
+                <div className="session-tile-new-sub">Blank workspace — free draw</div>
+              </motion.button>
 
-          {/* Continue + Saved sessions (guest only) */}
-          {role === 'guest' && (sessionGroups.continueWith || sessionGroups.saved.length > 0) && (
-            <div className="session-rows">
               {sessionGroups.continueWith && (
-                <div className="session-row">
-                  <div className="session-row-label">Pick up where you left off</div>
-                  <div className="session-row-grid">
-                    <SessionTile
-                      session={sessionGroups.continueWith}
-                      variant="continue"
-                      userName={userName || 'guest'}
-                      onResume={handleResumeSession}
-                      onChange={() => setSessionsRev((n) => n + 1)}
-                    />
-                  </div>
-                </div>
+                <motion.div variants={cardGridItem}>
+                  <SessionTile
+                    session={sessionGroups.continueWith}
+                    variant="continue"
+                    userName={userName || 'guest'}
+                    onResume={handleResumeSession}
+                    onChange={() => setSessionsRev((n) => n + 1)}
+                  />
+                </motion.div>
               )}
-              {sessionGroups.saved.length > 0 && (
-                <div className="session-row">
-                  <div className="session-row-label">Saved sessions</div>
-                  <div className="session-row-grid">
-                    {sessionGroups.saved.map((s: SavedSession) => (
-                      <SessionTile
-                        key={s.id}
-                        session={s}
-                        variant="saved"
-                        userName={userName || 'guest'}
-                        onResume={handleResumeSession}
-                        onChange={() => setSessionsRev((n) => n + 1)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+
+              {sessionGroups.saved.map((s: SavedSession) => (
+                <motion.div key={s.id} variants={cardGridItem}>
+                  <SessionTile
+                    session={s}
+                    variant="saved"
+                    userName={userName || 'guest'}
+                    onResume={handleResumeSession}
+                    onChange={() => setSessionsRev((n) => n + 1)}
+                  />
+                </motion.div>
+              ))}
+
+              {sessionGroups.recent.map((s: SavedSession) => (
+                <motion.div key={s.id} variants={cardGridItem}>
+                  <SessionTile
+                    session={s}
+                    variant="continue"
+                    userName={userName || 'guest'}
+                    onResume={handleResumeSession}
+                    onChange={() => setSessionsRev((n) => n + 1)}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
           )}
 
           {role === 'guest' && (
-            <div className="session-row-label" style={{ marginTop: 8 }}>Templates</div>
+            <div className="sessions-templates-header">
+              <h3>Or start from a template</h3>
+              <p>Each one opens a new session pre-loaded with a concept and starter prompt.</p>
+            </div>
           )}
 
           <motion.div
@@ -942,20 +966,22 @@ export function HomeScreen({
             initial="hidden"
             animate="show"
           >
-            <motion.button
-              type="button"
-              className="concept-card free-explore"
-              variants={cardGridItem}
-              onClick={() => handleStart(null)}
-              {...cardHoverTap}
-            >
-              <span className="concept-card-emoji">🎨</span>
-              <div className="concept-card-title">Blank session</div>
-              <div className="concept-card-subtitle">Free-draw, no template — start from scratch</div>
-              <div className="concept-card-domain-badge" style={{ color: 'var(--pink)', background: 'rgba(255,79,216,0.12)', borderColor: 'transparent' }}>
-                sandbox
-              </div>
-            </motion.button>
+            {role !== 'guest' && (
+              <motion.button
+                type="button"
+                className="concept-card free-explore"
+                variants={cardGridItem}
+                onClick={() => handleStart(null)}
+                {...cardHoverTap}
+              >
+                <span className="concept-card-emoji">🎨</span>
+                <div className="concept-card-title">Free Draw</div>
+                <div className="concept-card-subtitle">Open prompt, any subject - no guided steps</div>
+                <div className="concept-card-domain-badge" style={{ color: 'var(--pink)', background: 'rgba(255,79,216,0.12)', borderColor: 'transparent' }}>
+                  freestyle
+                </div>
+              </motion.button>
+            )}
 
             {visibleConcepts.map((concept) => (
               <motion.button
