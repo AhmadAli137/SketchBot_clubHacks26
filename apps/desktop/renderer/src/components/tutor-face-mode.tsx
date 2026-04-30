@@ -12,7 +12,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import { SparkRobot, SPARK_SCENES } from '@/components/spark-robot';
+import { SPARK_SCENES } from '@/components/spark-robot';
+import { SparkStateImage } from '@/components/spark-state-image';
 import type { TutorMessage } from './tutor-panel';
 
 // ─── State derivation ─────────────────────────────────────────────────────────
@@ -228,13 +229,9 @@ export function TutorFaceMode({ messages, ttsSpeaking, onExit }: Props) {
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
           >
-            <SparkRobot
-              mode="3d"
-              size="lg"
+            <SparkStateImage
               scene={scene}
-              speechKey={speechKeyRef.current}
-              showSpeech={null /* caption rendered separately, larger */}
-              showProp={false /* prop emoji overlaps the visor at this scale */}
+              size={320}
             />
           </motion.div>
         </AnimatePresence>
