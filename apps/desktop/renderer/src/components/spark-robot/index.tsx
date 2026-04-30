@@ -53,6 +53,8 @@ type SceneConfig = {
   bodyRotateZ?: number[];
   headRotateZ?: number[];
   headRotateY?: number[];
+  /** Pitch — for head nods, looking up/down. */
+  headRotateX?: number[];
   headDur: number;
   eyeHappy: boolean;
   chestBg: string;
@@ -147,7 +149,378 @@ const SCENES: SceneConfig[] = [
       { emoji: '🌈', x: 20, y: 72, delay: 0.35, dur: 2.6 },
     ],
   },
+  // ─── 4 — idle / breathing (default neutral) ──────────────────────────────
+  {
+    bgKey: 'idle', propEmoji: '', propLeft: 'calc(50% + 88px)', propTop: 60, propScale: 0,
+    glowColor: '#5de4ff',
+    lUpperR: [4, 7, 4],                  lUpperDur: 4.4,
+    lLowerR: [-6, -3, -6],               lLowerDur: 4.4,
+    rUpperR: [-4, -7, -4],               rUpperDur: 4.4,
+    rLowerR: [6, 3, 6],                  rLowerDur: 4.4,
+    bodyY: [0, -5, 0], bodyDur: 4.0,
+    headRotateY: [0, 3, 0, -3, 0], headDur: 5.4,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#3b82f6,#5de4ff)',
+    particleA: '#5de4ff', particleB: '#a855f7',
+    floaters: [],
+  },
+  // ─── 5 — listening (lean forward, attentive) ─────────────────────────────
+  {
+    bgKey: 'guide', propEmoji: '👂', propLeft: 'calc(50% - 110px)', propTop: 20, propScale: 1.4,
+    glowColor: '#5de4ff',
+    lUpperR: [12, 15, 12],               lUpperDur: 3.4,
+    lLowerR: [-14, -10, -14],            lLowerDur: 3.4,
+    rUpperR: [-12, -15, -12],            rUpperDur: 3.4,
+    rLowerR: [14, 10, 14],               rLowerDur: 3.4,
+    bodyY: [0, -3, 0], bodyDur: 3.0,
+    headRotateX: [-6, -8, -6],           // slight forward lean
+    headRotateY: [0, 4, -2, 0], headDur: 3.6,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#3b82f6,#5de4ff)',
+    particleA: '#5de4ff', particleB: '#a855f7',
+    floaters: [{ emoji: '💭', x: 60, y: 18, delay: 0.4, dur: 3.2 }],
+  },
+  // ─── 6 — thinking (right hand to chin, head tilt) ────────────────────────
+  {
+    bgKey: 'guide', propEmoji: '💭', propLeft: 'calc(50% + 70px)', propTop: 4, propScale: 1.6,
+    glowColor: '#a855f7',
+    lUpperR: [4, 6, 4],                  lUpperDur: 3.8,
+    lLowerR: [-6, -3, -6],               lLowerDur: 3.8,
+    rUpperR: [-78, -82, -78],            rUpperDur: 3.6,    // hand to chin
+    rLowerR: [62, 64, 62],               rLowerDur: 3.6,
+    bodyY: [0, -4, 0], bodyDur: 3.6,
+    headRotateZ: [-6, -10, -6, -10, -6], headDur: 4.6,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#6b7cff,#a855f7)',
+    particleA: '#a855f7', particleB: '#5de4ff',
+    floaters: [
+      { emoji: '🤔', x: 64, y: 8,  delay: 0.0, dur: 3.4 },
+      { emoji: '?',  x: 78, y: 26, delay: 0.7, dur: 2.6 },
+    ],
+  },
+  // ─── 7 — talking (subtle gestures + head bob) ────────────────────────────
+  {
+    bgKey: 'welcome', propEmoji: '', propLeft: 'calc(50% + 90px)', propTop: 70, propScale: 0,
+    glowColor: '#5de4ff',
+    lUpperR: [10, 18, 10, 14, 10],       lUpperDur: 1.4,
+    lLowerR: [-12, -18, -12, -16, -12],  lLowerDur: 1.4,
+    rUpperR: [-10, -18, -10, -14, -10],  rUpperDur: 1.6,
+    rLowerR: [12, 18, 12, 16, 12],       rLowerDur: 1.6,
+    bodyY: [0, -4, 0], bodyDur: 2.0,
+    headRotateZ: [0, 2, -2, 0], headDur: 1.8,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#3b82f6,#5de4ff)',
+    particleA: '#5de4ff', particleB: '#a855f7',
+    floaters: [],
+  },
+  // ─── 8 — explaining (both hands gesture wider) ───────────────────────────
+  {
+    bgKey: 'guide', propEmoji: '✨', propLeft: 'calc(50% - 100px)', propTop: 90, propScale: 1.4,
+    glowColor: '#6b7cff',
+    lUpperR: [22, 30, 22, 28, 22],       lUpperDur: 2.2,
+    lLowerR: [-26, -34, -26, -30, -26],  lLowerDur: 2.2,
+    rUpperR: [-22, -30, -22, -28, -22],  rUpperDur: 2.4,
+    rLowerR: [26, 34, 26, 30, 26],       rLowerDur: 2.4,
+    bodyY: [0, -8, 0], bodyDur: 2.6,
+    headRotateY: [0, 6, 0, -6, 0], headDur: 3.0,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#6b7cff,#a855f7)',
+    particleA: '#6b7cff', particleB: '#5de4ff',
+    floaters: [
+      { emoji: '✨', x: 14, y: 30, delay: 0.2, dur: 3.0 },
+      { emoji: '💡', x: 78, y: 22, delay: 0.6, dur: 2.8 },
+    ],
+  },
+  // ─── 9 — questioning (one finger up, head tilt) ──────────────────────────
+  {
+    bgKey: 'guide', propEmoji: '❓', propLeft: 'calc(50% + 80px)', propTop: 0, propScale: 1.8,
+    glowColor: '#a855f7',
+    lUpperR: [6, 8, 6],                  lUpperDur: 3.4,
+    lLowerR: [-8, -4, -8],               lLowerDur: 3.4,
+    rUpperR: [-110, -114, -110],         rUpperDur: 2.8,    // finger up
+    rLowerR: [-30, -26, -30],            rLowerDur: 2.8,
+    bodyY: [0, -6, 0], bodyDur: 3.2,
+    headRotateZ: [-12, -8, -12], headDur: 3.4,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#6b7cff,#a855f7)',
+    particleA: '#a855f7', particleB: '#6b7cff',
+    floaters: [
+      { emoji: '❓', x: 70, y: 4,  delay: 0.0, dur: 2.6 },
+      { emoji: '?',  x: 14, y: 22, delay: 0.5, dur: 3.2 },
+    ],
+  },
+  // ─── 10 — encouraging (both arms forward, warm) ─────────────────────────
+  {
+    bgKey: 'celebrate', propEmoji: '💙', propLeft: 'calc(50% + 80px)', propTop: 60, propScale: 1.6,
+    glowColor: '#4dffb8',
+    lUpperR: [-30, -26, -30],            lUpperDur: 2.8,
+    lLowerR: [-50, -46, -50],            lLowerDur: 2.8,
+    rUpperR: [30, 26, 30],               rUpperDur: 2.8,
+    rLowerR: [50, 46, 50],               rLowerDur: 2.8,
+    bodyY: [0, -8, 0], bodyDur: 2.6,
+    headRotateZ: [0, 3, 0, -3, 0], headDur: 3.0,
+    eyeHappy: true,
+    chestBg: 'linear-gradient(135deg,#4dffb8,#5de4ff)',
+    particleA: '#4dffb8', particleB: '#5de4ff',
+    floaters: [
+      { emoji: '💙', x: 14, y: 56, delay: 0.2, dur: 2.8 },
+      { emoji: '✨', x: 78, y: 50, delay: 0.5, dur: 3.0 },
+    ],
+  },
+  // ─── 11 — nodding (yes, head pitch) ──────────────────────────────────────
+  {
+    bgKey: 'celebrate', propEmoji: '✅', propLeft: 'calc(50% + 88px)', propTop: 28, propScale: 1.4,
+    glowColor: '#4dffb8',
+    lUpperR: [6, 8, 6],                  lUpperDur: 3.0,
+    lLowerR: [-8, -4, -8],               lLowerDur: 3.0,
+    rUpperR: [-6, -8, -6],               rUpperDur: 3.0,
+    rLowerR: [8, 4, 8],                  rLowerDur: 3.0,
+    bodyY: [0, -3, 0], bodyDur: 1.4,
+    headRotateX: [0, 14, 0, 12, 0],      // pitch forward = nodding yes
+    headDur: 1.4,
+    eyeHappy: true,
+    chestBg: 'linear-gradient(135deg,#4dffb8,#1bb7d2)',
+    particleA: '#4dffb8', particleB: '#5de4ff',
+    floaters: [{ emoji: '✅', x: 78, y: 32, delay: 0.2, dur: 2.4 }],
+  },
+  // ─── 12 — clapping (both hands meet repeatedly) ─────────────────────────
+  {
+    bgKey: 'celebrate', propEmoji: '👏', propLeft: 'calc(50% - 24px)', propTop: 36, propScale: 1.8,
+    glowColor: '#ffc96b',
+    lUpperR: [-32, -36, -32, -36, -32], lUpperDur: 0.6,
+    lLowerR: [-48, -54, -48, -54, -48], lLowerDur: 0.6,
+    rUpperR: [32, 36, 32, 36, 32],       rUpperDur: 0.6,
+    rLowerR: [48, 54, 48, 54, 48],       rLowerDur: 0.6,
+    bodyY: [0, -6, 0, -6, 0], bodyDur: 1.2,
+    headRotateZ: [0, 2, -2, 0], headDur: 1.6,
+    eyeHappy: true,
+    chestBg: 'linear-gradient(135deg,#ffc96b,#ff9f40)',
+    particleA: '#ffc96b', particleB: '#ff4fd8',
+    floaters: [
+      { emoji: '👏', x: 18, y: 48, delay: 0.0, dur: 2.0 },
+      { emoji: '👏', x: 70, y: 50, delay: 0.3, dur: 2.0 },
+    ],
+  },
+  // ─── 13 — cheering (bouncing happy) ──────────────────────────────────────
+  {
+    bgKey: 'celebrate', propEmoji: '🎉', propLeft: 'calc(50% + 70px)', propTop: 6, propScale: 2.2,
+    glowColor: '#ff4fd8',
+    lUpperR: [-58, -64, -58, -64, -58],  lUpperDur: 0.7,
+    lLowerR: [-26, -34, -26, -34, -26],  lLowerDur: 0.7,
+    rUpperR: [-58, -64, -58, -64, -58],  rUpperDur: 0.72,
+    rLowerR: [-26, -34, -26, -34, -26],  rLowerDur: 0.72,
+    bodyY: [0, -22, -4, -22, 0], bodyDur: 1.0,
+    headRotateZ: [0, -6, 6, -3, 0], headDur: 1.0,
+    eyeHappy: true,
+    chestBg: 'linear-gradient(135deg,#ff4fd8,#ffc96b)',
+    particleA: '#ff4fd8', particleB: '#ffc96b',
+    floaters: [
+      { emoji: '🎉', x: 12, y: 12, delay: 0.0, dur: 2.4 },
+      { emoji: '🎊', x: 78, y: 14, delay: 0.3, dur: 2.6 },
+      { emoji: '⭐', x: 50, y: 4,  delay: 0.5, dur: 2.4 },
+    ],
+  },
+  // ─── 14 — point-left ─────────────────────────────────────────────────────
+  {
+    bgKey: 'guide', propEmoji: '👈', propLeft: 'calc(50% - 130px)', propTop: 80, propScale: 1.6,
+    glowColor: '#6b7cff',
+    lUpperR: [-95, -90, -95],            lUpperDur: 3.2,    // arm out left
+    lLowerR: [12, 16, 12],               lLowerDur: 3.2,
+    rUpperR: [4, 8, 4],                  rUpperDur: 3.6,
+    rLowerR: [-8, -4, -8],               rLowerDur: 3.6,
+    bodyY: [0, -6, 0], bodyDur: 3.4,
+    headRotateY: [-12, -16, -12], headDur: 3.4,             // look left
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#6b7cff,#5de4ff)',
+    particleA: '#6b7cff', particleB: '#5de4ff',
+    floaters: [],
+  },
+  // ─── 15 — point-right ────────────────────────────────────────────────────
+  {
+    bgKey: 'guide', propEmoji: '👉', propLeft: 'calc(50% + 110px)', propTop: 80, propScale: 1.6,
+    glowColor: '#6b7cff',
+    lUpperR: [4, 8, 4],                  lUpperDur: 3.6,
+    lLowerR: [-8, -4, -8],               lLowerDur: 3.6,
+    rUpperR: [95, 90, 95],               rUpperDur: 3.2,    // arm out right
+    rLowerR: [-12, -16, -12],            rLowerDur: 3.2,
+    bodyY: [0, -6, 0], bodyDur: 3.4,
+    headRotateY: [12, 16, 12], headDur: 3.4,                // look right
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#6b7cff,#5de4ff)',
+    particleA: '#6b7cff', particleB: '#5de4ff',
+    floaters: [],
+  },
+  // ─── 16 — point-down (at sandbox) ────────────────────────────────────────
+  {
+    bgKey: 'guide', propEmoji: '👇', propLeft: 'calc(50% + 70px)', propTop: 130, propScale: 1.6,
+    glowColor: '#5de4ff',
+    lUpperR: [6, 8, 6],                  lUpperDur: 3.4,
+    lLowerR: [-8, -4, -8],               lLowerDur: 3.4,
+    rUpperR: [50, 54, 50],               rUpperDur: 2.8,
+    rLowerR: [40, 44, 40],               rLowerDur: 2.8,
+    bodyY: [0, -4, 0], bodyDur: 3.0,
+    headRotateX: [10, 14, 10],           // look down
+    headDur: 3.4,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#3b82f6,#5de4ff)',
+    particleA: '#5de4ff', particleB: '#6b7cff',
+    floaters: [{ emoji: '👇', x: 64, y: 90, delay: 0.0, dur: 2.6 }],
+  },
+  // ─── 17 — point-up (at the sky / "look up there!") ──────────────────────
+  {
+    bgKey: 'celebrate', propEmoji: '☝️', propLeft: 'calc(50% + 80px)', propTop: 0, propScale: 1.6,
+    glowColor: '#ffc96b',
+    lUpperR: [6, 8, 6],                  lUpperDur: 3.4,
+    lLowerR: [-8, -4, -8],               lLowerDur: 3.4,
+    rUpperR: [-130, -134, -130],         rUpperDur: 2.6,    // arm straight up
+    rLowerR: [-12, -8, -12],             rLowerDur: 2.6,
+    bodyY: [0, -8, 0], bodyDur: 2.8,
+    headRotateX: [-12, -16, -12],        // look up
+    headDur: 3.0,
+    eyeHappy: true,
+    chestBg: 'linear-gradient(135deg,#ffc96b,#5de4ff)',
+    particleA: '#ffc96b', particleB: '#5de4ff',
+    floaters: [{ emoji: '☝️', x: 70, y: 6, delay: 0.0, dur: 2.6 }],
+  },
+  // ─── 18 — surprised (arms up, eyes wide, jolt back) ─────────────────────
+  {
+    bgKey: 'adapt', propEmoji: '❗', propLeft: 'calc(50% + 86px)', propTop: 14, propScale: 2.0,
+    glowColor: '#ff4fd8',
+    lUpperR: [-92, -96, -92],            lUpperDur: 0.8,
+    lLowerR: [-30, -36, -30],            lLowerDur: 0.8,
+    rUpperR: [92, 96, 92],               rUpperDur: 0.8,
+    rLowerR: [30, 36, 30],               rLowerDur: 0.8,
+    bodyY: [-12, -16, -12], bodyDur: 1.2,
+    bodyRotateZ: [0, 2, -2, 0],
+    headRotateX: [-8, -12, -8],
+    headDur: 1.6,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#ff4fd8,#ffc96b)',
+    particleA: '#ff4fd8', particleB: '#ffc96b',
+    floaters: [
+      { emoji: '❗', x: 78, y: 6,  delay: 0.0, dur: 1.8 },
+      { emoji: '✨', x: 18, y: 16, delay: 0.2, dur: 2.2 },
+    ],
+  },
+  // ─── 19 — confused (head scratch, tilt) ──────────────────────────────────
+  {
+    bgKey: 'guide', propEmoji: '❓', propLeft: 'calc(50% - 110px)', propTop: 6, propScale: 1.6,
+    glowColor: '#a855f7',
+    lUpperR: [4, 6, 4],                  lUpperDur: 3.8,
+    lLowerR: [-6, -3, -6],               lLowerDur: 3.8,
+    rUpperR: [-115, -120, -115, -120, -115], rUpperDur: 1.6,    // hand on head
+    rLowerR: [76, 80, 76, 80, 76],       rLowerDur: 1.6,
+    bodyY: [0, -4, 0], bodyDur: 3.4,
+    headRotateZ: [12, 16, 12, 16, 12], headDur: 2.0,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#6b7cff,#a855f7)',
+    particleA: '#a855f7', particleB: '#6b7cff',
+    floaters: [
+      { emoji: '❓', x: 16, y: 6,  delay: 0.0, dur: 3.2 },
+      { emoji: '?',  x: 4,  y: 22, delay: 0.6, dur: 2.8 },
+    ],
+  },
+  // ─── 20 — shrug (palms up, "I dunno") ───────────────────────────────────
+  {
+    bgKey: 'idle', propEmoji: '🤷', propLeft: 'calc(50% - 22px)', propTop: 0, propScale: 1.8,
+    glowColor: '#a855f7',
+    lUpperR: [-50, -54, -50],            lUpperDur: 2.4,
+    lLowerR: [-92, -96, -92],            lLowerDur: 2.4,
+    rUpperR: [50, 54, 50],               rUpperDur: 2.4,
+    rLowerR: [92, 96, 92],               rLowerDur: 2.4,
+    bodyY: [0, -3, 0], bodyDur: 2.4,
+    headRotateZ: [-3, 3, -3], headDur: 2.6,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#6b7cff,#a855f7)',
+    particleA: '#a855f7', particleB: '#6b7cff',
+    floaters: [],
+  },
+  // ─── 21 — aha! (lightbulb above head, both arms up briefly) ─────────────
+  {
+    bgKey: 'celebrate', propEmoji: '💡', propLeft: 'calc(50% - 22px)', propTop: 0, propScale: 2.4,
+    glowColor: '#ffc96b',
+    lUpperR: [4, -90, 4, 4],             lUpperDur: 2.0,
+    lLowerR: [-8, -30, -8, -8],          lLowerDur: 2.0,
+    rUpperR: [-4, 90, -4, -4],           rUpperDur: 2.0,
+    rLowerR: [8, 30, 8, 8],              rLowerDur: 2.0,
+    bodyY: [0, -10, 0], bodyDur: 2.0,
+    headRotateX: [0, -10, 0], headDur: 2.0,
+    eyeHappy: true,
+    chestBg: 'linear-gradient(135deg,#ffc96b,#ff9f40)',
+    particleA: '#ffc96b', particleB: '#ff4fd8',
+    floaters: [
+      { emoji: '💡', x: 50, y: 0,  delay: 0.0, dur: 2.0 },
+      { emoji: '✨', x: 18, y: 18, delay: 0.4, dur: 2.4 },
+      { emoji: '⭐', x: 80, y: 18, delay: 0.6, dur: 2.4 },
+    ],
+  },
+  // ─── 22 — emphasizing (chopping motion, both hands) ─────────────────────
+  {
+    bgKey: 'guide', propEmoji: '', propLeft: 'calc(50% + 88px)', propTop: 60, propScale: 0,
+    glowColor: '#5de4ff',
+    lUpperR: [10, -20, 10, -20, 10],     lUpperDur: 1.0,
+    lLowerR: [-20, -50, -20, -50, -20],  lLowerDur: 1.0,
+    rUpperR: [-10, 20, -10, 20, -10],    rUpperDur: 1.0,
+    rLowerR: [20, 50, 20, 50, 20],       rLowerDur: 1.0,
+    bodyY: [0, -4, 0, -4, 0], bodyDur: 1.0,
+    headRotateZ: [0, 1, -1, 0], headDur: 1.6,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#3b82f6,#5de4ff)',
+    particleA: '#5de4ff', particleB: '#a855f7',
+    floaters: [],
+  },
+  // ─── 23 — sad / sympathetic (head down, slumped) ────────────────────────
+  {
+    bgKey: 'idle', propEmoji: '💧', propLeft: 'calc(50% + 60px)', propTop: 90, propScale: 1.2,
+    glowColor: '#6b7cff',
+    lUpperR: [22, 24, 22],               lUpperDur: 4.4,
+    lLowerR: [-12, -10, -12],            lLowerDur: 4.4,
+    rUpperR: [-22, -24, -22],            rUpperDur: 4.4,
+    rLowerR: [12, 10, 12],               rLowerDur: 4.4,
+    bodyY: [4, 6, 4], bodyDur: 4.0,                    // slumped (negative bob)
+    bodyRotateZ: [-2, -1, -2],
+    headRotateX: [10, 12, 10],                          // head down
+    headRotateZ: [-3, -2, -3],
+    headDur: 4.6,
+    eyeHappy: false,
+    chestBg: 'linear-gradient(135deg,#6b7cff,#3b82f6)',
+    particleA: '#6b7cff', particleB: '#3b82f6',
+    floaters: [{ emoji: '💧', x: 60, y: 56, delay: 0.0, dur: 3.8 }],
+  },
 ];
+
+/**
+ * Named scene IDs — use these from face-mode + lesson code instead of raw
+ * indices so renumbering is safe.
+ */
+export const SPARK_SCENES = {
+  WAVE:          0,
+  GUIDE:         1,
+  CELEBRATE:     2,
+  ADAPT:         3,
+  IDLE:          4,
+  LISTENING:     5,
+  THINKING:      6,
+  TALKING:       7,
+  EXPLAINING:    8,
+  QUESTIONING:   9,
+  ENCOURAGING:  10,
+  NODDING:      11,
+  CLAPPING:     12,
+  CHEERING:     13,
+  POINT_LEFT:   14,
+  POINT_RIGHT:  15,
+  POINT_DOWN:   16,
+  POINT_UP:     17,
+  SURPRISED:    18,
+  CONFUSED:     19,
+  SHRUG:        20,
+  AHA:          21,
+  EMPHASIZING:  22,
+  SAD:          23,
+} as const;
+
+export type SparkSceneId = keyof typeof SPARK_SCENES;
 
 // ─── Scene Background (exported — render in plan-spark-hero) ──────────────────
 
@@ -280,13 +653,19 @@ function Spark3D({ showSpeech, speechKey, size = 'xl', scene = 0 }: Omit<Spark3D
           lowerR={cfg.rLowerR} lowerDur={cfg.rLowerDur}
         />
 
-        {/* Head */}
+        {/* Head — supports independent X (pitch), Y (yaw), Z (roll) animation */}
         <motion.div
           className="spark3d-head"
-          animate={cfg.headRotateZ
-            ? { rotateZ: cfg.headRotateZ }
-            : { rotateY: cfg.headRotateY ?? [0, 6, 0, -6, 0] }}
-          transition={{ duration: cfg.headDur, repeat: Infinity, ease: 'easeInOut' }}
+          animate={{
+            rotateX: cfg.headRotateX ?? 0,
+            rotateY: cfg.headRotateY ?? (cfg.headRotateZ ? 0 : [0, 6, 0, -6, 0]),
+            rotateZ: cfg.headRotateZ ?? 0,
+          }}
+          transition={{
+            rotateX: { duration: cfg.headDur, repeat: Infinity, ease: 'easeInOut' },
+            rotateY: { duration: cfg.headDur, repeat: Infinity, ease: 'easeInOut' },
+            rotateZ: { duration: cfg.headDur, repeat: Infinity, ease: 'easeInOut' },
+          }}
           style={{ perspective: 700 }}
         >
           <div className="spark3d-head-shell">
