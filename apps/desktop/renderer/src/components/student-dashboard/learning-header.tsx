@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { AiboticsLogo } from '@/components/aibotics-logo';
 import { AGE_GROUP_META, type AgeGroup } from '@/lib/concept-types';
 import { getConceptPreviews, ROBOT_LAB_CONCEPT_IDS } from '@/lib/concept-catalog';
+import { SaveStatus } from '@/components/save-status';
 
 import type { LearningHeaderProps } from './types';
 
@@ -36,6 +37,7 @@ export function LearningHeader({
   monthlyCredits,
   planTier,
   profileAvatar,
+  sessionId,
   onBackToHome,
   onAgeGroupChange,
   onOpenConceptMap,
@@ -101,6 +103,8 @@ export function LearningHeader({
           <ArrowLeft size={13} />
           Menu
         </Button>
+
+        <SaveStatus sessionId={sessionId ?? null} />
 
         {profileAvatar ? (
           <div className="learn-header-profile-avatar" title="Your profile look">

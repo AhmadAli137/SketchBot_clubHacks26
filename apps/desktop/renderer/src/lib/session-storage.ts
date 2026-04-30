@@ -154,8 +154,18 @@ export function updateSession(
   const next: SavedSession = { ...all[idx]!, ...patch, lastOpenedAt: Date.now() };
   all[idx] = next;
   writeAll(userName, all);
+  // Broadcast a save event so UI surfaces (e.g. SaveIndicator) can react.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sketchbot:session-saved', {
+      detail: { userName, id, at: next.lastOpenedAt },
+    }));
+  }
   return next;
 }
+
+/** Constant for the global "save now" event — dispatched by manual Save buttons,
+ *  consumed by auto-save effects to force an immediate flush. */
+export const SAVE_NOW_EVENT = 'sketchbot:save-now';
 
 /** Mark a session as opened — bumps lastOpenedAt without changing other fields. */
 export function touchSession(userName: string, id: string): void {

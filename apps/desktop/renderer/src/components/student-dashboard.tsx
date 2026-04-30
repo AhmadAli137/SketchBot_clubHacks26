@@ -15,7 +15,7 @@ import { LearningStage } from '@/components/student-dashboard/learning-stage';
 import { PromptComposer } from '@/components/student-dashboard/prompt-composer';
 import { SimPlayground } from '@/components/sim-playground';
 import { type SceneObject, generateThumbnailSvg } from '@/lib/scene-builder';
-import { getSession as getSavedSession, updateSession as updateSavedSessionRecord } from '@/lib/session-storage';
+import { getSession as getSavedSession, updateSession as updateSavedSessionRecord, SAVE_NOW_EVENT } from '@/lib/session-storage';
 import type { StudentDashboardProps } from '@/components/student-dashboard/types';
 import type { AgeGroup, ConceptLayer, InputMode } from '@/lib/concept-types';
 import {
@@ -113,17 +113,24 @@ export function StudentDashboard({
     const saved = getSavedSession(studentName || 'guest', sessionId);
     setSceneObjects(saved?.sceneObjects ?? []);
   }, [sessionId, studentName]);
-  // Debounced auto-save back to the SavedSession (also regenerates thumbnail)
+  // Debounced auto-save back to the SavedSession (also regenerates thumbnail).
+  // Listens for "save now" to flush immediately.
   useEffect(() => {
     if (!sessionId) return;
-    const handle = setTimeout(() => {
+    const flush = () => {
       const thumb = generateThumbnailSvg(sceneObjects);
       updateSavedSessionRecord(studentName || 'guest', sessionId, {
         sceneObjects,
         thumbnailSvg: thumb ?? undefined,
       });
-    }, 400);
-    return () => clearTimeout(handle);
+    };
+    const handle = setTimeout(flush, 400);
+    const onSaveNow = () => { clearTimeout(handle); flush(); };
+    window.addEventListener(SAVE_NOW_EVENT, onSaveNow);
+    return () => {
+      clearTimeout(handle);
+      window.removeEventListener(SAVE_NOW_EVENT, onSaveNow);
+    };
   }, [sceneObjects, sessionId, studentName]);
   const [showSystemStatus, setShowSystemStatus] = useState(false);
   const [showConceptMap, setShowConceptMap] = useState(false);
@@ -698,6 +705,7 @@ export function StudentDashboard({
             />
           ) : undefined
         }
+        sessionId={sessionId}
         onBackToHome={onBackToHome}
         onAgeGroupChange={setAgeGroup}
         onOpenConceptMap={() => setShowConceptMap(true)}

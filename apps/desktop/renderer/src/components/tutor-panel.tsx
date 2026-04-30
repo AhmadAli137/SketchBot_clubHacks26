@@ -1001,10 +1001,12 @@ export function TutorPanel({
     }
   }, [sessionId, studentName]);
 
-  // Persist chat history (debounced) whenever messages change
+  // Persist chat history (debounced) whenever messages change.
+  // Also flushes immediately on the global "save now" event.
   useEffect(() => {
     if (!sessionId) return;
-    const handle = setTimeout(() => {
+    const SAVE_NOW = 'sketchbot:save-now';
+    const flush = () => {
       void (async () => {
         const { updateSession } = await import('@/lib/session-storage');
         updateSession(studentName || 'guest', sessionId, {
@@ -1018,8 +1020,14 @@ export function TutorPanel({
             })),
         });
       })();
-    }, 500);
-    return () => clearTimeout(handle);
+    };
+    const handle = setTimeout(flush, 500);
+    const onSaveNow = () => { clearTimeout(handle); flush(); };
+    window.addEventListener(SAVE_NOW, onSaveNow);
+    return () => {
+      clearTimeout(handle);
+      window.removeEventListener(SAVE_NOW, onSaveNow);
+    };
   }, [messages, sessionId, studentName]);
   const [studentInput, setStudentInput] = useState('');
   /** True while any tutor SSE reply is in flight (greeting, hint, student reply, etc.). */

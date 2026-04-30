@@ -101,6 +101,8 @@ export type LearningHeaderProps = {
   planTier?: string;
   /** Small avatar (emoji or robot) next to the menu when signed in as a student. */
   profileAvatar?: ReactNode;
+  /** Active SavedSession id, used for the save-status indicator. */
+  sessionId?: string | null;
   onBackToHome?: () => void;
   onAgeGroupChange: (ageGroup: AgeGroup) => void;
   onOpenConceptMap: () => void;

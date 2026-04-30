@@ -36,7 +36,7 @@ import { getClassSession, setClassSession, type ClassSession } from '@/lib/sessi
 import { canUpload, canUseFreeDraw, isConceptAllowed } from '@/lib/classroom-restrictions';
 import type { ClassroomProfile } from '@/lib/platform-types';
 import type { StartSessionOptions } from '@/components/home-screen';
-import { updateSession as updateSavedSession } from '@/lib/session-storage';
+import { updateSession as updateSavedSession, SAVE_NOW_EVENT } from '@/lib/session-storage';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 type AppView = 'plan' | 'auth' | 'difficulty-onboarding' | 'home' | 'session';
@@ -340,13 +340,18 @@ export default function HomePage() {
   const phoneStreamRef = useRef<MediaStream | null>(null);
   const phoneDisconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-persist prompt to the active SavedSession (debounced)
+  // Auto-persist prompt to the active SavedSession (debounced).
+  // Listens for the manual "save now" event to flush immediately.
   useEffect(() => {
     if (!currentSessionId || view !== 'session') return;
-    const id = setTimeout(() => {
-      updateSavedSession(userName || 'guest', currentSessionId, { prompt });
-    }, 600);
-    return () => clearTimeout(id);
+    const flush = () => updateSavedSession(userName || 'guest', currentSessionId, { prompt });
+    const id = setTimeout(flush, 600);
+    const onSaveNow = () => { clearTimeout(id); flush(); };
+    window.addEventListener(SAVE_NOW_EVENT, onSaveNow);
+    return () => {
+      clearTimeout(id);
+      window.removeEventListener(SAVE_NOW_EVENT, onSaveNow);
+    };
   }, [prompt, currentSessionId, view, userName]);
 
   // Track time spent in the active session

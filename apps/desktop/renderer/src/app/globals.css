@@ -14464,6 +14464,56 @@ select.block-param-input{width:auto;padding-right:20px}
   z-index: 3;
 }
 
+/* ── Save status / Save button (in learn-header) ─────────────────────────── */
+
+.save-status {
+  display: flex;
+  align-items: center;
+}
+
+.save-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted-2);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.save-status-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(168, 85, 247, 0.4);
+  color: var(--text);
+}
+
+.save-status-btn.flashing {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: rgb(110, 231, 183);
+}
+
+.save-status-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.save-status-spin {
+  animation: save-status-spin 0.9s linear infinite;
+}
+
+@keyframes save-status-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Course builder rail (sandbox 3D scene) ──────────────────────────────── */
 
 .builder-rail {
