@@ -88,6 +88,40 @@ function ringCones(count: number, radius: number, scale = 1): ConeProp[] {
 
 export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
 
+  // Clean blank canvas — no cones, walls, or waypoints. Used by Sandbox / blank sessions.
+  'sandbox': {
+    label: 'Sandbox',
+    arenaType: 'open',
+    background: '#070a14',
+    fog: ['#070a14', 14, 36],
+    groundColor: '#0a0e1a',
+    gridColor: '#1a2238',
+    sectionColor: '#2a3554',
+    ambientColor: '#a8c0ff',
+    keyLightColor: '#fff5eb',
+    fillLightColor: '#a8c8ff',
+    accentColor: '#5de4ff',
+    tutorials: {
+      intuitive: [
+        'Free play — try anything!',
+        'Drop in objects from the library or just draw freely.',
+        'Ask Spark for ideas anytime.',
+      ],
+      structural: [
+        'Use blocks to build your own challenge.',
+        'Combine shapes, robots, and obstacles however you like.',
+      ],
+      precise: [
+        'Write Python to procedurally place objects.',
+        'Build your own scoring rules and run experiments.',
+      ],
+    },
+    scoring: {
+      label: 'Sandbox',
+      metrics: [],
+    },
+  },
+
   'path-planning': {
     label: 'Waypoint Gauntlet',
     arenaType: 'open',
@@ -331,9 +365,12 @@ export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
 };
 
 export function getEnvironment(conceptId: string | null | undefined): ConceptEnvironment {
+  // Blank/null conceptId → sandbox (no cones, walls, or waypoints).
+  // Unknown conceptId → still falls back to sandbox rather than path-planning,
+  // so we never leak waypoint markers into a freshly created session.
   return (
     (conceptId ? CONCEPT_ENVIRONMENTS[conceptId] : null) ??
-    CONCEPT_ENVIRONMENTS['path-planning']!
+    CONCEPT_ENVIRONMENTS['sandbox']!
   );
 }
 
