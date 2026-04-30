@@ -1869,8 +1869,12 @@ export function TutorPanel({
         </div>
       )}
 
-      {/* Offline voice model status */}
-      {(!backendReachable || backendSttAvailable === false) && localWhisper.status === 'idle' && (
+      {/* Offline voice model status — teacher / educator view only.
+          For students this would just be technical noise ("server voice off",
+          "download offline model") that disrupts the tutor relationship and
+          exposes infrastructure details kids don't need. The mic still
+          falls back to the offline model automatically when needed. */}
+      {sessionActorRole === 'teacher' && (!backendReachable || backendSttAvailable === false) && localWhisper.status === 'idle' && (
         <div className="tutor-whisper-bar">
           <WifiOff size={12} />
           <span>
@@ -1888,7 +1892,7 @@ export function TutorPanel({
           </button>
         </div>
       )}
-      {localWhisper.isLoading && (
+      {sessionActorRole === 'teacher' && localWhisper.isLoading && (
         <div className="tutor-whisper-bar">
           <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} />
           <span>
@@ -1906,7 +1910,7 @@ export function TutorPanel({
           )}
         </div>
       )}
-      {localWhisper.status === 'error' && (
+      {sessionActorRole === 'teacher' && localWhisper.status === 'error' && (
         <div className="tutor-whisper-bar error">
           <span>Offline model failed to load.</span>
           <button
