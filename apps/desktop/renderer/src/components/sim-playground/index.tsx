@@ -105,6 +105,8 @@ export function SimPlayground({
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [draggedObjectId, setDraggedObjectId] = useState<string | null>(null);
+  const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null);
+  const [showPlacementGrid, setShowPlacementGrid] = useState(true);
 
   const activeTool = activeToolId ? (TOOLS_BY_ID[activeToolId] ?? null) : null;
   const selectedObject = selectedObjectId
@@ -117,6 +119,7 @@ export function SimPlayground({
       setBuilderEnabled(false);
       setActiveToolId(null);
       setSelectedObjectId(null);
+      setHoveredObjectId(null);
     }
   }, [builderAvailable]);
 
@@ -126,6 +129,16 @@ export function SimPlayground({
 
   const handlePlaceAt = (gx: number, gz: number) => {
     if (!activeTool) return;
+    // If cursor is over an existing object, stack-on-top via that object's
+    // position instead of the floor click point. This makes stacking forgiving:
+    // hover the top face → click anywhere → it lands correctly.
+    const stackTarget = hoveredObjectId
+      ? sceneObjects.find((o) => o.id === hoveredObjectId)
+      : null;
+    if (stackTarget) {
+      handleStackOnTop(stackTarget.id);
+      return;
+    }
     const obj = makeObjectFromTool(activeTool, gx, gz);
     updateObjects([...sceneObjects, obj]);
     setSelectedObjectId(obj.id);
@@ -429,9 +442,11 @@ export function SimPlayground({
               className="sim-3d-canvas"
               conceptId={conceptId}
               builderEnabled={builderEnabled}
+              showPlacementGrid={showPlacementGrid}
               sceneObjects={sceneObjects}
               selectedObjectId={selectedObjectId}
               draggedObjectId={draggedObjectId}
+              hoveredObjectId={hoveredObjectId}
               activeTool={activeTool}
               onPlaceAt={handlePlaceAt}
               onSelectObject={handleSelectObject}
@@ -439,6 +454,7 @@ export function SimPlayground({
               onStartDrag={handleStartDrag}
               onDragMove={handleDragMove}
               onEndDrag={handleEndDrag}
+              onHoverObject={setHoveredObjectId}
             />
             <div className="sim-3d-hint">
               {builderEnabled
@@ -462,6 +478,8 @@ export function SimPlayground({
                 onLowerSelected={handleLowerSelected}
                 onDeleteSelected={handleDeleteSelected}
                 onDuplicateSelected={handleDuplicateSelected}
+                showPlacementGrid={showPlacementGrid}
+                onTogglePlacementGrid={() => setShowPlacementGrid((v) => !v)}
                 objectCount={sceneObjects.length}
               />
             )}

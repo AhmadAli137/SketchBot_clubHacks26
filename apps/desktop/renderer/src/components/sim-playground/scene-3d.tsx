@@ -254,9 +254,11 @@ type SceneContentProps = {
   env: ConceptEnvironment;
   conceptId?: string | null;
   builderEnabled?: boolean;
+  showPlacementGrid?: boolean;
   sceneObjects?: SceneObject[];
   selectedObjectId?: string | null;
   draggedObjectId?: string | null;
+  hoveredObjectId?: string | null;
   activeTool?: ToolDef | null;
   onPlaceAt?: (gx: number, gz: number) => void;
   onSelectObject?: (id: string | null) => void;
@@ -264,13 +266,15 @@ type SceneContentProps = {
   onStartDrag?: (objectId: string) => void;
   onDragMove?: (gx: number, gz: number) => void;
   onEndDrag?: () => void;
+  onHoverObject?: (id: string | null) => void;
 };
 
 function SceneContent({
   settledLines, activeLine, penPos, isAnimating, showGrid, showAxes, showCamera, env, conceptId,
-  builderEnabled = false, sceneObjects = [], selectedObjectId = null, draggedObjectId = null,
+  builderEnabled = false, showPlacementGrid = false,
+  sceneObjects = [], selectedObjectId = null, draggedObjectId = null, hoveredObjectId = null,
   activeTool = null,
-  onPlaceAt, onSelectObject, onStackOnTop, onStartDrag, onDragMove, onEndDrag,
+  onPlaceAt, onSelectObject, onStackOnTop, onStartDrag, onDragMove, onEndDrag, onHoverObject,
 }: SceneContentProps) {
   const simMode = getSimMode(conceptId);
   const isDrawingMode = simMode === 'drawing';
@@ -364,15 +368,52 @@ function SceneContent({
           objects={sceneObjects}
           selectedId={selectedObjectId}
           draggedId={draggedObjectId}
+          hoveredId={hoveredObjectId}
+          toolActive={activeTool !== null}
           onSelect={(id) => onSelectObject?.(id)}
           onStackOnTop={(id) => onStackOnTop?.(id)}
           onStartDrag={(id) => onStartDrag?.(id)}
+          onHoverObject={(id) => onHoverObject?.(id)}
         />
       )}
 
-      {/* Ghost cursor preview while a tool is active */}
-      {showCursor && cursor && activeTool && (
-        <BuilderCursor tool={activeTool} gx={cursor.gx} gz={cursor.gz} visible={true} />
+      {/* Ghost cursor preview while a tool is active.
+          When hovering another object with a tool active, position the ghost
+          on top of that object (stack target). */}
+      {showCursor && cursor && activeTool && (() => {
+        const stackTarget = hoveredObjectId
+          ? sceneObjects.find((o) => o.id === hoveredObjectId) ?? null
+          : null;
+        const cgx = stackTarget ? stackTarget.gx : cursor.gx;
+        const cgz = stackTarget ? stackTarget.gz : cursor.gz;
+        const cgy = stackTarget ? (stackTarget.gy ?? 0) + 1 : 0;
+        return (
+          <BuilderCursor
+            tool={activeTool}
+            gx={cgx}
+            gz={cgz}
+            gy={cgy}
+            visible={true}
+          />
+        );
+      })()}
+
+      {/* Placement grid overlay (builder mode, toggleable) */}
+      {builderEnabled && showPlacementGrid && (
+        <Grid
+          position={[0, -0.005, 0]}
+          args={[20, 20]}
+          cellSize={0.25}
+          cellThickness={0.5}
+          cellColor="#5de4ff"
+          sectionSize={1}
+          sectionThickness={0.9}
+          sectionColor="#a855f7"
+          fadeDistance={18}
+          fadeStrength={1.2}
+          infiniteGrid
+          followCamera={false}
+        />
       )}
 
       {/* Robot/simulation — drawing or autonomous (suppressed in builder mode) */}
@@ -413,9 +454,11 @@ type Scene3DProps = {
    *  are hidden, the user's sceneObjects are rendered, and the floor accepts
    *  pointer-place + cursor preview. */
   builderEnabled?: boolean;
+  showPlacementGrid?: boolean;
   sceneObjects?: SceneObject[];
   selectedObjectId?: string | null;
   draggedObjectId?: string | null;
+  hoveredObjectId?: string | null;
   activeTool?: ToolDef | null;
   onPlaceAt?: (gx: number, gz: number) => void;
   onSelectObject?: (id: string | null) => void;
@@ -423,6 +466,7 @@ type Scene3DProps = {
   onStartDrag?: (objectId: string) => void;
   onDragMove?: (gx: number, gz: number) => void;
   onEndDrag?: () => void;
+  onHoverObject?: (id: string | null) => void;
 };
 
 export function Scene3D({
@@ -430,9 +474,11 @@ export function Scene3D({
   showGrid = true, showAxes = true, showCamera = true,
   className, conceptId,
   builderEnabled = false,
+  showPlacementGrid = false,
   sceneObjects = [],
   selectedObjectId = null,
   draggedObjectId = null,
+  hoveredObjectId = null,
   activeTool = null,
   onPlaceAt,
   onSelectObject,
@@ -440,6 +486,7 @@ export function Scene3D({
   onStartDrag,
   onDragMove,
   onEndDrag,
+  onHoverObject,
 }: Scene3DProps) {
   const env = useMemo(() => getEnvironment(conceptId), [conceptId]);
   return (
@@ -455,11 +502,13 @@ export function Scene3D({
     >
       <SceneContent settledLines={settledLines} activeLine={activeLine} penPos={penPos} isAnimating={isAnimating}
         showGrid={showGrid} showAxes={showAxes} showCamera={showCamera} env={env} conceptId={conceptId}
-        builderEnabled={builderEnabled} sceneObjects={sceneObjects} selectedObjectId={selectedObjectId}
-        draggedObjectId={draggedObjectId} activeTool={activeTool}
+        builderEnabled={builderEnabled} showPlacementGrid={showPlacementGrid}
+        sceneObjects={sceneObjects} selectedObjectId={selectedObjectId}
+        draggedObjectId={draggedObjectId} hoveredObjectId={hoveredObjectId} activeTool={activeTool}
         onPlaceAt={onPlaceAt} onSelectObject={onSelectObject}
         onStackOnTop={onStackOnTop} onStartDrag={onStartDrag}
-        onDragMove={onDragMove} onEndDrag={onEndDrag} />
+        onDragMove={onDragMove} onEndDrag={onEndDrag}
+        onHoverObject={onHoverObject} />
     </Canvas>
   );
 }

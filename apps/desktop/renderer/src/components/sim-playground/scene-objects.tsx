@@ -5,6 +5,11 @@
  *
  * Visual style is intentionally close to the existing concept-environment
  * props (cones, walls, waypoints) so a user-built course feels native.
+ *
+ * Phase 3 additions:
+ *  - GhostObject — translucent preview of the actual tool's object at cursor
+ *  - Stack-target hover highlight — top face of a hovered object glows
+ *    when a tool is active so the user knows where it'll land
  */
 
 import { useRef } from 'react';
@@ -19,6 +24,10 @@ import {
   type SceneObject,
   type ToolDef,
 } from '@/lib/scene-builder';
+
+const GHOST_COLOR    = '#5de4ff';
+const STACK_COLOR    = '#a855f7';
+const GHOST_OPACITY  = 0.45;
 
 // ─── Selection ring under selected objects ───────────────────────────────────
 
@@ -37,7 +46,54 @@ function SelectionRing({ x, z }: { x: number; z: number }) {
   );
 }
 
-// ─── Per-type renderers ──────────────────────────────────────────────────────
+// ─── Top-face hover highlight (stack target indicator) ───────────────────────
+
+function StackTargetHighlight({
+  x,
+  y,
+  z,
+  rotY,
+  type,
+}: {
+  x: number;
+  y: number;
+  z: number;
+  rotY: number;
+  type: SceneObject['type'];
+}) {
+  const ref = useRef<THREE.Mesh>(null);
+  // Top-face Y position depends on object's height
+  const topY = (() => {
+    switch (type) {
+      case 'wall':
+      case 'block':    return y + 0.16;
+      case 'cone':     return y + 0.26;
+      case 'sphere':   return y + 0.20;
+      case 'cylinder': return y + 0.24;
+      case 'bot':      return y + 0.10;
+      default:         return y + 0.05;
+    }
+  })();
+
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const mat = ref.current.material as THREE.MeshBasicMaterial;
+    mat.opacity = 0.45 + Math.sin(clock.elapsedTime * 5) * 0.25;
+  });
+
+  // Use slightly oversized cell footprint
+  const w = (type === 'wall') ? GRID_SIZE * 1.0 : GRID_SIZE * 0.95;
+  const d = (type === 'wall') ? GRID_SIZE * 0.22 : GRID_SIZE * 0.95;
+
+  return (
+    <mesh ref={ref} position={[x, topY + 0.002, z]} rotation={[-Math.PI / 2, 0, rotY]}>
+      <planeGeometry args={[w, d]} />
+      <meshBasicMaterial color={STACK_COLOR} transparent opacity={0.5} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+// ─── Per-type renderers (real, opaque) ───────────────────────────────────────
 
 function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
   return (
@@ -119,7 +175,6 @@ function WaypointObject({ x, y, z, color = '#4dffb8' }: { x: number; y: number; 
 }
 
 function AprilTagObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
-  // Simplified flat marker — black border + white inner + checkerboard
   return (
     <group position={[x, y + 0.001, z]} rotation={[0, rotY, 0]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -130,7 +185,6 @@ function AprilTagObject({ x, y, z, rotY }: { x: number; y: number; z: number; ro
         <planeGeometry args={[0.13, 0.13]} />
         <meshStandardMaterial color="#f3eee0" roughness={0.85} />
       </mesh>
-      {/* Tiny checker dots */}
       {[
         [-0.035, -0.035], [0, -0.035], [0.035, -0.035],
         [-0.035, 0],                   [0.035, 0],
@@ -153,17 +207,14 @@ function BotObject({ x, y, z, rotY, variant = 'standard' }: { x: number; y: numb
   const height       = isSumo ? 0.10     : 0.09;
   return (
     <group position={[x, y, z]} rotation={[0, rotY, 0]}>
-      {/* Chassis */}
       <mesh position={[0, height / 2 + 0.01, 0]} castShadow>
         <cylinderGeometry args={[radius, radius * 0.95, height, 24]} />
         <meshStandardMaterial color={bodyColor} roughness={0.55} metalness={0.25} />
       </mesh>
-      {/* Accent ring */}
       <mesh position={[0, height + 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[radius * 0.65, radius * 0.85, 32]} />
         <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={0.6} side={THREE.DoubleSide} />
       </mesh>
-      {/* Direction nub */}
       <mesh position={[radius * 0.55, height / 2 + 0.01, 0]} castShadow>
         <boxGeometry args={[radius * 0.4, 0.025, radius * 0.5]} />
         <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={0.5} />
@@ -172,7 +223,103 @@ function BotObject({ x, y, z, rotY, variant = 'standard' }: { x: number; y: numb
   );
 }
 
-// ─── Single object dispatcher ────────────────────────────────────────────────
+// ─── Per-type ghost renderers (translucent preview shapes) ───────────────────
+
+function GhostMaterial({ color = GHOST_COLOR }: { color?: string }) {
+  return (
+    <meshStandardMaterial
+      color={color}
+      emissive={color}
+      emissiveIntensity={0.6}
+      transparent
+      opacity={GHOST_OPACITY}
+      depthWrite={false}
+    />
+  );
+}
+
+function GhostShape({
+  type,
+  rotY,
+  variant,
+}: {
+  type: SceneObject['type'];
+  rotY: number;
+  variant?: 'standard' | 'sumo';
+}) {
+  switch (type) {
+    case 'wall':
+      return (
+        <mesh position={[0, 0.08, 0]} rotation={[0, rotY, 0]}>
+          <boxGeometry args={[GRID_SIZE * 0.95, 0.16, GRID_SIZE * 0.18]} />
+          <GhostMaterial />
+        </mesh>
+      );
+    case 'block':
+      return (
+        <mesh position={[0, 0.08, 0]} rotation={[0, rotY, 0]}>
+          <boxGeometry args={[GRID_SIZE * 0.85, 0.16, GRID_SIZE * 0.85]} />
+          <GhostMaterial />
+        </mesh>
+      );
+    case 'cone':
+      return (
+        <mesh position={[0, 0.14, 0]}>
+          <coneGeometry args={[0.06, 0.26, 16]} />
+          <GhostMaterial color="#ff8c00" />
+        </mesh>
+      );
+    case 'sphere':
+      return (
+        <mesh position={[0, 0.1, 0]}>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          <GhostMaterial color="#a855f7" />
+        </mesh>
+      );
+    case 'cylinder':
+      return (
+        <mesh position={[0, 0.12, 0]}>
+          <cylinderGeometry args={[0.07, 0.07, 0.24, 16]} />
+          <GhostMaterial />
+        </mesh>
+      );
+    case 'waypoint':
+      return (
+        <group>
+          <mesh position={[0, 0.15, 0]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.30, 8]} />
+            <GhostMaterial color="#4dffb8" />
+          </mesh>
+          <mesh position={[0, 0.32, 0]}>
+            <sphereGeometry args={[0.055, 12, 12]} />
+            <GhostMaterial color="#4dffb8" />
+          </mesh>
+        </group>
+      );
+    case 'apriltag':
+      return (
+        <mesh position={[0, 0.002, 0]} rotation={[-Math.PI / 2, 0, rotY]}>
+          <planeGeometry args={[0.18, 0.18]} />
+          <meshBasicMaterial color={GHOST_COLOR} transparent opacity={GHOST_OPACITY} side={THREE.DoubleSide} />
+        </mesh>
+      );
+    case 'bot': {
+      const isSumo = variant === 'sumo';
+      const radius = isSumo ? 0.13 : 0.10;
+      const height = isSumo ? 0.10 : 0.09;
+      return (
+        <mesh position={[0, height / 2 + 0.01, 0]} rotation={[0, rotY, 0]}>
+          <cylinderGeometry args={[radius, radius * 0.95, height, 24]} />
+          <GhostMaterial color={isSumo ? '#ff6060' : '#5de4ff'} />
+        </mesh>
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+// ─── Single placed-object dispatcher ─────────────────────────────────────────
 
 function PlacedObjectMesh({ obj }: { obj: SceneObject }) {
   const { x, y, z } = gridToWorld(obj);
@@ -197,43 +344,58 @@ export function SceneObjectsRenderer({
   objects,
   selectedId,
   draggedId,
+  hoveredId,
+  toolActive,
   onSelect,
   onStackOnTop,
   onStartDrag,
+  onHoverObject,
 }: {
   objects: SceneObject[];
   selectedId: string | null;
   draggedId: string | null;
+  hoveredId: string | null;
+  /** True when a placement tool is active — face highlight + stack-on-top click. */
+  toolActive: boolean;
   onSelect: (id: string | null) => void;
-  /** Called when the user clicks a placed object with a tool active —
-   *  Phase 2 snap-to-stack. */
   onStackOnTop: (objectId: string) => void;
-  /** Called when the user starts dragging in select mode (no tool active). */
   onStartDrag: (objectId: string) => void;
+  onHoverObject: (id: string | null) => void;
 }) {
   return (
     <group>
       {objects.map((obj) => {
-        const { x, z } = gridToWorld(obj);
+        const { x, y, z } = gridToWorld(obj);
+        const rotY = rotationToRadians(obj.rotY ?? 0);
         const isSelected = obj.id === selectedId || obj.id === draggedId;
+        const isHovered  = obj.id === hoveredId && toolActive;
         return (
           <group
             key={obj.id}
             onPointerDown={(e) => {
               e.stopPropagation();
-              // The parent decides what a click means (place-on-top vs select vs drag).
-              // We forward both: select first, then onStartDrag — parent ignores drag if a tool is active.
               onSelect(obj.id);
               onStartDrag(obj.id);
             }}
             onClick={(e) => {
-              // Used by parent to detect "place-on-top" intent.
               e.stopPropagation();
               onStackOnTop(obj.id);
+            }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              onHoverObject(obj.id);
+            }}
+            onPointerOut={(e) => {
+              e.stopPropagation();
+              // Only clear hover if pointer truly left this object
+              onHoverObject(null);
             }}
           >
             <PlacedObjectMesh obj={obj} />
             {isSelected && <SelectionRing x={x} z={z} />}
+            {isHovered && (
+              <StackTargetHighlight x={x} y={y} z={z} rotY={rotY} type={obj.type} />
+            )}
           </group>
         );
       })}
@@ -247,27 +409,39 @@ export function BuilderCursor({
   tool,
   gx,
   gz,
+  gy,
   visible,
+  rotY = 0,
 }: {
   tool: ToolDef | null;
   gx: number;
   gz: number;
+  gy?: number;
   visible: boolean;
+  rotY?: number;
 }) {
   if (!tool || !visible) return null;
-  const { x, z } = gridToWorld({ gx, gz });
+  const { x, y, z } = gridToWorld({ gx, gz, gy });
+
   return (
-    <group position={[x, 0, z]}>
-      {/* Highlight cell */}
-      <mesh position={[0, 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[GRID_SIZE * 0.98, GRID_SIZE * 0.98]} />
-        <meshBasicMaterial color="#5de4ff" transparent opacity={0.25} />
-      </mesh>
-      {/* Floating tool emoji marker */}
-      <mesh position={[0, STACK_HEIGHT + 0.02, 0]}>
-        <sphereGeometry args={[0.04, 12, 12]} />
-        <meshBasicMaterial color="#5de4ff" transparent opacity={0.6} />
-      </mesh>
+    <group position={[x, y, z]}>
+      {/* Floor cell highlight — drawn underneath the ghost shape */}
+      {(!gy || gy === 0) && (
+        <mesh position={[0, 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[GRID_SIZE * 0.98, GRID_SIZE * 0.98]} />
+          <meshBasicMaterial color={GHOST_COLOR} transparent opacity={0.22} />
+        </mesh>
+      )}
+
+      {/* Translucent preview of the actual object that'll be placed */}
+      <GhostShape
+        type={tool.type}
+        rotY={rotY}
+        variant={tool.botVariant}
+      />
     </group>
   );
 }
+
+// Re-export so other modules can render placement-time previews via this dispatcher
+export { GhostShape, STACK_HEIGHT };

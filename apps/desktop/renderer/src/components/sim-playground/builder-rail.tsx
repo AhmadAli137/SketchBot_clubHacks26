@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Trash2, RotateCw, ArrowUp, ArrowDown, Copy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, RotateCw, ArrowUp, ArrowDown, Copy, Grid3X3 } from 'lucide-react';
 
 import {
   TOOLS,
@@ -31,6 +31,10 @@ type BuilderRailProps = {
   onDeleteSelected: () => void;
   onDuplicateSelected: () => void;
 
+  /** Placement-grid toggle (overlays a 0.25 m grid on the floor). */
+  showPlacementGrid: boolean;
+  onTogglePlacementGrid: () => void;
+
   objectCount: number;
 };
 
@@ -46,6 +50,8 @@ export function BuilderRail({
   onLowerSelected,
   onDeleteSelected,
   onDuplicateSelected,
+  showPlacementGrid,
+  onTogglePlacementGrid,
   objectCount,
 }: BuilderRailProps) {
   const [activeCategory, setActiveCategory] = useState<ToolCategory>('walls');
@@ -82,6 +88,17 @@ export function BuilderRail({
               <span className="builder-rail-title">Course Builder</span>
               <span className="builder-rail-count">{objectCount}</span>
             </div>
+
+            {/* View toggles */}
+            <button
+              type="button"
+              className={`builder-grid-toggle${showPlacementGrid ? ' active' : ''}`}
+              onClick={onTogglePlacementGrid}
+              title="Toggle placement gridlines"
+            >
+              <Grid3X3 size={12} />
+              <span>{showPlacementGrid ? 'Grid on' : 'Grid off'}</span>
+            </button>
 
             {/* Cursor / select mode */}
             <button

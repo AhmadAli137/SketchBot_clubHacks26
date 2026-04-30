@@ -9,7 +9,9 @@
 
 export const GRID_SIZE = 0.25;          // metres per grid step
 export const STACK_HEIGHT = 0.16;       // metres per stack level (matches block/wall height)
-export const ARENA_HALF = 3.0;          // placement zone is ±ARENA_HALF metres
+/** Soft placement bound — large enough to feel infinite, small enough to keep
+ *  numbers sane (200 m square = 800 cells per side). */
+export const ARENA_HALF = 100.0;
 
 export type SceneObjectType =
   | 'wall'
