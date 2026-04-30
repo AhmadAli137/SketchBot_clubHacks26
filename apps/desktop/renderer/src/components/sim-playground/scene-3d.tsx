@@ -136,6 +136,72 @@ function SumoRing({ radius }: { radius: number }) {
   );
 }
 
+// ─── Stage lights — colorful corner lamps for the sandbox ────────────────────
+
+const STAGE_LAMP_HEIGHT = 1.9;
+const STAGE_LAMP_DIST   = 3.4;
+const STAGE_LAMPS = [
+  { x: -STAGE_LAMP_DIST, z: -STAGE_LAMP_DIST, color: '#a855f7' }, // back-left  · purple
+  { x:  STAGE_LAMP_DIST, z: -STAGE_LAMP_DIST, color: '#5de4ff' }, // back-right · cyan
+  { x: -STAGE_LAMP_DIST, z:  STAGE_LAMP_DIST, color: '#ffc96b' }, // front-left · amber
+  { x:  STAGE_LAMP_DIST, z:  STAGE_LAMP_DIST, color: '#ff4fd8' }, // front-right · magenta
+];
+
+function StageLamp({ x, z, color }: { x: number; z: number; color: string }) {
+  const bulbRef = useRef<THREE.Mesh>(null);
+  const off = useRef(Math.random() * Math.PI * 2);
+  // Subtle breathing pulse so the stage feels alive
+  useFrame(({ clock }) => {
+    if (!bulbRef.current) return;
+    const mat = bulbRef.current.material as THREE.MeshStandardMaterial;
+    mat.emissiveIntensity = 1.3 + Math.sin(clock.elapsedTime * 1.6 + off.current) * 0.35;
+  });
+  return (
+    <group position={[x, 0, z]}>
+      {/* Pole */}
+      <mesh position={[0, STAGE_LAMP_HEIGHT / 2, 0]} castShadow>
+        <cylinderGeometry args={[0.018, 0.022, STAGE_LAMP_HEIGHT, 8]} />
+        <meshStandardMaterial color="#1a1f2e" roughness={0.7} metalness={0.4} />
+      </mesh>
+      {/* Base disc */}
+      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.01, 16]} />
+        <meshStandardMaterial color="#222838" roughness={0.7} />
+      </mesh>
+      {/* Cone shade */}
+      <mesh position={[0, STAGE_LAMP_HEIGHT - 0.06, 0]} castShadow>
+        <coneGeometry args={[0.075, 0.13, 16, 1, true]} />
+        <meshStandardMaterial color="#1a1f2e" side={THREE.DoubleSide} roughness={0.7} metalness={0.5} />
+      </mesh>
+      {/* Glowing bulb */}
+      <mesh ref={bulbRef} position={[0, STAGE_LAMP_HEIGHT - 0.04, 0]}>
+        <sphereGeometry args={[0.055, 16, 16]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.4} roughness={0.2} />
+      </mesh>
+      {/* Actual point light (does the real illumination) */}
+      <pointLight
+        position={[0, STAGE_LAMP_HEIGHT - 0.05, 0]}
+        intensity={1.4}
+        color={color}
+        distance={9}
+        decay={1.6}
+      />
+    </group>
+  );
+}
+
+function StageLights() {
+  return (
+    <>
+      {/* Soft fill lift so the sandbox isn't pitch-black between lights */}
+      <ambientLight intensity={0.22} color="#c0d0ff" />
+      {STAGE_LAMPS.map((l, i) => (
+        <StageLamp key={i} x={l.x} z={l.z} color={l.color} />
+      ))}
+    </>
+  );
+}
+
 // ─── Maze wall ────────────────────────────────────────────────────────────────
 
 function MazeWall({ x, z, width, depth, rotation = 0 }: { x: number; z: number; width: number; depth: number; rotation?: number }) {
@@ -300,14 +366,23 @@ function SceneContent({
       <BackgroundLerper targetColor={env.background} />
 
       {/* Lighting */}
-      <hemisphereLight args={[env.ambientColor as unknown as THREE.ColorRepresentation, '#121520', 0.42]} />
-      <ambientLight intensity={0.38} color={env.ambientColor} />
+      <hemisphereLight args={[env.ambientColor as unknown as THREE.ColorRepresentation, '#121520', isSandboxEnv ? 0.6 : 0.42]} />
+      <ambientLight intensity={isSandboxEnv ? 0.55 : 0.38} color={env.ambientColor} />
       <directionalLight position={[4.5, 9, 4]} intensity={1.55} color={env.keyLightColor} castShadow
         shadow-mapSize={[2048, 2048]} shadow-bias={-0.00025} shadow-normalBias={0.02}
         shadow-camera-far={22} shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={6} shadow-camera-bottom={-6} />
       <directionalLight position={[-5, 5, -4]} intensity={0.35} color={env.fillLightColor} />
-      <pointLight position={[-3, 4, -2]} intensity={0.55} color={env.accentColor} />
-      <pointLight position={[3.5, 2.2, 3]} intensity={0.28} color={env.accentColor} />
+
+      {/* Stage lights — colourful corner lamps for the sandbox playspace.
+          Concept envs keep their muted accent lighting. */}
+      {isSandboxEnv ? (
+        <StageLights />
+      ) : (
+        <>
+          <pointLight position={[-3, 4, -2]} intensity={0.55} color={env.accentColor} />
+          <pointLight position={[3.5, 2.2, 3]} intensity={0.28} color={env.accentColor} />
+        </>
+      )}
 
       {/* Ground */}
       <mesh

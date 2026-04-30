@@ -16,6 +16,9 @@ type Spark3DProps = {
   showSpeech?: string | null;
   speechKey?: string | number;
   scene?: number; // 0–3, drives background / pose / prop
+  /** Hide the floating prop emoji (trophy / map / lightning / etc).
+   *  Useful in tight panels where the prop overlaps the visor. Default: true. */
+  showProp?: boolean;
 };
 
 type Spark2DProps = {
@@ -585,7 +588,7 @@ function KinematicArm({
   );
 }
 
-function Spark3D({ showSpeech, speechKey, size = 'xl', scene = 0 }: Omit<Spark3DProps, 'mode'>) {
+function Spark3D({ showSpeech, speechKey, size = 'xl', scene = 0, showProp = true }: Omit<Spark3DProps, 'mode'>) {
   const px = SIZE_PX[size];
   const scale = px / 200;
   const cfg = SCENES[scene % SCENES.length] ?? SCENES[0];
@@ -596,6 +599,7 @@ function Spark3D({ showSpeech, speechKey, size = 'xl', scene = 0 }: Omit<Spark3D
 
       {/* Floating prop */}
       <AnimatePresence mode="wait">
+        {showProp && cfg.propEmoji && (
         <motion.div
           key={`prop-${cfg.bgKey}`}
           className="spark3d-prop"
@@ -613,6 +617,7 @@ function Spark3D({ showSpeech, speechKey, size = 'xl', scene = 0 }: Omit<Spark3D
         >
           {cfg.propEmoji}
         </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Speech bubble */}
@@ -902,6 +907,7 @@ export function SparkRobot(props: SparkProps) {
         speechKey={props.speechKey}
         size={props.size}
         scene={props.scene}
+        showProp={props.showProp}
       />
     );
   }

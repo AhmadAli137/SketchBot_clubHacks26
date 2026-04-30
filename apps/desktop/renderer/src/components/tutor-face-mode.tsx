@@ -230,10 +230,11 @@ export function TutorFaceMode({ messages, ttsSpeaking, onExit }: Props) {
           >
             <SparkRobot
               mode="3d"
-              size="xl"
+              size="lg"
               scene={scene}
               speechKey={speechKeyRef.current}
               showSpeech={null /* caption rendered separately, larger */}
+              showProp={false /* prop emoji overlaps the visor at this scale */}
             />
           </motion.div>
         </AnimatePresence>
