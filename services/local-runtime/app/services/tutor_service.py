@@ -420,7 +420,11 @@ def _stream_response_cache_key(
 ) -> str:
     return _sha256_hex(
         {
-            "v": 2,
+            # Bump this whenever system-prompt / persona / OUTPUT_CHANNELS rules
+            # change in a way that should invalidate cached completions. v3:
+            # made the --- written-only block opt-in and dropped the verbose
+            # bullet-menu greetings.
+            "v": 3,
             "model": "claude-sonnet-4-6",
             "actor_role": actor_role,
             "age_group": age_group,
@@ -1030,11 +1034,17 @@ def _build_user_message(
         return (
             f"{who} just opened this concept at the **{layer}** layer. "
             + (
-                "Before ---: acknowledge their planning context in 1–3 short sentences, one clarifying question, and one concrete suggestion. "
-                "After ---: lesson moves, differentiation, timing, and assessment ideas — text-only."
+                "Acknowledge their planning context in 2-3 short sentences, "
+                "ask one clarifying question, and offer one concrete suggestion. "
+                "Reply as a single conversational message — no `---` block, no "
+                "bulleted plan, no headers."
                 if is_teacher
-                else "Before ---: a warm greeting in 1–3 short sentences, one hook question, and one quick prompt or starter idea. "
-                "After ---: the fuller layer introduction, core idea, suggested starter activity, and any extra detail — all text-only."
+                else "Greet warmly in 2-3 short, varied sentences (mix a "
+                "reaction word with a hook question or a quick suggestion). "
+                "Just chat — DO NOT add a `---` block, DO NOT write a "
+                "'Welcome to our adventure! Here's how this works' intro, "
+                "DO NOT list bullet points or numbered topic menus. The "
+                "greeting is the entire reply."
             )
         )
 
@@ -1046,12 +1056,14 @@ def _build_user_message(
             f"{name} submitted a drawing. "
             f"Prompt: \"{drawing_prompt}\". Result: {segments_desc}.\n\n"
             + (
-                "Before ---: brief reaction for the educator (2–3 short sentences). After ---: how they might use this demo with a class, misconceptions to watch for, and follow-up prompts."
+                "React in 2-3 short sentences as a single conversational reply. "
+                "No `---` block, no bulleted feedback dump."
                 if is_teacher
-                else "Before ---: brief reaction (2–3 short sentences max). "
-                "After ---: fuller feedback, observations, and next-step ideas. "
-                "If the path count is very low (0–1), ask what happened — maybe the robot didn't move yet. "
-                "If path count is high (10+), note the complexity positively."
+                else "React in 2-3 short, varied sentences as a single "
+                "conversational reply. No `---` block. "
+                "If the path count is very low (0–1), ask what happened — "
+                "maybe the robot didn't move yet. If path count is high (10+), "
+                "note the complexity positively."
             )
         )
 
@@ -1062,12 +1074,14 @@ def _build_user_message(
         else:
             parts.append("They haven't submitted a drawing yet.")
         parts.append(
-            "Before ---: a short hint (1–2 sentences). After ---: optional extra clues or steps if needed. "
+            "Give a short 1-2 sentence hint as a conversational reply. "
+            "No `---` block — just the hint. "
             + (
-                "Frame hints for what a teacher could try with students next."
+                "Frame it as something a teacher could try with students next."
                 if is_teacher
-                else "Tie the hint to what they drew and the active concept. "
-                "If no drawing exists yet, suggest a first simple experiment. Don't give the full answer away."
+                else "Tie it to what they drew and the active concept. "
+                "If no drawing exists yet, suggest a first simple experiment. "
+                "Don't give the full answer away."
             )
         )
         return " ".join(parts)
@@ -1076,10 +1090,12 @@ def _build_user_message(
         return (
             f"{name} just moved to the **{layer}** layer. "
             + (
-                "Before ---: one or two short sentences on what changes pedagogically. After ---: deeper layer notes for the educator."
+                "Note what changes pedagogically in 1-2 short conversational "
+                "sentences. No `---` block."
                 if is_teacher
-                else "Before ---: one or two short sentences celebrating the move. "
-                "After ---: what's new at this layer and the first challenge — text-only detail."
+                else "Celebrate the move in 1-2 short sentences and tease "
+                "what's new at this layer in one more sentence. Single "
+                "conversational reply, no `---` block, no bulleted lesson plan."
             )
         )
 
@@ -1087,10 +1103,15 @@ def _build_user_message(
         return (
             f"{name}: \"{student_message}\"\n\n"
             + (
-                "Before ---: answer directly for an educator — concise. After ---: structured ideas, bullet options, or rubric language they can reuse."
+                "Answer directly in 2-4 conversational sentences. "
+                "Only add a `---` block if they explicitly asked for "
+                "structured material (rubric, lesson list, etc)."
                 if is_teacher
-                else "Before ---: a direct, friendly answer in a few short sentences (or a quick clarification question). "
-                "After ---: longer explanations, math, lists, or multi-step answers — never rely on the spoken part alone for depth."
+                else "Answer directly in 2-4 short, varied sentences as a "
+                "single conversational reply. Only add a `---` block if "
+                "they explicitly asked for 'step by step', a list, math "
+                "derivation, or code — and only with that content. "
+                "Otherwise, just chat back."
             )
         )
 
