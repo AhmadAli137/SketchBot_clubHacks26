@@ -21,7 +21,8 @@ export type SceneObjectType =
   | 'cylinder'
   | 'waypoint'
   | 'apriltag'
-  | 'bot';
+  | 'bot'
+  | 'mat';
 
 export type BotVariant = 'standard' | 'sumo';
 
@@ -42,7 +43,7 @@ export type SceneObject = {
   botVariant?: BotVariant;
 };
 
-export type ToolCategory = 'walls' | 'obstacles' | 'markers' | 'bots';
+export type ToolCategory = 'surfaces' | 'walls' | 'obstacles' | 'markers' | 'bots';
 
 export type ToolDef = {
   /** Stable id used by the rail. May differ from `type` for bot variants. */
@@ -57,6 +58,7 @@ export type ToolDef = {
 };
 
 export const TOOLS: ToolDef[] = [
+  { id: 'mat',          type: 'mat',      label: 'Playmat',  emoji: '🟣', category: 'surfaces',  description: 'Glowing stage mat — defines a play area', defaultColor: '#a855f7' },
   { id: 'wall',         type: 'wall',     label: 'Wall',     emoji: '🧱', category: 'walls',     description: 'Maze segment, 1 cell long' },
   { id: 'block',        type: 'block',    label: 'Block',    emoji: '🟦', category: 'obstacles', description: 'Stackable cube' },
   { id: 'cone',         type: 'cone',     label: 'Cone',     emoji: '🚧', category: 'obstacles', description: 'Traffic cone obstacle' },
@@ -74,6 +76,7 @@ export const TOOLS_BY_ID: Record<string, ToolDef> = TOOLS.reduce(
 );
 
 export const CATEGORIES: { id: ToolCategory; label: string; emoji: string }[] = [
+  { id: 'surfaces',  label: 'Surfaces',  emoji: '🟣' },
   { id: 'walls',     label: 'Walls',     emoji: '🧱' },
   { id: 'obstacles', label: 'Obstacles', emoji: '🚧' },
   { id: 'markers',   label: 'Markers',   emoji: '📍' },
@@ -217,6 +220,7 @@ const TYPE_COLORS: Record<SceneObjectType, string> = {
   waypoint: '#4dffb8',
   apriltag: '#f5f0e6',
   bot:      '#5de4ff',
+  mat:      '#a855f7',
 };
 
 /**
@@ -249,6 +253,12 @@ export function generateThumbnailSvg(objects: SceneObject[]): string | null {
       }
       if (o.type === 'bot') {
         return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${fill}" opacity="0.95" stroke="#fff" stroke-width="0.6"/>`;
+      }
+      if (o.type === 'mat') {
+        // Render mats as a translucent ring so they read as a defined area
+        // rather than a tiny dot in the thumbnail.
+        const r = 18;
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}" opacity="0.12"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="none" stroke="${fill}" stroke-width="1" opacity="0.6"/>`;
       }
       return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="${fill}" opacity="0.85"/>`;
     })

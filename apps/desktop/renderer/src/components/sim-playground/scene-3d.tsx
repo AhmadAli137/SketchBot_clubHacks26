@@ -138,14 +138,12 @@ function SumoRing({ radius }: { radius: number }) {
 
 // ─── Sandbox atmosphere — warm playspace lighting ────────────────────────────
 
-/** Floating soft orbs at varying heights — fairy-light vibe, no industrial poles. */
+/** One soft floating orb in each corner — fairy-light vibe, no industrial poles. */
 const SANDBOX_ORBS = [
   { x: -2.8, y: 1.3, z: -2.8, color: '#a855f7', size: 0.10 }, // back-left  · purple
   { x:  2.8, y: 1.6, z: -2.6, color: '#5de4ff', size: 0.11 }, // back-right · cyan
   { x: -2.6, y: 1.4, z:  2.8, color: '#ffc96b', size: 0.10 }, // front-left · amber
   { x:  2.8, y: 1.2, z:  2.8, color: '#ff8fc8', size: 0.11 }, // front-right · soft pink
-  { x:  0.0, y: 2.4, z: -3.0, color: '#b8a4ff', size: 0.08 }, // back-center high · lavender
-  { x:  0.0, y: 1.8, z:  3.0, color: '#9be8d4', size: 0.08 }, // front-center · mint
 ];
 
 function FloatingOrb({
@@ -184,43 +182,6 @@ function FloatingOrb({
   );
 }
 
-/** Soft glowing circular playmat under the workspace — defines the "stage". */
-function Playmat() {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }) => {
-    if (!ref.current) return;
-    const mat = ref.current.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = 0.18 + Math.sin(clock.elapsedTime * 0.6) * 0.04;
-  });
-  return (
-    <group>
-      {/* Inner bright disc — the "stage" */}
-      <mesh position={[0, -0.014, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[2.8, 64]} />
-        <meshStandardMaterial
-          color="#3a447a"
-          emissive="#5060a0"
-          emissiveIntensity={0.18}
-          roughness={0.85}
-          metalness={0.05}
-        />
-      </mesh>
-      {/* Outer glow ring */}
-      <mesh ref={ref} position={[0, -0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[2.78, 2.95, 64]} />
-        <meshStandardMaterial
-          color="#a855f7"
-          emissive="#a855f7"
-          emissiveIntensity={0.6}
-          transparent
-          opacity={0.55}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-    </group>
-  );
-}
-
 function StageLights() {
   return (
     <>
@@ -229,7 +190,6 @@ function StageLights() {
       {/* Top-down warm key — like an overhead studio softbox */}
       <directionalLight position={[0, 8, 1.5]} intensity={0.55} color="#ffe9d0" />
 
-      <Playmat />
       {SANDBOX_ORBS.map((o, i) => (
         <FloatingOrb key={i} {...o} />
       ))}

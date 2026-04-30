@@ -199,6 +199,44 @@ function AprilTagObject({ x, y, z, rotY }: { x: number; y: number; z: number; ro
   );
 }
 
+function MatObject({ x, y, z, rotY, color = '#a855f7' }: { x: number; y: number; z: number; rotY: number; color?: string }) {
+  const ringRef = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (!ringRef.current) return;
+    const mat = ringRef.current.material as THREE.MeshStandardMaterial;
+    mat.emissiveIntensity = 0.5 + Math.sin(clock.elapsedTime * 0.7) * 0.18;
+  });
+  return (
+    <group position={[x, y, z]} rotation={[0, rotY, 0]}>
+      {/* Bright glowing inner disc — defines the play surface */}
+      <mesh position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[2.0, 64]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.18}
+          transparent
+          opacity={0.32}
+          roughness={0.85}
+          metalness={0.05}
+        />
+      </mesh>
+      {/* Pulsing outer ring */}
+      <mesh ref={ringRef} position={[0, 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.97, 2.10, 64]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.55}
+          transparent
+          opacity={0.7}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
+  );
+}
+
 function BotObject({ x, y, z, rotY, variant = 'standard' }: { x: number; y: number; z: number; rotY: number; variant?: 'standard' | 'sumo' }) {
   const isSumo = variant === 'sumo';
   const bodyColor    = isSumo ? '#cc1818' : '#3a4d8a';
@@ -303,6 +341,13 @@ function GhostShape({
           <meshBasicMaterial color={GHOST_COLOR} transparent opacity={GHOST_OPACITY} side={THREE.DoubleSide} />
         </mesh>
       );
+    case 'mat':
+      return (
+        <mesh position={[0, 0.002, 0]} rotation={[-Math.PI / 2, 0, rotY]}>
+          <ringGeometry args={[1.95, 2.05, 48]} />
+          <meshBasicMaterial color="#a855f7" transparent opacity={0.5} side={THREE.DoubleSide} />
+        </mesh>
+      );
     case 'bot': {
       const isSumo = variant === 'sumo';
       const radius = isSumo ? 0.13 : 0.10;
@@ -334,6 +379,7 @@ function PlacedObjectMesh({ obj }: { obj: SceneObject }) {
     case 'waypoint': return <WaypointObject x={x} y={y} z={z} color={obj.color} />;
     case 'apriltag': return <AprilTagObject x={x} y={y} z={z} rotY={rotY} />;
     case 'bot':      return <BotObject x={x} y={y} z={z} rotY={rotY} variant={obj.botVariant} />;
+    case 'mat':      return <MatObject x={x} y={y} z={z} rotY={rotY} color={obj.color} />;
     default:         return null;
   }
 }

@@ -376,6 +376,20 @@ function drawSandboxTopView(
     const rotY = (o.rotY ?? 0) * Math.PI / 2;
 
     switch (o.type) {
+      case 'mat': {
+        const r = 2.0 * scale;
+        ctx.save(); ctx.translate(px, py);
+        ctx.fillStyle = (o.color ?? '#a855f7');
+        ctx.globalAlpha = 0.16;
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.7;
+        ctx.strokeStyle = (o.color ?? '#a855f7');
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        break;
+      }
       case 'wall': {
         const w = GRID_SIZE * 0.95 * scale;
         const d = GRID_SIZE * 0.22 * scale;
