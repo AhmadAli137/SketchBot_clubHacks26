@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Trash2, RotateCw, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, RotateCw, ArrowUp, ArrowDown, Copy, Save } from 'lucide-react';
 
 import {
   TOOLS,
@@ -29,6 +29,8 @@ type BuilderRailProps = {
   onRaiseSelected: () => void;
   onLowerSelected: () => void;
   onDeleteSelected: () => void;
+  onDuplicateSelected: () => void;
+  onSaveAsTemplate: () => void;
 
   objectCount: number;
 };
@@ -44,6 +46,8 @@ export function BuilderRail({
   onRaiseSelected,
   onLowerSelected,
   onDeleteSelected,
+  onDuplicateSelected,
+  onSaveAsTemplate,
   objectCount,
 }: BuilderRailProps) {
   const [activeCategory, setActiveCategory] = useState<ToolCategory>('walls');
@@ -148,6 +152,15 @@ export function BuilderRail({
                 <button
                   type="button"
                   disabled={!selectedObject}
+                  onClick={onDuplicateSelected}
+                  className="builder-action-btn"
+                  title="Duplicate (Ctrl+D)"
+                >
+                  <Copy size={13} /> Copy
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedObject}
                   onClick={onRaiseSelected}
                   className="builder-action-btn"
                   title="Stack up (↑)"
@@ -169,11 +182,23 @@ export function BuilderRail({
                   onClick={onDeleteSelected}
                   className="builder-action-btn danger"
                   title="Delete (Del)"
+                  style={{ gridColumn: 'span 2' }}
                 >
                   <Trash2 size={13} /> Delete
                 </button>
               </div>
             </div>
+
+            {/* Save course as a reusable template */}
+            {objectCount > 0 && (
+              <button
+                type="button"
+                className="builder-save-template"
+                onClick={onSaveAsTemplate}
+              >
+                <Save size={13} /> Save as template
+              </button>
+            )}
 
             {/* Clear all */}
             {objectCount > 0 && (
@@ -193,8 +218,9 @@ export function BuilderRail({
             <div className="builder-rail-help">
               <strong>Tips</strong>
               <span>• Click a tool, then click the floor to place</span>
-              <span>• R rotates · ↑↓ stacks · Del removes</span>
-              <span>• Click placed objects to select</span>
+              <span>• Click an object with a tool active → stacks on top</span>
+              <span>• Drag to move · R rotates · Ctrl+D duplicates</span>
+              <span>• ↑↓ stack height · Del removes</span>
             </div>
           </motion.div>
         )}

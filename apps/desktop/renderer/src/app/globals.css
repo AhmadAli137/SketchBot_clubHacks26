@@ -14700,6 +14700,98 @@ select.block-param-input{width:auto;padding-right:20px}
   background: rgba(239, 68, 68, 0.14);
 }
 
+.builder-save-template {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgb(216, 180, 254);
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.builder-save-template:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.6);
+}
+
+/* User course tiles on the home screen */
+.user-course-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 14px 12px;
+  min-height: 144px;
+  height: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.08) 0%, rgba(20, 16, 38, 0.55) 100%);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.user-course-tile:hover {
+  border-color: rgba(168, 85, 247, 0.65);
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.16) 0%, rgba(28, 20, 52, 0.7) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.18);
+}
+
+.user-course-tile-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.user-course-tile-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-course-tile-sub {
+  font-size: 0.78rem;
+  color: rgba(216, 180, 254, 0.85);
+}
+
+.user-course-tile-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 18, 38, 0.82);
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.user-course-tile:hover .user-course-tile-delete {
+  opacity: 1;
+}
+.user-course-tile-delete:hover {
+  color: rgb(252, 165, 165);
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(60, 20, 28, 0.6);
+}
+
 .builder-rail-help {
   margin-top: 4px;
   padding: 8px 10px;

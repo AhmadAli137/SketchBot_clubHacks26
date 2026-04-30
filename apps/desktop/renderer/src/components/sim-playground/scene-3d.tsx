@@ -256,22 +256,37 @@ type SceneContentProps = {
   builderEnabled?: boolean;
   sceneObjects?: SceneObject[];
   selectedObjectId?: string | null;
+  draggedObjectId?: string | null;
   activeTool?: ToolDef | null;
   onPlaceAt?: (gx: number, gz: number) => void;
   onSelectObject?: (id: string | null) => void;
+  onStackOnTop?: (objectId: string) => void;
+  onStartDrag?: (objectId: string) => void;
+  onDragMove?: (gx: number, gz: number) => void;
+  onEndDrag?: () => void;
 };
 
 function SceneContent({
   settledLines, activeLine, penPos, isAnimating, showGrid, showAxes, showCamera, env, conceptId,
-  builderEnabled = false, sceneObjects = [], selectedObjectId = null, activeTool = null,
-  onPlaceAt, onSelectObject,
+  builderEnabled = false, sceneObjects = [], selectedObjectId = null, draggedObjectId = null,
+  activeTool = null,
+  onPlaceAt, onSelectObject, onStackOnTop, onStartDrag, onDragMove, onEndDrag,
 }: SceneContentProps) {
   const simMode = getSimMode(conceptId);
   const isDrawingMode = simMode === 'drawing';
 
   // Cursor grid coords for the builder ghost preview
   const [cursor, setCursor] = useState<{ gx: number; gz: number } | null>(null);
-  const showCursor = builderEnabled && activeTool !== null && cursor !== null;
+  const isDragging = builderEnabled && draggedObjectId !== null;
+  const showCursor = builderEnabled && activeTool !== null && cursor !== null && !isDragging;
+
+  // End drag on global pointerup (works even if cursor leaves the canvas)
+  useEffect(() => {
+    if (!isDragging) return;
+    const onUp = () => onEndDrag?.();
+    window.addEventListener('pointerup', onUp);
+    return () => window.removeEventListener('pointerup', onUp);
+  }, [isDragging, onEndDrag]);
 
   return (
     <>
@@ -292,14 +307,24 @@ function SceneContent({
         rotation={[-Math.PI/2, 0, 0]}
         position={[0, -0.018, 0]}
         receiveShadow
-        onPointerMove={builderEnabled && activeTool ? (e) => {
+        onPointerMove={builderEnabled ? (e) => {
           const raw = worldToGrid(e.point.x, e.point.z);
           const { gx, gz } = clampToArena(raw.gx, raw.gz);
-          if (!cursor || cursor.gx !== gx || cursor.gz !== gz) setCursor({ gx, gz });
+          if (isDragging) {
+            // Drag in progress — update the dragged object's grid position
+            onDragMove?.(gx, gz);
+          } else if (activeTool) {
+            // No drag — update the cursor preview
+            if (!cursor || cursor.gx !== gx || cursor.gz !== gz) setCursor({ gx, gz });
+          }
         } : undefined}
         onPointerLeave={builderEnabled ? () => setCursor(null) : undefined}
         onClick={builderEnabled ? (e) => {
           e.stopPropagation();
+          if (isDragging) {
+            // Defer to onEndDrag (pointerup handler) — don't also place/select
+            return;
+          }
           if (activeTool && onPlaceAt) {
             const raw = worldToGrid(e.point.x, e.point.z);
             const { gx, gz } = clampToArena(raw.gx, raw.gz);
@@ -338,7 +363,10 @@ function SceneContent({
         <SceneObjectsRenderer
           objects={sceneObjects}
           selectedId={selectedObjectId}
+          draggedId={draggedObjectId}
           onSelect={(id) => onSelectObject?.(id)}
+          onStackOnTop={(id) => onStackOnTop?.(id)}
+          onStartDrag={(id) => onStartDrag?.(id)}
         />
       )}
 
@@ -363,7 +391,7 @@ function SceneContent({
       {showAxes && <CoordAxes />}
       {showCamera && isDrawingMode && <OverheadCamera />}
 
-      <OrbitControls makeDefault enablePan enableZoom enableRotate
+      <OrbitControls makeDefault enablePan enableZoom enableRotate={!isDragging}
         minDistance={1.5} maxDistance={14} maxPolarAngle={Math.PI * 0.88} target={[0, 0.2, 0]} />
     </>
   );
@@ -387,9 +415,14 @@ type Scene3DProps = {
   builderEnabled?: boolean;
   sceneObjects?: SceneObject[];
   selectedObjectId?: string | null;
+  draggedObjectId?: string | null;
   activeTool?: ToolDef | null;
   onPlaceAt?: (gx: number, gz: number) => void;
   onSelectObject?: (id: string | null) => void;
+  onStackOnTop?: (objectId: string) => void;
+  onStartDrag?: (objectId: string) => void;
+  onDragMove?: (gx: number, gz: number) => void;
+  onEndDrag?: () => void;
 };
 
 export function Scene3D({
@@ -399,9 +432,14 @@ export function Scene3D({
   builderEnabled = false,
   sceneObjects = [],
   selectedObjectId = null,
+  draggedObjectId = null,
   activeTool = null,
   onPlaceAt,
   onSelectObject,
+  onStackOnTop,
+  onStartDrag,
+  onDragMove,
+  onEndDrag,
 }: Scene3DProps) {
   const env = useMemo(() => getEnvironment(conceptId), [conceptId]);
   return (
@@ -418,7 +456,10 @@ export function Scene3D({
       <SceneContent settledLines={settledLines} activeLine={activeLine} penPos={penPos} isAnimating={isAnimating}
         showGrid={showGrid} showAxes={showAxes} showCamera={showCamera} env={env} conceptId={conceptId}
         builderEnabled={builderEnabled} sceneObjects={sceneObjects} selectedObjectId={selectedObjectId}
-        activeTool={activeTool} onPlaceAt={onPlaceAt} onSelectObject={onSelectObject} />
+        draggedObjectId={draggedObjectId} activeTool={activeTool}
+        onPlaceAt={onPlaceAt} onSelectObject={onSelectObject}
+        onStackOnTop={onStackOnTop} onStartDrag={onStartDrag}
+        onDragMove={onDragMove} onEndDrag={onEndDrag} />
     </Canvas>
   );
 }

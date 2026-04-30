@@ -114,15 +114,89 @@ export function clampToArena(gx: number, gz: number): { gx: number; gz: number }
 }
 
 /** Construct a fresh SceneObject at the given grid cell using the tool's defaults. */
-export function makeObjectFromTool(tool: ToolDef, gx: number, gz: number): SceneObject {
+export function makeObjectFromTool(
+  tool: ToolDef,
+  gx: number,
+  gz: number,
+  gy: number = 0,
+): SceneObject {
   return {
     id: newSceneObjectId(),
     type: tool.type,
     gx,
     gz,
-    gy: 0,
+    gy,
     rotY: 0,
     color: tool.defaultColor,
     botVariant: tool.botVariant,
   };
+}
+
+// ─── User templates (saved courses) ───────────────────────────────────────────
+
+export type UserTemplate = {
+  id: string;
+  name: string;
+  sceneObjects: SceneObject[];
+  createdAt: number;
+};
+
+const TEMPLATES_KEY_PREFIX = 'sketchbot.templates.v1.';
+
+function templatesKey(userName: string): string {
+  return TEMPLATES_KEY_PREFIX + (userName || 'anonymous').toLowerCase();
+}
+
+function readTemplates(userName: string): UserTemplate[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(templatesKey(userName));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((t): t is UserTemplate =>
+      typeof t === 'object' && t !== null && typeof t.id === 'string' && Array.isArray(t.sceneObjects),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeTemplates(userName: string, templates: UserTemplate[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(templatesKey(userName), JSON.stringify(templates));
+  } catch {
+    // localStorage full or disabled
+  }
+}
+
+/** Most-recent first. */
+export function listUserTemplates(userName: string): UserTemplate[] {
+  return readTemplates(userName).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function saveUserTemplate(
+  userName: string,
+  name: string,
+  sceneObjects: SceneObject[],
+): UserTemplate {
+  const tpl: UserTemplate = {
+    id: newSceneObjectId(),
+    name: name.trim() || 'Untitled course',
+    // Deep-clone with fresh ids so re-using a template doesn't share refs
+    sceneObjects: sceneObjects.map((o) => ({ ...o, id: newSceneObjectId() })),
+    createdAt: Date.now(),
+  };
+  writeTemplates(userName, [tpl, ...readTemplates(userName)]);
+  return tpl;
+}
+
+export function deleteUserTemplate(userName: string, id: string): void {
+  writeTemplates(userName, readTemplates(userName).filter((t) => t.id !== id));
+}
+
+/** Clone a template's objects with fresh ids — call when seeding a new session. */
+export function cloneTemplateObjects(template: UserTemplate): SceneObject[] {
+  return template.sceneObjects.map((o) => ({ ...o, id: newSceneObjectId() }));
 }

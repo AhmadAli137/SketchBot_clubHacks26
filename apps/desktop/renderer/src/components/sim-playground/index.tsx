@@ -18,6 +18,8 @@ import { playBGM, stopBGM, playSfx } from '@/lib/game-audio';
 import {
   TOOLS_BY_ID,
   makeObjectFromTool,
+  newSceneObjectId,
+  saveUserTemplate,
   type SceneObject,
 } from '@/lib/scene-builder';
 
@@ -68,6 +70,8 @@ type SimPlaygroundProps = {
   onSceneObjectsChange?: (objects: SceneObject[]) => void;
   /** Whether the builder is available — true in sandbox/blank sessions. */
   builderAvailable?: boolean;
+  /** Used to scope user-template storage. */
+  studentName?: string;
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -85,6 +89,7 @@ export function SimPlayground({
   sceneObjects = [],
   onSceneObjectsChange,
   builderAvailable = false,
+  studentName = '',
 }: SimPlaygroundProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [showGrid, setShowGrid] = useState(true);
@@ -100,6 +105,7 @@ export function SimPlayground({
   const [railOpen, setRailOpen] = useState(true);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [draggedObjectId, setDraggedObjectId] = useState<string | null>(null);
 
   const activeTool = activeToolId ? (TOOLS_BY_ID[activeToolId] ?? null) : null;
   const selectedObject = selectedObjectId
@@ -159,6 +165,52 @@ export function SimPlayground({
     setSelectedObjectId(null);
   };
 
+  /** Click a placed object with a tool active — place a new object on top of it. */
+  const handleStackOnTop = (objectId: string) => {
+    if (!activeTool) return; // no tool → just selection (handled by onSelect)
+    const target = sceneObjects.find((o) => o.id === objectId);
+    if (!target) return;
+    const obj = makeObjectFromTool(activeTool, target.gx, target.gz, (target.gy ?? 0) + 1);
+    updateObjects([...sceneObjects, obj]);
+    setSelectedObjectId(obj.id);
+  };
+
+  /** Begin dragging a placed object (only in select mode — when no tool is active). */
+  const handleStartDrag = (objectId: string) => {
+    if (activeTool) return; // tool mode → click is "stack on top", not drag
+    setDraggedObjectId(objectId);
+  };
+
+  const handleDragMove = (gx: number, gz: number) => {
+    if (!draggedObjectId) return;
+    updateObjects(sceneObjects.map((o) =>
+      o.id === draggedObjectId ? { ...o, gx, gz } : o,
+    ));
+  };
+
+  const handleEndDrag = () => setDraggedObjectId(null);
+
+  /** Duplicate the selected object — offset by one grid cell so it's visible. */
+  const handleDuplicateSelected = () => {
+    if (!selectedObject) return;
+    const copy: SceneObject = {
+      ...selectedObject,
+      id: newSceneObjectId(),
+      gx: selectedObject.gx + 1,
+      gz: selectedObject.gz + 1,
+    };
+    updateObjects([...sceneObjects, copy]);
+    setSelectedObjectId(copy.id);
+  };
+
+  const handleSaveAsTemplate = () => {
+    if (sceneObjects.length === 0) return;
+    const name = window.prompt('Name your course:', 'My maze');
+    if (!name) return;
+    saveUserTemplate(studentName || 'guest', name, sceneObjects);
+    window.alert(`Saved "${name}" — find it in "Your courses" on the home screen.`);
+  };
+
   // Keyboard shortcuts when builder is on
   useEffect(() => {
     if (!builderEnabled) return;
@@ -171,6 +223,10 @@ export function SimPlayground({
       else if (e.key === 'r' || e.key === 'R')         { e.preventDefault(); handleRotateSelected(); }
       else if (e.key === 'ArrowUp')                    { e.preventDefault(); handleRaiseSelected(); }
       else if (e.key === 'ArrowDown')                  { e.preventDefault(); handleLowerSelected(); }
+      else if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        handleDuplicateSelected();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -383,9 +439,14 @@ export function SimPlayground({
               builderEnabled={builderEnabled}
               sceneObjects={sceneObjects}
               selectedObjectId={selectedObjectId}
+              draggedObjectId={draggedObjectId}
               activeTool={activeTool}
               onPlaceAt={handlePlaceAt}
               onSelectObject={handleSelectObject}
+              onStackOnTop={handleStackOnTop}
+              onStartDrag={handleStartDrag}
+              onDragMove={handleDragMove}
+              onEndDrag={handleEndDrag}
             />
             <div className="sim-3d-hint">
               {builderEnabled
@@ -408,6 +469,8 @@ export function SimPlayground({
                 onRaiseSelected={handleRaiseSelected}
                 onLowerSelected={handleLowerSelected}
                 onDeleteSelected={handleDeleteSelected}
+                onDuplicateSelected={handleDuplicateSelected}
+                onSaveAsTemplate={handleSaveAsTemplate}
                 objectCount={sceneObjects.length}
               />
             )}

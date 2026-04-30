@@ -196,24 +196,40 @@ function PlacedObjectMesh({ obj }: { obj: SceneObject }) {
 export function SceneObjectsRenderer({
   objects,
   selectedId,
+  draggedId,
   onSelect,
+  onStackOnTop,
+  onStartDrag,
 }: {
   objects: SceneObject[];
   selectedId: string | null;
+  draggedId: string | null;
   onSelect: (id: string | null) => void;
+  /** Called when the user clicks a placed object with a tool active —
+   *  Phase 2 snap-to-stack. */
+  onStackOnTop: (objectId: string) => void;
+  /** Called when the user starts dragging in select mode (no tool active). */
+  onStartDrag: (objectId: string) => void;
 }) {
   return (
     <group>
       {objects.map((obj) => {
         const { x, z } = gridToWorld(obj);
-        const isSelected = obj.id === selectedId;
+        const isSelected = obj.id === selectedId || obj.id === draggedId;
         return (
           <group
             key={obj.id}
             onPointerDown={(e) => {
-              // Prevent scene click handler from clearing the selection.
               e.stopPropagation();
+              // The parent decides what a click means (place-on-top vs select vs drag).
+              // We forward both: select first, then onStartDrag — parent ignores drag if a tool is active.
               onSelect(obj.id);
+              onStartDrag(obj.id);
+            }}
+            onClick={(e) => {
+              // Used by parent to detect "place-on-top" intent.
+              e.stopPropagation();
+              onStackOnTop(obj.id);
             }}
           >
             <PlacedObjectMesh obj={obj} />

@@ -489,6 +489,7 @@ export function StudentDashboard({
           sceneObjects={sceneObjects}
           onSceneObjectsChange={setSceneObjects}
           builderAvailable={appMode === 'sandbox'}
+          studentName={studentName}
         />
       );
     }
