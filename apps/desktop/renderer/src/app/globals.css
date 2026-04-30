@@ -8222,11 +8222,28 @@ select.block-param-input{width:auto;padding-right:20px}
   border: 1px solid rgba(168, 85, 247, 0.28);
   color: var(--text);
   font-size: 0.96rem;
-  line-height: 1.45;
+  line-height: 1.5;
   letter-spacing: -0.005em;
   text-align: center;
   font-weight: 500;
   box-shadow: 0 12px 36px rgba(168, 85, 247, 0.15);
+  max-height: 38vh;
+  overflow-y: auto;
+}
+
+.tutor-face-caption-sentence {
+  transition: color 0.28s ease, opacity 0.28s ease, text-shadow 0.28s ease;
+}
+.tutor-face-caption-sentence.past {
+  color: rgba(255, 255, 255, 0.45);
+}
+.tutor-face-caption-sentence.active {
+  color: #ffffff;
+  font-weight: 600;
+  text-shadow: 0 0 18px rgba(168, 85, 247, 0.5);
+}
+.tutor-face-caption-sentence.next {
+  color: rgba(255, 255, 255, 0.32);
 }
 
 .tutor-face-caption--idle {

@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { SPARK_SCENES } from '@/components/spark-robot';
 import { SparkStateImage } from '@/components/spark-state-image';
-import type { TutorMessage } from './tutor-panel';
+import type { TutorMessage, TutorTtsHighlight } from './tutor-panel';
 
 // ─── State derivation ─────────────────────────────────────────────────────────
 //
@@ -157,37 +157,59 @@ function metaFor(scene: number): FaceStateMeta {
 type Props = {
   messages: TutorMessage[];
   ttsSpeaking: boolean;
+  /** Word-level karaoke highlight from useTTS — drives sentence sync. */
+  ttsHighlight?: TutorTtsHighlight;
   sparkVariant?: 'mark' | 'lori';
   onExit: () => void;
 };
 
-export function TutorFaceMode({ messages, ttsSpeaking, sparkVariant = 'mark', onExit }: Props) {
+export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVariant = 'mark', onExit }: Props) {
   const latest = messages.at(-1);
   const isStreaming = Boolean(latest?.isStreaming);
 
-  // Sentence-aware state cycling — split the spoken section into sentences,
-  // and advance the active sentence over time so each emotional beat in a
-  // long message gets its own face animation + caption.
+  // Split the spoken section into sentences (matches what TTS chunks for playback).
   const sentences = useMemo(() => deriveSentences(latest), [latest?.id, latest?.content, latest?.role]);
-  const [activeIdx, setActiveIdx] = useState(0);
 
+  // Word-count ranges per sentence — used to map TTS's whitespace word index
+  // to a sentence index, so the face state advances in sync with the audio.
+  const sentenceWordRanges = useMemo(() => {
+    const ranges: Array<{ start: number; end: number }> = [];
+    let offset = 0;
+    for (const s of sentences) {
+      const words = s.split(/\s+/).filter(Boolean).length;
+      ranges.push({ start: offset, end: offset + words });
+      offset += words;
+    }
+    return ranges;
+  }, [sentences]);
+
+  /** TTS-driven sentence index — −1 if TTS isn't currently tracking this message. */
+  const ttsActiveIdx = useMemo(() => {
+    if (!ttsHighlight || !latest || ttsHighlight.messageId !== latest.id) return -1;
+    if (sentenceWordRanges.length === 0) return -1;
+    const w = ttsHighlight.activeWordIndex;
+    for (let i = 0; i < sentenceWordRanges.length; i++) {
+      if (w < sentenceWordRanges[i]!.end) return i;
+    }
+    return sentenceWordRanges.length - 1;
+  }, [ttsHighlight, latest?.id, sentenceWordRanges]);
+
+  // Fallback timer-cycle for when TTS isn't running (TTS off, or post-completion idle).
+  const [fallbackIdx, setFallbackIdx] = useState(0);
   useEffect(() => {
-    if (sentences.length === 0) {
-      setActiveIdx(0);
-      return;
-    }
+    if (sentences.length === 0) { setFallbackIdx(0); return; }
     if (isStreaming) {
-      // Pin to the latest (still-streaming) sentence so the face animates
-      // along with new tokens arriving.
-      setActiveIdx(sentences.length - 1);
+      setFallbackIdx(sentences.length - 1);
       return;
     }
-    // Stream is done → cycle through all sentences at TTS-estimated pace.
-    setActiveIdx(0);
-    if (sentences.length === 1) return;
+    // Don't run the fallback cycle when TTS is actively speaking — it would
+    // double-drive activeIdx and fight with the real audio sync.
+    if (ttsSpeaking) return;
 
-    const charsPerSec = 14;        // typical TTS reading speed
-    const minHoldMs   = 1500;      // never cut a sentence shorter than this
+    setFallbackIdx(0);
+    if (sentences.length === 1) return;
+    const charsPerSec = 14;
+    const minHoldMs   = 1500;
     const timers: ReturnType<typeof setTimeout>[] = [];
     let elapsed = 0;
     for (let i = 1; i < sentences.length; i++) {
@@ -195,26 +217,40 @@ export function TutorFaceMode({ messages, ttsSpeaking, sparkVariant = 'mark', on
       const dur = Math.max(minHoldMs, (prev.length / charsPerSec) * 1000);
       elapsed += dur;
       const idx = i;
-      timers.push(setTimeout(() => setActiveIdx(idx), elapsed));
+      timers.push(setTimeout(() => setFallbackIdx(idx), elapsed));
     }
     return () => timers.forEach(clearTimeout);
-  }, [sentences, isStreaming]);
+  }, [sentences, isStreaming, ttsSpeaking]);
 
-  // Resolve current scene + caption from the active sentence.
-  const { scene, caption, meta } = useMemo(() => {
+  /** Final active sentence: TTS-driven when available, else timer fallback. */
+  const activeIdx = ttsActiveIdx >= 0 ? ttsActiveIdx : fallbackIdx;
+
+  // Resolve current scene + caption.
+  const { scene, meta } = useMemo(() => {
     if (!latest) {
-      return { scene: SPARK_SCENES.IDLE, caption: '', meta: metaFor(SPARK_SCENES.IDLE) };
+      return { scene: SPARK_SCENES.IDLE, meta: metaFor(SPARK_SCENES.IDLE) };
     }
     if (latest.role !== 'tutor') {
-      return { scene: SPARK_SCENES.LISTENING, caption: '', meta: metaFor(SPARK_SCENES.LISTENING) };
+      return { scene: SPARK_SCENES.LISTENING, meta: metaFor(SPARK_SCENES.LISTENING) };
     }
     if (sentences.length === 0 && isStreaming) {
-      return { scene: SPARK_SCENES.THINKING, caption: '…', meta: metaFor(SPARK_SCENES.THINKING) };
+      return { scene: SPARK_SCENES.THINKING, meta: metaFor(SPARK_SCENES.THINKING) };
     }
     const active = sentences[activeIdx] ?? sentences.at(-1) ?? '';
     const s = classifyScene(active);
-    return { scene: s, caption: active, meta: metaFor(s) };
+    return { scene: s, meta: metaFor(s) };
   }, [latest, sentences, activeIdx, isStreaming]);
+
+  // Caption: show the FULL spoken section (matches chat) but visually
+  // emphasise the currently-being-spoken sentence so face + text stay
+  // tied to the audio.
+  const fullSpoken = useMemo(
+    () => (latest && latest.role === 'tutor' ? spokenSection(latest.content) : ''),
+    [latest?.id, latest?.role, latest?.content],
+  );
+
+  // Single string for change-detection / fallbacks (used by the speech key bump below)
+  const caption = sentences[activeIdx] ?? '';
 
   // Bump the speech key whenever the caption changes so SparkRobot replays the
   // entrance animation for the new line.
@@ -281,18 +317,35 @@ export function TutorFaceMode({ messages, ttsSpeaking, sparkVariant = 'mark', on
         </AnimatePresence>
       </div>
 
-      {/* Caption strip — what Spark just said */}
+      {/* Caption — full spoken section (matches chat). The active sentence is
+          highlighted; already-spoken sentences fade; upcoming sentences sit
+          dimmer. Stays in lockstep with TTS playback (and with the face state). */}
       <AnimatePresence mode="wait">
-        {caption ? (
+        {fullSpoken ? (
           <motion.div
-            key={`cap-${speechKeyRef.current}`}
+            key={`cap-${latest?.id ?? 'none'}`}
             className="tutor-face-caption"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
           >
-            {caption}
+            {sentences.length > 0 ? (
+              sentences.map((s, i) => {
+                const cls =
+                  i < activeIdx ? 'tutor-face-caption-sentence past'
+                  : i === activeIdx ? 'tutor-face-caption-sentence active'
+                  : 'tutor-face-caption-sentence next';
+                return (
+                  <span key={i} className={cls}>
+                    {i > 0 ? ' ' : ''}
+                    {s}
+                  </span>
+                );
+              })
+            ) : (
+              fullSpoken
+            )}
           </motion.div>
         ) : (
           <motion.div
