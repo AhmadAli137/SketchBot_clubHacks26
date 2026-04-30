@@ -69,7 +69,7 @@ export function SparkStateImage({ scene, variant = 'mark', size = 320, className
           justifyContent: 'center',
         }}
       >
-        <SparkRobot mode="3d" size="lg" scene={scene} showProp={false} />
+        <SparkRobot mode="3d" size="lg" scene={scene} showProp />
       </div>
     );
   }

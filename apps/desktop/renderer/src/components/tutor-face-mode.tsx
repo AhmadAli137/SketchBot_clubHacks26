@@ -26,76 +26,111 @@ type ClassifiedScene = number;
 
 function classifyScene(text: string): ClassifiedScene {
   const t = text.toLowerCase();
+  const trimmed = t.trim();
 
-  // ── Strong reactions first ─────────────────────────────────────────────
-  if (/\b(wow|whoa|woah|oh!|oh my|holy)\b/.test(t))
+  // ── Emoji-driven hits (fastest signal, highest specificity) ────────────
+  // The personas are encouraged to use emoji freely, so these fire often.
+  if (/[🎉🥳🎊🍾]/u.test(text))                                      return SPARK_SCENES.CHEERING;
+  if (/[👏🙌]/u.test(text))                                          return SPARK_SCENES.CLAPPING;
+  if (/[💡✨]/u.test(text))                                          return SPARK_SCENES.AHA;
+  if (/[❓🤔]/u.test(text))                                          return SPARK_SCENES.QUESTIONING;
+  if (/[👋]/u.test(text))                                            return SPARK_SCENES.WAVE;
+  if (/[👍✅]/u.test(text))                                          return SPARK_SCENES.NODDING;
+  if (/[💙❤️🥰🤗]/u.test(text))                                     return SPARK_SCENES.ENCOURAGING;
+  if (/[⚡‼️]/u.test(text))                                          return SPARK_SCENES.EMPHASIZING;
+  if (/[😮😲😯]/u.test(text))                                        return SPARK_SCENES.SURPRISED;
+  if (/[🤷]/u.test(text))                                            return SPARK_SCENES.SHRUG;
+  if (/[🥺😢]/u.test(text))                                          return SPARK_SCENES.SAD;
+  if (/[👈]/u.test(text))                                            return SPARK_SCENES.POINT_LEFT;
+  if (/[👉]/u.test(text))                                            return SPARK_SCENES.POINT_RIGHT;
+  if (/[👇]/u.test(text))                                            return SPARK_SCENES.POINT_DOWN;
+  if (/[☝️👆]/u.test(text))                                         return SPARK_SCENES.POINT_UP;
+
+  // ── Strong reactions ───────────────────────────────────────────────────
+  if (/\b(wow|whoa|woah|oh my|holy|gosh)\b/.test(t))
     return SPARK_SCENES.SURPRISED;
-  if (/(aha|eureka|i see|i got it|got it!|oh, of course)/.test(t))
+  if (/^(oh!|wait,?\s*what)/.test(trimmed))
+    return SPARK_SCENES.SURPRISED;
+  if (/(aha|eureka|i see|i got it|got it!|oh,? of course|that makes sense)/.test(t))
     return SPARK_SCENES.AHA;
 
   // ── Celebration / cheering ─────────────────────────────────────────────
-  if (/(amazing|incredible|fantastic|brilliant|love it|spectacular|stunning)/.test(t))
+  if (/(amazing|incredible|fantastic|brilliant|love it|spectacular|stunning|epic)/.test(t))
     return SPARK_SCENES.CHEERING;
-  if (/(great job|well done|nailed it|perfect|nice work)/.test(t))
+  if (/(great job|well done|nailed it|perfect|nice work|good job)/.test(t))
     return SPARK_SCENES.CLAPPING;
-  if (/\b(great|awesome|excellent|wonderful|terrific|super)\b/.test(t))
+  if (/\b(great|awesome|excellent|wonderful|terrific|super|sweet|fun|favourite|favorite)\b/.test(t))
     return SPARK_SCENES.CELEBRATE;
 
   // ── Agreement / encouragement ──────────────────────────────────────────
-  if (/(thumbs up|nice|sweet|cool!|keep it up|keep going|you got it|that'?s it)/.test(t))
+  if (/(thumbs up|keep it up|keep going|you got it|that'?s it|nice one)/.test(t))
     return SPARK_SCENES.ADAPT;
-  if (/^(yes|yep|yeah|right|correct|exactly|true|absolutely|sure|of course)/.test(t.trim())
-   || /\b(that'?s right|exactly right|good thinking)\b/.test(t))
+  if (/^(yes|yep|yeah|right|correct|exactly|true|absolutely|sure|of course)/.test(trimmed)
+   || /\b(that'?s right|exactly right|good thinking|spot on)\b/.test(t))
     return SPARK_SCENES.NODDING;
-  if (/(don'?t worry|you can do this|i believe|believe in you|come on|let'?s go)/.test(t))
+  if (/(don'?t worry|you can do this|i believe|believe in you|come on|let'?s go|you'?ll get it)/.test(t))
     return SPARK_SCENES.ENCOURAGING;
 
-  // ── Spatial / pointing ─────────────────────────────────────────────────
-  if (/(left side|on your left|to the left)/.test(t))
+  // ── Spatial / pointing (text cues — emoji handled above) ───────────────
+  if (/(left side|on your left|to the left|over (?:there )?to the left)/.test(t))
     return SPARK_SCENES.POINT_LEFT;
-  if (/(right side|on your right|to the right)/.test(t))
+  if (/(right side|on your right|to the right|over (?:there )?to the right)/.test(t))
     return SPARK_SCENES.POINT_RIGHT;
-  if (/(down (here|there|below)|on the floor|in the sandbox|on the canvas)/.test(t))
+  if (/(down (?:here|there|below)|on the floor|in the sandbox|on the canvas|right below)/.test(t))
     return SPARK_SCENES.POINT_DOWN;
-  if (/(up (here|there|above)|the sky|overhead|the camera)/.test(t))
+  if (/(up (?:here|there|above)|the sky|overhead|the camera|right above)/.test(t))
     return SPARK_SCENES.POINT_UP;
 
   // ── Questions ──────────────────────────────────────────────────────────
-  if (/\?\s*$/.test(t.trim()) || /\b(what do you think|can you|why|how come|do you know)\b/.test(t))
+  if (/\?\s*$/.test(trimmed)
+   || /\b(what do you think|what about|can you|why|how come|do you know|wanna|want to|sound good)\b/.test(t))
     return SPARK_SCENES.QUESTIONING;
 
   // ── Confusion / sympathy ───────────────────────────────────────────────
-  if (/(hmm|hmmm|not quite|let me think|that'?s tricky|tough one)/.test(t))
+  if (/(hmm+|not quite|let me think|that'?s tricky|tough one|tricky)/.test(t))
     return SPARK_SCENES.CONFUSED;
-  if (/(that'?s ok|no worries|that happens|don'?t worry|sorry|oh no)/.test(t))
+  if (/(that'?s ok|no worries|that happens|sorry|oh no|tough|been there)/.test(t))
     return SPARK_SCENES.SAD;
-  if (/(i'?m not sure|maybe|could be|might be|hard to say)/.test(t))
+  if (/(i'?m not sure|maybe|could be|might be|hard to say|kind of|sort of)/.test(t))
     return SPARK_SCENES.SHRUG;
 
   // ── Suggestion / guide ─────────────────────────────────────────────────
-  if (/(here'?s how|step (one|1)|first,|step by step)/.test(t))
+  if (/(here'?s how|step (?:one|1)|first,|step by step|start by|let me show you)/.test(t))
     return SPARK_SCENES.EXPLAINING;
-  if (/(let'?s|try|imagine|notice|look at|consider|what if|think about|how about)/.test(t))
+  if (/(let'?s|try|imagine|notice|look at|consider|what if|think about|how about|picture (?:this|that))/.test(t))
     return SPARK_SCENES.GUIDE;
 
-  // ── Emphasis / serious explanation ─────────────────────────────────────
-  if (/(important|the key|the main thing|always|never|remember)/.test(t))
+  // ── Curiosity / exploration cues ───────────────────────────────────────
+  if (/(curious|explore|discover|idea|ideas|imagine|wonder|wondering)/.test(t))
+    return SPARK_SCENES.EXPLAINING;
+
+  // ── Emphasis / serious teaching ───────────────────────────────────────
+  if (/(important|the key|the main thing|always|never|remember|crucial|the trick)/.test(t))
     return SPARK_SCENES.EMPHASIZING;
 
   // ── Greeting ───────────────────────────────────────────────────────────
-  if (/^(hi|hey|hello|welcome|greetings)/.test(t.trim()))
+  if (/^(hi|hey|hello|welcome|greetings|howdy)/.test(trimmed))
     return SPARK_SCENES.WAVE;
+
+  // ── Punctuation-driven fallbacks ──────────────────────────────────────
+  if (/!\s*$/.test(trimmed))                                  return SPARK_SCENES.CELEBRATE;
+  if (/(?:…|\.{3,})\s*$/.test(trimmed))                       return SPARK_SCENES.THINKING;
 
   // ── Default talking ────────────────────────────────────────────────────
   return SPARK_SCENES.TALKING;
 }
 
-/** Strip the post-`---` written-only section so face-mode shows just the
- *  voice-friendly part the student is hearing. */
+/** Return the full speakable body of a tutor message — everything TTS reads.
+ *  Removes the literal `---` separator line (which is markup, not speech) but
+ *  KEEPS any written content after it. Earlier we stripped post-`---`, but
+ *  TTS was still reading it, so face mode fell out of sync with the audio.
+ *  Now face mode and chat show the same content; TTS reads the same content;
+ *  everything stays in lockstep. */
 function spokenSection(text: string): string {
-  const dashIdx = text.indexOf('\n---');
-  if (dashIdx === -1) return text.trim();
-  return text.slice(0, dashIdx).trim();
+  return text
+    .replace(/\n\s*-{3,}\s*\n/g, '\n')   // drop the markup separator
+    .replace(/^\s*-{3,}\s*$/gm, '')      // drop a leading/trailing one too
+    .trim();
 }
 
 /** Split spoken text into sentences. Basic but works for typical English —
