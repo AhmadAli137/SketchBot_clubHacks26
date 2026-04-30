@@ -2728,8 +2728,12 @@ body {
 /* Global bottom-right controls: sound + theme — always fixed, always visible */
 .app-global-br-controls {
   position: fixed;
-  bottom: 16px;
-  right: 16px;
+  /* Top-right cluster — sits to the LEFT of the floating profile avatar
+     (right: 22px, width: 36px → avatar occupies right: 22-58). We start at
+     right: 70px so there's a 12px gap. Was bottom-right, but the tutor
+     input row crashed against it. */
+  top: 14px;
+  right: 70px;
   z-index: 180;
   display: flex;
   align-items: center;
@@ -5238,7 +5242,9 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 76px 0 14px; /* right padding reserves space for fixed app-profile-btn */
+  padding: 0 162px 0 14px; /* right padding reserves space for the fixed top-right cluster:
+                              app-global-br-controls (sound + theme, ~80px @ right:70)
+                              + app-profile-btn (avatar 36px @ right:22) */
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   backdrop-filter: blur(20px);

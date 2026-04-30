@@ -194,6 +194,7 @@ export function LearningHeader({
 
         <div className="learn-header-spacer" />
 
+        {!isSandbox && (
         <div className="learn-concept-picker-wrapper" ref={ageDropdownRef}>
           <button
             type="button"
@@ -247,8 +248,9 @@ export function LearningHeader({
             </div>
           )}
         </div>
+        )}
 
-        <div className="learn-header-divider" />
+        {!isSandbox && <div className="learn-header-divider" />}
 
         <button
           type="button"

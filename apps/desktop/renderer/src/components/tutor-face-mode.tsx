@@ -352,34 +352,30 @@ export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVarian
         </AnimatePresence>
       </div>
 
-      {/* Caption — full spoken section (matches chat). The active sentence is
-          highlighted; already-spoken sentences fade; upcoming sentences sit
-          dimmer. Stays in lockstep with TTS playback (and with the face state). */}
+      {/* Caption — ONE sentence at a time, crossfading as TTS advances.
+          Keeps Spark big and visible; chunks are bite-sized. */}
       <AnimatePresence mode="wait">
-        {fullSpoken ? (
+        {fullSpoken && sentences.length > 0 ? (
           <motion.div
-            key={`cap-${latest?.id ?? 'none'}`}
-            className="tutor-face-caption"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+            key={`sent-${latest?.id ?? 'none'}-${activeIdx}`}
+            className="tutor-face-caption tutor-face-caption--single"
+            initial={{ opacity: 0, y: 12, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.97 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
-            {sentences.length > 0 ? (
-              sentences.map((s, i) => {
-                const cls =
-                  i < activeIdx ? 'tutor-face-caption-sentence past'
-                  : i === activeIdx ? 'tutor-face-caption-sentence active'
-                  : 'tutor-face-caption-sentence next';
-                return (
-                  <span key={i} className={cls}>
-                    {i > 0 ? ' ' : ''}
-                    {s}
-                  </span>
-                );
-              })
-            ) : (
-              fullSpoken
+            {sentences[activeIdx] ?? sentences.at(-1) ?? ''}
+            {sentences.length > 1 && (
+              <div className="tutor-face-caption-progress">
+                {sentences.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`tutor-face-caption-dot${
+                      i === activeIdx ? ' active' : i < activeIdx ? ' past' : ''
+                    }`}
+                  />
+                ))}
+              </div>
             )}
           </motion.div>
         ) : (
