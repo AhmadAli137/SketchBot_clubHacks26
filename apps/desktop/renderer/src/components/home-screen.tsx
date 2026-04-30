@@ -906,7 +906,7 @@ export function HomeScreen({
 
         {role !== 'student' && (
         <div className="concept-domain-section">
-          {/* Header row: title (+ subtitle for guests) + age-pills aligned right */}
+          {/* Header row */}
           <div className="sessions-header">
             <div className="sessions-header-left">
               <h2>{role === 'guest' ? 'Your sessions' : 'Activities'}</h2>
@@ -916,22 +916,6 @@ export function HomeScreen({
                 </p>
               )}
             </div>
-            {role === 'guest' && (
-              <div className="home-age-group-selector home-age-group-selector--inline">
-                {(['explorer', 'builder', 'engineer'] as AgeGroup[]).map((ag) => (
-                  <button
-                    key={ag}
-                    type="button"
-                    className={`home-age-pill${ageGroup === ag ? ' active' : ''}`}
-                    style={{ '--pill-color': AGE_GROUP_META[ag].color } as React.CSSProperties}
-                    onClick={() => handleAgeGroupChange(ag)}
-                  >
-                    <span>{AGE_GROUP_META[ag].emoji}</span>
-                    <span>{AGE_GROUP_META[ag].label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Unified sessions gallery (guest only): [+ New] [Continue] [...Saved] [...Recent] */}
