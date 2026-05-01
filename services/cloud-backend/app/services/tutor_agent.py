@@ -39,11 +39,14 @@ logger = logging.getLogger("sketchbot.tutor.agent")
 # How long the agent waits between event-driven reasoning bursts before
 # also firing a slow safety tick. Real cadence is event-driven; this is
 # a backstop so the agent doesn't go silent forever if events stall.
-SAFETY_TICK_SEC = 60
+# Lowered from 60s to 30s when we shifted from "curious bystander" to
+# "mission-driven tutor" — every idle tick is a chance to propose a
+# next step, so checking in twice as often is the right tradeoff.
+SAFETY_TICK_SEC = 30
 
 # Hard floor between reasoning calls — protects Anthropic spend even if
 # events flood in.
-THINK_RATE_LIMIT_SEC = 8
+THINK_RATE_LIMIT_SEC = 6
 
 # Event kinds that should immediately trigger think_and_act. Outcome-y
 # events worth reacting to; raw build events (place/delete/rotate) are
@@ -60,7 +63,9 @@ BUILD_EVENT_KINDS = frozenset({
 })
 
 # How long to wait after the last build event before firing a tick.
-BUILD_SETTLE_SEC = 3.0
+# 1.5s is short enough to feel responsive but long enough to coalesce a
+# burst of placements into one think.
+BUILD_SETTLE_SEC = 1.5
 
 # ─── Protocol message types (mirror lib/tutor-ws-protocol.ts on frontend) ────
 
