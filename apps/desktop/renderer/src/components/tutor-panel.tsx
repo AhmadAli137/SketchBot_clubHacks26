@@ -35,7 +35,7 @@ import { sparkBehavior } from '@/lib/spark-behavior';
 import { appendSessionSummary } from '@/lib/spark-memory';
 import { useInterjectionTracker, trackInterjectionStart } from '@/lib/use-interjection-tracker';
 import { useTutorWebSocket } from '@/lib/use-tutor-websocket';
-import { MSG_CONTEXT, MSG_RESTART, MSG_SPEAK, MSG_TOOL_CALL, MSG_THINKING } from '@/lib/tutor-ws-protocol';
+import { MSG_CHAT, MSG_CONTEXT, MSG_RESTART, MSG_SPEAK, MSG_TOOL_CALL, MSG_THINKING } from '@/lib/tutor-ws-protocol';
 import { emitToolRequest } from '@/lib/spark-tools';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1634,6 +1634,15 @@ export function TutorPanel({
 
     setStudentInput('');
     setMessages((prev) => [...prev, { id: genId(), role: 'student', content: text }]);
+
+    // Mirror the chat to the WS agent so its working memory tracks
+    // typed/spoken replies. The HTTP /message path still produces the
+    // streaming response — this is purely a context update so the agent
+    // can drive mission continuity (e.g., kid says "yes racetrack!" and
+    // the next observation tick reasons in racetrack-mission terms).
+    if (tutorWs.status === 'open') {
+      tutorWs.send({ type: MSG_CHAT, text });
+    }
 
     await streamTutorMessage({
       trigger: sessionActorRole === 'teacher' ? 'teacher_reply' : 'student_reply',

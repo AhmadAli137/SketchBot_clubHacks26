@@ -264,9 +264,7 @@ class TutorAgent:
             await self._on_tool_result(msg)
             return
         if msg_type == MSG_CHAT:
-            # Phase 2+: route user-typed chat through the agent. v1 keeps
-            # the existing /api/tutor/message HTTP endpoint.
-            logger.debug("agent.chat_ignored session_id=%s (handled by /message)", self.id)
+            await self._on_chat(msg)
             return
 
         logger.warning("agent.unknown_msg session_id=%s type=%r", self.id, msg_type)
@@ -296,6 +294,33 @@ class TutorAgent:
             self._build_settle_task = asyncio.create_task(
                 self._build_settle_then_think(evt.kind),
             )
+
+    async def _on_chat(self, msg: dict[str, Any]) -> None:
+        """User typed (or spoke) a reply. Append to the event log so the
+        agent's working memory tracks it.
+
+        We deliberately do NOT trigger think_and_act here: the existing
+        /api/tutor/message HTTP path produces the synchronous streaming
+        reply the renderer renders inline. Triggering an additional WS
+        think would double-speak. Mission continuity is preserved
+        because the renderer's next context push (every 8s) includes
+        the latest chat in its situational-awareness preamble — the
+        agent sees what was said and reasons about it on the next
+        outcome / build / safety tick.
+        """
+        text = str(msg.get("text") or "").strip()
+        if not text:
+            return
+        evt = AgentEvent(
+            kind="chat.user",
+            payload={"text": text[:500]},  # cap to keep event log light
+            ts=time.time(),
+        )
+        self.event_log.append(evt)
+        logger.info(
+            "agent.chat session_id=%s len=%d",
+            self.id, len(text),
+        )
 
     async def _on_context(self, msg: dict[str, Any]) -> None:
         """Cache the latest situational-awareness preamble from the
