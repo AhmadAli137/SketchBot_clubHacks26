@@ -29,7 +29,7 @@ import { CLOUD_API_URL, cloudHeaders } from '@/lib/cloud-api';
 import { sparkBehavior } from '@/lib/spark-behavior';
 import { getAgenticSettings, onAgenticSettingsChange } from '@/lib/agentic-settings';
 import { emitToolRequest, type SparkToolRequest } from '@/lib/spark-tools';
-import { emitSparkEvent } from '@/lib/spark-events';
+import { emitSparkEvent, onSparkEvent } from '@/lib/spark-events';
 
 // Tightened from the initial 30s/60s — Spark felt absent. Now ~20s base
 // with a 15s tighten after a fail, and a 35s slowdown only when truly in
@@ -195,9 +195,29 @@ export function useSparkTick(opts: UseSparkTickOptions) {
 
     schedule();
 
+    // Event-driven trigger: when something meaningful happens on the canvas
+    // (sim outcome, evaluation, milestone), fire an immediate observation
+    // tick instead of waiting for the next scheduled poll. The 10s rate
+    // limit + in-flight guards still apply, so this can't spam Anthropic.
+    // Result: Spark reacts within ~1-3s of the event instead of up to 20s.
+    const IMMEDIATE_TRIGGER_KINDS = new Set([
+      'sim.complete', 'sim.fail',
+      'tutor.evaluation.pass', 'tutor.evaluation.fail',
+      'tutor.level-up', 'tutor.layer-up', 'tutor.concept-mastered',
+      'session.return',
+    ]);
+    const unsubEvents = onSparkEvent((detail) => {
+      if (cancelled) return;
+      if (!IMMEDIATE_TRIGGER_KINDS.has(detail.kind)) return;
+      // Defer one render frame so any state mutations from the event
+      // (placed object lands in scene) settle before we snapshot context.
+      setTimeout(() => { void tickOnce(); }, 80);
+    });
+
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      unsubEvents();
     };
     // We deliberately depend only on `enabled` + parent toggle — opts changes
     // are tracked via optsRef so we don't restart the loop on every parent

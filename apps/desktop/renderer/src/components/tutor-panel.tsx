@@ -628,6 +628,14 @@ function useTTS({ apiBase, cloudApiBase, authToken, backendReachable }: TTSOptio
       item.primedUrl = null;
       return Promise.resolve(null);
     }
+    // Auth token race: useCloudAuthToken() resolves async after first render.
+    // If we fire the speak call now, /api/tutor/speak returns 401 and Spark
+    // is silent for the first greeting. Defer instead — leave primePromise
+    // unset so a later processQueue tick will retry once the token is up.
+    if (!tok) {
+      // Don't cache a null result — caller will reprime when token lands.
+      return Promise.resolve(null);
+    }
     item.primePromise = (async () => {
       try {
         const response = await fetch(`${base}/api/tutor/speak`, {
