@@ -196,27 +196,58 @@ export function useSparkTick(opts: UseSparkTickOptions) {
     schedule();
 
     // Event-driven trigger: when something meaningful happens on the canvas
-    // (sim outcome, evaluation, milestone), fire an immediate observation
-    // tick instead of waiting for the next scheduled poll. The 10s rate
-    // limit + in-flight guards still apply, so this can't spam Anthropic.
-    // Result: Spark reacts within ~1-3s of the event instead of up to 20s.
-    const IMMEDIATE_TRIGGER_KINDS = new Set([
+    // fire an immediate observation tick instead of waiting for the next
+    // scheduled poll. Two flavors:
+    //
+    //   IMMEDIATE_TRIGGER_KINDS — outcome events that should react fast:
+    //     sim/evaluation outcomes, milestones, return-from-idle. These fire
+    //     a tick within ~80ms.
+    //
+    //   BUILD_TRIGGER_KINDS — low-level user actions (place, delete, rotate)
+    //     that fire constantly during active building. We DON'T want a tick
+    //     per click — that would spam Anthropic. Instead a 5s debounce: the
+    //     timer resets on every build event and only fires when the user
+    //     pauses. Result: Spark reacts ~5-8s after you stop building,
+    //     instead of waiting up to 20s for the next scheduled poll.
+    //
+    // Both flavors are still subject to the 10s rate limit + in-flight
+    // guards inside tickOnce, so they can't spam.
+    const IMMEDIATE_TRIGGER_KINDS = new Set<string>([
       'sim.complete', 'sim.fail',
       'tutor.evaluation.pass', 'tutor.evaluation.fail',
       'tutor.level-up', 'tutor.layer-up', 'tutor.concept-mastered',
       'session.return',
     ]);
+    const BUILD_TRIGGER_KINDS = new Set<string>([
+      'user.place', 'user.delete', 'user.rotate', 'user.code-run',
+    ]);
+    const BUILD_SETTLE_MS = 5_000;
+    let buildSettleTimer: ReturnType<typeof setTimeout> | null = null;
+
     const unsubEvents = onSparkEvent((detail) => {
       if (cancelled) return;
-      if (!IMMEDIATE_TRIGGER_KINDS.has(detail.kind)) return;
-      // Defer one render frame so any state mutations from the event
-      // (placed object lands in scene) settle before we snapshot context.
-      setTimeout(() => { void tickOnce(); }, 80);
+      if (IMMEDIATE_TRIGGER_KINDS.has(detail.kind)) {
+        // Defer one render frame so any state mutations from the event
+        // (placed object lands in scene) settle before we snapshot context.
+        setTimeout(() => { void tickOnce(); }, 80);
+        return;
+      }
+      if (BUILD_TRIGGER_KINDS.has(detail.kind)) {
+        // Debounce — every build event resets the timer. Fires only on
+        // a 5s pause in build activity.
+        if (buildSettleTimer) clearTimeout(buildSettleTimer);
+        buildSettleTimer = setTimeout(() => {
+          buildSettleTimer = null;
+          void tickOnce();
+        }, BUILD_SETTLE_MS);
+        return;
+      }
     });
 
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      if (buildSettleTimer) clearTimeout(buildSettleTimer);
       unsubEvents();
     };
     // We deliberately depend only on `enabled` + parent toggle — opts changes
