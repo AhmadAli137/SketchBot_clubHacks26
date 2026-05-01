@@ -989,7 +989,7 @@ export function StudentDashboard({
               classroomRestrictions={userRole === 'student' ? classroomRestrictions : undefined}
               sessionId={sessionId}
               isSandbox={appMode === 'sandbox'}
-              getContextText={() => describeContextAsText(buildSparkContext({
+              getContextText={(extras) => describeContextAsText(buildSparkContext({
                 sceneObjects,
                 mode: appMode === 'sandbox' ? 'sandbox' : 'concept',
                 conceptId,
@@ -1000,6 +1000,11 @@ export function StudentDashboard({
                 // The progress / sessions stores key on the full studentName
                 // — first name alone misses the right record.
                 studentStoreKey: studentName || 'guest',
+                // Tutor-panel supplies these because chat and the active
+                // prompt live there.
+                chatExcerpt: extras?.chatExcerpt,
+                activeDrawingPrompt: extras?.activeDrawingPrompt,
+                lastPathCount: extras?.lastPathCount,
               }))}
               getContextSignature={() => ({
                 objectCount: sceneObjects.length,

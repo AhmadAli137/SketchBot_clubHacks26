@@ -111,6 +111,12 @@ export interface SparkContext {
    *  counts plus a synopsis suggesting how to adapt style
    *  (Level 2 learning). */
   interjectionStats: InterjectionStats;
+  /** Last few chat messages so Spark sees the conversational thread. */
+  chatExcerpt: Array<{ role: 'tutor' | 'student'; content: string }>;
+  /** What the kid most recently asked the robot to draw. */
+  activeDrawingPrompt: string | null;
+  /** Path-segment count of the most recent drawing — rough complexity hint. */
+  lastPathCount: number | null;
 }
 
 export interface BuildSparkContextInput {
@@ -124,6 +130,14 @@ export interface BuildSparkContextInput {
   /** Full student name as stored in progress / sessions stores — used to
    *  pull cross-session memory. Defaults to studentFirstName when omitted. */
   studentStoreKey?: string;
+  /** Last few chat messages (most-recent last) so Spark sees the
+   *  conversation he's been part of and can avoid repeating himself. */
+  chatExcerpt?: Array<{ role: 'tutor' | 'student'; content: string }>;
+  /** What the kid most recently asked the robot to draw, if any. */
+  activeDrawingPrompt?: string | null;
+  /** Number of path segments in the most recent drawing — gives Spark a
+   *  rough sense of complexity. */
+  lastPathCount?: number | null;
 }
 
 /** Convert a raw SceneObject (grid coords) → the context-shape (world metres). */
@@ -257,6 +271,9 @@ export function buildSparkContext(input: BuildSparkContextInput): SparkContext {
     profile,
     recentSessionSummaries,
     interjectionStats,
+    chatExcerpt: input.chatExcerpt ?? [],
+    activeDrawingPrompt: input.activeDrawingPrompt ?? null,
+    lastPathCount: input.lastPathCount ?? null,
   };
 }
 
@@ -321,6 +338,31 @@ export function describeContextAsText(ctx: SparkContext): string {
       if (s.excelledAt) lines.push(`    did well: ${s.excelledAt}`);
     }
     lines.push("Use these to make the kid feel remembered. Reference them naturally; don't recite them.");
+  }
+
+  // ── Active drawing prompt + last path count ──────────────────────────────
+  if (ctx.activeDrawingPrompt) {
+    lines.push('');
+    const promptText = ctx.activeDrawingPrompt.length > 240
+      ? ctx.activeDrawingPrompt.slice(0, 237) + '…'
+      : ctx.activeDrawingPrompt;
+    lines.push(`Active drawing prompt (what the kid asked the robot to draw): "${promptText}"`);
+    if (ctx.lastPathCount !== null) {
+      lines.push(`The most recent drawing produced ${ctx.lastPathCount} path segment${ctx.lastPathCount === 1 ? '' : 's'}.`);
+    }
+  }
+
+  // ── Recent chat (so Spark doesn't repeat himself) ────────────────────────
+  if (ctx.chatExcerpt.length > 0) {
+    lines.push('');
+    lines.push('Recent chat (most-recent last):');
+    for (const m of ctx.chatExcerpt) {
+      const speaker = m.role === 'tutor' ? 'Spark' : 'Student';
+      const trimmed = m.content.replace(/\s+/g, ' ').trim();
+      const compact = trimmed.length > 220 ? trimmed.slice(0, 217) + '…' : trimmed;
+      if (compact) lines.push(`  ${speaker}: ${compact}`);
+    }
+    lines.push("Don't repeat yourself. If you've already said something, say something different or stay silent.");
   }
 
   // ── Interjection feedback (Level 2 learning) ─────────────────────────────

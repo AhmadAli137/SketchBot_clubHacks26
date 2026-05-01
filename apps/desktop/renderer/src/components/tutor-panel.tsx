@@ -65,10 +65,16 @@ type TutorPanelProps = {
   isSandbox?: boolean;
   /**
    * Build the situational-awareness context (rendered text) for tutor calls.
-   * Provided by the parent because scene state lives there. Called fresh on
-   * every trigger so the AI always sees current state.
+   * Provided by the parent because scene state lives there. The parent
+   * passes a function that takes optional supplements (chat, prompt) and
+   * builds the full context. Called fresh on every trigger so the AI
+   * always sees current state.
    */
-  getContextText?: () => string;
+  getContextText?: (extras?: {
+    chatExcerpt?: Array<{ role: 'tutor' | 'student'; content: string }>;
+    activeDrawingPrompt?: string | null;
+    lastPathCount?: number | null;
+  }) => string;
   /**
    * Optional structured snapshot for the local response log — feeds the
    * future "hard-code common patterns" optimization. See lib/spark-response-log.ts.
@@ -1711,7 +1717,16 @@ export function TutorPanel({
     conceptId,
     layer: activeLayer,
     cloudAuthToken,
-    getContextText: () => getContextText?.() ?? '',
+    getContextText: () => getContextText?.({
+      // Last 6 chat messages (oldest → newest) so Spark sees the
+      // conversational thread and avoids repeating himself.
+      chatExcerpt: messagesRef.current.slice(-6).map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      activeDrawingPrompt: drawingPrompt ?? null,
+      lastPathCount: typeof pathCount === 'number' ? pathCount : null,
+    }) ?? '',
     getContextSignature,
     onObservation: (obs) => {
       if (!obs.speak || !obs.message.trim()) return;
