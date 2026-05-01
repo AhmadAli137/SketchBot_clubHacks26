@@ -460,8 +460,10 @@ let bgmGain: GainNode | null = null;
 let stepIdx = 0;
 let bassStepIdx = 0;
 
-/** Sandbox playlist state — only meaningful when conceptId === null. */
-let sandboxPlaylistIdx = 0;
+/** Sandbox playlist state — only meaningful when conceptId === null.
+ *  Initialised to a random index so two sessions back-to-back don't always
+ *  start on the same track. */
+let sandboxPlaylistIdx = -1; // sentinel; resolved on first sandbox start
 let isPlayingSandboxPlaylist = false;
 /** Set to true between detecting "track-cycle complete" and the new track
  *  actually starting, so the next interval tick doesn't fire the advance
@@ -471,6 +473,15 @@ let pendingPlaylistAdvance = false;
  *  Full songs are ~30-40 bars (~1-2 minutes); 8 bars (~20s) keeps the
  *  rotation noticeable without cutting tracks off mid-thought. */
 const SANDBOX_BARS_PER_TRACK = 8;
+
+/** Diagnostic logging — set `window.__sketchbotBgmDebug = true` in the
+ *  DevTools console to see when tracks are picked, when the advance
+ *  fires, and what mode BGM is in. Off by default. */
+function bgmLog(...args: unknown[]) {
+  if (typeof window === 'undefined') return;
+  const w = window as unknown as { __sketchbotBgmDebug?: boolean };
+  if (w.__sketchbotBgmDebug) console.info('[BGM]', ...args);
+}
 
 function stopBgmOscillators() {
   bgmOscillators.forEach(o => { try { o.stop(); } catch { /* already stopped */ } });
@@ -627,17 +638,30 @@ export function playBGM(conceptId?: string | null) {
   // detects song-cycle completion and advances sandboxPlaylistIdx so the
   // next call to this function picks up the next track.
   let resolvedConfig: BgmConfig;
+  let resolvedTrackId: string;
   if (conceptId) {
     isPlayingSandboxPlaylist = false;
+    resolvedTrackId = conceptId;
     resolvedConfig = CONCEPT_BGM[conceptId] ?? DEFAULT_BGM;
   } else {
+    // First sandbox call this session → pick a random starting track so
+    // back-to-back sessions don't always begin on the same one. Subsequent
+    // calls (from the auto-advance logic) just use the incremented index.
+    if (sandboxPlaylistIdx < 0) {
+      sandboxPlaylistIdx = Math.floor(Math.random() * SANDBOX_BGM_PLAYLIST.length);
+      bgmLog('sandbox first start, randomized index →', sandboxPlaylistIdx);
+    }
     isPlayingSandboxPlaylist = true;
-    const id = SANDBOX_BGM_PLAYLIST[sandboxPlaylistIdx % SANDBOX_BGM_PLAYLIST.length]!;
-    resolvedConfig = CONCEPT_BGM[id] ?? DEFAULT_BGM;
+    resolvedTrackId = SANDBOX_BGM_PLAYLIST[sandboxPlaylistIdx % SANDBOX_BGM_PLAYLIST.length]!;
+    resolvedConfig = CONCEPT_BGM[resolvedTrackId] ?? DEFAULT_BGM;
   }
   const config = resolvedConfig;
+  bgmLog('playBGM →', resolvedTrackId, isPlayingSandboxPlaylist ? '(playlist mode)' : '(concept mode)');
 
-  if (currentBgmConfig === config && bgmInterval !== null) return; // already playing this
+  if (currentBgmConfig === config && bgmInterval !== null) {
+    bgmLog('  early-return: already playing this config');
+    return;
+  } // already playing this
   if (!bgmEnabled) { stopBgmOscillators(); return; }
 
   const audioCtx = getCtx();
@@ -717,6 +741,7 @@ export function playBGM(conceptId?: string | null) {
     ) {
       pendingPlaylistAdvance = true;
       sandboxPlaylistIdx += 1;
+      bgmLog('advance fired @ step', stepIdx, '→ next idx', sandboxPlaylistIdx % SANDBOX_BGM_PLAYLIST.length);
       setTimeout(() => {
         pendingPlaylistAdvance = false;
         playBGM(null);
@@ -821,9 +846,14 @@ export function stopBGM() {
     stopBgmOscillators();
   }
   currentBgmConfig = null;
-  // Reset playlist mode so a future playBGM() starts fresh
+  // Reset playlist mode so a future playBGM() starts fresh. The -1
+  // sentinel triggers a fresh random pick on the next sandbox open
+  // — true shuffle between sessions instead of always starting on
+  // wherever the previous session left off.
   isPlayingSandboxPlaylist = false;
   pendingPlaylistAdvance = false;
+  sandboxPlaylistIdx = -1;
+  bgmLog('stopBGM — playlist index reset to -1 (will re-randomize)');
 }
 
 // ─── Musical context for SFX ──────────────────────────────────────────────────
