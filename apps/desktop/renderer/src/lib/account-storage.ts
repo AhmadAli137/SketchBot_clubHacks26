@@ -46,18 +46,21 @@ export function loadAccount(): AccountRecord | null {
 }
 
 /**
- * Show "Continue" when we have a remembered profile and either a Supabase session
- * (email match) or a legacy stub session token.
+ * Show "Continue" when we have a saved profile and either a live Supabase session
+ * (email match — regardless of rememberMe) or a legacy stub token with rememberMe.
  */
 export function shouldShowQuickContinue(
   account: AccountRecord | null,
   supabaseUserEmail: string | null,
 ): boolean {
-  if (!account?.rememberMe) return false;
+  if (!account) return false;
   const email = account.email.trim().toLowerCase();
+  // Live Supabase session: always offer quick-continue (user signed in, session is valid)
   if (supabaseUserEmail) {
     return email === supabaseUserEmail.trim().toLowerCase();
   }
+  // Legacy stub: require explicit rememberMe
+  if (!account.rememberMe) return false;
   return Boolean(account.sessionToken);
 }
 

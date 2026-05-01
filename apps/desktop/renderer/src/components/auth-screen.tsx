@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
@@ -15,6 +15,8 @@ import {
   updateAccountLastRole,
   type AccountRole,
 } from '@/lib/account-storage';
+import { getStudentProgress } from '@/lib/progress-store';
+import { StudentProfileAvatar } from '@/components/student-profile-avatar';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 export type AuthRole = 'teacher' | 'student' | 'guest';
@@ -68,6 +70,17 @@ export function AuthScreen({ onAuthenticated, onBack, authMode = 'teacher' }: Au
   const [supabaseSessionEmail, setSupabaseSessionEmail] = useState<string | null>(null);
 
   const showQuick = Boolean(account && shouldShowQuickContinue(account, supabaseSessionEmail));
+
+  const savedAvatar = useMemo(() => {
+    if (!account?.displayName) return null;
+    const sp = getStudentProgress(account.displayName, 'explorer');
+    return {
+      kind: sp.profile_avatar_kind ?? 'emoji',
+      emoji: sp.avatar ?? '🤖',
+      robotPreset: sp.robot_preset ?? 'orbit',
+      color: sp.favorite_color ?? 'var(--cyan)',
+    } as const;
+  }, [account?.displayName]);
 
   useEffect(() => {
     const a = loadAccount();
@@ -223,7 +236,17 @@ export function AuthScreen({ onAuthenticated, onBack, authMode = 'teacher' }: Au
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.1 }}
                 >
-                  <div className="entry-quick-avatar" aria-hidden>{initials(account.displayName)}</div>
+                  <div className="entry-quick-avatar" aria-hidden>
+                    {savedAvatar ? (
+                      <StudentProfileAvatar
+                        kind={savedAvatar.kind}
+                        emoji={savedAvatar.emoji}
+                        robotPresetId={savedAvatar.robotPreset}
+                        accent={savedAvatar.color}
+                        size={48}
+                      />
+                    ) : initials(account.displayName)}
+                  </div>
                   <div className="entry-quick-text">
                     <div className="entry-quick-label">Welcome back</div>
                     <div className="entry-quick-name">{account.displayName}</div>

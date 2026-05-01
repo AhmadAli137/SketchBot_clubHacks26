@@ -52,27 +52,31 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [speechIndex, setSpeechIndex] = useState(0);
-  const [isDark, setIsDark] = useState(
-    () => typeof document !== 'undefined' ? document.documentElement.dataset.theme !== 'light' : true,
-  );
+  const [isDark, setIsDark] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
 
+  // Gate all localStorage-derived UI behind a mount flag so SSR/first-client-render
+  // match.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const effectiveSession = mounted ? savedSession : undefined;
+
   const studentProgress = useMemo(() => {
-    if (!savedSession || savedSession.role !== 'student') return null;
-    return getProgressSummary(savedSession.name);
-  }, [savedSession]);
+    if (!effectiveSession || effectiveSession.role !== 'student') return null;
+    return getProgressSummary(effectiveSession.name);
+  }, [effectiveSession]);
 
   const savedAvatar = useMemo(() => {
-    if (!savedSession) return null;
-    const sp = getStudentProgress(savedSession.name, 'builder');
+    if (!effectiveSession) return null;
+    const sp = getStudentProgress(effectiveSession.name, 'builder');
     return {
       kind: sp.profile_avatar_kind ?? 'emoji',
       emoji: sp.avatar ?? '🤖',
       robotPreset: sp.robot_preset ?? 'orbit',
       color: sp.favorite_color ?? 'var(--cyan)',
     } as const;
-  }, [savedSession]);
+  }, [effectiveSession]);
 
   useEffect(() => {
     const check = () => setIsDark(document.documentElement.dataset.theme !== 'light');
@@ -238,13 +242,13 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
                 <div className="plan-profile-wrap">
                   <motion.button
                     type="button"
-                    className={`plan-profile-btn${!savedSession ? ' is-guest' : ''}`}
+                    className={`plan-profile-btn${!effectiveSession ? ' is-guest' : ''}`}
                     onClick={() => setProfileOpen((v) => !v)}
                     whileHover={{ scale: 1.08 }}
                     whileTap={{ scale: 0.92 }}
-                    title={savedSession ? savedSession.name : 'Sign in'}
+                    title={effectiveSession ? effectiveSession.name : 'Sign in'}
                   >
-                    {savedSession && savedAvatar
+                    {effectiveSession && savedAvatar
                       ? <StudentProfileAvatar kind={savedAvatar.kind} emoji={savedAvatar.emoji} robotPresetId={savedAvatar.robotPreset} accent={savedAvatar.color} size={26} />
                       : <UserRound size={15} />
                     }
@@ -258,11 +262,11 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
                         exit={{ opacity: 0, y: -6, scale: 0.95 }}
                         transition={{ duration: 0.16 }}
                       >
-                        {savedSession ? (
+                        {effectiveSession ? (
                           <>
-                            <div className="plan-profile-dropdown-name">{savedSession.name}</div>
+                            <div className="plan-profile-dropdown-name">{effectiveSession.name}</div>
                             <div className="plan-profile-dropdown-role">
-                              {savedSession.role === 'teacher' ? 'Teacher account' : 'Student account'}
+                              {effectiveSession.role === 'teacher' ? 'Teacher account' : 'Student account'}
                             </div>
                             <button
                               type="button"
@@ -341,14 +345,14 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
                 </div>
 
                 {/* ── Returning-user welcome greeting ── */}
-                {savedSession && (
+                {effectiveSession && (
                   <motion.div
                     className="plan-welcome-back"
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.28 }}
                   >
-                    <span className="plan-welcome-text">Welcome back, {savedSession.name}!</span>
+                    <span className="plan-welcome-text">Welcome back, {effectiveSession.name}!</span>
                     <button
                       type="button"
                       className="plan-welcome-switch"
