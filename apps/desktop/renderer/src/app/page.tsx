@@ -143,9 +143,6 @@ export default function HomePage() {
     return () => clearInterval(t);
   }, [launchState.phase, launchState.message]);
 
-  // ─── Music — persists across all views, paused during sessions ────────────
-  const { muted, toggleMute } = useMenuMusic(false);
-
   // ─── Auth / routing state ──────────────────────────────────────────────
   // Persisted browser state hydrates after mount so SSR and first client render match.
   const [view, setView] = useState<AppView>('plan');
@@ -164,6 +161,12 @@ export default function HomePage() {
   const [lessonPlanActive, setLessonPlanActive] = useState(false);
   const [activeChallengeId, setActiveChallengeId] = useState<string | null>(null);
   const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+
+  // ─── Music — persists across home/auth/onboarding views and PAUSES during
+  //   active sessions so the sandbox / concept BGM (game-audio.ts) doesn't
+  //   layer on top of menu music. Without this gate the user hears two
+  //   tracks fighting each other.
+  const { muted, toggleMute } = useMenuMusic(view === 'session');
 
   // ─── Learning system state ─────────────────────────────────────────────
   const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null);
