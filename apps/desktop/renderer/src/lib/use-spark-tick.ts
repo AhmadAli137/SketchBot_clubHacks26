@@ -39,7 +39,15 @@ const TIGHT_INTERVAL_MS   = 15_000;
 const FLOW_INTERVAL_MS    = 35_000;
 const IDLE_SKIP_THRESHOLD = 90_000;
 const RATE_LIMIT_MS       = 10_000; // hard floor — never exceed 1 call / 10s
-const POST_SPEAK_QUIET_MS = 30_000; // breathing room after Spark just spoke
+const POST_SPEAK_QUIET_MS = 20_000; // breathing room after Spark just spoke
+// Hard timeout on a single observe request. If Anthropic hangs (rare but
+// real on tool-use loops) we abort instead of blocking new triggers
+// behind the inFlightRef guard for minutes.
+const OBSERVE_TIMEOUT_MS  = 20_000;
+// Stale-response discard. If a fetch eventually completes but the user
+// has moved on, the response references context that no longer matches
+// what's on screen. Show only fresh responses.
+const STALENESS_THRESHOLD_MS = 25_000;
 
 export interface SparkObservation {
   speak: boolean;
@@ -142,6 +150,13 @@ export function useSparkTick(opts: UseSparkTickOptions) {
 
       lastCallTsRef.current = now;
       inFlightRef.current = true;
+      const startTs = now;
+      // Hard timeout via AbortController so a hung Anthropic call can't
+      // block new triggers behind inFlightRef for minutes. If the abort
+      // fires we'll catch it below and the observing pose still ends.
+      const ac = new AbortController();
+      const timeoutId = setTimeout(() => ac.abort(), OBSERVE_TIMEOUT_MS);
+
       // Tell the behavior coordinator we're literally analysing the canvas
       // — it shows a "looking at your work" pose for the duration of the
       // network call instead of cycling random ambient scenes.
@@ -150,6 +165,7 @@ export function useSparkTick(opts: UseSparkTickOptions) {
         const res = await fetch(`${CLOUD_API_URL}/api/tutor/observe`, {
           method: 'POST',
           headers: cloudHeaders(o.cloudAuthToken),
+          signal: ac.signal,
           body: JSON.stringify({
             student_name: o.studentName,
             age_group: o.ageGroup,
@@ -162,6 +178,13 @@ export function useSparkTick(opts: UseSparkTickOptions) {
         if (!res.ok) return;
         const data = (await res.json()) as SparkObservation;
         if (cancelled) return;
+
+        // Staleness check — even if the response eventually came back,
+        // drop it when too long has passed. The context Spark saw is now
+        // out of date and the response would feel disconnected.
+        const elapsed = Date.now() - startTs;
+        if (elapsed > STALENESS_THRESHOLD_MS) return;
+
         // Emit any tool request first — the dispatcher will either run it
         // immediately (annotative) or queue a confirmation (mutative).
         if (data && data.tool_request && data.tool_request.id) {
@@ -174,7 +197,9 @@ export function useSparkTick(opts: UseSparkTickOptions) {
       } catch {
         // Swallow — observation is best-effort. The coordinator's silent
         // ambient layer keeps Spark feeling alive even without network.
+        // Abort errors land here too; that's the desired behaviour.
       } finally {
+        clearTimeout(timeoutId);
         inFlightRef.current = false;
         // Always end the observing pose, whether we got a response, an
         // error, or a silent JSON. Reactive scenes (celebrate / aha) take
@@ -221,7 +246,12 @@ export function useSparkTick(opts: UseSparkTickOptions) {
     const BUILD_TRIGGER_KINDS = new Set<string>([
       'user.place', 'user.delete', 'user.rotate', 'user.code-run',
     ]);
-    const BUILD_SETTLE_MS = 5_000;
+    // Was 5s. Tightened to 3s — natural micro-pauses while building (think,
+    // adjust, look at the canvas) are much shorter than 5s. With 5s the
+    // user often kept building through the timer, so the eventual tick
+    // saw context that included the last full minute of activity, not
+    // "what just happened." 3s catches more pauses without being twitchy.
+    const BUILD_SETTLE_MS = 3_000;
     let buildSettleTimer: ReturnType<typeof setTimeout> | null = null;
 
     const unsubEvents = onSparkEvent((detail) => {
