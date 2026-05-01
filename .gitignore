@@ -21,6 +21,14 @@ build/
 .tmp/
 tmp/
 
+# Electron build artifacts (installers, unpacked binaries, blockmaps)
+apps/desktop/dist/
+apps/desktop/release/
+apps/desktop/out/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Logs
 *.log
 npm-debug.log*
