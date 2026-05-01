@@ -139,6 +139,18 @@ const MAX_RECORDING_MS = 30_000;
  * stop still uses the full buffer for accuracy.
  */
 const PARTIAL_WINDOW_SECONDS = 12;
+/**
+ * RMS amplitude below this counts as "silent" for end-of-utterance detection.
+ * 0.015 sits comfortably above typical mic noise floor and below normal
+ * speech levels. Tune higher if rooms are noisy, lower if voices are soft.
+ */
+const SILENCE_RMS_THRESHOLD = 0.015;
+/**
+ * After speech has been detected at least once, this many milliseconds of
+ * sub-threshold audio auto-stops the recording. Stays disabled until first
+ * voiced chunk so we don't kill the mic when the kid takes a beat to think.
+ */
+const SILENCE_AUTOSTOP_MS = 4_000;
 
 function useVoiceInput(
   onTranscript: (text: string) => void,
@@ -164,6 +176,14 @@ function useVoiceInput(
   const startTimestampRef = useRef<number>(0);
   const elapsedTimerRef = useRef<number | null>(null);
   const autoStopTimerRef = useRef<number | null>(null);
+  // Silence-driven auto-stop: arms only after first voiced chunk, then
+  // tracks the timestamp of the last loud-enough chunk. A separate
+  // interval checks how long it's been quiet and stops if past the
+  // threshold — keeps the mic from hanging open after the kid finishes
+  // a one-word reply like "racetrack".
+  const heardSpeechRef = useRef(false);
+  const lastVoiceTsRef = useRef<number>(0);
+  const silenceCheckTimerRef = useRef<number | null>(null);
 
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -189,6 +209,10 @@ function useVoiceInput(
     if (autoStopTimerRef.current !== null) {
       window.clearTimeout(autoStopTimerRef.current);
       autoStopTimerRef.current = null;
+    }
+    if (silenceCheckTimerRef.current !== null) {
+      window.clearInterval(silenceCheckTimerRef.current);
+      silenceCheckTimerRef.current = null;
     }
   }, []);
 
@@ -384,6 +408,19 @@ function useVoiceInput(
         const input = e.inputBuffer.getChannelData(0);
         // Must copy — the buffer is recycled by the Web Audio graph.
         pcmChunksRef.current.push(new Float32Array(input));
+        // RMS for silence detection. Cheap (one pass over ~85ms of
+        // audio); arms the auto-stop on first voiced chunk and updates
+        // the "last heard voice" timestamp on each subsequent one.
+        let sumSquares = 0;
+        for (let i = 0; i < input.length; i += 1) {
+          const s = input[i];
+          sumSquares += s * s;
+        }
+        const rms = Math.sqrt(sumSquares / input.length);
+        if (rms >= SILENCE_RMS_THRESHOLD) {
+          heardSpeechRef.current = true;
+          lastVoiceTsRef.current = Date.now();
+        }
       };
 
       source.connect(processor);
@@ -396,6 +433,8 @@ function useVoiceInput(
       muted.connect(ctx.destination);
 
       recordingRef.current = true;
+      heardSpeechRef.current = false;
+      lastVoiceTsRef.current = 0;
       setIsListening(true);
       startTimestampRef.current = Date.now();
       setElapsedMs(0);
@@ -411,6 +450,18 @@ function useVoiceInput(
         if (!recordingRef.current) return;
         setElapsedMs(Date.now() - startTimestampRef.current);
       }, 200);
+      // Silence auto-stop: poll every 250 ms once we've heard the kid
+      // start speaking. If nothing voiced has come through for
+      // SILENCE_AUTOSTOP_MS, finalize. This is the natural end-of-turn
+      // signal — without it, the mic stays open until the 30 s cap.
+      silenceCheckTimerRef.current = window.setInterval(() => {
+        if (!recordingRef.current || !heardSpeechRef.current) return;
+        const quietMs = Date.now() - lastVoiceTsRef.current;
+        if (quietMs >= SILENCE_AUTOSTOP_MS) {
+          console.info('[VoiceInput] silence threshold reached — auto-stopping');
+          stopListening();
+        }
+      }, 250);
       autoStopTimerRef.current = window.setTimeout(() => {
         // Hard cap the utterance to keep Whisper fast and avoid runaway mics.
         console.info('[VoiceInput] hit 30s cap — auto-stopping');
