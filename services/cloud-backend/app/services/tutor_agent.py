@@ -370,7 +370,12 @@ class TutorAgent:
         # Serialise reasoning so a flood of events doesn't spawn
         # overlapping LLM calls. Events still queue in the event_log.
         if self._think_lock.locked():
+            logger.info(
+                "agent.think_dropped reason=lock_held session_id=%s trigger=%s",
+                self.id, trigger,
+            )
             return
+        t_start = time.time()
         async with self._think_lock:
             if self._closed or self._ws is None:
                 return
@@ -379,6 +384,10 @@ class TutorAgent:
             if not ctx.strip():
                 # Renderer hasn't pushed any context yet. Stay silent;
                 # the next context push will unblock us.
+                logger.info(
+                    "agent.think_dropped reason=no_context session_id=%s trigger=%s",
+                    self.id, trigger,
+                )
                 return
 
             # Optional "thinking..." indicator for the face-mode UI. The
@@ -388,6 +397,7 @@ class TutorAgent:
             except Exception:  # noqa: BLE001
                 return
 
+            t_observe_start = time.time()
             try:
                 result = await tutor_service.observe(
                     student_name=self.identity.student_name,
@@ -399,10 +409,12 @@ class TutorAgent:
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
-                    "agent.think_failed session_id=%s trigger=%s err=%s",
-                    self.id, trigger, exc,
+                    "agent.think_failed session_id=%s trigger=%s elapsed_ms=%d err=%s",
+                    self.id, trigger,
+                    int((time.time() - t_observe_start) * 1000), exc,
                 )
                 return
+            observe_ms = int((time.time() - t_observe_start) * 1000)
 
             # Deliver speak (if any). Tool calls come as a separate WS
             # message right after so the renderer can dispatch in order.
@@ -431,6 +443,19 @@ class TutorAgent:
                     "agent.tool session_id=%s trigger=%s tool=%s",
                     self.id, trigger, tool_request["id"],
                 )
+
+            # Single-line trace per think — grep this to see end-to-end
+            # timing without piecing together multiple lines.
+            logger.info(
+                "agent.trace session_id=%s trigger=%s total_ms=%d observe_ms=%d "
+                "spoke=%s tool=%s ctx_len=%d events=%d",
+                self.id, trigger,
+                int((time.time() - t_start) * 1000),
+                observe_ms,
+                bool(result.get("speak") and result.get("message")),
+                bool(tool_request and tool_request.get("id")),
+                len(ctx), len(self.event_log),
+            )
 
             # Honour the agent's self-paced cadence hint by adjusting the
             # safety tick — kept simple for now (next_check influences

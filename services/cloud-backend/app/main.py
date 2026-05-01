@@ -1,10 +1,22 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parents[1] / ".env")
+
+# Make our agent loggers actually reach stdout. Without this, uvicorn's
+# config leaves the root at WARNING, so every `agent.*` line we emit is
+# silently dropped — and we found out the hard way during Phase 2 debug
+# that "no logs" meant "we're flying blind", not "nothing happened".
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+for name in ("sketchbot.tutor.agent", "sketchbot.tutor.agent_mgr", "sketchbot.tutor.ws"):
+    logging.getLogger(name).setLevel(logging.INFO)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

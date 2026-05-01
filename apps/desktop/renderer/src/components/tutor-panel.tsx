@@ -1780,30 +1780,32 @@ export function TutorPanel({
   });
 
   // Push the situational-awareness preamble to the agent over WS so it
-  // has the same context the legacy /observe path used to receive. We
-  // push immediately on connection open and then on a slow cadence;
-  // Phase 3 will replace the timer with event-driven snapshots.
+  // has the same context the legacy /observe path used to receive. The
+  // effect only (re)mounts when connection status flips to/from 'open' —
+  // the actual snapshot is built from refs so per-render churn (typing,
+  // pathCount updates, new tutorWs object identity) doesn't tear down
+  // the interval and refire an immediate push on every render.
+  const contextPushRef = useRef<() => void>(() => {});
+  contextPushRef.current = () => {
+    if (!getContextText) return;
+    const text = getContextText({
+      chatExcerpt: messagesRef.current.slice(-6).map((m) => ({
+        role: m.role, content: m.content,
+      })),
+      activeDrawingPrompt: drawingPrompt ?? null,
+      lastPathCount: typeof pathCount === 'number' ? pathCount : null,
+    });
+    if (text.trim()) {
+      tutorWs.send({ type: MSG_CONTEXT, context_text: text });
+    }
+  };
   useEffect(() => {
     if (tutorWs.status !== 'open') return;
-    if (!getContextText) return;
-    const sendContext = () => {
-      const text = getContextText({
-        chatExcerpt: messagesRef.current.slice(-6).map((m) => ({
-          role: m.role, content: m.content,
-        })),
-        activeDrawingPrompt: drawingPrompt ?? null,
-        lastPathCount: typeof pathCount === 'number' ? pathCount : null,
-      });
-      if (text.trim()) {
-        tutorWs.send({ type: MSG_CONTEXT, context_text: text });
-      }
-    };
-    sendContext(); // immediate push
-    const id = window.setInterval(sendContext, 8_000);
+    const fire = () => contextPushRef.current?.();
+    fire(); // immediate push on (re)connect
+    const id = window.setInterval(fire, 8_000);
     return () => window.clearInterval(id);
-    // tutorWs.status change → re-mount; the rest are read fresh inside
-    // sendContext from refs/props each interval.
-  }, [tutorWs.status, getContextText, drawingPrompt, pathCount, tutorWs]);
+  }, [tutorWs.status]);
 
   // Surface the agent connection status on window for ad-hoc DevTools
   // inspection during verification: `__sparkWs.status`, `__sparkWs.agentId`.
