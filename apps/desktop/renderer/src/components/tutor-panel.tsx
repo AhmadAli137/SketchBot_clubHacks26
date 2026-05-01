@@ -1115,6 +1115,12 @@ export function TutorPanel({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const cloudAuthToken = useCloudAuthToken();
+  // Mirror to a ref so unmount-time effects (e.g., the session summarize
+  // call) read the LATEST token rather than whatever was captured at
+  // mount. Otherwise a session that mounted before Supabase resolved
+  // sees null on cleanup → 401 Unauthorized.
+  const cloudAuthTokenRef = useRef<string | null | undefined>(cloudAuthToken);
+  useEffect(() => { cloudAuthTokenRef.current = cloudAuthToken; }, [cloudAuthToken]);
   const tts = useTTS({ apiBase, cloudApiBase: CLOUD_API_URL, authToken: cloudAuthToken ?? null, backendReachable });
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const voicePickerRef = useRef<HTMLDivElement | null>(null);
@@ -1663,6 +1669,11 @@ export function TutorPanel({
       if (durationSec < 30) return;
       const ctx = getContextText?.() ?? '';
       if (!ctx.trim()) return;
+      // Read the LATEST auth token from the ref — closure-captured value
+      // is stale if the effect mounted before Supabase resolved. If still
+      // null at unmount (signed-out session), bail rather than 401.
+      const tok = cloudAuthTokenRef.current;
+      if (!tok) return;
       const chatExcerpt = messagesRef.current
         .slice(-6)
         .map((m) => `${m.role === 'tutor' ? 'Spark' : 'Student'}: ${m.content}`)
@@ -1671,7 +1682,7 @@ export function TutorPanel({
       // Fire-and-forget — we're unmounting, so no UI feedback path.
       void fetch(`${CLOUD_API_URL}/api/tutor/summarize`, {
         method: 'POST',
-        headers: cloudHeaders(cloudAuthToken),
+        headers: cloudHeaders(tok),
         body: JSON.stringify({
           student_name: studentName,
           age_group: ageGroup,
@@ -1901,8 +1912,12 @@ export function TutorPanel({
         style={displayMode === 'face' ? { display: 'none' } : undefined}
       >
         {messages.length === 0 && (
-          <div style={{ color: 'var(--muted)', fontSize: '0.82rem', textAlign: 'center', paddingTop: 20 }}>
-            Connecting to tutor…
+          <div style={{ color: 'var(--muted)', fontSize: '0.82rem', textAlign: 'center', paddingTop: 20, lineHeight: 1.5 }}>
+            {isSandbox
+              ? 'Spark is watching. Build something or say hi.'
+              : tutorStreaming
+                ? 'Connecting to tutor…'
+                : 'Say hi to Spark, or just start exploring.'}
           </div>
         )}
         {messages.map((msg) => {
