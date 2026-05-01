@@ -728,6 +728,15 @@ export function playBGM(conceptId?: string | null) {
   bgmInterval = setInterval(() => {
     if (!bgmGain || !bgmEnabled) return;
 
+    // Defensive: Chromium can auto-suspend AudioContexts under various
+    // conditions (background tab, audio focus contention with HTMLAudio
+    // playing TTS, etc). When that happens BGM goes silent until something
+    // calls resume(). Cheaply check + resume each tick so suspensions
+    // self-heal within ~one beat instead of staying broken.
+    if (audioCtx.state === 'suspended') {
+      void audioCtx.resume();
+    }
+
     // ── Sandbox playlist advance ───────────────────────────────────────
     // After SANDBOX_BARS_PER_TRACK bars, rotate to the next track in the
     // playlist. The crossfade in playBGM() handles the transition smoothly.

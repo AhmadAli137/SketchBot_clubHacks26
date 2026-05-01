@@ -1257,18 +1257,12 @@ export function TutorPanel({
     // Supabase session hasn't been read yet on first render.
     if (cloudAuthToken === undefined) return;
 
-    // Sandbox mode (conceptId === null) gets NO concept_change greeting —
-    // the backend's concept_change template generates a verbose "Welcome to
-    // Free Draw" bullet-list welcome that doesn't fit a free-build canvas.
-    // The observation tick (constrained to stay quiet on empty canvases)
-    // handles any greeting naturally when there's something worth saying.
-    if (conceptId === null) {
-      // Still record that we've seen "no concept" so a later flip TO a
-      // real concept fires conceptChanged correctly.
-      prevConceptRef.current = null;
-      prevLayerRef.current = activeLayer;
-      return;
-    }
+    // The previous "skip concept_change in sandbox" guard removed the
+    // greeting entirely. With the new _OUTPUT_CHANNELS rule (1–3
+    // sentences, no `---` block, no bullet lists) the sandbox greeting
+    // is now a single warm short hello — fine to fire. So we let
+    // concept_change run normally; concept_id falls back to "free-draw"
+    // for sandbox and the brief format keeps it friendly, not verbose.
 
     const conceptChanged =
       prevConceptRef.current === undefined || conceptId !== prevConceptRef.current;
