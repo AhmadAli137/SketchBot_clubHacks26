@@ -39,6 +39,7 @@ import type { StartSessionOptions } from '@/components/home-screen';
 import { updateSession as updateSavedSession, createSession as createSavedSession, SAVE_NOW_EVENT } from '@/lib/session-storage';
 import { useSparkIdle } from '@/lib/use-spark-idle';
 import { emitSparkEvent } from '@/lib/spark-events';
+import { useCloudKeepalive } from '@/lib/use-cloud-keepalive';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 type AppView = 'plan' | 'auth' | 'difficulty-onboarding' | 'home' | 'session';
@@ -118,6 +119,9 @@ export default function HomePage() {
   // Spark aliveness — track user idle so the behavior coordinator can drift
   // mood + fire proactive nudges. Mounted at the root so it covers every view.
   useSparkIdle();
+  // Keep the Render free-tier dyno warm during a session so Spark doesn't
+  // freeze for 30-60s on a cold-start. See lib/use-cloud-keepalive.ts.
+  useCloudKeepalive(true);
 
   const prefersReducedMotion = usePrefersReducedMotion();
   const { apiBase, wsBase } = useRuntimeConfig();
