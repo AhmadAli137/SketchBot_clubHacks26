@@ -468,9 +468,9 @@ let isPlayingSandboxPlaylist = false;
  *  again from the still-running old interval. */
 let pendingPlaylistAdvance = false;
 /** Each sandbox track plays this many bars before crossfading to the next.
- *  Full songs are ~30-40 bars (~1-2 minutes); we cut after 16 bars so
- *  the rotation is perceivable in a typical play session. */
-const SANDBOX_BARS_PER_TRACK = 16;
+ *  Full songs are ~30-40 bars (~1-2 minutes); 8 bars (~20s) keeps the
+ *  rotation noticeable without cutting tracks off mid-thought. */
+const SANDBOX_BARS_PER_TRACK = 8;
 
 function stopBgmOscillators() {
   bgmOscillators.forEach(o => { try { o.stop(); } catch { /* already stopped */ } });

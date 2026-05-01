@@ -22,6 +22,7 @@ import {
   type SceneObject,
 } from '@/lib/scene-builder';
 import { SANDBOX_PRESETS, instantiatePreset, type SandboxPreset } from '@/lib/sandbox-presets';
+import { emitSparkEvent } from '@/lib/spark-events';
 
 const Scene3D = dynamic(() => import('./scene-3d').then((m) => ({ default: m.Scene3D })), {
   ssr: false,
@@ -161,6 +162,7 @@ export function SimPlayground({
     const obj = makeObjectFromTool(activeTool, gx, gz);
     updateObjects([...sceneObjects, obj]);
     setSelectedObjectId(obj.id);
+    emitSparkEvent('user.place', { tool: activeTool.id });
   };
 
   const handleSelectObject = (id: string | null) => {
@@ -173,6 +175,7 @@ export function SimPlayground({
     updateObjects(sceneObjects.map((o) =>
       o.id === selectedObject.id ? { ...o, rotY: (((o.rotY ?? 0) + 1) % 4) as 0 | 1 | 2 | 3 } : o,
     ));
+    emitSparkEvent('user.rotate');
   };
   const handleRaiseSelected = () => {
     if (!selectedObject) return;
@@ -190,6 +193,7 @@ export function SimPlayground({
     if (!selectedObject) return;
     updateObjects(sceneObjects.filter((o) => o.id !== selectedObject.id));
     setSelectedObjectId(null);
+    emitSparkEvent('user.delete');
   };
   const handleClearAll = () => {
     updateObjects([]);
@@ -323,6 +327,24 @@ export function SimPlayground({
     speedMultiplier: speed,
     onComplete: onDrawComplete,
   });
+
+  // Spark reactions to sim lifecycle: nod when a run starts, celebrate on
+  // completion. Watching state edges keeps this independent of which UI
+  // control fired play/pause/replay.
+  const wasAnimatingRef = useRef(false);
+  const wasCompleteRef = useRef(false);
+  useEffect(() => {
+    if (isAnimating && !wasAnimatingRef.current) {
+      emitSparkEvent('sim.start');
+    }
+    wasAnimatingRef.current = isAnimating;
+  }, [isAnimating]);
+  useEffect(() => {
+    if (isComplete && !wasCompleteRef.current) {
+      emitSparkEvent('sim.complete');
+    }
+    wasCompleteRef.current = isComplete;
+  }, [isComplete]);
 
   const hasDimensions = containerSize.w > 10 && containerSize.h > 10;
   // Sandbox: always full 3D (ViewCube replaces the 2D split pane).

@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { SPARK_SCENES } from '@/components/spark-robot';
 import { SparkStateImage } from '@/components/spark-state-image';
+import { useSparkBehavior } from '@/lib/use-spark-behavior';
 import type { TutorMessage, TutorTtsHighlight } from './tutor-panel';
 
 // ─── State derivation ─────────────────────────────────────────────────────────
@@ -260,21 +261,28 @@ export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVarian
   /** Final active sentence: TTS-driven when available, else timer fallback. */
   const activeIdx = ttsActiveIdx >= 0 ? ttsActiveIdx : fallbackIdx;
 
+  // Behavior coordinator — drives the scene whenever there's no active speech
+  // (between messages, before the first message, after a tutor reply finishes).
+  // Layered as: TTS > streaming > behavior coordinator (reactive / ambient / idle).
+  const behavior = useSparkBehavior();
+
   // Resolve current scene + caption.
   const { scene, meta } = useMemo(() => {
-    if (!latest) {
-      return { scene: SPARK_SCENES.IDLE, meta: metaFor(SPARK_SCENES.IDLE) };
-    }
-    if (latest.role !== 'tutor') {
-      return { scene: SPARK_SCENES.LISTENING, meta: metaFor(SPARK_SCENES.LISTENING) };
-    }
-    if (sentences.length === 0 && isStreaming) {
+    // Streaming a tutor reply but no sentence text yet → "thinking".
+    if (latest && latest.role === 'tutor' && sentences.length === 0 && isStreaming) {
       return { scene: SPARK_SCENES.THINKING, meta: metaFor(SPARK_SCENES.THINKING) };
     }
-    const active = sentences[activeIdx] ?? sentences.at(-1) ?? '';
-    const s = classifyScene(active);
-    return { scene: s, meta: metaFor(s) };
-  }, [latest, sentences, activeIdx, isStreaming]);
+    // Active speech → TTS-driven sentence classifier wins.
+    const speechActive = latest?.role === 'tutor' && sentences.length > 0 && (ttsSpeaking || isStreaming);
+    if (speechActive) {
+      const active = sentences[activeIdx] ?? sentences.at(-1) ?? '';
+      const s = classifyScene(active);
+      return { scene: s, meta: metaFor(s) };
+    }
+    // Otherwise the behavior coordinator is in charge — reactive override
+    // (sandbox actions, sim outcomes, milestones) or ambient idle cycling.
+    return { scene: behavior.scene, meta: metaFor(behavior.scene) };
+  }, [latest, sentences, activeIdx, isStreaming, ttsSpeaking, behavior.scene]);
 
   // Caption: show the FULL spoken section (matches chat) but visually
   // emphasise the currently-being-spoken sentence so face + text stay
