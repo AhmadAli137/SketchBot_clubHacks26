@@ -29,6 +29,7 @@ import type { ClassroomRestrictions } from '@/lib/platform-types';
 import { effectiveMaxHints } from '@/lib/classroom-restrictions';
 import { CLOUD_API_URL, cloudHeaders, useCloudAuthToken } from '@/lib/cloud-api';
 import { emitSparkEvent, onSparkEvent } from '@/lib/spark-events';
+import { playSfx } from '@/lib/game-audio';
 import { useSparkTick } from '@/lib/use-spark-tick';
 import { sparkBehavior } from '@/lib/spark-behavior';
 import { appendSessionSummary } from '@/lib/spark-memory';
@@ -1205,6 +1206,31 @@ export function TutorPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speech.isListening]);
 
+  // Voice-on-question: when Spark's spoken message ends with a "?",
+  // auto-arm the mic the moment TTS finishes. Beep on activation so the
+  // kid hears that it's their turn — turning monologue into dialogue
+  // without making them hunt for the mic button. The flag is set by the
+  // MSG_SPEAK handler and consumed here on the speaking → idle edge.
+  const expectingReplyRef = useRef(false);
+  const ttsWasSpeakingRef = useRef(false);
+  useEffect(() => {
+    const wasSpeaking = ttsWasSpeakingRef.current;
+    ttsWasSpeakingRef.current = tts.speaking;
+    // Only fire on the falling edge: was speaking, no longer is.
+    if (!wasSpeaking || tts.speaking) return;
+    if (!expectingReplyRef.current) return;
+    if (speech.isListening || speech.isTranscribing) return;
+    expectingReplyRef.current = false;
+    // Tiny delay so the audio device has finished closing the playback
+    // stream before we open the capture stream — avoids the click some
+    // OSes produce when both happen in the same tick.
+    const t = window.setTimeout(() => {
+      try { playSfx('beep'); } catch { /* sfx is best-effort */ }
+      void speech.startListening();
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [tts.speaking, speech]);
+
   // Eagerly prefetch the offline voice model. It's required for live
   // partials even when the backend path is healthy (partials always run
   // locally), and it acts as the fallback if the backend path fails. We
@@ -1756,6 +1782,11 @@ export function TutorPanel({
           { id: msg.id || genId(), role: 'tutor', content: text },
         ]);
         if (studentName) trackInterjectionStart(studentName, 'speak', text);
+        // Voice-on-question: if Spark just asked something, arm the mic
+        // when TTS finishes so the kid can reply by voice without
+        // hunting for the button. The flag is consumed by the
+        // tts.speaking → false transition effect below.
+        expectingReplyRef.current = /[?？]\s*$/.test(text);
         return;
       }
       if (msg.type === MSG_TOOL_CALL) {
