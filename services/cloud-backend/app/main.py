@@ -11,9 +11,22 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.platform import load_challenge_library, load_platform_data, load_robot_registry
 from app.core.settings import settings
-from app.routers import concepts, tutor, subscriptions
+from app.routers import concepts, tutor, subscriptions, tutor_ws
+from app.services.agent_session_manager import agent_session_manager
 
 app = FastAPI(title="SketchBot Cloud Backend", version="0.2.0")
+
+
+@app.on_event("startup")
+async def _on_startup() -> None:
+    agent_session_manager.start()
+
+
+@app.on_event("shutdown")
+async def _on_shutdown() -> None:
+    # Graceful drain — every active agent is signaled, so the renderer
+    # sees a friendly "restarting" message before its WS closes.
+    await agent_session_manager.shutdown()
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,6 +40,7 @@ app.add_middleware(
 app.include_router(concepts.router)
 app.include_router(tutor.router)
 app.include_router(subscriptions.router)
+app.include_router(tutor_ws.router)
 
 
 @app.get("/")
@@ -38,6 +52,12 @@ def root() -> dict:
         "mode": "administrative",
         "data_file": str(settings.data_file),
     }
+
+
+@app.get("/api/tutor/agent-stats")
+def tutor_agent_stats() -> dict:
+    """Diagnostics for the WebSocket agent layer. Open auth — counts only."""
+    return agent_session_manager.stats()
 
 
 @app.get("/health")

@@ -33,6 +33,8 @@ import { useSparkTick } from '@/lib/use-spark-tick';
 import { sparkBehavior } from '@/lib/spark-behavior';
 import { appendSessionSummary } from '@/lib/spark-memory';
 import { useInterjectionTracker, trackInterjectionStart } from '@/lib/use-interjection-tracker';
+import { useTutorWebSocket } from '@/lib/use-tutor-websocket';
+import { MSG_RESTART, MSG_SPEAK, MSG_TOOL_CALL, MSG_THINKING } from '@/lib/tutor-ws-protocol';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1761,6 +1763,55 @@ export function TutorPanel({
       if (studentName) trackInterjectionStart(studentName, 'speak', text);
     },
   });
+
+  // ─── Plan B Phase 1: persistent WebSocket connection to TutorAgent ──
+  // Phase 1 dry run — we open the connection, forward bus events, and
+  // log whatever the server pushes. Behaviour does NOT change yet; the
+  // observation tick still owns Spark's voice. Phase 2 will route the
+  // server's `speak` messages into the chat thread (replacing the tick
+  // path) once we've validated the wire is solid.
+  const tutorWs = useTutorWebSocket({
+    enabled:
+      backendReachable &&
+      !!CLOUD_API_URL &&
+      !!sessionId &&
+      !!studentName &&
+      sessionActorRole === 'student' &&
+      cloudAuthToken !== undefined &&
+      cloudAuthToken !== null,
+    cloudAuthToken,
+    sessionId: sessionId ?? null,
+    studentName,
+    ageGroup,
+    actorRole: sessionActorRole,
+    conceptId,
+    layer: activeLayer,
+    onMessage: (msg) => {
+      // Phase 1: observe-only logging. Each message type is logged so
+      // we can verify the server is talking to us. No UI side-effects.
+      if (msg.type === MSG_SPEAK) {
+        console.info('[tutor-ws] speak (phase 1, ignored):', msg.message);
+      } else if (msg.type === MSG_TOOL_CALL) {
+        console.info('[tutor-ws] tool_call (phase 1, ignored):', msg.tool_id, msg.input);
+      } else if (msg.type === MSG_THINKING) {
+        console.info('[tutor-ws] thinking:', msg.status);
+      } else if (msg.type === MSG_RESTART) {
+        console.info('[tutor-ws] server restarting; will reconnect:', msg.reason);
+      }
+    },
+  });
+
+  // Surface the agent connection status on window for ad-hoc DevTools
+  // inspection during Phase 1 verification: `__sparkWs.status`,
+  // `__sparkWs.agentId`. Removed before final launch.
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __sparkWs?: unknown }).__sparkWs = {
+        status: tutorWs.status,
+        agentId: tutorWs.agentId,
+      };
+    }
+  }, [tutorWs.status, tutorWs.agentId]);
 
   const handleGoDeeper = () => {
     const currentIdx = LAYERS.indexOf(activeLayer);
