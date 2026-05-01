@@ -36,13 +36,16 @@ from app.services.tutor_service import tutor_service
 
 logger = logging.getLogger("sketchbot.tutor.agent")
 
-# How long the agent waits between event-driven reasoning bursts before
-# also firing a slow safety tick. Real cadence is event-driven; this is
-# a backstop so the agent doesn't go silent forever if events stall.
-# Lowered from 60s to 30s when we shifted from "curious bystander" to
-# "mission-driven tutor" — every idle tick is a chance to propose a
-# next step, so checking in twice as often is the right tradeoff.
+# Default cadence between thinks when the agent doesn't return its own
+# next_check hint. Acts as both the initial-attach delay and the floor
+# for a self-paced cycle. Lowered from 60s to 30s when we shifted from
+# "curious bystander" to "mission-driven tutor" — every idle tick is a
+# chance to propose a next step.
 SAFETY_TICK_SEC = 30
+# Bounds for the self-paced cadence (mirrors tutor_service.observe's
+# clamp). Stops a runaway model value from breaking the loop.
+NEXT_CHECK_MIN_SEC = 5
+NEXT_CHECK_MAX_SEC = 180
 
 # Hard floor between reasoning calls — protects Anthropic spend even if
 # events flood in.
@@ -140,7 +143,11 @@ class TutorAgent:
         # ── Reasoning lifecycle ──────────────────────────────────────────
         self.last_think_at: float = 0.0
         self._build_settle_task: asyncio.Task | None = None
-        self._safety_tick_task: asyncio.Task | None = None
+        # Self-paced one-shot, re-armed after each think_and_act using
+        # next_check from the model. Replaces the old fixed safety_tick
+        # loop so the agent itself decides when to wake up next.
+        self._self_paced_task: asyncio.Task | None = None
+        self.last_next_check_sec: float | None = None
 
         # ── I/O ──────────────────────────────────────────────────────────
         self._ws: WebSocket | None = None
@@ -174,9 +181,9 @@ class TutorAgent:
         self._ws = ws
         self.last_attached_at = time.time()
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-        # Start the safety tick on first attach. Reattaches don't double-
-        # spawn it because we cancel on detach.
-        self._safety_tick_task = asyncio.create_task(self._safety_tick_loop())
+        # First self-paced tick fires after SAFETY_TICK_SEC; subsequent
+        # ones are scheduled by think_and_act using next_check.
+        self._arm_next_tick(SAFETY_TICK_SEC, reason="initial_attach")
 
         await self.send({
             "type": MSG_WELCOME,
@@ -192,9 +199,9 @@ class TutorAgent:
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
             self._heartbeat_task = None
-        if self._safety_tick_task is not None:
-            self._safety_tick_task.cancel()
-            self._safety_tick_task = None
+        if self._self_paced_task is not None:
+            self._self_paced_task.cancel()
+            self._self_paced_task = None
         if self._build_settle_task is not None:
             self._build_settle_task.cancel()
             self._build_settle_task = None
@@ -205,11 +212,11 @@ class TutorAgent:
     async def shutdown(self) -> None:
         """Final cleanup. Called on session close or eviction."""
         self._closed = True
-        for task in (self._heartbeat_task, self._safety_tick_task, self._build_settle_task):
+        for task in (self._heartbeat_task, self._self_paced_task, self._build_settle_task):
             if task is not None:
                 task.cancel()
         self._heartbeat_task = None
-        self._safety_tick_task = None
+        self._self_paced_task = None
         self._build_settle_task = None
         if self._ws is not None:
             try:
@@ -335,12 +342,29 @@ class TutorAgent:
             )
 
     async def _on_tool_result(self, msg: dict[str, Any]) -> None:
-        # Phase 3 will feed tool results back into a multi-turn reasoning
-        # loop. For Phase 2 we just log; the agent's next think pulls
-        # fresh context anyway.
-        logger.debug(
+        """Renderer dispatched a tool call we requested and is reporting
+        the outcome. Append to event_log so the next think can reason
+        about what happened (e.g., "I highlighted the cones — now I can
+        comment on which ones I picked"). Deliberately doesn't trigger
+        an immediate think to avoid tool→think→tool loops; the next
+        scheduled tick will pick it up via the updated event log.
+        """
+        tool_id = str(msg.get("tool_id") or "")
+        ok = bool(msg.get("ok", True))
+        evt = AgentEvent(
+            kind="tool.result",
+            payload={
+                "tool_id": tool_id,
+                "ok": ok,
+                "data": msg.get("data") if isinstance(msg.get("data"), dict) else None,
+                "message": str(msg.get("message") or "")[:300] or None,
+            },
+            ts=time.time(),
+        )
+        self.event_log.append(evt)
+        logger.info(
             "agent.tool_result session_id=%s tool_id=%s ok=%s",
-            self.id, msg.get("tool_id"), msg.get("ok"),
+            self.id, tool_id, ok,
         )
 
     # ─── Reasoning core ──────────────────────────────────────────────────
@@ -352,22 +376,40 @@ class TutorAgent:
             return
         await self._maybe_think("build_settled:" + last_kind)
 
-    async def _safety_tick_loop(self) -> None:
-        """Backstop tick — if events stall, the agent still wakes up
-        every SAFETY_TICK_SEC to consider whether to say something. This
-        is only triggered when there's been activity since the last
-        think; a truly idle session goes quiet."""
-        try:
-            while not self._closed and self._ws is not None:
-                await asyncio.sleep(SAFETY_TICK_SEC)
-                if self._closed or self._ws is None:
-                    return
-                # Only fire if there's been something to react to since
-                # the last think — no point burning tokens on dead air.
-                if self._has_unprocessed_activity():
-                    await self._maybe_think("safety_tick")
-        except asyncio.CancelledError:
-            return
+    def _arm_next_tick(self, seconds: float, *, reason: str) -> None:
+        """Schedule the next self-paced think. Re-armed after every
+        successful think_and_act using the model's next_check hint, so
+        the agent decides its own cadence — short when something is
+        unfolding, long when the kid is in flow.
+
+        Cancels any pending self-paced task so we never have two timers
+        racing. Build/immediate event triggers run independently and
+        will re-arm via think_and_act when they complete.
+        """
+        seconds = max(NEXT_CHECK_MIN_SEC, min(NEXT_CHECK_MAX_SEC, float(seconds)))
+        if self._self_paced_task is not None:
+            self._self_paced_task.cancel()
+        self.last_next_check_sec = seconds
+
+        async def _wait_then_think() -> None:
+            try:
+                await asyncio.sleep(seconds)
+            except asyncio.CancelledError:
+                return
+            if self._closed or self._ws is None:
+                return
+            # Mirror the old safety-tick gate — don't burn tokens on
+            # dead air. Long cadences (>60s) imply the agent expects
+            # nothing, so honour silence; short cadences imply the
+            # agent wants to check back regardless of activity.
+            if seconds > 60 and not self._has_unprocessed_activity():
+                # Re-arm at the same cadence to keep checking, but
+                # don't fire a think.
+                self._arm_next_tick(seconds, reason=reason + ":quiet")
+                return
+            await self._maybe_think(f"self_paced:{reason}")
+
+        self._self_paced_task = asyncio.create_task(_wait_then_think())
 
     def _has_unprocessed_activity(self) -> bool:
         if not self.event_log:
@@ -474,23 +516,29 @@ class TutorAgent:
                     self.id, trigger, tool_request["id"],
                 )
 
+            # Honour the agent's self-paced cadence hint. The model
+            # returns next_check (5-180s) saying when it'd like to be
+            # invoked again — short when something interesting is
+            # unfolding, long when the kid is in flow. Falls back to
+            # SAFETY_TICK_SEC if the model omitted it.
+            next_check = result.get("next_check")
+            if not isinstance(next_check, (int, float)) or next_check <= 0:
+                next_check = SAFETY_TICK_SEC
+            self._arm_next_tick(float(next_check), reason="post_think")
+
             # Single-line trace per think — grep this to see end-to-end
             # timing without piecing together multiple lines.
             logger.info(
                 "agent.trace session_id=%s trigger=%s total_ms=%d observe_ms=%d "
-                "spoke=%s tool=%s ctx_len=%d events=%d",
+                "spoke=%s tool=%s ctx_len=%d events=%d next_check_s=%.0f",
                 self.id, trigger,
                 int((time.time() - t_start) * 1000),
                 observe_ms,
                 bool(result.get("speak") and result.get("message")),
                 bool(tool_request and tool_request.get("id")),
                 len(ctx), len(self.event_log),
+                float(next_check),
             )
-
-            # Honour the agent's self-paced cadence hint by adjusting the
-            # safety tick — kept simple for now (next_check influences
-            # nothing here in Phase 2; Phase 3 will drive scheduling
-            # dynamically based on this signal).
 
     # ─── Outbound helpers ────────────────────────────────────────────────
 
@@ -517,6 +565,8 @@ class TutorAgent:
             "last_detached_at": self.last_detached_at,
             "event_count": len(self.event_log),
             "last_speak_ts": self.last_speak_ts,
+            "last_think_at": self.last_think_at,
+            "last_next_check_sec": self.last_next_check_sec,
             "drain_pending": self._drain_pending,
             "ws_connected": self._ws is not None,
         }
