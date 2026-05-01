@@ -1711,6 +1711,11 @@ export function TutorPanel({
       // Don't pile up if the user is already mid-conversation with the tutor.
       if (tutorStreaming) return;
       const text = obs.message.trim();
+      // Stop any in-progress TTS before queuing the new line. Without this,
+      // Spark would keep reading the previous interjection while the world
+      // has changed underneath it — the kid does something new, Spark is
+      // still mid-sentence about the old context.
+      tts.stopSpeaking();
       setMessages((prev) => [
         ...prev,
         { id: genId(), role: 'tutor', content: text },

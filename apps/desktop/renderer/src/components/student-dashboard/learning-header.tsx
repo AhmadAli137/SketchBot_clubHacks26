@@ -113,6 +113,12 @@ export function LearningHeader({
           </div>
         ) : null}
 
+        {/* In sandbox the middle of the header is otherwise empty, so add a
+            balancing spacer here that mirrors the one further right. Net
+            effect: the brand floats visually centered between the left
+            controls and the right controls. */}
+        {isSandbox && <div className="learn-header-spacer" />}
+
         <div className="learn-header-brand">
           <AiboticsLogo size={26} showWordmark={false} animate={false} />
           <span className="learn-header-name">Aibotics</span>
