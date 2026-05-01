@@ -263,6 +263,41 @@ def _build_user_message(
 
 # ─── Offline fallback ─────────────────────────────────────────────────────────
 
+def _lift_tool_reason_as_speech(reason: str) -> str:
+    """Convert a tool's `reason` field into a sentence suitable for speech.
+
+    When Claude returns a tool_use block without an accompanying speak
+    block, the perceptive observation we'd want to *say* is usually
+    already inside the tool's reason. Lift it. Light pronoun fixup so
+    third-person ("They placed cones") becomes second-person ("You
+    placed cones") — which is how Sketch should address the student.
+    """
+    if not reason or not isinstance(reason, str):
+        return ""
+    text = reason.strip()
+    if not text:
+        return ""
+    # Third → second person fixup. Word-boundary regex so we don't
+    # mangle "they" inside other words. Order matters: do "Their" before
+    # "They" so capitalisation falls through cleanly.
+    import re
+    substitutions = [
+        (r"\bThey've\b", "You've"), (r"\bthey've\b", "you've"),
+        (r"\bThey're\b", "You're"), (r"\bthey're\b", "you're"),
+        (r"\bThey'd\b", "You'd"),   (r"\bthey'd\b", "you'd"),
+        (r"\bThey'll\b", "You'll"), (r"\bthey'll\b", "you'll"),
+        (r"\bTheir\b", "Your"),     (r"\btheir\b", "your"),
+        (r"\bThem\b", "You"),       (r"\bthem\b", "you"),
+        (r"\bThey\b", "You"),       (r"\bthey\b", "you"),
+    ]
+    for pat, repl in substitutions:
+        text = re.sub(pat, repl, text)
+    # Trim to TTS budget (380 chars), conservative.
+    if len(text) > 240:
+        text = text[:237] + "…"
+    return text
+
+
 def _offline_message(student_name: str, age_group: str, concept_id: str, trigger: str) -> str:
     name = student_name or "there"
     concept = _get_concept(concept_id)
@@ -603,6 +638,12 @@ class TutorService:
             "Hard rule: tool-only responses are forbidden. If you'd call a "
             "tool, also speak. If you have nothing meaningful to say, don't "
             "call a tool either — return {speak: false, message: \"\"}.\n\n"
+            "If you do call a tool, write the tool's `reason` field as if "
+            "speaking directly to the student — second person (\"you placed "
+            "the cones in a curve\"), warm and present-tense — because the "
+            "system reads tool reasons aloud when a speak block is missing. "
+            "Don't write internal third-person justifications like \"the "
+            "student placed cones\".\n\n"
             "Tool reminders: highlight_object is fine whenever pointing helps; "
             "award_xp is rare and tied to a real reason; add_demo_object is "
             "rarest — the student is asked Yes/No before it places, so only "
@@ -710,18 +751,37 @@ class TutorService:
                     type(self)._observe_counters["error"] += 1
                     return {"speak": False, "message": ""}
 
-        # Tool-only responses (tool_use without speak text) leave the student
-        # in silence while a side-effect happens — worse than no reaction at
-        # all. The prompt forbids this, but Anthropic's tool-use stop-reason
-        # path occasionally produces it anyway. Drop the tool and treat the
-        # tick as silent so the next think gets a clean shot at speaking.
+        # Tool-only responses (tool_use without a speak block) are the common
+        # failure mode: with extended thinking + tool_choice=auto, Claude
+        # frequently emits a tool_use and stops, never producing the JSON
+        # text block we expect for speech. The prompt forbids this, but
+        # Anthropic's tool-use stop-reason path produces it anyway.
+        #
+        # The good news: the tool's `reason` field is almost always a
+        # perfect spoken sentence — the model put its observation there
+        # instead of in a speak channel. So instead of dropping the tool
+        # (which would leave the kid in silence and waste the XP / hint
+        # the model was producing), lift the reason as the spoken message
+        # and keep the tool firing.
         if tool_request and not (speak and message):
-            import logging
-            logging.getLogger("sketchbot.tutor").warning(
-                "tutor.tool_only_dropped tool=%s reason=%r — model failed to also speak",
-                tool_request.get("id"), tool_request.get("reason", "")[:120],
-            )
-            tool_request = None
+            lifted = _lift_tool_reason_as_speech(tool_request.get("reason", ""))
+            if lifted:
+                speak = True
+                message = lifted
+                import logging
+                logging.getLogger("sketchbot.tutor").info(
+                    "tutor.tool_reason_lifted tool=%s message=%r",
+                    tool_request.get("id"), message[:120],
+                )
+            else:
+                # No usable reason — drop the tool so we don't run a silent
+                # side-effect. Better to skip and let the next think speak.
+                import logging
+                logging.getLogger("sketchbot.tutor").warning(
+                    "tutor.tool_only_dropped tool=%s — no usable reason to lift",
+                    tool_request.get("id"),
+                )
+                tool_request = None
 
         if tool_request:
             type(self)._observe_counters["tool_used"] += 1
