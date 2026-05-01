@@ -34,7 +34,8 @@ import { sparkBehavior } from '@/lib/spark-behavior';
 import { appendSessionSummary } from '@/lib/spark-memory';
 import { useInterjectionTracker, trackInterjectionStart } from '@/lib/use-interjection-tracker';
 import { useTutorWebSocket } from '@/lib/use-tutor-websocket';
-import { MSG_RESTART, MSG_SPEAK, MSG_TOOL_CALL, MSG_THINKING } from '@/lib/tutor-ws-protocol';
+import { MSG_CONTEXT, MSG_RESTART, MSG_SPEAK, MSG_TOOL_CALL, MSG_THINKING } from '@/lib/tutor-ws-protocol';
+import { emitToolRequest } from '@/lib/spark-tools';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1722,54 +1723,11 @@ export function TutorPanel({
     enabled: backendReachable && !!getContextText,
   });
 
-  // Agentic tick — adaptive observation loop. Most ticks return silently;
-  // when Spark genuinely has something to say, drop the message into the
-  // chat thread. The existing non-stream TTS effect (above) speaks it.
-  useSparkTick({
-    enabled: backendReachable && !!CLOUD_API_URL && !tutorStreaming && !!getContextText,
-    studentName,
-    ageGroup,
-    actorRole: sessionActorRole,
-    conceptId,
-    layer: activeLayer,
-    cloudAuthToken,
-    getContextText: () => getContextText?.({
-      // Last 6 chat messages (oldest → newest) so Spark sees the
-      // conversational thread and avoids repeating himself.
-      chatExcerpt: messagesRef.current.slice(-6).map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-      activeDrawingPrompt: drawingPrompt ?? null,
-      lastPathCount: typeof pathCount === 'number' ? pathCount : null,
-    }) ?? '',
-    getContextSignature,
-    onObservation: (obs) => {
-      if (!obs.speak || !obs.message.trim()) return;
-      // Don't pile up if the user is already mid-conversation with the tutor.
-      if (tutorStreaming) return;
-      const text = obs.message.trim();
-      // Stop any in-progress TTS before queuing the new line. Without this,
-      // Spark would keep reading the previous interjection while the world
-      // has changed underneath it — the kid does something new, Spark is
-      // still mid-sentence about the old context.
-      tts.stopSpeaking();
-      setMessages((prev) => [
-        ...prev,
-        { id: genId(), role: 'tutor', content: text },
-      ]);
-      // Record the interjection so we can later see whether the kid
-      // engaged with it. The tracker's bus listener handles resolution.
-      if (studentName) trackInterjectionStart(studentName, 'speak', text);
-    },
-  });
-
-  // ─── Plan B Phase 1: persistent WebSocket connection to TutorAgent ──
-  // Phase 1 dry run — we open the connection, forward bus events, and
-  // log whatever the server pushes. Behaviour does NOT change yet; the
-  // observation tick still owns Spark's voice. Phase 2 will route the
-  // server's `speak` messages into the chat thread (replacing the tick
-  // path) once we've validated the wire is solid.
+  // ─── Plan B: persistent WebSocket connection to TutorAgent ──────────
+  // Phase 2: WS is now the primary path. When the connection is `open`,
+  // the server's TutorAgent drives Spark's voice; the legacy /observe
+  // poll below is disabled. If the WS drops or auth fails, the poll
+  // resumes as a fallback so we never go silent.
   const tutorWs = useTutorWebSocket({
     enabled:
       backendReachable &&
@@ -1787,23 +1745,68 @@ export function TutorPanel({
     conceptId,
     layer: activeLayer,
     onMessage: (msg) => {
-      // Phase 1: observe-only logging. Each message type is logged so
-      // we can verify the server is talking to us. No UI side-effects.
       if (msg.type === MSG_SPEAK) {
-        console.info('[tutor-ws] speak (phase 1, ignored):', msg.message);
-      } else if (msg.type === MSG_TOOL_CALL) {
-        console.info('[tutor-ws] tool_call (phase 1, ignored):', msg.tool_id, msg.input);
-      } else if (msg.type === MSG_THINKING) {
+        if (!msg.message?.trim() || tutorStreaming) return;
+        const text = msg.message.trim();
+        // Stop any in-progress TTS so a fresh interjection takes the
+        // floor (same pattern useSparkTick used to follow).
+        tts.stopSpeaking();
+        setMessages((prev) => [
+          ...prev,
+          { id: msg.id || genId(), role: 'tutor', content: text },
+        ]);
+        if (studentName) trackInterjectionStart(studentName, 'speak', text);
+        return;
+      }
+      if (msg.type === MSG_TOOL_CALL) {
+        emitToolRequest({
+          id: msg.tool_id,
+          input: msg.input || {},
+          reason: msg.reason,
+        });
+        return;
+      }
+      if (msg.type === MSG_THINKING) {
+        // Phase 3 will surface this as a UI indicator. For now it's a
+        // logged signal that the agent is reasoning.
         console.info('[tutor-ws] thinking:', msg.status);
-      } else if (msg.type === MSG_RESTART) {
+        return;
+      }
+      if (msg.type === MSG_RESTART) {
         console.info('[tutor-ws] server restarting; will reconnect:', msg.reason);
+        return;
       }
     },
   });
 
+  // Push the situational-awareness preamble to the agent over WS so it
+  // has the same context the legacy /observe path used to receive. We
+  // push immediately on connection open and then on a slow cadence;
+  // Phase 3 will replace the timer with event-driven snapshots.
+  useEffect(() => {
+    if (tutorWs.status !== 'open') return;
+    if (!getContextText) return;
+    const sendContext = () => {
+      const text = getContextText({
+        chatExcerpt: messagesRef.current.slice(-6).map((m) => ({
+          role: m.role, content: m.content,
+        })),
+        activeDrawingPrompt: drawingPrompt ?? null,
+        lastPathCount: typeof pathCount === 'number' ? pathCount : null,
+      });
+      if (text.trim()) {
+        tutorWs.send({ type: MSG_CONTEXT, context_text: text });
+      }
+    };
+    sendContext(); // immediate push
+    const id = window.setInterval(sendContext, 8_000);
+    return () => window.clearInterval(id);
+    // tutorWs.status change → re-mount; the rest are read fresh inside
+    // sendContext from refs/props each interval.
+  }, [tutorWs.status, getContextText, drawingPrompt, pathCount, tutorWs]);
+
   // Surface the agent connection status on window for ad-hoc DevTools
-  // inspection during Phase 1 verification: `__sparkWs.status`,
-  // `__sparkWs.agentId`. Removed before final launch.
+  // inspection during verification: `__sparkWs.status`, `__sparkWs.agentId`.
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as unknown as { __sparkWs?: unknown }).__sparkWs = {
@@ -1812,6 +1815,47 @@ export function TutorPanel({
       };
     }
   }, [tutorWs.status, tutorWs.agentId]);
+
+  // Agentic tick — LEGACY adaptive observation loop. Now a fallback for
+  // when the persistent WebSocket isn't open (auth gone, capacity, network
+  // blip). When the agent over WS is `open` / `connecting` / `draining`,
+  // this loop stays idle so we don't double-speak from two paths at once.
+  useSparkTick({
+    enabled:
+      backendReachable
+      && !!CLOUD_API_URL
+      && !tutorStreaming
+      && !!getContextText
+      && tutorWs.status !== 'open'
+      && tutorWs.status !== 'connecting'
+      && tutorWs.status !== 'draining',
+    studentName,
+    ageGroup,
+    actorRole: sessionActorRole,
+    conceptId,
+    layer: activeLayer,
+    cloudAuthToken,
+    getContextText: () => getContextText?.({
+      chatExcerpt: messagesRef.current.slice(-6).map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      activeDrawingPrompt: drawingPrompt ?? null,
+      lastPathCount: typeof pathCount === 'number' ? pathCount : null,
+    }) ?? '',
+    getContextSignature,
+    onObservation: (obs) => {
+      if (!obs.speak || !obs.message.trim()) return;
+      if (tutorStreaming) return;
+      const text = obs.message.trim();
+      tts.stopSpeaking();
+      setMessages((prev) => [
+        ...prev,
+        { id: genId(), role: 'tutor', content: text },
+      ]);
+      if (studentName) trackInterjectionStart(studentName, 'speak', text);
+    },
+  });
 
   const handleGoDeeper = () => {
     const currentIdx = LAYERS.indexOf(activeLayer);

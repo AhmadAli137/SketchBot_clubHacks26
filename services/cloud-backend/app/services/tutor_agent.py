@@ -32,7 +32,35 @@ from typing import Any
 
 from fastapi import WebSocket
 
+from app.services.tutor_service import tutor_service
+
 logger = logging.getLogger("sketchbot.tutor.agent")
+
+# How long the agent waits between event-driven reasoning bursts before
+# also firing a slow safety tick. Real cadence is event-driven; this is
+# a backstop so the agent doesn't go silent forever if events stall.
+SAFETY_TICK_SEC = 60
+
+# Hard floor between reasoning calls — protects Anthropic spend even if
+# events flood in.
+THINK_RATE_LIMIT_SEC = 8
+
+# Event kinds that should immediately trigger think_and_act. Outcome-y
+# events worth reacting to; raw build events (place/delete/rotate) are
+# debounced via _build_settle_task instead.
+IMMEDIATE_THINK_KINDS = frozenset({
+    "sim.complete", "sim.fail",
+    "tutor.evaluation.pass", "tutor.evaluation.fail",
+    "tutor.level-up", "tutor.layer-up", "tutor.concept-mastered",
+    "session.return",
+})
+
+BUILD_EVENT_KINDS = frozenset({
+    "user.place", "user.delete", "user.rotate", "user.code-run",
+})
+
+# How long to wait after the last build event before firing a tick.
+BUILD_SETTLE_SEC = 3.0
 
 # ─── Protocol message types (mirror lib/tutor-ws-protocol.ts on frontend) ────
 
@@ -97,6 +125,18 @@ class TutorAgent:
         self.hypothesis: str | None = None       # what I think the kid is doing
         self.last_thought: str | None = None     # what I almost said but held back
 
+        # ── Latest context snapshot from the renderer ────────────────────
+        # The frontend pushes a full SparkContext text periodically; the
+        # agent uses the most recent one when reasoning. None until the
+        # first `context` arrives.
+        self.latest_context_text: str | None = None
+        self.latest_context_received_at: float = 0.0
+
+        # ── Reasoning lifecycle ──────────────────────────────────────────
+        self.last_think_at: float = 0.0
+        self._build_settle_task: asyncio.Task | None = None
+        self._safety_tick_task: asyncio.Task | None = None
+
         # ── I/O ──────────────────────────────────────────────────────────
         self._ws: WebSocket | None = None
         self._heartbeat_task: asyncio.Task | None = None
@@ -129,6 +169,9 @@ class TutorAgent:
         self._ws = ws
         self.last_attached_at = time.time()
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        # Start the safety tick on first attach. Reattaches don't double-
+        # spawn it because we cancel on detach.
+        self._safety_tick_task = asyncio.create_task(self._safety_tick_loop())
 
         await self.send({
             "type": MSG_WELCOME,
@@ -144,6 +187,12 @@ class TutorAgent:
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
             self._heartbeat_task = None
+        if self._safety_tick_task is not None:
+            self._safety_tick_task.cancel()
+            self._safety_tick_task = None
+        if self._build_settle_task is not None:
+            self._build_settle_task.cancel()
+            self._build_settle_task = None
         self._ws = None
         self.last_detached_at = time.time()
         logger.info("agent.detached session_id=%s", self.id)
@@ -151,9 +200,12 @@ class TutorAgent:
     async def shutdown(self) -> None:
         """Final cleanup. Called on session close or eviction."""
         self._closed = True
-        if self._heartbeat_task is not None:
-            self._heartbeat_task.cancel()
-            self._heartbeat_task = None
+        for task in (self._heartbeat_task, self._safety_tick_task, self._build_settle_task):
+            if task is not None:
+                task.cancel()
+        self._heartbeat_task = None
+        self._safety_tick_task = None
+        self._build_settle_task = None
         if self._ws is not None:
             try:
                 await self._ws.close(code=1000, reason="agent shutdown")
@@ -221,29 +273,169 @@ class TutorAgent:
             ts=float(msg.get("ts", time.time() * 1000)) / 1000.0,
         )
         self.event_log.append(evt)
-        # Phase 1: just log. Phase 3 will trigger think_and_act() from here.
         logger.debug(
             "agent.event session_id=%s kind=%s payload=%s",
             self.id, evt.kind, evt.payload,
         )
 
+        # Outcome events → reason immediately (subject to rate limit).
+        if evt.kind in IMMEDIATE_THINK_KINDS:
+            await self._maybe_think("event:" + evt.kind)
+            return
+
+        # Build events → debounced. Reset the settle timer; if no further
+        # build event arrives within BUILD_SETTLE_SEC, fire reasoning.
+        if evt.kind in BUILD_EVENT_KINDS:
+            if self._build_settle_task is not None:
+                self._build_settle_task.cancel()
+            self._build_settle_task = asyncio.create_task(
+                self._build_settle_then_think(evt.kind),
+            )
+
     async def _on_context(self, msg: dict[str, Any]) -> None:
-        # Phase 1: just acknowledge receipt. Phase 2+ stores this for the
-        # next think_and_act() call.
-        snapshot = msg.get("snapshot") or {}
-        logger.debug(
-            "agent.context session_id=%s objects=%s events=%s",
-            self.id,
-            (snapshot.get("scene") or {}).get("objectCount"),
-            len((snapshot.get("events") or {}).get("recent") or []),
-        )
+        """Cache the latest situational-awareness preamble from the
+        renderer. Used as the next think_and_act's context_text."""
+        text = str(msg.get("context_text") or "")
+        if text.strip():
+            self.latest_context_text = text
+            self.latest_context_received_at = time.time()
+            logger.debug(
+                "agent.context session_id=%s len=%d",
+                self.id, len(text),
+            )
 
     async def _on_tool_result(self, msg: dict[str, Any]) -> None:
-        # Phase 3+: feed back into the think loop.
+        # Phase 3 will feed tool results back into a multi-turn reasoning
+        # loop. For Phase 2 we just log; the agent's next think pulls
+        # fresh context anyway.
         logger.debug(
             "agent.tool_result session_id=%s tool_id=%s ok=%s",
             self.id, msg.get("tool_id"), msg.get("ok"),
         )
+
+    # ─── Reasoning core ──────────────────────────────────────────────────
+
+    async def _build_settle_then_think(self, last_kind: str) -> None:
+        try:
+            await asyncio.sleep(BUILD_SETTLE_SEC)
+        except asyncio.CancelledError:
+            return
+        await self._maybe_think("build_settled:" + last_kind)
+
+    async def _safety_tick_loop(self) -> None:
+        """Backstop tick — if events stall, the agent still wakes up
+        every SAFETY_TICK_SEC to consider whether to say something. This
+        is only triggered when there's been activity since the last
+        think; a truly idle session goes quiet."""
+        try:
+            while not self._closed and self._ws is not None:
+                await asyncio.sleep(SAFETY_TICK_SEC)
+                if self._closed or self._ws is None:
+                    return
+                # Only fire if there's been something to react to since
+                # the last think — no point burning tokens on dead air.
+                if self._has_unprocessed_activity():
+                    await self._maybe_think("safety_tick")
+        except asyncio.CancelledError:
+            return
+
+    def _has_unprocessed_activity(self) -> bool:
+        if not self.event_log:
+            return False
+        last_event = self.event_log[-1]
+        return last_event.received_at > self.last_think_at
+
+    async def _maybe_think(self, trigger: str) -> None:
+        """Rate-limited entry point to the reasoning loop. Drops the call
+        if we thought too recently or the WS is gone."""
+        if self._closed or self._ws is None:
+            return
+        now = time.time()
+        if (now - self.last_think_at) < THINK_RATE_LIMIT_SEC:
+            logger.debug(
+                "agent.think_skip rate_limited session_id=%s trigger=%s",
+                self.id, trigger,
+            )
+            return
+        self.last_think_at = now
+        # Don't await — fire and forget so events keep flowing in. The
+        # think_lock inside think_and_act serialises actual reasoning.
+        asyncio.create_task(self.think_and_act(trigger))
+
+    async def think_and_act(self, trigger: str) -> None:
+        """Run one reasoning pass. Reuses tutor_service.observe so the
+        prompt + extended-thinking + tool config stays in one place. The
+        result is delivered to the renderer over the WebSocket as
+        `speak` / `tool_call` messages instead of an HTTP response."""
+        # Serialise reasoning so a flood of events doesn't spawn
+        # overlapping LLM calls. Events still queue in the event_log.
+        if self._think_lock.locked():
+            return
+        async with self._think_lock:
+            if self._closed or self._ws is None:
+                return
+
+            ctx = self.latest_context_text or ""
+            if not ctx.strip():
+                # Renderer hasn't pushed any context yet. Stay silent;
+                # the next context push will unblock us.
+                return
+
+            # Optional "thinking..." indicator for the face-mode UI. The
+            # renderer is free to ignore.
+            try:
+                await self.send({"type": MSG_THINKING, "status": "observing"})
+            except Exception:  # noqa: BLE001
+                return
+
+            try:
+                result = await tutor_service.observe(
+                    student_name=self.identity.student_name,
+                    age_group=self.identity.age_group,
+                    actor_role=self.identity.actor_role,
+                    concept_id=self.identity.concept_id or "free-draw",
+                    layer=self.identity.layer,
+                    context_text=ctx,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "agent.think_failed session_id=%s trigger=%s err=%s",
+                    self.id, trigger, exc,
+                )
+                return
+
+            # Deliver speak (if any). Tool calls come as a separate WS
+            # message right after so the renderer can dispatch in order.
+            if result.get("speak") and result.get("message"):
+                self.last_speak_ts = time.time()
+                await self.send({
+                    "type": MSG_SPEAK,
+                    "id": f"{self.id}-{int(self.last_speak_ts * 1000)}",
+                    "message": result["message"],
+                })
+                logger.info(
+                    "agent.speak session_id=%s trigger=%s len=%d",
+                    self.id, trigger, len(result["message"]),
+                )
+
+            tool_request = result.get("tool_request")
+            if tool_request and tool_request.get("id"):
+                await self.send({
+                    "type": MSG_TOOL_CALL,
+                    "id": f"{self.id}-tc-{int(time.time() * 1000)}",
+                    "tool_id": tool_request["id"],
+                    "input": tool_request.get("input") or {},
+                    "reason": tool_request.get("reason") or "",
+                })
+                logger.info(
+                    "agent.tool session_id=%s trigger=%s tool=%s",
+                    self.id, trigger, tool_request["id"],
+                )
+
+            # Honour the agent's self-paced cadence hint by adjusting the
+            # safety tick — kept simple for now (next_check influences
+            # nothing here in Phase 2; Phase 3 will drive scheduling
+            # dynamically based on this signal).
 
     # ─── Outbound helpers ────────────────────────────────────────────────
 

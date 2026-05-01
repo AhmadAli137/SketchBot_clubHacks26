@@ -48,8 +48,10 @@ export interface EventMessage {
 
 export interface ContextMessage {
   type: typeof MSG_CONTEXT;
-  /** Free-form context snapshot. Phase 2+ defines the exact shape. */
-  snapshot: Record<string, unknown>;
+  /** Pre-rendered situational-awareness preamble (the same text the
+   *  legacy /observe path was sending). The agent uses this as the
+   *  context_text for its next reasoning pass. */
+  context_text: string;
 }
 
 export interface ChatMessage {
