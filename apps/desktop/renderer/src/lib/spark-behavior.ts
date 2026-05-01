@@ -47,21 +47,30 @@ const REACTION_MAP: Partial<Record<SparkEventKind, ReactionSpec>> = {
   'user.active':             { scene: SPARK_SCENES.WAVE,        durationMs: 1200 },
 };
 
-// Ambient pools, biased by mood. Each scene holds 4–8s before we pick another.
+// Ambient pools, biased by mood. Heavy IDLE bias (often duplicated) so Spark
+// stays still by default — scene changes should *mean* something. Per-mood
+// pools intentionally only have one or two non-IDLE candidates so drift
+// feels deliberate, not random.
 const AMBIENT_POOLS = {
-  curious: [SPARK_SCENES.IDLE, SPARK_SCENES.LISTENING, SPARK_SCENES.THINKING, SPARK_SCENES.GUIDE],
-  happy:   [SPARK_SCENES.IDLE, SPARK_SCENES.NODDING, SPARK_SCENES.GUIDE, SPARK_SCENES.WAVE],
-  patient: [SPARK_SCENES.IDLE, SPARK_SCENES.THINKING, SPARK_SCENES.LISTENING, SPARK_SCENES.ENCOURAGING],
-  sleepy:  [SPARK_SCENES.IDLE, SPARK_SCENES.IDLE, SPARK_SCENES.THINKING, SPARK_SCENES.IDLE],
-  // User is actively manipulating things — we don't fire reactions per click,
-  // we just shift Spark into a quietly attentive watching pose.
-  engaged: [SPARK_SCENES.GUIDE, SPARK_SCENES.NODDING, SPARK_SCENES.LISTENING, SPARK_SCENES.IDLE],
+  curious: [SPARK_SCENES.IDLE, SPARK_SCENES.IDLE, SPARK_SCENES.LISTENING],
+  happy:   [SPARK_SCENES.IDLE, SPARK_SCENES.IDLE, SPARK_SCENES.NODDING],
+  patient: [SPARK_SCENES.IDLE, SPARK_SCENES.IDLE, SPARK_SCENES.THINKING],
+  sleepy:  [SPARK_SCENES.IDLE],
+  // User is actively manipulating things — Spark watches. Single candidate
+  // so we don't bounce between LISTENING/GUIDE on every cycle.
+  engaged: [SPARK_SCENES.IDLE, SPARK_SCENES.LISTENING],
 } as const;
 
 type Mood = keyof typeof AMBIENT_POOLS;
 
-const AMBIENT_MIN_MS = 4200;
-const AMBIENT_MAX_MS = 7800;
+// Slower ambient drift — the previous 4–8s felt twitchy. 15–28s gives
+// Spark room to *stay put* between meaningful events.
+const AMBIENT_MIN_MS = 15_000;
+const AMBIENT_MAX_MS = 28_000;
+// Safety cap for the observe-in-flight state. If we never get a
+// matching `spark.observe.end` (network blackhole), fall back to ambient
+// rather than holding LISTENING forever.
+const OBSERVE_INFLIGHT_MAX_MS = 8_000;
 
 // Layer 3 — proactive thresholds. Only fire when a session is "active" (i.e.,
 // the user has done something at least once since this coordinator started).
@@ -72,7 +81,7 @@ const MOOD_WINDOW_MS = 90_000;    // events within last 90s influence mood
 
 interface BehaviorState {
   scene: SceneId;
-  source: 'reactive' | 'ambient' | 'idle';
+  source: 'reactive' | 'observing' | 'ambient' | 'idle';
   mood: Mood;
   isMilestone: boolean;
 }
@@ -91,6 +100,7 @@ class SparkBehaviorCoordinator {
   private reactiveTimer: ReturnType<typeof setTimeout> | null = null;
   private ambientTimer: ReturnType<typeof setTimeout> | null = null;
   private nudgeTimer: ReturnType<typeof setTimeout> | null = null;
+  private observingTimer: ReturnType<typeof setTimeout> | null = null;
 
   private lastEventTs = 0;
   private lastNudgeTs = 0;
@@ -130,7 +140,8 @@ class SparkBehaviorCoordinator {
     if (this.reactiveTimer) clearTimeout(this.reactiveTimer);
     if (this.ambientTimer) clearTimeout(this.ambientTimer);
     if (this.nudgeTimer) clearTimeout(this.nudgeTimer);
-    this.reactiveTimer = this.ambientTimer = this.nudgeTimer = null;
+    if (this.observingTimer) clearTimeout(this.observingTimer);
+    this.reactiveTimer = this.ambientTimer = this.nudgeTimer = this.observingTimer = null;
   }
 
   subscribe(fn: Subscriber): () => void {
@@ -178,6 +189,20 @@ class SparkBehaviorCoordinator {
 
     // Don't recurse on our own nudge events.
     if (kind === 'spark.nudge.idle' || kind === 'spark.nudge.struggle') return;
+
+    // Observation lifecycle — when the renderer kicks off /api/tutor/observe
+    // we show a "looking at your work" pose so the visual change has a
+    // reason. When the call returns silently, drop back to ambient. When it
+    // returns spoken/with a tool, the reactive override (further down) will
+    // take precedence anyway.
+    if (kind === 'spark.observe.start') {
+      this.enterObserving();
+      return;
+    }
+    if (kind === 'spark.observe.end') {
+      this.exitObserving();
+      return;
+    }
 
     // Append to the rolling event log — used by the tutor context builder
     // to give the AI situational awareness. Skip pure signals (idle/active)
@@ -269,6 +294,33 @@ class SparkBehaviorCoordinator {
     }
   }
 
+  private enterObserving() {
+    // Don't override an active reaction (celebrate, etc.) — those are louder
+    // signals than "I'm thinking about your work".
+    if (this.state.source === 'reactive') return;
+    if (this.observingTimer) clearTimeout(this.observingTimer);
+    this.setState({
+      scene: SPARK_SCENES.LISTENING,
+      source: 'observing',
+      isMilestone: false,
+    });
+    // Safety: never hold "observing" forever if the matching end event
+    // doesn't arrive. Ambient takes back over after the cap.
+    this.observingTimer = setTimeout(() => {
+      this.observingTimer = null;
+      if (this.state.source === 'observing') this.pickAmbient();
+    }, OBSERVE_INFLIGHT_MAX_MS);
+  }
+
+  private exitObserving() {
+    if (this.observingTimer) clearTimeout(this.observingTimer);
+    this.observingTimer = null;
+    // Only drop back to ambient if we're still in observing mode. If a
+    // reaction fired in the meantime (the tutor spoke or used a tool),
+    // it owns the scene now.
+    if (this.state.source === 'observing') this.pickAmbient();
+  }
+
   private triggerReaction(reaction: ReactionSpec) {
     if (this.reactiveTimer) clearTimeout(this.reactiveTimer);
     this.setState({
@@ -288,8 +340,9 @@ class SparkBehaviorCoordinator {
     if (this.ambientTimer) clearTimeout(this.ambientTimer);
     this.ambientTimer = setTimeout(() => {
       this.ambientTimer = null;
-      // Don't override an active reaction.
-      if (this.state.source !== 'reactive') {
+      // Don't override an active reaction OR an in-flight observation —
+      // both have a stronger narrative reason to be on screen.
+      if (this.state.source !== 'reactive' && this.state.source !== 'observing') {
         this.pickAmbient();
       }
       this.scheduleAmbient();

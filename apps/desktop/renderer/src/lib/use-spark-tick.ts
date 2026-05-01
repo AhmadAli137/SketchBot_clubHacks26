@@ -29,13 +29,17 @@ import { CLOUD_API_URL, cloudHeaders } from '@/lib/cloud-api';
 import { sparkBehavior } from '@/lib/spark-behavior';
 import { getAgenticSettings, onAgenticSettingsChange } from '@/lib/agentic-settings';
 import { emitToolRequest, type SparkToolRequest } from '@/lib/spark-tools';
+import { emitSparkEvent } from '@/lib/spark-events';
 
-const BASE_INTERVAL_MS    = 30_000; // default cadence
-const TIGHT_INTERVAL_MS   = 15_000; // right after a fail
-const FLOW_INTERVAL_MS    = 60_000; // engaged + no struggle
-const IDLE_SKIP_THRESHOLD = 120_000; // 2 min of zero events → skip ticks entirely
-const RATE_LIMIT_MS       = 10_000; // never call observe more often than once per 10s
-const POST_SPEAK_QUIET_MS = 45_000; // after Spark speaks, leave a gap before the next tick
+// Tightened from the initial 30s/60s — Spark felt absent. Now ~20s base
+// with a 15s tighten after a fail, and a 35s slowdown only when truly in
+// flow. Idle skip at 90s so a quick coffee break doesn't kill the loop.
+const BASE_INTERVAL_MS    = 20_000;
+const TIGHT_INTERVAL_MS   = 15_000;
+const FLOW_INTERVAL_MS    = 35_000;
+const IDLE_SKIP_THRESHOLD = 90_000;
+const RATE_LIMIT_MS       = 10_000; // hard floor — never exceed 1 call / 10s
+const POST_SPEAK_QUIET_MS = 30_000; // breathing room after Spark just spoke
 
 export interface SparkObservation {
   speak: boolean;
@@ -138,6 +142,10 @@ export function useSparkTick(opts: UseSparkTickOptions) {
 
       lastCallTsRef.current = now;
       inFlightRef.current = true;
+      // Tell the behavior coordinator we're literally analysing the canvas
+      // — it shows a "looking at your work" pose for the duration of the
+      // network call instead of cycling random ambient scenes.
+      emitSparkEvent('spark.observe.start');
       try {
         const res = await fetch(`${CLOUD_API_URL}/api/tutor/observe`, {
           method: 'POST',
@@ -168,6 +176,10 @@ export function useSparkTick(opts: UseSparkTickOptions) {
         // ambient layer keeps Spark feeling alive even without network.
       } finally {
         inFlightRef.current = false;
+        // Always end the observing pose, whether we got a response, an
+        // error, or a silent JSON. Reactive scenes (celebrate / aha) take
+        // precedence anyway because they fire from emit calls below.
+        emitSparkEvent('spark.observe.end');
       }
     };
 

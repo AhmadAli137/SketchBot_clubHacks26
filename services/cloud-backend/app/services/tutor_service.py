@@ -569,9 +569,12 @@ class TutorService:
 
         observation_prompt = (
             "OBSERVATION TICK — you are watching a student work in the app.\n\n"
-            "Default behaviour: STAY SILENT and do nothing. Most ticks should "
-            "result in no spoken message and no tool call. Aim for roughly 1 "
-            "interjection per 5 ticks. Err on the side of silence.\n\n"
+            "Be a present, attentive tutor. Roughly 1 in 3 ticks should produce "
+            "either a short spoken sentence or a tool call — the other 2 in 3 "
+            "you stay silent. Don't go silent for many ticks in a row when there's "
+            "real activity on the canvas; a kid wants to feel watched. But don't "
+            "fill silence for its own sake either — only act when you have "
+            "something genuinely useful, kind, or curious to add.\n\n"
             "When you DO act, you have two channels:\n"
             "  1. SPEAK — return a short kind sentence via the JSON below.\n"
             "  2. TOOL — call one of the available tools when an action is "

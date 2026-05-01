@@ -31,7 +31,12 @@ export type SparkEventKind =
   | 'user.active'
   // proactive nudges (emitted BY coordinator, listened to by tutor-panel)
   | 'spark.nudge.idle'
-  | 'spark.nudge.struggle';
+  | 'spark.nudge.struggle'
+  // observation lifecycle (emitted BY useSparkTick, listened to by coordinator)
+  // so the visual layer can show a "looking at your work" pose during the
+  // network call instead of cycling arbitrary ambient scenes.
+  | 'spark.observe.start'
+  | 'spark.observe.end';
 
 export interface SparkEventDetail {
   kind: SparkEventKind;
