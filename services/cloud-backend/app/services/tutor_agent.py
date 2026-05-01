@@ -478,6 +478,7 @@ class TutorAgent:
                     concept_id=self.identity.concept_id or "free-draw",
                     layer=self.identity.layer,
                     context_text=ctx,
+                    prior_hypothesis=self.hypothesis,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
@@ -515,6 +516,15 @@ class TutorAgent:
                     "agent.tool session_id=%s trigger=%s tool=%s",
                     self.id, trigger, tool_request["id"],
                 )
+
+            # Carry the agent's working-memory hypothesis forward to
+            # the next tick. The model refines this each call with its
+            # current read of the session (what the kid is doing,
+            # what the active mission is). Persisting it gives the
+            # agent self-continuity across thinks.
+            new_hypothesis = result.get("hypothesis")
+            if isinstance(new_hypothesis, str) and new_hypothesis.strip():
+                self.hypothesis = new_hypothesis.strip()
 
             # Honour the agent's self-paced cadence hint. The model
             # returns next_check (5-180s) saying when it'd like to be
@@ -567,6 +577,7 @@ class TutorAgent:
             "last_speak_ts": self.last_speak_ts,
             "last_think_at": self.last_think_at,
             "last_next_check_sec": self.last_next_check_sec,
+            "hypothesis": self.hypothesis,
             "drain_pending": self._drain_pending,
             "ws_connected": self._ws is not None,
         }

@@ -576,6 +576,7 @@ class TutorService:
         concept_id: str,
         layer: str,
         context_text: str,
+        prior_hypothesis: str | None = None,
     ) -> dict:
         """
         Tick-driven observation. Given a SparkContext preamble (rendered as
@@ -671,13 +672,20 @@ class TutorService:
             "rarest — the student is asked Yes/No before it places, so only "
             "request when words alone really won't carry the idea.\n\n"
             "Reply with ONLY valid JSON for the speech channel, no extra text. "
-            "Include a `next_check` field (integer seconds, 5-180) telling the "
-            "renderer when you'd like to be invoked again — short when "
+            "Include a `next_check` field (integer seconds, 5-180) telling "
+            "the renderer when you'd like to be invoked again — short when "
             "something interesting is unfolding, long when the kid is in flow "
-            "and shouldn't be interrupted, very long when nothing's happening:\n"
-            '{"speak": false, "message": "", "next_check": 30}\n'
+            "and shouldn't be interrupted, very long when nothing's happening. "
+            "Also include a `hypothesis` field (≤200 chars): your one-sentence "
+            "read of what the kid is doing AND what the active mission is, "
+            "phrased to your future self. This carries forward to the next "
+            "tick so you maintain continuity across thinks. Refine it each "
+            "time as you learn more.\n"
+            '{"speak": false, "message": "", "next_check": 30, '
+            '"hypothesis": "Building a racetrack with cones; mission is to close the loop and add a finish line."}\n'
             "OR\n"
-            '{"speak": true, "message": "<your sentence>", "next_check": 45}\n'
+            '{"speak": true, "message": "<your sentence>", "next_check": 45, '
+            '"hypothesis": "<your read>"}\n'
         )
 
         system_blocks: list[dict] = [
@@ -691,6 +699,16 @@ class TutorService:
                 ),
             },
         ]
+        if prior_hypothesis and prior_hypothesis.strip():
+            system_blocks.append({
+                "type": "text",
+                "text": (
+                    "YOUR LAST READ OF THE SESSION (carries forward across "
+                    "ticks for continuity — refine it in this tick's "
+                    "hypothesis field):\n"
+                    f"{prior_hypothesis.strip()[:300]}"
+                ),
+            })
 
         # Cost knob: silent ticks dominate; Sonnet 4.6 is fine for nuance but
         # a Haiku swap here would cut observation costs ~3x with little
@@ -755,6 +773,7 @@ class TutorService:
         speak = False
         message = ""
         next_check: int | None = None
+        hypothesis: str | None = None
         if raw:
             try:
                 parsed = json.loads(raw)
@@ -768,6 +787,11 @@ class TutorService:
                 nc_raw = parsed.get("next_check")
                 if isinstance(nc_raw, (int, float)):
                     next_check = max(5, min(180, int(nc_raw)))
+                # Working-memory hypothesis — agent's read of the session
+                # that the caller carries forward to the next tick.
+                hyp_raw = parsed.get("hypothesis")
+                if isinstance(hyp_raw, str) and hyp_raw.strip():
+                    hypothesis = hyp_raw.strip()[:240]
             except json.JSONDecodeError:
                 if not tool_request:
                     type(self)._observe_counters["error"] += 1
@@ -817,6 +841,8 @@ class TutorService:
             result["tool_request"] = tool_request
         if next_check is not None:
             result["next_check"] = next_check
+        if hypothesis is not None:
+            result["hypothesis"] = hypothesis
         return result
 
 
