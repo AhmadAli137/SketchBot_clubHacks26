@@ -30,6 +30,7 @@ import { sparkBehavior } from '@/lib/spark-behavior';
 import { getAgenticSettings, onAgenticSettingsChange } from '@/lib/agentic-settings';
 import { emitToolRequest, type SparkToolRequest } from '@/lib/spark-tools';
 import { emitSparkEvent, onSparkEvent } from '@/lib/spark-events';
+import { appendResponseLog, bucketSessionDuration, type SparkContextSignature } from '@/lib/spark-response-log';
 
 // Tightened from the initial 30s/60s — Spark felt absent. Now ~20s base
 // with a 15s tighten after a fail, and a 35s slowdown only when truly in
@@ -65,6 +66,13 @@ export interface SparkObservation {
 export interface UseSparkTickOptions {
   /** Build the situational-awareness preamble for this tick. */
   getContextText: () => string;
+  /** Optional: structured signature snapshot used by the local response log
+   *  for offline pattern mining. When omitted, log entries get a degraded
+   *  (events-only) signature. See lib/spark-response-log.ts. */
+  getContextSignature?: () => {
+    objectCount: number;
+    objectTypes: string[];
+  };
   /** Called when the tutor decides to interject. The host shows the message. */
   onObservation: (obs: SparkObservation) => void;
   /** Identity payload passed to /api/tutor/observe. */
@@ -209,6 +217,40 @@ export function useSparkTick(opts: UseSparkTickOptions) {
         if (typeof data?.next_check === 'number' && data.next_check >= 5) {
           agentSuggestedDelayRef.current = Math.min(180, data.next_check) * 1000;
         }
+
+        // Local-only telemetry: log this observation outcome so we can
+        // mine common (context, response) patterns later for a hard-coded
+        // fast-path. See lib/spark-response-log.ts for the review snippet.
+        try {
+          const recent = sparkBehavior.getRecentEvents(5);
+          const sceneSnap = o.getContextSignature?.() ?? { objectCount: 0, objectTypes: [] };
+          const contextSig: SparkContextSignature = {
+            mode: o.conceptId ? 'concept' : 'sandbox',
+            conceptId: o.conceptId,
+            ageGroup: o.ageGroup,
+            layer: o.layer,
+            objectCount: sceneSnap.objectCount,
+            objectTypes: [...sceneSnap.objectTypes].sort(),
+            recentEventKinds: recent.map((e) => e.kind),
+            failStreak: sparkBehavior.getStreaks().failStreak,
+            successStreak: sparkBehavior.getStreaks().successStreak,
+            sessionDurationBucket: bucketSessionDuration(
+              Math.round((Date.now() - sparkBehavior.getSessionStart()) / 1000),
+            ),
+          };
+          appendResponseLog({
+            studentName: o.studentName,
+            context: contextSig,
+            outcome: {
+              speak: !!data?.speak,
+              message: data?.message ?? '',
+              tool: data?.tool_request
+                ? { id: data.tool_request.id, reason: data.tool_request.reason }
+                : null,
+              nextCheckSec: typeof data?.next_check === 'number' ? data.next_check : null,
+            },
+          });
+        } catch { /* logging is best-effort */ }
 
         // Emit any tool request first — the dispatcher will either run it
         // immediately (annotative) or queue a confirmation (mutative).

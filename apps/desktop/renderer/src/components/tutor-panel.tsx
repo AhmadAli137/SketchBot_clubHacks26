@@ -69,6 +69,11 @@ type TutorPanelProps = {
    * every trigger so the AI always sees current state.
    */
   getContextText?: () => string;
+  /**
+   * Optional structured snapshot for the local response log — feeds the
+   * future "hard-code common patterns" optimization. See lib/spark-response-log.ts.
+   */
+  getContextSignature?: () => { objectCount: number; objectTypes: string[] };
 };
 
 type EvaluationNotice = {
@@ -998,6 +1003,7 @@ export function TutorPanel({
   sessionId = null,
   isSandbox = false,
   getContextText,
+  getContextSignature,
 }: TutorPanelProps) {
   const sessionActorRole: 'teacher' | 'student' = sessionActorRoleProp ?? 'student';
   const [messages, setMessages] = useState<TutorMessage[]>([]);
@@ -1706,6 +1712,7 @@ export function TutorPanel({
     layer: activeLayer,
     cloudAuthToken,
     getContextText: () => getContextText?.() ?? '',
+    getContextSignature,
     onObservation: (obs) => {
       if (!obs.speak || !obs.message.trim()) return;
       // Don't pile up if the user is already mid-conversation with the tutor.

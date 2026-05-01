@@ -1001,6 +1001,10 @@ export function StudentDashboard({
                 // — first name alone misses the right record.
                 studentStoreKey: studentName || 'guest',
               }))}
+              getContextSignature={() => ({
+                objectCount: sceneObjects.length,
+                objectTypes: Array.from(new Set(sceneObjects.map((o) => o.type))),
+              })}
             />
           </div>
         </div>
