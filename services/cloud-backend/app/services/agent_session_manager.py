@@ -18,6 +18,7 @@ import logging
 import time
 from typing import Optional
 
+from app.services import agent_state_repo
 from app.services.tutor_agent import (
     RECONNECT_GRACE_SEC,
     AgentIdentity,
@@ -140,8 +141,9 @@ class AgentSessionManager:
     async def get_or_create(self, identity: AgentIdentity) -> tuple[TutorAgent, bool]:
         """
         Return (agent, resumed_flag).
-        resumed_flag is True iff we found an existing agent for this
-        session_id (reconnection within grace period).
+        resumed_flag is True iff we recovered prior state for this
+        session_id — either from the in-memory grace window OR from
+        Supabase persistence (post-deploy reconnect).
         Raises RuntimeError if at-capacity and a fresh agent is needed.
         """
         async with self._lock:
@@ -158,13 +160,32 @@ class AgentSessionManager:
                 if len(self._agents) >= MAX_CONCURRENT_AGENTS:
                     raise RuntimeError("at capacity")
 
-            agent = TutorAgent(identity)
+        # Try to restore from Supabase if the previous instance saved
+        # state for this session_id. The repo is a no-op when
+        # TUTOR_PERSIST_ENABLED is false, so this stays free for
+        # single-instance deployments. Done outside the lock — load
+        # involves a network round-trip we don't want to serialise.
+        persisted = await agent_state_repo.load(identity.session_id)
+
+        async with self._lock:
+            # Re-check existing in case another caller raced past us
+            # while we were loading.
+            existing = self._agents.get(identity.session_id)
+            if existing is not None:
+                return existing, True
+
+            if persisted is not None:
+                agent = TutorAgent.from_persisted(identity, persisted)
+                resumed = True
+            else:
+                agent = TutorAgent(identity)
+                resumed = False
             self._agents[identity.session_id] = agent
             logger.info(
-                "agent_mgr.created session_id=%s active=%d",
-                identity.session_id, len(self._agents),
+                "agent_mgr.created session_id=%s active=%d resumed=%s",
+                identity.session_id, len(self._agents), resumed,
             )
-            return agent, False
+            return agent, resumed
 
     async def remove(self, session_id: str) -> None:
         """Permanently remove an agent (e.g. user explicitly ended session)."""

@@ -32,6 +32,7 @@ from typing import Any
 
 from fastapi import WebSocket
 
+from app.services import agent_state_repo
 from app.services.tutor_service import tutor_service
 
 logger = logging.getLogger("sketchbot.tutor.agent")
@@ -166,6 +167,39 @@ class TutorAgent:
             identity.session_id, identity.student_name,
         )
 
+    @classmethod
+    def from_persisted(cls, identity: AgentIdentity, row: dict) -> "TutorAgent":
+        """Rebuild an agent from a row returned by agent_state_repo.load.
+        Restores hypothesis + recent event log + cadence anchors so the
+        post-deploy reconnect picks up where the previous instance left
+        off. Identity is taken from the live hello (not the row) since
+        the renderer is the source of truth on layer/concept_id."""
+        agent = cls(identity)
+        hyp = row.get("hypothesis")
+        if isinstance(hyp, str) and hyp.strip():
+            agent.hypothesis = hyp.strip()
+        events = row.get("event_log") or []
+        if isinstance(events, list):
+            for raw in events[-EVENT_LOG_MAX:]:
+                if not isinstance(raw, dict):
+                    continue
+                kind = str(raw.get("kind") or "")
+                if not kind:
+                    continue
+                payload = raw.get("payload") if isinstance(raw.get("payload"), dict) else None
+                ts_val = raw.get("ts")
+                ts = float(ts_val) if isinstance(ts_val, (int, float)) else time.time()
+                agent.event_log.append(AgentEvent(kind=kind, payload=payload, ts=ts))
+        for attr in ("last_speak_ts", "last_think_at", "last_next_check_sec"):
+            v = row.get(attr)
+            if isinstance(v, (int, float)):
+                setattr(agent, attr, float(v))
+        logger.info(
+            "agent.restored session_id=%s hypothesis_len=%d events=%d",
+            identity.session_id, len(agent.hypothesis or ""), len(agent.event_log),
+        )
+        return agent
+
     # ─── Lifecycle ───────────────────────────────────────────────────────
 
     async def attach(self, ws: WebSocket, *, resumed: bool) -> None:
@@ -208,6 +242,10 @@ class TutorAgent:
         self._ws = None
         self.last_detached_at = time.time()
         logger.info("agent.detached session_id=%s", self.id)
+        # Persist final state so the next reconnect (possibly on a fresh
+        # cloud-backend instance after a deploy) can restore continuity.
+        # Best-effort; fire-and-forget so detach stays fast.
+        asyncio.create_task(agent_state_repo.save(self))
 
     async def shutdown(self) -> None:
         """Final cleanup. Called on session close or eviction."""
@@ -227,8 +265,19 @@ class TutorAgent:
         logger.info("agent.shutdown session_id=%s", self.id)
 
     async def signal_drain(self) -> None:
-        """Deployment drain — let the renderer know we're restarting."""
+        """Deployment drain — let the renderer know we're restarting,
+        and persist state so the post-deploy reconnect can resume."""
         self._drain_pending = True
+        # Persist BEFORE notifying so the restore window is as wide as
+        # possible. If the save races with shutdown, the in-flight think
+        # wait in agent_session_manager keeps us alive long enough.
+        try:
+            await agent_state_repo.save(self)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "agent.drain_save_failed session_id=%s err=%s",
+                self.id, exc,
+            )
         await self.send({
             "type": MSG_RESTART,
             "reason": "deploying",
@@ -533,6 +582,11 @@ class TutorAgent:
             new_hypothesis = result.get("hypothesis")
             if isinstance(new_hypothesis, str) and new_hypothesis.strip():
                 self.hypothesis = new_hypothesis.strip()
+
+            # Best-effort persist so a deploy mid-session doesn't lose
+            # the latest hypothesis. Fire-and-forget; the repo handles
+            # its own errors and is a no-op when persistence is off.
+            asyncio.create_task(agent_state_repo.save(self))
 
             # Honour the agent's self-paced cadence hint. The model
             # returns next_check (5-180s) saying when it'd like to be

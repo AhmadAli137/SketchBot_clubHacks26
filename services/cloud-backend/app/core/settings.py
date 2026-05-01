@@ -42,6 +42,16 @@ class Settings:
         # Set SKIP_AUTH=true in local dev to bypass JWT validation
         self.skip_auth = os.getenv("SKIP_AUTH", "").strip().lower() in ("1", "true", "yes")
 
+        # Tutor agent persistence — when true, agent hypothesis + recent
+        # event log are saved to Supabase after each think and restored
+        # when a session reconnects after a deploy. Requires the
+        # tutor_agent_state table (see scripts/supabase_tutor_agent_state.sql).
+        # Default off so single-instance deployments without the table
+        # don't error out.
+        self.tutor_persist_enabled = (
+            os.getenv("TUTOR_PERSIST_ENABLED", "").strip().lower() in ("1", "true", "yes")
+        )
+
         # Stripe — payment processing (optional; paywall stubs work without it)
         self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY", "")
         self.stripe_webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
