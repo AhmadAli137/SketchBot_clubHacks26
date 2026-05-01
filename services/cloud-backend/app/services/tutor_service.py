@@ -676,6 +676,16 @@ class TutorService:
         if raw.startswith("```"):
             raw = raw.split("```")[1].lstrip("json").strip()
 
+        # With extended thinking + the looser observation prompt, Claude
+        # occasionally wraps the JSON in a leading prose sentence. Carve out
+        # the JSON object specifically so a "I'll observe quietly. {...}"
+        # response still parses cleanly.
+        if raw and not raw.startswith("{"):
+            first = raw.find("{")
+            last = raw.rfind("}")
+            if first != -1 and last > first:
+                raw = raw[first : last + 1]
+
         speak = False
         message = ""
         next_check: int | None = None

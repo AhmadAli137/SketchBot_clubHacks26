@@ -109,11 +109,20 @@ export function StudentDashboard({
   // Sandbox course-builder state — hydrated from the active SavedSession
   const [sceneObjects, setSceneObjects] = useState<SceneObject[]>([]);
   const sceneSessionLoadedRef = useRef<string | null>(null);
+  // True only when the user is resuming a SavedSession that has prior
+  // state (chat history or scene objects). Drives whether Spark surfaces
+  // past-session summaries in his context.
+  const [isResumedSession, setIsResumedSession] = useState(false);
   useEffect(() => {
     if (!sessionId || sceneSessionLoadedRef.current === sessionId) return;
     sceneSessionLoadedRef.current = sessionId;
     const saved = getSavedSession(studentName || 'guest', sessionId);
     setSceneObjects(saved?.sceneObjects ?? []);
+    const hasPriorState = !!saved && (
+      (saved.sceneObjects?.length ?? 0) > 0 ||
+      (saved.chat?.length ?? 0) > 0
+    );
+    setIsResumedSession(hasPriorState);
   }, [sessionId, studentName]);
   // Debounced auto-save back to the SavedSession (also regenerates thumbnail).
   // Listens for "save now" to flush immediately.
@@ -1005,6 +1014,8 @@ export function StudentDashboard({
                 chatExcerpt: extras?.chatExcerpt,
                 activeDrawingPrompt: extras?.activeDrawingPrompt,
                 lastPathCount: extras?.lastPathCount,
+                // Only surface past-session memory when actually resuming.
+                isResumedSession,
               }))}
               getContextSignature={() => ({
                 objectCount: sceneObjects.length,

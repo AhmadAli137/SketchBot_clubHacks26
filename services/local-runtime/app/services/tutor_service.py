@@ -1220,6 +1220,14 @@ class TutorService:
         if raw.startswith("```"):
             raw = raw.split("```")[1].lstrip("json").strip()
 
+        # Carve out the JSON object specifically — Claude can wrap it in
+        # leading prose under extended thinking + looser prompts.
+        if raw and not raw.startswith("{"):
+            first = raw.find("{")
+            last = raw.rfind("}")
+            if first != -1 and last > first:
+                raw = raw[first : last + 1]
+
         speak = False
         message = ""
         next_check: int | None = None

@@ -138,6 +138,11 @@ export interface BuildSparkContextInput {
   /** Number of path segments in the most recent drawing — gives Spark a
    *  rough sense of complexity. */
   lastPathCount?: number | null;
+  /** True only when the user is resuming a saved session that has prior
+   *  state (chat / scene objects). False for brand-new sessions — in that
+   *  case we suppress the "notes from previous sessions" block so Spark
+   *  doesn't reference yesterday's maze in today's fresh sandbox. */
+  isResumedSession?: boolean;
 }
 
 /** Convert a raw SceneObject (grid coords) → the context-shape (world metres). */
@@ -242,7 +247,10 @@ export function buildSparkContext(input: BuildSparkContextInput): SparkContext {
   };
   try {
     profile = buildProfile(storeKey);
-    recentSessionSummaries = getRecentSummaries(storeKey, 3);
+    // Only surface past-session summaries when the user is actually resuming
+    // a session with prior state. On a brand-new session we don't want
+    // Spark to reference yesterday's maze in today's fresh sandbox.
+    recentSessionSummaries = input.isResumedSession ? getRecentSummaries(storeKey, 3) : [];
     interjectionStats = summariseInterjections(storeKey, 7);
   } catch {
     // Store may not be available (SSR, fresh install). Skip silently.
