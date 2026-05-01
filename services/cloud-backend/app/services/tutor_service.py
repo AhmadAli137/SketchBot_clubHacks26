@@ -591,15 +591,18 @@ class TutorService:
             "- Don't repeat anything you've already said in the chat "
             "excerpt above.\n\n"
             "Channels:\n"
-            "  1. SPEAK — return a short, natural sentence via the JSON "
-            "below. One or two sentences max, ≤180 characters total. No "
-            "bullet lists, no numbered steps, no `---` block.\n"
-            "  2. TOOL — call one of the available tools when an action is "
-            "more useful than words (highlight a part of their build, "
-            "award XP for a creative move, or — when a description alone "
-            "won't land — request to drop a demonstration object).\n\n"
-            "Speech and tools are independent. You can speak, use a tool, "
-            "do both, or do nothing.\n\n"
+            "  1. SPEAK — REQUIRED whenever you react. Every reaction must "
+            "include a short spoken sentence via the JSON below. One or two "
+            "sentences max, ≤180 characters total. No bullet lists, no "
+            "numbered steps, no `---` block.\n"
+            "  2. TOOL — OPTIONAL accompaniment to your speech. Call a tool "
+            "only when an action genuinely adds something words can't (e.g., "
+            "highlight a specific cone you're pointing at, award XP for a "
+            "real moment of creativity). NEVER call a tool instead of "
+            "speaking — that leaves the kid with silence.\n\n"
+            "Hard rule: tool-only responses are forbidden. If you'd call a "
+            "tool, also speak. If you have nothing meaningful to say, don't "
+            "call a tool either — return {speak: false, message: \"\"}.\n\n"
             "Tool reminders: highlight_object is fine whenever pointing helps; "
             "award_xp is rare and tied to a real reason; add_demo_object is "
             "rarest — the student is asked Yes/No before it places, so only "
@@ -706,6 +709,19 @@ class TutorService:
                 if not tool_request:
                     type(self)._observe_counters["error"] += 1
                     return {"speak": False, "message": ""}
+
+        # Tool-only responses (tool_use without speak text) leave the student
+        # in silence while a side-effect happens — worse than no reaction at
+        # all. The prompt forbids this, but Anthropic's tool-use stop-reason
+        # path occasionally produces it anyway. Drop the tool and treat the
+        # tick as silent so the next think gets a clean shot at speaking.
+        if tool_request and not (speak and message):
+            import logging
+            logging.getLogger("sketchbot.tutor").warning(
+                "tutor.tool_only_dropped tool=%s reason=%r — model failed to also speak",
+                tool_request.get("id"), tool_request.get("reason", "")[:120],
+            )
+            tool_request = None
 
         if tool_request:
             type(self)._observe_counters["tool_used"] += 1
