@@ -47,6 +47,18 @@ class TutorObserveRequest(BaseModel):
     context_text: str = ""
 
 
+class TutorSummarizeRequest(BaseModel):
+    """End-of-session reflection. Stored client-side as cross-session memory."""
+    student_name: str = "Student"
+    age_group: str = "builder"
+    actor_role: str = "student"
+    concept_id: str = "free-draw"
+    layer: str = "intuitive"
+    context_text: str = ""
+    chat_excerpt: str = ""
+    duration_sec: int = 0
+
+
 class TutorEvaluateRequest(BaseModel):
     student_name: str = "Student"
     age_group: str = "builder"
@@ -125,6 +137,21 @@ async def tutor_evaluate(req: TutorEvaluateRequest) -> dict:
         layer=req.layer,
         drawing_prompt=req.drawing_prompt,
         path_count=req.path_count,
+    )
+
+
+@router.post("/summarize")
+async def tutor_summarize(req: TutorSummarizeRequest) -> dict:
+    """End-of-session reflection. Returns ``{summary, struggled_with?, excelled_at?, sentiment}``."""
+    return await tutor_service.summarize(
+        student_name=req.student_name,
+        age_group=req.age_group,
+        actor_role=req.actor_role,
+        concept_id=req.concept_id,
+        layer=req.layer,
+        context_text=req.context_text,
+        chat_excerpt=req.chat_excerpt,
+        duration_sec=req.duration_sec,
     )
 
 

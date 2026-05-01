@@ -30,6 +30,9 @@ import { effectiveMaxHints } from '@/lib/classroom-restrictions';
 import { CLOUD_API_URL, cloudHeaders, useCloudAuthToken } from '@/lib/cloud-api';
 import { emitSparkEvent, onSparkEvent } from '@/lib/spark-events';
 import { useSparkTick } from '@/lib/use-spark-tick';
+import { sparkBehavior } from '@/lib/spark-behavior';
+import { appendSessionSummary } from '@/lib/spark-memory';
+import { useInterjectionTracker, trackInterjectionStart } from '@/lib/use-interjection-tracker';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -990,6 +993,10 @@ export function TutorPanel({
 }: TutorPanelProps) {
   const sessionActorRole: 'teacher' | 'student' = sessionActorRoleProp ?? 'student';
   const [messages, setMessages] = useState<TutorMessage[]>([]);
+  // Mirror of messages so unmount-time effects (e.g., session summary) can
+  // read the latest chat excerpt without taking it as an effect dep.
+  const messagesRef = useRef<TutorMessage[]>([]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
   /** 'chat' = traditional scrollback, 'face' = video-call style with big Spark.
    *  Defaults to 'face' (kid-friendly), persisted per browser. Educators can
    *  flip to chat for transcript/audit. */
@@ -1615,6 +1622,70 @@ export function TutorPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conceptId, tutorStreaming, classroomRestrictions, sessionActorRole, activeLayer, drawingPrompt, pathCount]);
 
+  // End-of-session reflection (Level 1 learning). When the session unmounts
+  // — user navigates home, switches concept, or closes the app — fire a
+  // non-blocking summary call and append the result to spark-memory so the
+  // next session opens with "I remember last time you...".
+  useEffect(() => {
+    return () => {
+      const start = sparkBehavior.getSessionStart();
+      const durationSec = Math.max(0, Math.round((Date.now() - start) / 1000));
+      // Don't summarize a session that didn't really happen.
+      if (durationSec < 30) return;
+      const ctx = getContextText?.() ?? '';
+      if (!ctx.trim()) return;
+      const chatExcerpt = messagesRef.current
+        .slice(-6)
+        .map((m) => `${m.role === 'tutor' ? 'Spark' : 'Student'}: ${m.content}`)
+        .join('\n');
+      const studentKey = studentName || 'guest';
+      // Fire-and-forget — we're unmounting, so no UI feedback path.
+      void fetch(`${CLOUD_API_URL}/api/tutor/summarize`, {
+        method: 'POST',
+        headers: cloudHeaders(cloudAuthToken),
+        body: JSON.stringify({
+          student_name: studentName,
+          age_group: ageGroup,
+          actor_role: sessionActorRole,
+          concept_id: conceptId ?? 'free-draw',
+          layer: activeLayer,
+          context_text: ctx,
+          chat_excerpt: chatExcerpt,
+          duration_sec: durationSec,
+        }),
+        keepalive: true, // survive the page/window unload
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((result: { summary?: string; struggled_with?: string; excelled_at?: string; sentiment?: 'positive' | 'neutral' | 'frustrated' } | null) => {
+          if (!result || !result.summary) return;
+          appendSessionSummary(studentKey, {
+            sessionId: sessionId ?? null,
+            conceptId: conceptId ?? null,
+            durationSec,
+            endedAt: Date.now(),
+            summary: result.summary,
+            struggledWith: result.struggled_with,
+            excelledAt: result.excelled_at,
+            sentiment: result.sentiment ?? 'neutral',
+          });
+        })
+        .catch(() => { /* best-effort, silent failure */ });
+    };
+    // Mounted once per session id. The deps below control when "the session
+    // ends" — i.e., when sessionId or conceptId changes the cleanup fires
+    // and a fresh effect mounts for the new session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, conceptId]);
+
+  // Level 2 learning — watches the event bus and resolves interjection
+  // outcomes (engaged/ignored) once 60s of no-activity have passed or the
+  // user does something. Outcomes accumulate in spark-memory and feed the
+  // next tick's prompt.
+  useInterjectionTracker({
+    studentName,
+    enabled: backendReachable && !!getContextText,
+  });
+
   // Agentic tick — adaptive observation loop. Most ticks return silently;
   // when Spark genuinely has something to say, drop the message into the
   // chat thread. The existing non-stream TTS effect (above) speaks it.
@@ -1631,10 +1702,14 @@ export function TutorPanel({
       if (!obs.speak || !obs.message.trim()) return;
       // Don't pile up if the user is already mid-conversation with the tutor.
       if (tutorStreaming) return;
+      const text = obs.message.trim();
       setMessages((prev) => [
         ...prev,
-        { id: genId(), role: 'tutor', content: obs.message.trim() },
+        { id: genId(), role: 'tutor', content: text },
       ]);
+      // Record the interjection so we can later see whether the kid
+      // engaged with it. The tracker's bus listener handles resolution.
+      if (studentName) trackInterjectionStart(studentName, 'speak', text);
     },
   });
 

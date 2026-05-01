@@ -46,6 +46,18 @@ class TutorObserveRequest(BaseModel):
     context_text: str = ""
 
 
+class TutorSummarizeRequest(BaseModel):
+    """End-of-session reflection. Stored client-side as cross-session memory."""
+    student_name: str = ""
+    age_group: str = "builder"
+    actor_role: str = "student"
+    concept_id: str = "free-draw"
+    layer: str = "intuitive"
+    context_text: str = ""
+    chat_excerpt: str = ""
+    duration_sec: int = 0
+
+
 @router.post("/message")
 async def tutor_message(body: TutorMessageRequest, user: AuthUser):
     # Credit gate: check before streaming
@@ -144,6 +156,28 @@ async def tutor_observe(body: TutorObserveRequest, user: AuthUser):
 async def tutor_observe_stats(_user: AuthUser):
     """Aggregate counters for cost / quality monitoring (no payload contents)."""
     return tutor_service.get_observe_counters()
+
+
+@router.post("/summarize")
+async def tutor_summarize(body: TutorSummarizeRequest, user: AuthUser):
+    """End-of-session reflection. Always charges 1 credit since it always
+    produces a real response (no silent path here, unlike /observe)."""
+    has_credits, _remaining = check_credits(user["id"])
+    if not has_credits:
+        return {"summary": "", "sentiment": "neutral"}
+    result = await tutor_service.summarize(
+        student_name=body.student_name,
+        age_group=body.age_group,
+        actor_role=body.actor_role,
+        concept_id=body.concept_id,
+        layer=body.layer,
+        context_text=body.context_text,
+        chat_excerpt=body.chat_excerpt,
+        duration_sec=body.duration_sec,
+    )
+    if result.get("summary"):
+        deduct_credits(user["id"], 1)
+    return result
 
 
 @router.post("/evaluate")

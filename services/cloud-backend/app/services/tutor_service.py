@@ -681,4 +681,89 @@ class TutorService:
         return result
 
 
+    async def summarize(
+        self,
+        *,
+        student_name: str,
+        age_group: str,
+        actor_role: str = "student",
+        concept_id: str,
+        layer: str,
+        context_text: str,
+        chat_excerpt: str = "",
+        duration_sec: int = 0,
+    ) -> dict:
+        """End-of-session reflection. See local-runtime/services/tutor_service.py
+        for full docs — this is a parity mirror so the cloud deploy serves the
+        same endpoint. Returns ``{summary, struggled_with?, excelled_at?, sentiment}``."""
+        if self._client is None or not context_text.strip():
+            return {"summary": "", "sentiment": "neutral"}
+
+        persona = _PERSONAS.get(age_group, _PERSONA_BUILDER)
+        concept_ctx = _build_concept_context(concept_id, layer)
+
+        prompt_parts = [
+            "SESSION SUMMARY — the student is wrapping up. Reflect on what just",
+            "happened so future sessions can feel remembered. Write 1-2 short",
+            "sentences a tutor might jot down — concrete, kind, and specific to",
+            "what they actually did. Then identify one thing they struggled",
+            "with and one thing they did well, and tag the overall sentiment.",
+            "",
+            f"Session duration: {duration_sec}s.",
+        ]
+        if chat_excerpt.strip():
+            prompt_parts += ["", "Recent chat (most-recent last):", chat_excerpt.strip()[:1500]]
+        prompt_parts += [
+            "",
+            "Reply with ONLY valid JSON:",
+            '{"summary":"<1-2 short sentences>",'
+            '"struggled_with":"<short phrase or empty>",'
+            '"excelled_at":"<short phrase or empty>",'
+            '"sentiment":"positive|neutral|frustrated"}',
+        ]
+        summary_prompt = "\n".join(prompt_parts)
+
+        system_blocks: list[dict] = [
+            {"type": "text", "text": persona, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": f"CONCEPT CONTEXT:\n{concept_ctx}", "cache_control": {"type": "ephemeral"}},
+            {
+                "type": "text",
+                "text": (
+                    "SITUATIONAL AWARENESS — the session you are summarizing.\n"
+                    f"{context_text.strip()}"
+                ),
+            },
+        ]
+
+        try:
+            msg = await self._client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=300,
+                system=system_blocks,  # type: ignore[arg-type]
+                messages=[{"role": "user", "content": summary_prompt}],
+            )
+        except Exception:  # noqa: BLE001
+            return {"summary": "", "sentiment": "neutral"}
+
+        raw = msg.content[0].text.strip() if msg.content else ""
+        if raw.startswith("```"):
+            raw = raw.split("```")[1].lstrip("json").strip()
+        try:
+            parsed = json.loads(raw)
+            summary_text = str(parsed.get("summary", "")).strip()[:280]
+            struggled = str(parsed.get("struggled_with", "")).strip()[:120] or None
+            excelled = str(parsed.get("excelled_at", "")).strip()[:120] or None
+            sentiment = str(parsed.get("sentiment", "neutral")).strip().lower()
+            if sentiment not in ("positive", "neutral", "frustrated"):
+                sentiment = "neutral"
+            result: dict = {"summary": summary_text, "sentiment": sentiment}
+            if struggled:
+                result["struggled_with"] = struggled
+            if excelled:
+                result["excelled_at"] = excelled
+            return result
+        except json.JSONDecodeError:
+            return {"summary": "", "sentiment": "neutral"}
+
+
 tutor_service = TutorService()

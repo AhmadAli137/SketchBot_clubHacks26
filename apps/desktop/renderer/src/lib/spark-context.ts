@@ -25,6 +25,7 @@ import { sparkBehavior } from './spark-behavior';
 import type { SparkEventDetail } from './spark-events';
 import { getProgressSummary } from './progress-store';
 import { listSessions, getMostRecent } from './session-storage';
+import { getRecentSummaries, summariseInterjections, type SessionSummary, type InterjectionStats } from './spark-memory';
 
 /** Hard caps so the payload stays bounded regardless of how busy the session is. */
 const MAX_OBJECTS_IN_CONTEXT = 30;
@@ -103,6 +104,13 @@ export interface SparkContext {
   /** Cross-session memory. Optional — null when the student record is
    *  missing or when context is built for a guest user. */
   profile: SparkContextProfile | null;
+  /** Last few session reflections written by Spark himself
+   *  (Level 1 learning). Empty when no past sessions are summarised yet. */
+  recentSessionSummaries: SessionSummary[];
+  /** Aggregate of recent Spark interjections — engaged / ignored / declined
+   *  counts plus a synopsis suggesting how to adapt style
+   *  (Level 2 learning). */
+  interjectionStats: InterjectionStats;
 }
 
 export interface BuildSparkContextInput {
@@ -211,11 +219,17 @@ export function buildSparkContext(input: BuildSparkContextInput): SparkContext {
     ...(e.payload ? { payload: e.payload } : {}),
   }));
 
-  // Cross-session memory — read-only snapshot from existing stores.
+  // Cross-session memory — read-only snapshots from existing stores.
   const storeKey = input.studentStoreKey ?? input.studentFirstName;
   let profile: SparkContextProfile | null = null;
+  let recentSessionSummaries: SessionSummary[] = [];
+  let interjectionStats: InterjectionStats = {
+    total: 0, engaged: 0, ignored: 0, declined: 0, unclear: 0, synopsis: '',
+  };
   try {
     profile = buildProfile(storeKey);
+    recentSessionSummaries = getRecentSummaries(storeKey, 3);
+    interjectionStats = summariseInterjections(storeKey, 7);
   } catch {
     // Store may not be available (SSR, fresh install). Skip silently.
     profile = null;
@@ -241,6 +255,8 @@ export function buildSparkContext(input: BuildSparkContextInput): SparkContext {
     },
     streaks: sparkBehavior.getStreaks(),
     profile,
+    recentSessionSummaries,
+    interjectionStats,
   };
 }
 
@@ -290,6 +306,27 @@ export function describeContextAsText(ctx: SparkContext): string {
         lines.push(`Recent badges earned: ${p.recentBadges.join(', ')}.`);
       }
     }
+  }
+
+  // ── Last-time-you reflections (Level 1 learning) ─────────────────────────
+  if (ctx.recentSessionSummaries.length > 0) {
+    lines.push('');
+    lines.push('Notes you wrote about previous sessions (most-recent last):');
+    for (const s of ctx.recentSessionSummaries) {
+      const when = formatRelativeDays(Date.now() - s.endedAt);
+      const tag = s.sentiment && s.sentiment !== 'neutral' ? ` [${s.sentiment}]` : '';
+      const concept = s.conceptId ? ` (${s.conceptId})` : ' (sandbox)';
+      lines.push(`  - ${when}${concept}${tag}: ${s.summary}`);
+      if (s.struggledWith) lines.push(`    struggled with: ${s.struggledWith}`);
+      if (s.excelledAt) lines.push(`    did well: ${s.excelledAt}`);
+    }
+    lines.push("Use these to make the kid feel remembered. Reference them naturally; don't recite them.");
+  }
+
+  // ── Interjection feedback (Level 2 learning) ─────────────────────────────
+  if (ctx.interjectionStats.synopsis) {
+    lines.push('');
+    lines.push(`Interjection style check: ${ctx.interjectionStats.synopsis}`);
   }
 
   // ── Scene state ──────────────────────────────────────────────────────────
@@ -353,4 +390,12 @@ function formatDuration(sec: number): string {
   if (m < 60) return s ? `${m}m ${s}s` : `${m}m`;
   const h = Math.floor(m / 60);
   return `${h}h ${m % 60}m`;
+}
+
+function formatRelativeDays(ms: number): string {
+  if (ms < 60_000) return 'just now';
+  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
+  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
+  const days = Math.floor(ms / 86_400_000);
+  return days === 1 ? 'yesterday' : `${days} days ago`;
 }

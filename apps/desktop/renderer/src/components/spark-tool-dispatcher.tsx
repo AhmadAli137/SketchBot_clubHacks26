@@ -23,6 +23,7 @@ import {
 import { type SceneObject, GRID_SIZE, newSceneObjectId } from '@/lib/scene-builder';
 import { awardXP } from '@/lib/progress-store';
 import { emitSparkEvent } from '@/lib/spark-events';
+import { recordInterjection, markInterjectionOutcome } from '@/lib/spark-memory';
 
 interface Props {
   /** Active SceneObjects — needed to validate object_id targets. */
@@ -40,6 +41,13 @@ interface Props {
 interface PendingRequest {
   request: SparkToolRequest;
   schema: ReturnType<typeof getToolSchema>;
+}
+
+function mapToolToInterjectionType(toolId: string): 'highlight' | 'demo' | 'xp' | 'speak' {
+  if (toolId === 'highlight_object') return 'highlight';
+  if (toolId === 'add_demo_object') return 'demo';
+  if (toolId === 'award_xp') return 'xp';
+  return 'speak';
 }
 
 export function SparkToolDispatcher({
@@ -129,12 +137,23 @@ export function SparkToolDispatcher({
     if (!pending) return;
     const req = pending.request;
     setPending(null);
+    // Track this as an interjection that the kid engaged with — they tapped
+    // Yes, which is an explicit positive signal.
+    if (studentName) {
+      const id = recordInterjection(studentName, mapToolToInterjectionType(req.id), req.reason || req.id);
+      if (id) markInterjectionOutcome(studentName, id, 'engaged');
+    }
     await runTool(req);
   }
 
   function reject() {
     if (!pending) return;
     onAgentNote?.(`(declined: ${pending.schema?.label ?? 'Spark suggestion'})`);
+    // Explicit negative signal — Spark suggested, kid said no.
+    if (studentName) {
+      const id = recordInterjection(studentName, mapToolToInterjectionType(pending.request.id), pending.request.reason || pending.request.id);
+      if (id) markInterjectionOutcome(studentName, id, 'declined');
+    }
     setPending(null);
   }
 
