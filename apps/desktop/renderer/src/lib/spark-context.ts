@@ -1,0 +1,356 @@
+/**
+ * Spark context — the situational-awareness payload the AI tutor receives.
+ *
+ * The renderer assembles a SparkContext from:
+ *   • the current SceneObject array (what's on the canvas)
+ *   • the spark-behavior coordinator's rolling event log + streaks
+ *   • session metadata (mode, concept, age group, layer, student name)
+ *   • a wallclock anchor for "session duration"
+ *
+ * `describeContextAsText` renders that into a compact natural-language preamble
+ * which is prepended to the per-turn user_text on tutor calls. Designed to be
+ * cheap (<600 tokens once stringified) and clear enough for Claude to reason
+ * spatially over raw positions.
+ *
+ * NOTE on privacy: this payload is sent to Anthropic. By design we ship only
+ * the child's first name + age range, raw scene positions (not images), and
+ * recent in-app actions. No persistent server-side storage of context payloads
+ * — see the docs/privacy entry that accompanies the tutor agent rollout.
+ */
+
+import type { AgeGroup, ConceptLayer } from './concept-types';
+import type { SceneObject } from './scene-builder';
+import { GRID_SIZE, STACK_HEIGHT } from './scene-builder';
+import { sparkBehavior } from './spark-behavior';
+import type { SparkEventDetail } from './spark-events';
+import { getProgressSummary } from './progress-store';
+import { listSessions, getMostRecent } from './session-storage';
+
+/** Hard caps so the payload stays bounded regardless of how busy the session is. */
+const MAX_OBJECTS_IN_CONTEXT = 30;
+const MAX_EVENTS_IN_CONTEXT = 15;
+
+export type SparkSessionMode = 'sandbox' | 'concept';
+
+export interface SparkContextSceneObject {
+  id: string;
+  type: SceneObject['type'];
+  /** World metres. Easier for the LLM to reason about than grid units. */
+  x: number;
+  y: number;
+  z: number;
+  rotation?: 0 | 90 | 180 | 270;
+  color?: string;
+  variant?: string;
+}
+
+export interface SparkContextEvent {
+  kind: SparkEventDetail['kind'];
+  secondsAgo: number;
+  payload?: Record<string, unknown>;
+}
+
+/**
+ * Cross-session memory snapshot. Pulled from existing localStorage-backed
+ * stores (progress + sessions) — no new persistence layer. Helps Spark
+ * sound like he remembers the student between sessions.
+ */
+export interface SparkContextProfile {
+  /** How many sessions this student has had with SaySpark. */
+  totalSessions: number;
+  /** XP / level — gives the tutor a sense of overall progress. */
+  level: number;
+  xp: number;
+  conceptsStarted: number;
+  conceptsMastered: number;
+  /** Last 5 badge ids the student has earned (most recent last). */
+  recentBadges: string[];
+  /** Most-recent saved sessions (capped at 3) — used to recall what they
+   *  were last working on. */
+  recentSessions: Array<{
+    name: string;
+    conceptId: string | null;
+    daysAgo: number;
+  }>;
+  /** True if this is the very first session ever. */
+  isFirstSession: boolean;
+}
+
+export interface SparkContext {
+  mode: SparkSessionMode;
+  conceptId: string | null;
+  conceptTitle: string | null;
+  ageGroup: AgeGroup;
+  layer: ConceptLayer | null;
+  studentFirstName: string;
+  /** Seconds since the current session began. */
+  sessionDurationSec: number;
+  scene: {
+    objectCount: number;
+    objectsByType: Record<string, number>;
+    /** Up to MAX_OBJECTS_IN_CONTEXT — see truncated flag if more exist. */
+    objects: SparkContextSceneObject[];
+    truncated: boolean;
+  };
+  events: {
+    recent: SparkContextEvent[];
+    truncated: boolean;
+  };
+  streaks: {
+    failStreak: number;
+    successStreak: number;
+  };
+  /** Cross-session memory. Optional — null when the student record is
+   *  missing or when context is built for a guest user. */
+  profile: SparkContextProfile | null;
+}
+
+export interface BuildSparkContextInput {
+  sceneObjects: SceneObject[];
+  mode: SparkSessionMode;
+  conceptId: string | null;
+  conceptTitle: string | null;
+  ageGroup: AgeGroup;
+  layer: ConceptLayer | null;
+  studentFirstName: string;
+  /** Full student name as stored in progress / sessions stores — used to
+   *  pull cross-session memory. Defaults to studentFirstName when omitted. */
+  studentStoreKey?: string;
+}
+
+/** Convert a raw SceneObject (grid coords) → the context-shape (world metres). */
+function toContextObject(obj: SceneObject): SparkContextSceneObject {
+  const rot = obj.rotY === undefined ? undefined : (obj.rotY * 90) as 0 | 90 | 180 | 270;
+  return {
+    id: obj.id,
+    type: obj.type,
+    x: round(obj.gx * GRID_SIZE),
+    y: round((obj.gy ?? 0) * STACK_HEIGHT),
+    z: round(obj.gz * GRID_SIZE),
+    ...(rot !== undefined ? { rotation: rot } : {}),
+    ...(obj.color ? { color: obj.color } : {}),
+    ...(obj.botVariant ? { variant: obj.botVariant } : {}),
+  };
+}
+
+function round(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Build the cross-session profile from existing stores. Returns null when
+ * the student isn't tracked yet (first ever launch, guest user, or the
+ * progress store hasn't been initialised for this name).
+ */
+function buildProfile(studentStoreKey: string): SparkContextProfile | null {
+  const summary = getProgressSummary(studentStoreKey);
+  if (!summary) return null;
+
+  // Pull recent saved sessions; map to a compact form.
+  const sessions = listSessions(studentStoreKey).slice(0, 3);
+  const now = Date.now();
+  const recentSessions = sessions.map((s) => ({
+    name: s.name,
+    conceptId: s.conceptId ?? null,
+    daysAgo: Math.max(0, Math.floor((now - s.lastOpenedAt) / (24 * 60 * 60 * 1000))),
+  }));
+
+  // Recent badges — last 5, most recent last. Badge order in the store is
+  // already chronological (awardBadge appends).
+  const recentBadges = summary.badges.slice(-5);
+
+  // First-session detection — total_sessions counter from progress-store.
+  // We treat 0 or 1 as "this is the first session" (the counter increments
+  // sometime during/after the session boots).
+  const isFirstSession = summary.totalSessions <= 1 && getMostRecent(studentStoreKey) === null;
+
+  return {
+    totalSessions: summary.totalSessions,
+    level: summary.level,
+    xp: summary.xp,
+    conceptsStarted: summary.conceptsStarted,
+    conceptsMastered: summary.conceptsMastered,
+    recentBadges,
+    recentSessions,
+    isFirstSession,
+  };
+}
+
+/**
+ * Assemble a SparkContext from current renderer state. The behavior
+ * coordinator is consulted directly for the event log + streaks — callers
+ * don't need to thread those through.
+ */
+export function buildSparkContext(input: BuildSparkContextInput): SparkContext {
+  const now = Date.now();
+  const sessionDurationSec = Math.max(0, Math.round((now - sparkBehavior.getSessionStart()) / 1000));
+
+  // Inventory by type
+  const byType: Record<string, number> = {};
+  for (const o of input.sceneObjects) {
+    byType[o.type] = (byType[o.type] ?? 0) + 1;
+  }
+
+  // Truncate to keep payload bounded. Keep most-recently-placed (last in list).
+  const truncatedScene = input.sceneObjects.length > MAX_OBJECTS_IN_CONTEXT;
+  const objects = (truncatedScene
+    ? input.sceneObjects.slice(-MAX_OBJECTS_IN_CONTEXT)
+    : input.sceneObjects
+  ).map(toContextObject);
+
+  // Recent events (most-recent last). The coordinator log already excludes
+  // pure idle/active signals.
+  const rawEvents = sparkBehavior.getRecentEvents(MAX_EVENTS_IN_CONTEXT * 2); // grab more, may filter
+  const truncatedEvents = rawEvents.length > MAX_EVENTS_IN_CONTEXT;
+  const recentEvents: SparkContextEvent[] = (truncatedEvents
+    ? rawEvents.slice(-MAX_EVENTS_IN_CONTEXT)
+    : rawEvents
+  ).map((e) => ({
+    kind: e.kind,
+    secondsAgo: Math.max(0, Math.round((now - e.ts) / 1000)),
+    ...(e.payload ? { payload: e.payload } : {}),
+  }));
+
+  // Cross-session memory — read-only snapshot from existing stores.
+  const storeKey = input.studentStoreKey ?? input.studentFirstName;
+  let profile: SparkContextProfile | null = null;
+  try {
+    profile = buildProfile(storeKey);
+  } catch {
+    // Store may not be available (SSR, fresh install). Skip silently.
+    profile = null;
+  }
+
+  return {
+    mode: input.mode,
+    conceptId: input.conceptId,
+    conceptTitle: input.conceptTitle,
+    ageGroup: input.ageGroup,
+    layer: input.layer,
+    studentFirstName: input.studentFirstName,
+    sessionDurationSec,
+    scene: {
+      objectCount: input.sceneObjects.length,
+      objectsByType: byType,
+      objects,
+      truncated: truncatedScene,
+    },
+    events: {
+      recent: recentEvents,
+      truncated: truncatedEvents,
+    },
+    streaks: sparkBehavior.getStreaks(),
+    profile,
+  };
+}
+
+/**
+ * Render a SparkContext as compact natural-language for inclusion in the
+ * tutor prompt. Aim: ≤600 tokens stringified, dense with signal, easy for
+ * Claude to reason over. Raw positions are kept intact so the model can
+ * recognise spatial patterns the renderer didn't pre-compute.
+ */
+export function describeContextAsText(ctx: SparkContext): string {
+  const lines: string[] = [];
+
+  // ── Header — who, where, how long ────────────────────────────────────────
+  const modeLabel = ctx.mode === 'sandbox'
+    ? 'Sandbox (free build)'
+    : `Concept session: ${ctx.conceptTitle ?? ctx.conceptId ?? 'unknown'}` +
+      (ctx.layer ? ` (${ctx.layer} layer)` : '');
+  lines.push(`Student: ${ctx.studentFirstName} · age group: ${ctx.ageGroup}`);
+  lines.push(`Mode: ${modeLabel}`);
+  lines.push(`Session duration: ${formatDuration(ctx.sessionDurationSec)}`);
+
+  // ── Cross-session memory — what Spark already knows about this student ──
+  if (ctx.profile) {
+    const p = ctx.profile;
+    lines.push('');
+    if (p.isFirstSession) {
+      lines.push("History: this is their first session — be welcoming, set the tone.");
+    } else {
+      const bits: string[] = [];
+      bits.push(`Sessions so far: ${p.totalSessions}`);
+      bits.push(`Level ${p.level} (${p.xp} XP)`);
+      if (p.conceptsStarted > 0) {
+        bits.push(`${p.conceptsMastered}/${p.conceptsStarted} concepts mastered`);
+      }
+      lines.push(`History: ${bits.join(' · ')}.`);
+
+      if (p.recentSessions.length > 0) {
+        lines.push('Recent sessions:');
+        for (const s of p.recentSessions) {
+          const when = s.daysAgo === 0 ? 'today' : s.daysAgo === 1 ? 'yesterday' : `${s.daysAgo} days ago`;
+          const where = s.conceptId ? `concept "${s.conceptId}"` : 'sandbox';
+          lines.push(`  - ${when}: ${where} (${s.name})`);
+        }
+      }
+
+      if (p.recentBadges.length > 0) {
+        lines.push(`Recent badges earned: ${p.recentBadges.join(', ')}.`);
+      }
+    }
+  }
+
+  // ── Scene state ──────────────────────────────────────────────────────────
+  lines.push('');
+  if (ctx.scene.objectCount === 0) {
+    lines.push('Canvas: empty.');
+  } else {
+    const inv = Object.entries(ctx.scene.objectsByType)
+      .map(([type, n]) => `${n} ${type}${n > 1 ? 's' : ''}`)
+      .join(', ');
+    lines.push(`Canvas: ${ctx.scene.objectCount} object${ctx.scene.objectCount > 1 ? 's' : ''} (${inv}).`);
+    lines.push('Object positions (x, y, z in metres):');
+    for (const o of ctx.scene.objects) {
+      const rot = o.rotation !== undefined ? `, rot=${o.rotation}°` : '';
+      const variant = o.variant ? ` [${o.variant}]` : '';
+      lines.push(`  - ${o.type}${variant}: (${o.x}, ${o.y}, ${o.z})${rot}`);
+    }
+    if (ctx.scene.truncated) {
+      lines.push(`  …(${ctx.scene.objectCount - ctx.scene.objects.length} more older objects omitted)`);
+    }
+  }
+
+  // ── Recent activity ──────────────────────────────────────────────────────
+  lines.push('');
+  if (ctx.events.recent.length === 0) {
+    lines.push('Recent activity: none yet this session.');
+  } else {
+    lines.push('Recent activity (most-recent last):');
+    for (const e of ctx.events.recent) {
+      const rel = e.secondsAgo < 60
+        ? `${e.secondsAgo}s ago`
+        : `${Math.floor(e.secondsAgo / 60)}m${e.secondsAgo % 60 ? ` ${e.secondsAgo % 60}s` : ''} ago`;
+      const payload = e.payload && Object.keys(e.payload).length
+        ? ` ${JSON.stringify(e.payload)}`
+        : '';
+      lines.push(`  - ${rel}: ${e.kind}${payload}`);
+    }
+    if (ctx.events.truncated) {
+      lines.push('  …(older events omitted)');
+    }
+  }
+
+  // ── Streaks ──────────────────────────────────────────────────────────────
+  if (ctx.streaks.failStreak > 0 || ctx.streaks.successStreak > 0) {
+    lines.push('');
+    if (ctx.streaks.failStreak > 0) {
+      lines.push(`Streak: ${ctx.streaks.failStreak} consecutive failure${ctx.streaks.failStreak > 1 ? 's' : ''}.`);
+    }
+    if (ctx.streaks.successStreak > 0) {
+      lines.push(`Streak: ${ctx.streaks.successStreak} consecutive success${ctx.streaks.successStreak > 1 ? 'es' : ''}.`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function formatDuration(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m < 60) return s ? `${m}m ${s}s` : `${m}m`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}

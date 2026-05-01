@@ -1,11 +1,17 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { LogOut, X, Trophy, Zap, Flame, BookOpen, ExternalLink } from 'lucide-react';
+import { LogOut, X, Trophy, Zap, Flame, BookOpen, ExternalLink, Sparkles } from 'lucide-react';
 import type { AuthRole } from '@/components/auth-screen';
-import { getProgressSummary } from '@/lib/progress-store';
+import { getProgressSummary, getStudentProgress } from '@/lib/progress-store';
+import { StudentProfileAvatar } from '@/components/student-profile-avatar';
 import { useEntitlements, tierLabel } from '@/lib/use-entitlements';
+import {
+  getAgenticSettings,
+  setAgenticTutorEnabled,
+  onAgenticSettingsChange,
+} from '@/lib/agentic-settings';
 
 const PRICING_URL = 'https://aibotics.app/pricing';
 
@@ -30,7 +36,25 @@ export function UserAccountPanel({ role, name, email, onSignOut, onClose }: Prop
     return getProgressSummary(name);
   }, [role, name]);
 
+  const avatarData = useMemo(() => {
+    if (!name) return null;
+    const sp = getStudentProgress(name, 'explorer');
+    return {
+      kind: sp.profile_avatar_kind ?? 'emoji',
+      emoji: sp.avatar ?? '🤖',
+      robotPreset: sp.robot_preset ?? 'orbit',
+      color: sp.favorite_color ?? 'var(--cyan)',
+    } as const;
+  }, [name]);
+
   const { entitlements } = useEntitlements(role !== 'guest');
+
+  // Parent toggle for the agentic tutor's proactive observation loop.
+  // Persisted in localStorage; the renderer's tick loop reads this live.
+  const [agenticEnabled, setAgenticEnabled] = useState<boolean>(() =>
+    getAgenticSettings().agenticTutorEnabled,
+  );
+  useEffect(() => onAgenticSettingsChange((s) => setAgenticEnabled(s.agenticTutorEnabled)), []);
 
   const xpPct = progress ? Math.round(progress.progress * 100) : 0;
   const credPct = entitlements
@@ -63,7 +87,18 @@ export function UserAccountPanel({ role, name, email, onSignOut, onClose }: Prop
 
         {/* Identity */}
         <div className="account-panel-header">
-          <div className="account-panel-avatar">{initials(name)}</div>
+          {avatarData ? (
+            <StudentProfileAvatar
+              kind={avatarData.kind}
+              emoji={avatarData.emoji}
+              robotPresetId={avatarData.robotPreset}
+              accent={avatarData.color}
+              size={56}
+              className="account-panel-avatar"
+            />
+          ) : (
+            <div className="account-panel-avatar">{name.slice(0, 2).toUpperCase()}</div>
+          )}
           <div className="account-panel-name">{name}</div>
           {email && <div className="account-panel-email">{email}</div>}
           <div className="account-panel-badges">
@@ -151,6 +186,34 @@ export function UserAccountPanel({ role, name, email, onSignOut, onClose }: Prop
         )}
 
         <div className="account-panel-gap" />
+
+        {/* Agentic tutor parent toggle. Hidden for guest accounts since
+            it's most relevant to households where a parent is making the
+            call on behalf of a kid. */}
+        {role !== 'guest' && (
+          <div className="account-panel-toggle-row">
+            <div className="account-panel-toggle-text">
+              <div className="account-panel-toggle-title">
+                <Sparkles size={13} />
+                Spark observes & coaches
+              </div>
+              <div className="account-panel-toggle-sub">
+                When on, Spark watches the session and offers occasional hints
+                or encouragement. Turn off for quieter sessions.
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={agenticEnabled}
+              className={`account-panel-toggle${agenticEnabled ? ' on' : ''}`}
+              onClick={() => setAgenticTutorEnabled(!agenticEnabled)}
+              title={agenticEnabled ? 'Turn off proactive coaching' : 'Turn on proactive coaching'}
+            >
+              <span className="account-panel-toggle-knob" />
+            </button>
+          </div>
+        )}
 
         <button type="button" className="account-panel-signout" onClick={onSignOut}>
           <LogOut size={15} />

@@ -10992,7 +10992,147 @@ select.block-param-input{width:auto;padding-right:20px}
   background: linear-gradient(90deg, var(--cyan, #5de4ff), #6366f1);
 }
 
+/* Spark agentic tool confirmation modal — shown when Claude wants to mutate
+   the canvas (e.g., place a demo wall). Yes/No required from the student. */
+.spark-tool-confirm {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 460px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  background: rgba(20, 14, 32, 0.96);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(168, 85, 247, 0.15) inset;
+  backdrop-filter: blur(12px);
+}
+.spark-tool-confirm-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.18);
+  color: #d9b8ff;
+  flex-shrink: 0;
+}
+.spark-tool-confirm-body {
+  flex: 1;
+  min-width: 0;
+}
+.spark-tool-confirm-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f0eafa;
+  line-height: 1.3;
+}
+.spark-tool-confirm-reason {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: rgba(220, 210, 240, 0.72);
+  line-height: 1.35;
+}
+.spark-tool-confirm-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.spark-tool-confirm-yes,
+.spark-tool-confirm-no {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.spark-tool-confirm-yes {
+  background: rgba(34, 197, 94, 0.16);
+  color: #5fe39c;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+.spark-tool-confirm-yes:hover {
+  background: rgba(34, 197, 94, 0.28);
+}
+.spark-tool-confirm-no {
+  background: rgba(255, 100, 100, 0.1);
+  color: rgba(255, 150, 150, 0.85);
+  border-color: rgba(255, 100, 100, 0.32);
+}
+.spark-tool-confirm-no:hover {
+  background: rgba(255, 100, 100, 0.2);
+}
+
 .account-panel-gap { flex: 1; }
+
+/* Agentic tutor parent toggle row */
+.account-panel-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  background: rgba(168, 85, 247, 0.05);
+  margin-bottom: 12px;
+}
+.account-panel-toggle-text {
+  flex: 1;
+  min-width: 0;
+}
+.account-panel-toggle-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 3px;
+}
+.account-panel-toggle-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.account-panel-toggle {
+  flex-shrink: 0;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+  padding: 0;
+}
+.account-panel-toggle.on {
+  background: rgba(168, 85, 247, 0.55);
+  border-color: rgba(168, 85, 247, 0.7);
+}
+.account-panel-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.account-panel-toggle.on .account-panel-toggle-knob {
+  transform: translateX(16px);
+}
 
 .account-panel-signout {
   display: flex;

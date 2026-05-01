@@ -15,6 +15,8 @@ import { LearningStage } from '@/components/student-dashboard/learning-stage';
 import { PromptComposer } from '@/components/student-dashboard/prompt-composer';
 import { SimPlayground } from '@/components/sim-playground';
 import { type SceneObject, generateThumbnailSvg } from '@/lib/scene-builder';
+import { buildSparkContext, describeContextAsText } from '@/lib/spark-context';
+import { SparkToolDispatcher } from '@/components/spark-tool-dispatcher';
 import { getSession as getSavedSession, updateSession as updateSavedSessionRecord, SAVE_NOW_EVENT } from '@/lib/session-storage';
 import type { StudentDashboardProps } from '@/components/student-dashboard/types';
 import type { AgeGroup, ConceptLayer, InputMode } from '@/lib/concept-types';
@@ -124,7 +126,11 @@ export function StudentDashboard({
         thumbnailSvg: thumb ?? undefined,
       });
     };
-    const handle = setTimeout(flush, 400);
+    // 2s debounce. Place/rotate/delete events arrive in bursts while a kid
+    // is building; saving on every change pegs localStorage and triggers a
+    // thumbnail regeneration each time. Manual Save button still flushes
+    // immediately via SAVE_NOW_EVENT.
+    const handle = setTimeout(flush, 2000);
     const onSaveNow = () => { clearTimeout(handle); flush(); };
     window.addEventListener(SAVE_NOW_EVENT, onSaveNow);
     return () => {
@@ -983,10 +989,31 @@ export function StudentDashboard({
               classroomRestrictions={userRole === 'student' ? classroomRestrictions : undefined}
               sessionId={sessionId}
               isSandbox={appMode === 'sandbox'}
+              getContextText={() => describeContextAsText(buildSparkContext({
+                sceneObjects,
+                mode: appMode === 'sandbox' ? 'sandbox' : 'concept',
+                conceptId,
+                conceptTitle: conceptId ? conceptTitle : null,
+                ageGroup,
+                layer: conceptId ? activeLayer : null,
+                studentFirstName: (studentName || 'guest').split(/\s+/)[0] ?? 'guest',
+                // The progress / sessions stores key on the full studentName
+                // — first name alone misses the right record.
+                studentStoreKey: studentName || 'guest',
+              }))}
             />
           </div>
         </div>
       </div>
+
+      {/* Agentic tool dispatcher — receives `spark.tool-request` events
+          from the observe loop and either runs the action immediately
+          (annotative) or surfaces a Yes/No confirmation (mutative). */}
+      <SparkToolDispatcher
+        sceneObjects={sceneObjects}
+        onSceneObjectsChange={setSceneObjects}
+        studentName={studentName}
+      />
 
       {pendingTask && !lessonPlan && !isRobotChallenge && (
         <div className="sketch-notify-card" role="dialog" aria-live="polite" aria-labelledby="sketch-notify-title">

@@ -36,7 +36,9 @@ import { getClassSession, setClassSession, type ClassSession } from '@/lib/sessi
 import { canUpload, canUseFreeDraw, isConceptAllowed } from '@/lib/classroom-restrictions';
 import type { ClassroomProfile } from '@/lib/platform-types';
 import type { StartSessionOptions } from '@/components/home-screen';
-import { updateSession as updateSavedSession, SAVE_NOW_EVENT } from '@/lib/session-storage';
+import { updateSession as updateSavedSession, createSession as createSavedSession, SAVE_NOW_EVENT } from '@/lib/session-storage';
+import { useSparkIdle } from '@/lib/use-spark-idle';
+import { emitSparkEvent } from '@/lib/spark-events';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 type AppView = 'plan' | 'auth' | 'difficulty-onboarding' | 'home' | 'session';
@@ -113,6 +115,10 @@ function rtcConfiguration(iceServers?: RTCIceServerConfig[]): RTCConfiguration {
 }
 
 export default function HomePage() {
+  // Spark aliveness — track user idle so the behavior coordinator can drift
+  // mood + fire proactive nudges. Mounted at the root so it covers every view.
+  useSparkIdle();
+
   const prefersReducedMotion = usePrefersReducedMotion();
   const { apiBase, wsBase } = useRuntimeConfig();
   const { launchState, pairingTargets } = useDesktopShell();
@@ -267,8 +273,24 @@ export default function HomePage() {
     if (ageGroup) setSelectedAgeGroup(ageGroup);
     setLessonPlanActive(Boolean(options?.lessonPlanning));
     setActiveChallengeId(options?.challengeId ?? null);
-    setCurrentSessionId(options?.sessionId ?? null);
+    // Auto-create a SavedSession for fresh sandbox sessions so the Save
+    // button has something to bind to. Concept sessions get one too if the
+    // caller didn't pass an existing id.
+    let sessionIdForView = options?.sessionId ?? null;
+    if (!sessionIdForView) {
+      try {
+        const created = createSavedSession(userName || 'guest', {
+          conceptId: conceptId ?? null,
+          conceptTitle: options?.conceptTitle ?? (conceptId ? null : 'Sandbox'),
+          ageGroup: ageGroup ?? selectedAgeGroup,
+          prompt: starterPrompt,
+        });
+        sessionIdForView = created.id;
+      } catch { /* localStorage may not be available; SaveStatus will hide silently */ }
+    }
+    setCurrentSessionId(sessionIdForView);
     setView('session');
+    emitSparkEvent('session.open');
     localStorage.setItem(
       'sketchbot-session-v1',
       JSON.stringify({
@@ -345,7 +367,9 @@ export default function HomePage() {
   useEffect(() => {
     if (!currentSessionId || view !== 'session') return;
     const flush = () => updateSavedSession(userName || 'guest', currentSessionId, { prompt });
-    const id = setTimeout(flush, 600);
+    // 2s debounce — feels responsive for typing without thrashing localStorage
+    // on every keystroke. SAVE_NOW_EVENT (Save button) flushes immediately.
+    const id = setTimeout(flush, 2000);
     const onSaveNow = () => { clearTimeout(id); flush(); };
     window.addEventListener(SAVE_NOW_EVENT, onSaveNow);
     return () => {

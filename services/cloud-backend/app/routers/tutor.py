@@ -30,6 +30,20 @@ class TutorMessageRequest(BaseModel):
     student_message: str = ""
     drawing_prompt: str = ""
     path_count: int = 0
+    # Optional situational-awareness preamble built by the renderer's
+    # spark-context module. Rendered server-side as an uncached system
+    # block. See docs/privacy-tutor-observe.md.
+    context_text: str = ""
+
+
+class TutorObserveRequest(BaseModel):
+    """Tick-driven observation. Most responses are {speak: false}."""
+    student_name: str = ""
+    age_group: str = "builder"
+    actor_role: str = "student"
+    concept_id: str = "free-draw"
+    layer: str = "intuitive"
+    context_text: str = ""
 
 
 @router.post("/message")
@@ -57,6 +71,7 @@ async def tutor_message(body: TutorMessageRequest, user: AuthUser):
                 student_message=body.student_message,
                 drawing_prompt=body.drawing_prompt,
                 path_count=body.path_count,
+                context_text=body.context_text,
             ):
                 tokens_sent += 1
                 yield f"data: {json.dumps({'type': 'token', 'text': chunk})}\n\n"
@@ -86,6 +101,49 @@ class TutorEvaluateRequest(BaseModel):
     layer: str = "intuitive"
     drawing_prompt: str = ""
     path_count: int = 0
+
+
+@router.post("/observe")
+async def tutor_observe(body: TutorObserveRequest, user: AuthUser):
+    """
+    Tick-driven situational observation. The renderer ships its current
+    SparkContext (rendered as natural-language text); the tutor decides
+    whether to speak and/or call a tool. Returns:
+        { speak: bool, message: str, tool_request?: {...} }
+
+    Credit policy: silent ticks are FREE (most ticks are silent and a
+    typical session would burn ~50 credits if we charged per tick).
+    Charge 1 credit only when the tutor either spoke or invoked a tool —
+    those are the outcomes that produce real student-facing value.
+    """
+    has_credits, _remaining = check_credits(user["id"])
+    if not has_credits:
+        # No credits → just stay silent. Don't surface an error on a
+        # background tick; the user will see the credit warning the next
+        # time they actually invoke the tutor on purpose.
+        return {"speak": False, "message": ""}
+
+    result = await tutor_service.observe(
+        student_name=body.student_name,
+        age_group=body.age_group,
+        actor_role=body.actor_role,
+        concept_id=body.concept_id,
+        layer=body.layer,
+        context_text=body.context_text,
+    )
+
+    spoke = bool(result.get("speak") and result.get("message"))
+    used_tool = bool(result.get("tool_request"))
+    if spoke or used_tool:
+        deduct_credits(user["id"], 1)
+
+    return result
+
+
+@router.get("/observe-stats")
+async def tutor_observe_stats(_user: AuthUser):
+    """Aggregate counters for cost / quality monitoring (no payload contents)."""
+    return tutor_service.get_observe_counters()
 
 
 @router.post("/evaluate")

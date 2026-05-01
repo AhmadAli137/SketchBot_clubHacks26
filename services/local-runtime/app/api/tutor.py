@@ -31,6 +31,20 @@ class TutorMessageRequest(BaseModel):
     student_message: str = ""
     drawing_prompt: str = ""
     path_count: int = Field(default=0, ge=0)
+    # Optional situational-awareness preamble (rendered server-side as an
+    # uncached system block). When omitted the tutor falls back to its
+    # legacy behaviour. See lib/spark-context.ts on the renderer side.
+    context_text: str = ""
+
+
+class TutorObserveRequest(BaseModel):
+    """Tick-driven observation. The tutor decides whether to speak at all."""
+    student_name: str = "Student"
+    age_group: str = "builder"
+    actor_role: str = "student"
+    concept_id: str = "free-draw"
+    layer: str = "intuitive"
+    context_text: str = ""
 
 
 class TutorEvaluateRequest(BaseModel):
@@ -76,6 +90,7 @@ async def tutor_message(req: TutorMessageRequest) -> StreamingResponse:
                 student_message=req.student_message,
                 drawing_prompt=req.drawing_prompt,
                 path_count=req.path_count,
+                context_text=req.context_text,
             ):
                 payload = json.dumps({"type": "token", "text": token})
                 yield f"data: {payload}\n\n"
@@ -113,6 +128,26 @@ async def tutor_evaluate(req: TutorEvaluateRequest) -> dict:
     )
 
 
+@router.post("/observe")
+async def tutor_observe(req: TutorObserveRequest) -> dict:
+    """
+    Tick-driven situational observation. The renderer ships its current
+    SparkContext (rendered as natural-language text); the tutor decides
+    whether to speak. Returns ``{speak: bool, message: str}``.
+
+    When ``speak`` is False the renderer should not display anything —
+    that's the intended common case.
+    """
+    return await tutor_service.observe(
+        student_name=req.student_name,
+        age_group=req.age_group,
+        actor_role=req.actor_role,
+        concept_id=req.concept_id,
+        layer=req.layer,
+        context_text=req.context_text,
+    )
+
+
 @router.post("/clear-session")
 async def tutor_clear_session(req: TutorClearRequest) -> dict:
     """Clear all conversation history for a student (e.g., on logout or session reset)."""
@@ -122,13 +157,19 @@ async def tutor_clear_session(req: TutorClearRequest) -> dict:
 
 @router.get("/status")
 def tutor_status() -> dict:
-    """Anthropic availability + Supabase sync diagnostics (see docs/supabase-tutor-audit.md)."""
+    """Anthropic availability + Supabase sync diagnostics (see docs/supabase-tutor-audit.md).
+
+    Also surfaces aggregate counters for the agentic observe loop — pure counts,
+    no payload contents, suitable for cost / quality monitoring (see
+    docs/privacy-tutor-observe.md).
+    """
     return {
         "available": tutor_service.is_available(),
         "supabase_sync": {
             "configured": tutor_supabase_sync.is_configured(),
             "outbox_pending": supabase_outbox_pending_count(),
         },
+        "observe": tutor_service.get_observe_counters(),
     }
 
 

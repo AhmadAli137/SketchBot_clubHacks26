@@ -28,6 +28,8 @@ import {
 import type { ClassroomRestrictions } from '@/lib/platform-types';
 import { effectiveMaxHints } from '@/lib/classroom-restrictions';
 import { CLOUD_API_URL, cloudHeaders, useCloudAuthToken } from '@/lib/cloud-api';
+import { emitSparkEvent, onSparkEvent } from '@/lib/spark-events';
+import { useSparkTick } from '@/lib/use-spark-tick';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +60,12 @@ type TutorPanelProps = {
   sessionId?: string | null;
   /** Hide Academy-only affordances (Hint, Go Deeper, layer pills) in sandbox sessions. */
   isSandbox?: boolean;
+  /**
+   * Build the situational-awareness context (rendered text) for tutor calls.
+   * Provided by the parent because scene state lives there. Called fresh on
+   * every trigger so the AI always sees current state.
+   */
+  getContextText?: () => string;
 };
 
 type EvaluationNotice = {
@@ -978,6 +986,7 @@ export function TutorPanel({
   classroomRestrictions,
   sessionId = null,
   isSandbox = false,
+  getContextText,
 }: TutorPanelProps) {
   const sessionActorRole: 'teacher' | 'student' = sessionActorRoleProp ?? 'student';
   const [messages, setMessages] = useState<TutorMessage[]>([]);
@@ -1358,6 +1367,16 @@ export function TutorPanel({
               scoreDetails: result.scoreDetails,
             });
             onXPChange?.();
+            // Spark reactions: cheer on pass, encourage on miss; bigger
+            // milestones (level-up, mastered) fire their own events on top so
+            // the coordinator can play a richer scene.
+            if (evaluation.passed) {
+              emitSparkEvent('tutor.evaluation.pass', { xp: result.xpAwarded });
+              if (result.leveledUp) emitSparkEvent('tutor.level-up', { level: result.newLevel });
+              if (result.newly_mastered) emitSparkEvent('tutor.concept-mastered');
+            } else {
+              emitSparkEvent('tutor.evaluation.fail');
+            }
           }
         } catch {
           setEvaluationNotice({
@@ -1371,6 +1390,7 @@ export function TutorPanel({
             leveledUp: false,
             newLevel: 1,
           });
+          emitSparkEvent('tutor.evaluation.fail');
         }
       })();
     }
@@ -1418,6 +1438,11 @@ export function TutorPanel({
     tts.streamBegin(tutorMsgId);
     streamSpokeItRef.current = true;
 
+    // Pull a fresh situational-awareness preamble from the parent. The
+    // tutor backend treats `context_text` as an uncached system block — see
+    // services/local-runtime/app/services/tutor_service.py.
+    const contextText = getContextText?.() ?? '';
+
     try {
       const res = await fetch(`${CLOUD_API_URL}/api/tutor/message`, {
         method: 'POST',
@@ -1427,6 +1452,7 @@ export function TutorPanel({
           student_name: studentName,
           age_group: ageGroup,
           actor_role: sessionActorRole,
+          context_text: contextText,
           ...body,
         }),
       });
@@ -1570,6 +1596,48 @@ export function TutorPanel({
     });
   };
 
+  // Layer 3 — proactive nudges. The behavior coordinator emits
+  // `spark.nudge.struggle` after consecutive failures and `spark.nudge.idle`
+  // after a long stretch of inactivity. We respond by quietly triggering the
+  // same flow as the Hint button — but only when a concept is active and
+  // we're not already streaming a reply, to avoid talking over ourselves.
+  useEffect(() => {
+    return onSparkEvent((detail) => {
+      if (detail.kind !== 'spark.nudge.struggle' && detail.kind !== 'spark.nudge.idle') return;
+      if (tutorStreaming) return;
+      if (!conceptId) return; // sandbox / free-draw → don't pester
+      const cap = effectiveMaxHints(classroomRestrictions ?? undefined);
+      if (cap !== null && hintsUsedRef.current >= cap) return;
+      void handleHint();
+    });
+    // handleHint closes over latest props/state via refs that update; this is
+    // intentionally mounted once — see the streaming/cap guards above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conceptId, tutorStreaming, classroomRestrictions, sessionActorRole, activeLayer, drawingPrompt, pathCount]);
+
+  // Agentic tick — adaptive observation loop. Most ticks return silently;
+  // when Spark genuinely has something to say, drop the message into the
+  // chat thread. The existing non-stream TTS effect (above) speaks it.
+  useSparkTick({
+    enabled: backendReachable && !!CLOUD_API_URL && !tutorStreaming && !!getContextText,
+    studentName,
+    ageGroup,
+    actorRole: sessionActorRole,
+    conceptId,
+    layer: activeLayer,
+    cloudAuthToken,
+    getContextText: () => getContextText?.() ?? '',
+    onObservation: (obs) => {
+      if (!obs.speak || !obs.message.trim()) return;
+      // Don't pile up if the user is already mid-conversation with the tutor.
+      if (tutorStreaming) return;
+      setMessages((prev) => [
+        ...prev,
+        { id: genId(), role: 'tutor', content: obs.message.trim() },
+      ]);
+    },
+  });
+
   const handleGoDeeper = () => {
     const currentIdx = LAYERS.indexOf(activeLayer);
     if (currentIdx < LAYERS.length - 1) {
@@ -1583,6 +1651,7 @@ export function TutorPanel({
       }
       setEvaluationNotice(null);
       onLayerChange(nextLayer);
+      emitSparkEvent('tutor.layer-up', { layer: nextLayer });
     }
   };
 

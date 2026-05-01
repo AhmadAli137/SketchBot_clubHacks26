@@ -282,6 +282,71 @@ def _offline_message(student_name: str, age_group: str, concept_id: str, trigger
 # ─── TutorService ─────────────────────────────────────────────────────────────
 
 class TutorService:
+    # Aggregate observe-loop telemetry (no payload contents). Surfaced at
+    # /api/tutor/status for cost / quality monitoring. See docs/privacy-tutor-observe.md.
+    _observe_counters: dict = {"total": 0, "spoken": 0, "silent": 0, "error": 0, "tool_used": 0}
+
+    # Agent tool schema — mirror of frontend lib/spark-tools.ts. The
+    # renderer's dispatcher decides annotative vs mutative; the backend just
+    # exposes these to Claude and forwards any tool_use block back.
+    _OBSERVE_TOOLS: list[dict] = [
+        {
+            "name": "highlight_object",
+            "description": (
+                "Briefly highlight a single object on the canvas to draw the "
+                "student's attention. Annotative — runs immediately, no "
+                "confirmation. Use to point at something they built."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "object_id": {"type": "string", "description": "SceneObject id from the situational-awareness preamble."},
+                    "reason": {"type": "string", "description": "Short note shown to the student."},
+                },
+                "required": ["object_id"],
+            },
+        },
+        {
+            "name": "award_xp",
+            "description": (
+                "Give the student a small XP boost for genuine effort or a "
+                "creative move. Annotative. Use sparingly — at most a couple "
+                "times per session — so it stays meaningful. Always provide "
+                "a one-sentence reason that references what they actually did."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "amount": {"type": "number", "description": "5, 10, or 25."},
+                    "reason": {"type": "string", "description": "Why they earned it."},
+                },
+                "required": ["amount", "reason"],
+            },
+        },
+        {
+            "name": "add_demo_object",
+            "description": (
+                "Drop a demonstration object onto the canvas to show the "
+                "student what you mean. Mutative — the renderer will surface a "
+                "Yes/No confirmation to the student before this runs. Use only "
+                "when describing alone isn't clear."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": ["wall", "cone", "block", "sphere", "cylinder", "waypoint"],
+                    },
+                    "x": {"type": "number", "description": "World X in metres."},
+                    "z": {"type": "number", "description": "World Z in metres."},
+                    "reason": {"type": "string", "description": "What this demo is meant to teach."},
+                },
+                "required": ["type", "x", "z"],
+            },
+        },
+    ]
+
     def __init__(self) -> None:
         self._client = (
             anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
@@ -291,6 +356,10 @@ class TutorService:
 
     def is_available(self) -> bool:
         return self._client is not None
+
+    @classmethod
+    def get_observe_counters(cls) -> dict:
+        return dict(cls._observe_counters)
 
     async def stream_message(
         self,
@@ -304,6 +373,7 @@ class TutorService:
         student_message: str = "",
         drawing_prompt: str = "",
         path_count: int = 0,
+        context_text: str = "",
     ) -> AsyncIterator[str]:
         if self._client is None:
             yield _offline_message(student_name, age_group, concept_id, trigger)
@@ -331,7 +401,7 @@ class TutorService:
                 "Use conversation history to stay coherent — reference what was drawn and build on prior exchanges."
             )
 
-        system_blocks = [
+        system_blocks: list[dict] = [
             {"type": "text", "text": persona, "cache_control": {"type": "ephemeral"}},
             {
                 "type": "text",
@@ -342,6 +412,23 @@ class TutorService:
                 "cache_control": {"type": "ephemeral"},
             },
         ]
+
+        # Third block — situational-awareness preamble built from the renderer's
+        # SparkContext. UNCACHED (changes every turn). Skipped when no context
+        # was supplied so legacy callers behave unchanged.
+        if context_text and context_text.strip():
+            system_blocks.append({
+                "type": "text",
+                "text": (
+                    "SITUATIONAL AWARENESS — what's happening right now in the app.\n"
+                    "Use this to ground your reply in the student's actual work.\n"
+                    "Try to infer what they're trying to build from the scene + recent events. "
+                    "If you can confidently guess, weave that into your reply ('looks like you're "
+                    "building a maze — want me to help test it?'). If you really can't tell, ask "
+                    "ONE short clarifying question instead of guessing wrong.\n\n"
+                    f"{context_text.strip()}"
+                ),
+            })
 
         user_text = _build_user_message(
             student_name=student_name,
@@ -354,11 +441,13 @@ class TutorService:
         )
         messages = _trim_history(list(session.history)) + [{"role": "user", "content": user_text}]
 
-        # In-memory response cache
+        # In-memory response cache. v3 keys context_text into the hash so a
+        # different scene state doesn't reuse a stale cached completion.
         cache_key = _sha256({
-            "v": 2, "model": "claude-sonnet-4-6", "actor_role": actor_role,
+            "v": 3, "model": "claude-sonnet-4-6", "actor_role": actor_role,
             "age_group": age_group, "trigger": trigger, "concept_id": concept_id,
             "layer": layer, "user": user_text, "messages": messages,
+            "context": context_text or "",
         })
         with _stream_lock:
             cached = _lru_get(_stream_lru, cache_key, _CACHE_TTL)
@@ -444,6 +533,149 @@ class TutorService:
         except json.JSONDecodeError:
             return {"passed": True, "score": 50, "creativity": 50, "concept_alignment": 50,
                     "complexity": 50, "feedback": raw or "Keep exploring!", "suggest_next_layer": False}
+
+    async def observe(
+        self,
+        *,
+        student_name: str,
+        age_group: str,
+        actor_role: str = "student",
+        concept_id: str,
+        layer: str,
+        context_text: str,
+    ) -> dict:
+        """
+        Tick-driven observation. Given a SparkContext preamble (rendered as
+        natural-language text by the renderer), the tutor decides whether
+        it has anything genuinely useful to say *right now* and/or whether
+        to call one of the agent tools.
+
+        Returns ``{speak: bool, message: str, tool_request?: {...}}``.
+        Most ticks return ``{speak: False}`` and Spark stays silent. See
+        services/local-runtime/app/services/tutor_service.py for the
+        canonical reference implementation; this mirror exists so the
+        cloud deploy on Render serves the same endpoint.
+        """
+        type(self)._observe_counters["total"] += 1
+        if self._client is None:
+            type(self)._observe_counters["silent"] += 1
+            return {"speak": False, "message": ""}
+        if not context_text or not context_text.strip():
+            type(self)._observe_counters["silent"] += 1
+            return {"speak": False, "message": ""}
+
+        persona = _PERSONAS.get(age_group, _PERSONA_BUILDER)
+        concept_ctx = _build_concept_context(concept_id, layer)
+
+        observation_prompt = (
+            "OBSERVATION TICK — you are watching a student work in the app.\n\n"
+            "Default behaviour: STAY SILENT and do nothing. Most ticks should "
+            "result in no spoken message and no tool call. Aim for roughly 1 "
+            "interjection per 5 ticks. Err on the side of silence.\n\n"
+            "When you DO act, you have two channels:\n"
+            "  1. SPEAK — return a short kind sentence via the JSON below.\n"
+            "  2. TOOL — call one of the available tools when an action is "
+            "more useful than a sentence.\n\n"
+            "Tool guidelines:\n"
+            "- highlight_object: annotative, fine to use whenever pointing helps.\n"
+            "- award_xp: rare, only for visible effort or genuine creativity.\n"
+            "- add_demo_object: rarest of all. The student will be asked Yes/No "
+            "before it actually places. Don't request unless words really "
+            "aren't enough. Always pair with a short `reason`.\n\n"
+            "Speech is independent from tools — you can speak without using a "
+            "tool, use a tool without speaking, or do both. If you're not "
+            "doing either, just return the silent JSON below.\n\n"
+            "Reply with ONLY valid JSON for the speech channel, no extra text:\n"
+            '{"speak": false, "message": ""}\n'
+            "OR\n"
+            '{"speak": true, "message": "<one short sentence, no list, no \\"---\\" block>"}\n\n'
+            "Constraints when speak=true:\n"
+            "- ONE or TWO short sentences (≤180 characters total)\n"
+            "- No bullet lists, no numbered steps, no `---` block\n"
+            "- Reference what's actually on the canvas or what they just did\n"
+            "- Sound like Sketch — same voice as the rest of the session\n"
+            "- If you can confidently infer their goal, name it; if not, ask "
+            "one short question\n"
+        )
+
+        system_blocks: list[dict] = [
+            {"type": "text", "text": persona, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": f"CONCEPT CONTEXT:\n{concept_ctx}", "cache_control": {"type": "ephemeral"}},
+            {
+                "type": "text",
+                "text": (
+                    "SITUATIONAL AWARENESS — what's happening right now in the app.\n"
+                    f"{context_text.strip()}"
+                ),
+            },
+        ]
+
+        # Cost knob: silent ticks dominate; Sonnet 4.6 is fine for nuance but
+        # a Haiku swap here would cut observation costs ~3x with little
+        # quality loss for one-sentence kid-tutor banter.
+        try:
+            msg = await self._client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=400,
+                system=system_blocks,  # type: ignore[arg-type]
+                messages=[{"role": "user", "content": observation_prompt}],
+                tools=type(self)._OBSERVE_TOOLS,  # type: ignore[arg-type]
+            )
+        except Exception:  # noqa: BLE001
+            type(self)._observe_counters["error"] += 1
+            return {"speak": False, "message": ""}
+
+        # Parse Claude's response — text JSON for speech + optional tool_use
+        # block(s). Take the first tool_use as the tool_request the renderer
+        # should dispatch; ignore any others.
+        text_chunks: list[str] = []
+        tool_request: dict | None = None
+        for block in (msg.content or []):
+            btype = getattr(block, "type", None)
+            if btype == "text":
+                text_chunks.append(getattr(block, "text", "") or "")
+            elif btype == "tool_use" and tool_request is None:
+                tool_name = getattr(block, "name", "") or ""
+                tool_input = getattr(block, "input", {}) or {}
+                if tool_name:
+                    reason_val = ""
+                    if isinstance(tool_input, dict):
+                        reason_val = str(tool_input.get("reason", "") or "")
+                    tool_request = {
+                        "id": tool_name,
+                        "input": tool_input if isinstance(tool_input, dict) else {},
+                        "reason": reason_val,
+                    }
+
+        raw = "".join(text_chunks).strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1].lstrip("json").strip()
+
+        speak = False
+        message = ""
+        if raw:
+            try:
+                parsed = json.loads(raw)
+                speak = bool(parsed.get("speak", False))
+                message = str(parsed.get("message", "")).strip() if speak else ""
+                if len(message) > 240:
+                    message = message[:237] + "…"
+            except json.JSONDecodeError:
+                if not tool_request:
+                    type(self)._observe_counters["error"] += 1
+                    return {"speak": False, "message": ""}
+
+        if tool_request:
+            type(self)._observe_counters["tool_used"] += 1
+        if speak and message:
+            type(self)._observe_counters["spoken"] += 1
+        elif not tool_request:
+            type(self)._observe_counters["silent"] += 1
+
+        result: dict = {"speak": speak, "message": message}
+        if tool_request:
+            result["tool_request"] = tool_request
+        return result
 
 
 tutor_service = TutorService()

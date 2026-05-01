@@ -417,14 +417,14 @@ def _stream_response_cache_key(
     layer: str,
     user_text: str,
     messages: list[dict[str, Any]],
+    context_text: str = "",
 ) -> str:
     return _sha256_hex(
         {
             # Bump this whenever system-prompt / persona / OUTPUT_CHANNELS rules
-            # change in a way that should invalidate cached completions. v3:
-            # made the --- written-only block opt-in and dropped the verbose
-            # bullet-menu greetings.
-            "v": 3,
+            # change in a way that should invalidate cached completions. v4:
+            # added situational-awareness context block.
+            "v": 4,
             "model": "claude-sonnet-4-6",
             "actor_role": actor_role,
             "age_group": age_group,
@@ -433,6 +433,7 @@ def _stream_response_cache_key(
             "layer": layer,
             "user": user_text,
             "messages": messages,
+            "context": context_text,
         }
     )
 
@@ -668,6 +669,7 @@ class TutorService:
         student_message: str = "",
         drawing_prompt: str = "",
         path_count: int = 0,
+        context_text: str = "",
     ) -> AsyncIterator[str]:
         """
         Yields text tokens for SSE streaming.
@@ -733,7 +735,7 @@ class TutorService:
                 "Prefer short spoken intros and quick prompts before ---; avoid opening with a long monologue."
             )
 
-        system_blocks = [
+        system_blocks: list[dict] = [
             {
                 "type": "text",
                 "text": persona,
@@ -752,6 +754,24 @@ class TutorService:
                 "cache_control": {"type": "ephemeral"},
             },
         ]
+
+        # Third block — situational-awareness preamble built from the renderer's
+        # SparkContext. Deliberately UNCACHED (no `cache_control`): it changes
+        # every turn, so caching would just waste an entry. Skipped entirely
+        # when the renderer didn't supply context (legacy callers).
+        if context_text.strip():
+            system_blocks.append({
+                "type": "text",
+                "text": (
+                    "SITUATIONAL AWARENESS — what's happening right now in the app.\n"
+                    "Use this to ground your reply in the student's actual work.\n"
+                    "Try to infer what they're trying to build from the scene + recent events. "
+                    "If you can confidently guess, weave that into your reply ('looks like you're "
+                    "building a maze — want me to help test it?'). If you really can't tell, ask "
+                    "ONE short clarifying question instead of guessing wrong.\n\n"
+                    f"{context_text.strip()}"
+                ),
+            })
 
         user_text = _build_user_message(
             student_name=student_name,
@@ -777,6 +797,7 @@ class TutorService:
             layer=layer,
             user_text=user_text,
             messages=messages,
+            context_text=context_text,
         )
         cached_text = _stream_cache_get(cache_key)
         if cached_text is not None:
@@ -996,6 +1017,255 @@ class TutorService:
                 from_cache=False,
             )
             return fallback
+
+    # ── Aggregate telemetry counters (no payload contents) ──────────────────
+    # See docs/privacy-tutor-observe.md — these are intentionally minimal so
+    # they can survive the privacy review and still give us cost / quality
+    # signals.
+    _observe_counters: dict = {"total": 0, "spoken": 0, "silent": 0, "error": 0, "tool_used": 0}
+
+    # ── Agent tool schemas (Hybrid model) ───────────────────────────────────
+    # Mirror of the frontend lib/spark-tools.ts registry. The renderer is the
+    # source of truth — anything Claude asks for that the renderer doesn't
+    # know how to dispatch will be silently dropped client-side. Annotative
+    # vs mutative is decided client-side (renderer has the kind metadata);
+    # the backend just passes the tool_use through.
+    _OBSERVE_TOOLS: list[dict] = [
+        {
+            "name": "highlight_object",
+            "description": (
+                "Briefly highlight a single object on the canvas to draw the "
+                "student's attention to it. Annotative — runs immediately, no "
+                "confirmation needed. Use to point at something they built."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "object_id": {"type": "string", "description": "SceneObject id from the situational-awareness preamble."},
+                    "reason": {"type": "string", "description": "Short note shown to the student."},
+                },
+                "required": ["object_id"],
+            },
+        },
+        {
+            "name": "award_xp",
+            "description": (
+                "Give the student a small XP boost for genuine effort or a "
+                "creative move. Annotative. Use sparingly — at most a couple "
+                "times per session — so it stays meaningful. Always provide "
+                "a one-sentence reason that references what they actually did."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "amount": {"type": "number", "description": "5, 10, or 25."},
+                    "reason": {"type": "string", "description": "Why they earned it."},
+                },
+                "required": ["amount", "reason"],
+            },
+        },
+        {
+            "name": "add_demo_object",
+            "description": (
+                "Drop a demonstration object onto the canvas to show the "
+                "student what you mean. Mutative — the renderer will surface a "
+                "Yes/No confirmation to the student before this runs. Use only "
+                "when describing alone isn't clear, e.g. 'let me show you "
+                "where to put a wall to make a passage'."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": ["wall", "cone", "block", "sphere", "cylinder", "waypoint"],
+                    },
+                    "x": {"type": "number", "description": "World X in metres."},
+                    "z": {"type": "number", "description": "World Z in metres."},
+                    "reason": {"type": "string", "description": "What this demo is meant to teach."},
+                },
+                "required": ["type", "x", "z"],
+            },
+        },
+    ]
+
+    @classmethod
+    def get_observe_counters(cls) -> dict:
+        return dict(cls._observe_counters)
+
+    async def observe(
+        self,
+        *,
+        student_name: str,
+        age_group: str,
+        actor_role: str = "student",
+        concept_id: str,
+        layer: str,
+        context_text: str,
+    ) -> dict:
+        """
+        Tick-driven observation. Given a context preamble, the tutor decides
+        whether it has anything genuinely useful to say *right now*. Most
+        ticks return ``{speak: False}`` and Spark stays silent — that's the
+        intended behaviour. Only when the context warrants a real interjection
+        (a struggle pattern, a noteworthy build, a long lull worth nudging)
+        does the tutor produce a short message.
+
+        Returns ``{speak: bool, message: str}``. When speak is False, message
+        is empty and the renderer should not display anything.
+
+        Cost-wise this is a single Sonnet call per tick with strict output
+        constraints — silent responses are ~30 output tokens, spoken ones
+        ~150. See the cost notes in the agent-architecture doc.
+        """
+        type(self)._observe_counters["total"] += 1
+        if self._client is None:
+            type(self)._observe_counters["silent"] += 1
+            return {"speak": False, "message": ""}
+
+        if not context_text.strip():
+            # Without context there's nothing to observe over — refuse cleanly.
+            type(self)._observe_counters["silent"] += 1
+            return {"speak": False, "message": ""}
+
+        persona = _PERSONAS.get(age_group, _PERSONA_BUILDER)
+        concept_ctx = _build_concept_context(concept_id, layer)
+
+        observation_prompt = (
+            "OBSERVATION TICK — you are watching a student work in the app.\n\n"
+            "Default behaviour: STAY SILENT and do nothing. Most ticks should "
+            "result in no spoken message and no tool call. Aim for roughly 1 "
+            "interjection per 5 ticks. Err on the side of silence.\n\n"
+            "When you DO act, you have two channels:\n"
+            "  1. SPEAK — return a short kind sentence via the JSON below.\n"
+            "  2. TOOL — call one of the available tools when an action is "
+            "more useful than a sentence (highlight a part of their build, "
+            "award XP for a creative move, or — when describing alone falls "
+            "flat — request to drop a demonstration object).\n\n"
+            "Tool guidelines:\n"
+            "- highlight_object: annotative, fine to use whenever pointing helps.\n"
+            "- award_xp: rare, only for visible effort or genuine creativity.\n"
+            "- add_demo_object: rarest of all. The student will be asked Yes/No "
+            "before it actually places. Don't request it unless words really "
+            "aren't enough. Always pair with a short `reason`.\n\n"
+            "Speech is independent from tools — you can speak without using a "
+            "tool, use a tool without speaking, or do both. If you're not "
+            "doing either, just return the silent JSON below.\n\n"
+            "Reply with ONLY valid JSON for the speech channel, no extra text:\n"
+            '{"speak": false, "message": ""}\n'
+            "OR\n"
+            '{"speak": true, "message": "<one short sentence, no list, no \\"---\\" block>"}\n\n'
+            "Constraints when speak=true:\n"
+            "- ONE or TWO short sentences (≤180 characters total)\n"
+            "- No bullet lists, no numbered steps, no `---` block\n"
+            "- Reference what's actually on the canvas or what they just did\n"
+            "- Sound like Sketch — same voice as the rest of the session\n"
+            "- If you can confidently infer their goal, name it; if not, ask "
+            "one short question\n"
+        )
+
+        # Two cached system blocks (persona + concept) + one uncached
+        # situational-awareness block matching stream_message's layout.
+        system_blocks: list[dict] = [
+            {
+                "type": "text",
+                "text": persona,
+                "cache_control": {"type": "ephemeral"},
+            },
+            {
+                "type": "text",
+                "text": f"CONCEPT CONTEXT:\n{concept_ctx}",
+                "cache_control": {"type": "ephemeral"},
+            },
+            {
+                "type": "text",
+                "text": (
+                    "SITUATIONAL AWARENESS — what's happening right now in the app.\n"
+                    f"{context_text.strip()}"
+                ),
+            },
+        ]
+
+        # Cost knob: tick observations are simple {speak, message} judgments
+        # and run frequently. Sonnet 4.6 is the safer default for nuance, but
+        # if observation costs balloon swap to Haiku 4.5 here — output quality
+        # is well within Haiku's range for one-sentence kid-tutor banter, and
+        # Haiku is ~3x cheaper. Keep model choice on `tutor_service.observe`
+        # only; trigger-driven calls (greeting, hints, evaluations) stay on
+        # Sonnet because output quality matters more there.
+        #
+        # Privacy posture: this endpoint sends children's first name + age
+        # range + raw scene positions + recent in-app actions to Anthropic.
+        # Long-term we should be on Anthropic's Zero Data Retention agreement
+        # (org-level, not a per-request header). The renderer also keeps no
+        # server-side log of context payloads. See docs/privacy-tutor-observe.md.
+        try:
+            msg = await self._client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=400,  # tools+text need a bit more headroom
+                system=system_blocks,  # type: ignore[arg-type]
+                messages=[{"role": "user", "content": observation_prompt}],
+                tools=type(self)._OBSERVE_TOOLS,  # type: ignore[arg-type]
+            )
+        except Exception:  # noqa: BLE001
+            # Network blip / quota — stay silent rather than surface an error.
+            type(self)._observe_counters["error"] += 1
+            return {"speak": False, "message": ""}
+
+        # ── Parse Claude's response ────────────────────────────────────────
+        # Content blocks may include `text` (the JSON {speak,message}) and
+        # zero or more `tool_use` blocks. We take the first tool_use as the
+        # tool_request to send to the renderer; any others are ignored.
+        text_chunks: list[str] = []
+        tool_request: dict | None = None
+        for block in (msg.content or []):
+            btype = getattr(block, "type", None)
+            if btype == "text":
+                text_chunks.append(getattr(block, "text", "") or "")
+            elif btype == "tool_use" and tool_request is None:
+                tool_name = getattr(block, "name", "") or ""
+                tool_input = getattr(block, "input", {}) or {}
+                if tool_name:
+                    reason_val = ""
+                    if isinstance(tool_input, dict):
+                        reason_val = str(tool_input.get("reason", "") or "")
+                    tool_request = {
+                        "id": tool_name,
+                        "input": tool_input if isinstance(tool_input, dict) else {},
+                        "reason": reason_val,
+                    }
+
+        raw = "".join(text_chunks).strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1].lstrip("json").strip()
+
+        speak = False
+        message = ""
+        if raw:
+            try:
+                parsed = json.loads(raw)
+                speak = bool(parsed.get("speak", False))
+                message = str(parsed.get("message", "")).strip() if speak else ""
+                if len(message) > 240:
+                    message = message[:237] + "…"
+            except json.JSONDecodeError:
+                # Couldn't parse JSON — but if Claude returned a tool_use
+                # block we still want to surface it. Stay silent on speech.
+                if not tool_request:
+                    type(self)._observe_counters["error"] += 1
+                    return {"speak": False, "message": ""}
+
+        if tool_request:
+            type(self)._observe_counters["tool_used"] += 1
+        if speak and message:
+            type(self)._observe_counters["spoken"] += 1
+        elif not tool_request:
+            type(self)._observe_counters["silent"] += 1
+
+        result: dict = {"speak": speak, "message": message}
+        if tool_request:
+            result["tool_request"] = tool_request
+        return result
 
     def clear_student_sessions(self, student_name: str) -> None:
         """Clear all concept sessions for a student (e.g., on logout)."""
