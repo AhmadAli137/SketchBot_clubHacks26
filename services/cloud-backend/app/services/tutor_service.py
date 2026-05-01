@@ -298,6 +298,84 @@ def _lift_tool_reason_as_speech(reason: str) -> str:
     return text
 
 
+async def _anthropic_with_retry(
+    call,
+    *,
+    label: str,
+    max_attempts: int = 3,
+    base_delay: float = 1.0,
+):
+    """Run an async Anthropic call with exponential backoff on transient
+    errors (429, 5xx, connection drops). Honours the Retry-After header
+    when present so we don't hammer the API mid-rate-limit.
+
+    Other (non-transient) errors propagate immediately. Final attempt
+    re-raises so the caller can decide how to surface failure.
+    """
+    import asyncio
+    import logging
+    import random
+
+    log = logging.getLogger("sketchbot.tutor")
+
+    # Import lazily so the module still imports if the anthropic package
+    # isn't installed — matches the existing pattern at module top.
+    try:
+        from anthropic import (
+            APIConnectionError,
+            APITimeoutError,
+            InternalServerError,
+            RateLimitError,
+        )
+    except ImportError:
+        # No anthropic SDK; nothing to retry against — just call.
+        return await call()
+
+    transient = (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError)
+
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await call()
+        except transient as exc:
+            last_exc = exc
+            if attempt >= max_attempts:
+                log.warning(
+                    "anthropic.retry_exhausted label=%s attempt=%d err=%s",
+                    label, attempt, type(exc).__name__,
+                )
+                raise
+
+            # Honour Retry-After if the SDK surfaced a response with one.
+            wait: float | None = None
+            response = getattr(exc, "response", None)
+            if response is not None:
+                ra = getattr(response, "headers", {}).get("retry-after")
+                if ra:
+                    try:
+                        wait = float(ra)
+                    except (TypeError, ValueError):
+                        wait = None
+
+            if wait is None:
+                # Exponential backoff with ±20% jitter so concurrent
+                # sessions don't pile back onto the API in lockstep.
+                wait = base_delay * (2 ** (attempt - 1))
+                wait *= 1 + (random.random() - 0.5) * 0.4
+
+            wait = max(0.1, min(wait, 30.0))
+            log.info(
+                "anthropic.retry label=%s attempt=%d/%d err=%s wait_s=%.2f",
+                label, attempt, max_attempts, type(exc).__name__, wait,
+            )
+            await asyncio.sleep(wait)
+
+    # Defensive — loop should have either returned or raised by now.
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError(f"anthropic.retry: unreachable label={label}")
+
+
 def _offline_message(student_name: str, age_group: str, concept_id: str, trigger: str) -> str:
     name = student_name or "there"
     concept = _get_concept(concept_id)
@@ -542,14 +620,17 @@ class TutorService:
             '{"passed":true,"score":75,"creativity":70,"concept_alignment":80,"complexity":65,"feedback":"Nice work!","suggest_next_layer":false}'
         )
 
-        msg = await self._client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=300,
-            system=[
-                {"type": "text", "text": persona, "cache_control": {"type": "ephemeral"}},
-                {"type": "text", "text": f"CONCEPT CONTEXT:\n{concept_ctx}", "cache_control": {"type": "ephemeral"}},
-            ],
-            messages=[*recent_history, {"role": "user", "content": eval_prompt}],
+        msg = await _anthropic_with_retry(
+            lambda: self._client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=300,
+                system=[
+                    {"type": "text", "text": persona, "cache_control": {"type": "ephemeral"}},
+                    {"type": "text", "text": f"CONCEPT CONTEXT:\n{concept_ctx}", "cache_control": {"type": "ephemeral"}},
+                ],
+                messages=[*recent_history, {"role": "user", "content": eval_prompt}],
+            ),
+            label="evaluate",
         )
 
         raw = msg.content[0].text.strip() if msg.content else ""
@@ -721,14 +802,17 @@ class TutorService:
             # thinking blocks aren't shown to the user; we filter them out
             # of msg.content below. Budget is intentionally small (~half of
             # max_tokens) so cost only goes up modestly.
-            msg = await self._client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=2400,
-                temperature=1.0,  # required to be 1.0 when thinking enabled
-                thinking={"type": "enabled", "budget_tokens": 1024},
-                system=system_blocks,  # type: ignore[arg-type]
-                messages=[{"role": "user", "content": observation_prompt}],
-                tools=type(self)._OBSERVE_TOOLS,  # type: ignore[arg-type]
+            msg = await _anthropic_with_retry(
+                lambda: self._client.messages.create(
+                    model="claude-sonnet-4-6",
+                    max_tokens=2400,
+                    temperature=1.0,  # required to be 1.0 when thinking enabled
+                    thinking={"type": "enabled", "budget_tokens": 1024},
+                    system=system_blocks,  # type: ignore[arg-type]
+                    messages=[{"role": "user", "content": observation_prompt}],
+                    tools=type(self)._OBSERVE_TOOLS,  # type: ignore[arg-type]
+                ),
+                label="observe",
             )
         except Exception:  # noqa: BLE001
             type(self)._observe_counters["error"] += 1
@@ -901,11 +985,14 @@ class TutorService:
         ]
 
         try:
-            msg = await self._client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=300,
-                system=system_blocks,  # type: ignore[arg-type]
-                messages=[{"role": "user", "content": summary_prompt}],
+            msg = await _anthropic_with_retry(
+                lambda: self._client.messages.create(
+                    model="claude-sonnet-4-6",
+                    max_tokens=300,
+                    system=system_blocks,  # type: ignore[arg-type]
+                    messages=[{"role": "user", "content": summary_prompt}],
+                ),
+                label="summarize",
             )
         except Exception:  # noqa: BLE001
             return {"summary": "", "sentiment": "neutral"}
