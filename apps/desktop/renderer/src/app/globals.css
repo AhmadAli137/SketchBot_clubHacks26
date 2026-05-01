@@ -2742,12 +2742,15 @@ body {
 
 .app-sound-btn,
 .auth-theme-fab {
-  width: 34px;
-  height: 34px;
+  /* Match the profile button's geometry so the three top-right widgets
+     read as a balanced cluster. The profile keeps its cyan tint as the
+     only differentiator. */
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.75);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -10822,7 +10825,10 @@ select.block-param-input{width:auto;padding-right:20px}
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 2px solid rgba(93, 228, 255, 0.5);
+  /* 1.5px border to match the sound/theme toggles in the same cluster.
+     The cyan tint is what makes this button visually special, not its
+     thickness. */
+  border: 1.5px solid rgba(93, 228, 255, 0.5);
   background: transparent;
   color: var(--cyan, #5de4ff);
   font-size: 0.8rem;

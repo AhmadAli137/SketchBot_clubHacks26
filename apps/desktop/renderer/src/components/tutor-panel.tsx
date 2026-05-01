@@ -1251,9 +1251,18 @@ export function TutorPanel({
     // Supabase session hasn't been read yet on first render.
     if (cloudAuthToken === undefined) return;
 
-    // Wait for a real concept before firing — avoids a "free-draw" greeting that
-    // immediately gets replaced when the actual conceptId loads (double greeting bug).
-    if (conceptId === null && prevConceptRef.current !== undefined) return;
+    // Sandbox mode (conceptId === null) gets NO concept_change greeting —
+    // the backend's concept_change template generates a verbose "Welcome to
+    // Free Draw" bullet-list welcome that doesn't fit a free-build canvas.
+    // The observation tick (constrained to stay quiet on empty canvases)
+    // handles any greeting naturally when there's something worth saying.
+    if (conceptId === null) {
+      // Still record that we've seen "no concept" so a later flip TO a
+      // real concept fires conceptChanged correctly.
+      prevConceptRef.current = null;
+      prevLayerRef.current = activeLayer;
+      return;
+    }
 
     const conceptChanged =
       prevConceptRef.current === undefined || conceptId !== prevConceptRef.current;
