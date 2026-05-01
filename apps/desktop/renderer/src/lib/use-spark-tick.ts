@@ -56,6 +56,10 @@ export interface SparkObservation {
    *  decides whether to run it immediately (annotative) or ask first
    *  (mutative). See lib/spark-tools.ts. */
   tool_request?: SparkToolRequest | null;
+  /** Self-paced cadence — the agent suggests when it wants to be invoked
+   *  again, in seconds. Backend clamps to 5–180. The frontend respects
+   *  this in computeNextDelay() instead of using a fixed schedule. */
+  next_check?: number;
 }
 
 export interface UseSparkTickOptions {
@@ -82,6 +86,9 @@ export function useSparkTick(opts: UseSparkTickOptions) {
   const lastCallTsRef = useRef(0);
   const lastSpeakTsRef = useRef(0);
   const inFlightRef = useRef(false);
+  // Self-paced cadence — when set, computeNextDelay returns this once
+  // instead of the rule-based default. Cleared after one use.
+  const agentSuggestedDelayRef = useRef<number | null>(null);
 
   // Parent toggle — when off, no observation calls happen, period.
   const [parentEnabled, setParentEnabled] = useState<boolean>(() =>
@@ -97,6 +104,15 @@ export function useSparkTick(opts: UseSparkTickOptions) {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const computeNextDelay = (): number | null => {
+      // Agent self-paced cadence wins when it suggested a value last tick.
+      // Clear after one use so the rule-based fallback kicks in if the
+      // agent forgets to set next_check next time.
+      if (agentSuggestedDelayRef.current !== null) {
+        const ms = agentSuggestedDelayRef.current;
+        agentSuggestedDelayRef.current = null;
+        return ms;
+      }
+
       const now = Date.now();
       const lastEvent = sparkBehavior.getRecentEvents(1).at(-1);
       const idleMs = lastEvent ? now - lastEvent.ts : now - sparkBehavior.getSessionStart();
@@ -184,6 +200,15 @@ export function useSparkTick(opts: UseSparkTickOptions) {
         // out of date and the response would feel disconnected.
         const elapsed = Date.now() - startTs;
         if (elapsed > STALENESS_THRESHOLD_MS) return;
+
+        // Capture agent's suggested next-check cadence for the next
+        // schedule() call. Even if the response is silent or stale we
+        // honour the pacing hint — the agent might have decided
+        // "nothing's happening, give it 90s" which is just as valid as
+        // "speak now."
+        if (typeof data?.next_check === 'number' && data.next_check >= 5) {
+          agentSuggestedDelayRef.current = Math.min(180, data.next_check) * 1000;
+        }
 
         // Emit any tool request first — the dispatcher will either run it
         // immediately (annotative) or queue a confirmation (mutative).

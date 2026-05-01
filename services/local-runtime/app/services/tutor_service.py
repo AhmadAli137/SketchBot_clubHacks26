@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import random
 import threading
 import time
 from collections import OrderedDict
@@ -1131,71 +1132,48 @@ class TutorService:
         persona = _PERSONAS.get(age_group, _PERSONA_BUILDER)
         concept_ctx = _build_concept_context(concept_id, layer)
 
+        # Session salt — a tiny random integer prepended to the prompt so
+        # Claude breaks out of phrasing ruts across ticks.
+        salt = random.randint(1000, 999999)
+
         observation_prompt = (
-            "OBSERVATION TICK — you are watching a student work in the app.\n\n"
-            "Be a present, helpful tutor. About HALF of ticks should produce "
-            "something — a short sentence, an action via a tool, or a question. "
-            "The other half stay silent. Don't go silent for many ticks in a row "
-            "when there's real activity on the canvas; a kid wants to feel "
-            "watched and helped.\n\n"
-            "STYLE — bias HARD toward concrete utility, not generic curiosity:\n"
-            "- LEAD with helpful content: an observation that teaches, a hint, "
-            "a suggestion, a piece of knowledge, a celebration.\n"
-            "- AT MOST 1 in 4 interjections is purely a question. Pure-question "
-            "interjections like 'What are you building?' get tuned out fast.\n"
-            "- If you're asking a question, make it SPECIFIC: not 'what's "
-            "next?' but 'where do you want the robot to start from?'.\n"
-            "- Reference the actual scene state. 'Five cones in a row' is "
-            "useful; 'looking good' is not.\n"
-            "- When in doubt between a question and silence, prefer silence.\n"
-            "- When in doubt between a generic remark and a concrete tip, "
-            "prefer the tip — even if you're not 100% sure it's the right one.\n\n"
-            "MODE-SPECIFIC:\n"
-            "- Concept session (CONCEPT CONTEXT block visible): focus on "
-            "teaching the concept. Hints, observations, deepening questions.\n"
-            "- Sandbox / free build (no concept): be a thoughtful build "
-            "partner.\n"
-            "  EARLY/QUIET SANDBOX (fewer than ~3 objects on the canvas, OR "
-            "session duration under ~30s, OR no recent build activity): "
-            "default to SILENT. The kid is just getting started — let them "
-            "show their idea before you offer yours. Don't fill empty space "
-            "with proactive suggestions; that's nagging, not helping.\n"
-            "  ACTIVE SANDBOX (3+ objects, the kid is clearly building "
-            "something): be a thoughtful build partner. Examples that work:\n"
-            "    'Three cones in a row — try a wall on the left so the robot "
-            "has a maze to solve.'\n"
-            "    'If you rotate that wall 90° you'll have a passage.'\n"
-            "    'Nice — this is starting to look like a corner course.'\n"
-            "    'Drop a waypoint at the end and the bot will know where to "
-            "head.'\n"
-            "  Notice these all PROPOSE or NAME something specific. They "
-            "aren't pure questions.\n\n"
-            "When you DO act, you have two channels:\n"
-            "  1. SPEAK — return a short helpful sentence via the JSON below.\n"
+            f"[session pulse: {salt}]\n\n"
+            "OBSERVATION TICK — you're watching a student work in the app.\n\n"
+            "Principles, not a script:\n"
+            "- Stay silent more often than you speak. About half of ticks "
+            "should produce nothing. Talking too much makes you forgettable.\n"
+            "- When you do speak, sound like yourself, not like a tutor "
+            "reading a manual. Vary your energy, your sentence shapes, your "
+            "openers. Drop the formula.\n"
+            "- React to what's actually there. Reference specific objects, "
+            "specific moves, specific moments. Generic remarks land flat.\n"
+            "- Lead with insight, knowledge, or a concrete suggestion before "
+            "asking anything. Pure questions wear out fast — use them "
+            "sparingly and only when they're specific.\n"
+            "- If the canvas is nearly empty or the session just started, "
+            "stay quiet. Let the kid show what they're after first.\n\n"
+            "Channels:\n"
+            "  1. SPEAK — return a short, natural sentence via the JSON "
+            "below. One or two sentences max, ≤180 characters total. No "
+            "bullet lists, no numbered steps, no `---` block.\n"
             "  2. TOOL — call one of the available tools when an action is "
-            "more useful than a sentence (highlight a part of their build, "
-            "award XP for a creative move, or — when describing alone falls "
-            "flat — request to drop a demonstration object).\n\n"
-            "Tool guidelines:\n"
-            "- highlight_object: annotative, fine to use whenever pointing helps.\n"
-            "- award_xp: rare, only for visible effort or genuine creativity.\n"
-            "- add_demo_object: rarest of all. The student will be asked Yes/No "
-            "before it actually places. Don't request it unless words really "
-            "aren't enough. Always pair with a short `reason`.\n\n"
-            "Speech is independent from tools — you can speak without using a "
-            "tool, use a tool without speaking, or do both. If you're not "
-            "doing either, just return the silent JSON below.\n\n"
-            "Reply with ONLY valid JSON for the speech channel, no extra text:\n"
-            '{"speak": false, "message": ""}\n'
+            "more useful than words (highlight a part of their build, "
+            "award XP for a creative move, or — when a description alone "
+            "won't land — request to drop a demonstration object).\n\n"
+            "Speech and tools are independent. You can speak, use a tool, "
+            "do both, or do nothing.\n\n"
+            "Tool reminders: highlight_object is fine whenever pointing helps; "
+            "award_xp is rare and tied to a real reason; add_demo_object is "
+            "rarest — the student is asked Yes/No before it places, so only "
+            "request when words alone really won't carry the idea.\n\n"
+            "Reply with ONLY valid JSON for the speech channel, no extra text. "
+            "Include a `next_check` field (integer seconds, 5-180) telling the "
+            "renderer when you'd like to be invoked again — short when "
+            "something interesting is unfolding, long when the kid is in flow "
+            "and shouldn't be interrupted, very long when nothing's happening:\n"
+            '{"speak": false, "message": "", "next_check": 30}\n'
             "OR\n"
-            '{"speak": true, "message": "<one short sentence, no list, no \\"---\\" block>"}\n\n'
-            "Constraints when speak=true:\n"
-            "- ONE or TWO short sentences (≤180 characters total)\n"
-            "- No bullet lists, no numbered steps, no `---` block\n"
-            "- Reference what's actually on the canvas or what they just did\n"
-            "- Sound like Sketch — same voice as the rest of the session\n"
-            "- If you can confidently infer their goal, name it; if not, ask "
-            "one short question\n"
+            '{"speak": true, "message": "<your sentence>", "next_check": 45}\n'
         )
 
         # Two cached system blocks (persona + concept) + one uncached
@@ -1234,9 +1212,15 @@ class TutorService:
         # (org-level, not a per-request header). The renderer also keeps no
         # server-side log of context payloads. See docs/privacy-tutor-observe.md.
         try:
+            # Extended thinking enabled — Claude runs a hidden reasoning pass
+            # before producing the visible output. Reasoning paths vary per
+            # tick which produces genuinely different responses instead of
+            # formulaic ones. Thinking content is filtered out below.
             msg = await self._client.messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=400,  # tools+text need a bit more headroom
+                max_tokens=2400,
+                temperature=1.0,  # required to be 1.0 when thinking enabled
+                thinking={"type": "enabled", "budget_tokens": 1024},
                 system=system_blocks,  # type: ignore[arg-type]
                 messages=[{"role": "user", "content": observation_prompt}],
                 tools=type(self)._OBSERVE_TOOLS,  # type: ignore[arg-type]
@@ -1275,6 +1259,7 @@ class TutorService:
 
         speak = False
         message = ""
+        next_check: int | None = None
         if raw:
             try:
                 parsed = json.loads(raw)
@@ -1282,9 +1267,11 @@ class TutorService:
                 message = str(parsed.get("message", "")).strip() if speak else ""
                 if len(message) > 240:
                     message = message[:237] + "…"
+                # Self-paced cadence — agent picks when to be invoked next.
+                nc_raw = parsed.get("next_check")
+                if isinstance(nc_raw, (int, float)):
+                    next_check = max(5, min(180, int(nc_raw)))
             except json.JSONDecodeError:
-                # Couldn't parse JSON — but if Claude returned a tool_use
-                # block we still want to surface it. Stay silent on speech.
                 if not tool_request:
                     type(self)._observe_counters["error"] += 1
                     return {"speak": False, "message": ""}
@@ -1299,6 +1286,8 @@ class TutorService:
         result: dict = {"speak": speak, "message": message}
         if tool_request:
             result["tool_request"] = tool_request
+        if next_check is not None:
+            result["next_check"] = next_check
         return result
 
     async def summarize(
