@@ -564,6 +564,11 @@ class TutorAgent:
                     self.id, trigger,
                     int((time.time() - t_observe_start) * 1000), exc,
                 )
+                # Re-arm on a SHORT cadence so we recover fast. Without
+                # this, a failed think falls back to the previous
+                # next_check (could be up to 180 s) and the kid sits in
+                # silence for minutes after a single Anthropic blip.
+                self._arm_next_tick(15.0, reason="post_think_failed")
                 return
             observe_ms = int((time.time() - t_observe_start) * 1000)
 
