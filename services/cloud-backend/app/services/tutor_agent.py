@@ -419,8 +419,16 @@ class TutorAgent:
 
     async def _maybe_think(self, trigger: str) -> None:
         """Rate-limited entry point to the reasoning loop. Drops the call
-        if we thought too recently or the WS is gone."""
+        if we thought too recently, the WS is gone, or we're draining."""
         if self._closed or self._ws is None:
+            return
+        if self._drain_pending:
+            # Drain notice already sent; don't kick off a fresh think
+            # that would race the shutdown sequence.
+            logger.debug(
+                "agent.think_skip drain_pending session_id=%s trigger=%s",
+                self.id, trigger,
+            )
             return
         now = time.time()
         if (now - self.last_think_at) < THINK_RATE_LIMIT_SEC:
