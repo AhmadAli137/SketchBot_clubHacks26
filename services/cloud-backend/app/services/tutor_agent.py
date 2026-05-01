@@ -37,6 +37,17 @@ from app.services.tutor_service import tutor_service
 
 logger = logging.getLogger("sketchbot.tutor.agent")
 
+
+class _SessionLoggerAdapter(logging.LoggerAdapter):
+    """Prepends session_id (and student name) to every message so the
+    line stays greppable under our existing simple-string formatter
+    without having to add a %(session_id)s slot that would break
+    log records from other libraries (uvicorn, httpx) that don't set it.
+    """
+    def process(self, msg, kwargs):  # type: ignore[override]
+        sid = self.extra.get("session_id", "-") if self.extra else "-"
+        return f"[sid={sid}] {msg}", kwargs
+
 # Default cadence between thinks when the agent doesn't return its own
 # next_check hint. Acts as both the initial-attach delay and the floor
 # for a self-paced cycle. Lowered from 60s to 30s when we shifted from
@@ -161,6 +172,16 @@ class TutorAgent:
         self.created_at = time.time()
         self.last_attached_at: float = 0.0
         self.last_detached_at: float = 0.0
+
+        # Per-session logger — adapter that auto-prepends the session_id
+        # to every record's message so future log lines stay greppable
+        # without each callsite having to remember to include it. The
+        # existing logger.info("... session_id=%s ...", self.id, ...)
+        # callsites still work; new code can prefer self.log.info(...).
+        self.log = _SessionLoggerAdapter(
+            logger,
+            {"session_id": identity.session_id, "student": identity.student_name},
+        )
 
         logger.info(
             "agent.created session_id=%s student=%s",
