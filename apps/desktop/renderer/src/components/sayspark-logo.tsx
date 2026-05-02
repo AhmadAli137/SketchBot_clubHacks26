@@ -24,91 +24,54 @@ export function SaySparkLogo({ size = 40, showWordmark = true, className, animat
       className={`sayspark-logo-root ${className ?? ''}`}
       style={{ display: 'flex', alignItems: 'center', gap: Math.round(s * 0.18) }}
     >
-      {/* ── Mark: speech bubble (kid speaking) + spark (Sketch listening/replying) + voice waves ── */}
+      {/* ── Mark: just the Spark. Spark IS the character — the AI tutor that lives in
+            every robot the platform connects to. Pure 4-point star with halo + core. ── */}
       <motion.svg
-        width={Math.round(markSize * 1.28)} height={markSize} viewBox="0 0 41 32" fill="none"
+        width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"
         initial={animate ? { opacity: 0, scale: 0.80 } : undefined}
         animate={animate ? { opacity: 1, scale: 1 } : undefined}
         transition={{ duration: 0.40, ease: [0.22, 1, 0.36, 1] }}
       >
-        {/* Soft halo behind everything */}
-        <circle cx="16" cy="14.5" r="14" fill="url(#ss-halo)" opacity={0.55} />
+        {/* Soft halo */}
+        <circle cx="16" cy="16" r="15" fill="url(#ss-halo)" opacity={0.65} />
 
-        {/* Speech bubble — rounded rect body + tail pointing down-left */}
-        <path
-          d="M 7 5 H 25 A 5 5 0 0 1 30 10 V 19 A 5 5 0 0 1 25 24 H 14 L 9 29 V 24 H 7 A 5 5 0 0 1 2 19 V 10 A 5 5 0 0 1 7 5 Z"
-          fill="url(#ss-bubble)"
-          stroke="url(#ss-stroke)"
-          strokeWidth="0.9"
-          strokeLinejoin="round"
-        />
-
-        {/* Spark inside the bubble — 4-point star with bright core */}
-        <g transform="translate(16 14.5)">
-          {/* Outer rays */}
+        <g transform="translate(16 16)">
+          {/* Outer 4-point star — long rays */}
           <path
-            d="M 0 -7 L 1.6 -1.6 L 7 0 L 1.6 1.6 L 0 7 L -1.6 1.6 L -7 0 L -1.6 -1.6 Z"
+            d="M 0 -14 L 3 -3 L 14 0 L 3 3 L 0 14 L -3 3 L -14 0 L -3 -3 Z"
             fill="url(#ss-spark)"
           />
-          {/* Bright core */}
-          <circle cx="0" cy="0" r="1.7" fill="#ffffff" opacity={0.92} />
-          {/* Tiny accent rays */}
-          <circle cx="3.2" cy="-3.0" r="0.5" fill="#ffffff" opacity={0.85} />
-          <circle cx="-3.4" cy="2.8" r="0.45" fill="#ffffff" opacity={0.75} />
+          {/* Inner 4-point star, rotated 45° — adds twinkle without clutter */}
+          <path
+            d="M 0 -6 L 1.4 -1.4 L 6 0 L 1.4 1.4 L 0 6 L -1.4 1.4 L -6 0 L -1.4 -1.4 Z"
+            transform="rotate(45)"
+            fill="#ffffff"
+            opacity={0.50}
+          />
+          {/* Bright core glow */}
+          <circle cx="0" cy="0" r="3.6" fill="url(#ss-core)" opacity={0.65} />
+          <circle cx="0" cy="0" r="2.0" fill="#ffffff" opacity={0.96} />
+          {/* Twinkle accents */}
+          <circle cx="6.5" cy="-5.5" r="0.7" fill="#ffffff" opacity={0.80} />
+          <circle cx="-7.0" cy="6.0" r="0.6" fill="#ffffff" opacity={0.65} />
+          <circle cx="-5.5" cy="-5.0" r="0.4" fill="#ffffff" opacity={0.55} />
         </g>
 
-        {/* Voice waves radiating right out of the bubble — emphasises "speaking" */}
-        <motion.g
-          stroke="url(#ss-wave)"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          fill="none"
-          initial={animate ? { opacity: 0 } : undefined}
-          animate={animate ? { opacity: 1 } : undefined}
-          transition={{ duration: 0.5, delay: 0.25 }}
-        >
-          <motion.path
-            d="M 31.5 11.5 Q 33.4 14.5 31.5 17.5"
-            initial={animate ? { pathLength: 0, opacity: 0 } : undefined}
-            animate={animate ? { pathLength: 1, opacity: 1 } : undefined}
-            transition={{ duration: 0.45, delay: 0.30, ease: 'easeOut' }}
-          />
-          <motion.path
-            d="M 34.7 9.5 Q 37.4 14.5 34.7 19.5"
-            initial={animate ? { pathLength: 0, opacity: 0 } : undefined}
-            animate={animate ? { pathLength: 1, opacity: 0.85 } : undefined}
-            transition={{ duration: 0.50, delay: 0.40, ease: 'easeOut' }}
-          />
-          <motion.path
-            d="M 37.9 7.5 Q 41.2 14.5 37.9 21.5"
-            initial={animate ? { pathLength: 0, opacity: 0 } : undefined}
-            animate={animate ? { pathLength: 1, opacity: 0.55 } : undefined}
-            transition={{ duration: 0.55, delay: 0.50, ease: 'easeOut' }}
-          />
-        </motion.g>
-
         <defs>
-          <radialGradient id="ss-halo" cx="50%" cy="40%" r="60%">
-            <stop offset="0%" stopColor="#5de4ff" stopOpacity="0.45" />
+          <radialGradient id="ss-halo" cx="50%" cy="50%" r="55%">
+            <stop offset="0%" stopColor="#5de4ff" stopOpacity="0.40" />
+            <stop offset="60%" stopColor="#a855f7" stopOpacity="0.18" />
             <stop offset="100%" stopColor="#5de4ff" stopOpacity="0" />
           </radialGradient>
-          <linearGradient id="ss-bubble" x1="2" y1="5" x2="30" y2="29" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0c1530" />
-            <stop offset="100%" stopColor="#152244" />
-          </linearGradient>
-          <linearGradient id="ss-stroke" x1="2" y1="5" x2="30" y2="29" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#5de4ff" stopOpacity="0.85" />
-            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.55" />
-          </linearGradient>
           <radialGradient id="ss-spark" cx="50%" cy="50%" r="55%">
             <stop offset="0%" stopColor="#fff4d6" />
-            <stop offset="40%" stopColor="#5de4ff" />
+            <stop offset="35%" stopColor="#5de4ff" />
             <stop offset="100%" stopColor="#a855f7" />
           </radialGradient>
-          <linearGradient id="ss-wave" x1="30" y1="14.5" x2="42" y2="14.5" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#5de4ff" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.55" />
-          </linearGradient>
+          <radialGradient id="ss-core" cx="50%" cy="50%" r="55%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#5de4ff" stopOpacity="0" />
+          </radialGradient>
         </defs>
       </motion.svg>
 
