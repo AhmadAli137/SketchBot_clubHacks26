@@ -8342,6 +8342,78 @@ select.block-param-input{width:auto;padding-right:20px}
 }
 .tutor-face-stage.pulsing::before { opacity: 1; }
 
+/* Studio light stands — one at each corner of the face stage, all
+   shining toward center. Frames Spark like a photo set: small softbox
+   "head" + soft warm cone of light pointing at the avatar. Each light
+   flickers very subtly on its own offset so the four don't pulse in
+   lockstep. Sits below the avatar (z-index 0) so it doesn't cover it. */
+.tutor-face-light {
+  position: absolute;
+  width: 24px;
+  height: 220px;
+  pointer-events: none;
+  z-index: 0;
+  transform-origin: top center;
+}
+.tutor-face-light--tl { top: 14px;     left: 22px;   transform: rotate(135deg);  animation: tutor-light-flicker-a 4.6s ease-in-out infinite; }
+.tutor-face-light--tr { top: 14px;     right: 22px;  transform: rotate(-135deg); animation: tutor-light-flicker-b 5.2s ease-in-out infinite; }
+.tutor-face-light--bl { bottom: 130px; left: 22px;   transform: rotate(45deg);   animation: tutor-light-flicker-b 4.9s ease-in-out infinite; }
+.tutor-face-light--br { bottom: 130px; right: 22px;  transform: rotate(-45deg);  animation: tutor-light-flicker-a 5.6s ease-in-out infinite; }
+
+/* Softbox head — small rounded rectangle representing the light fixture.
+   Sits at the "top" of the strip (which after the corner rotation is
+   the corner-side end), warm-glow-rimmed so the kid sees it as a real
+   light source, not a decorative shape. */
+.tutor-face-light::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 16px;
+  border-radius: 5px 5px 7px 7px;
+  background: linear-gradient(180deg, #3a4258 0%, #1a1f30 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 2px 12px rgba(255, 215, 116, 0.55),
+    inset 0 0 7px rgba(255, 215, 116, 0.45);
+  z-index: 2;
+}
+
+/* Light beam — soft cone fading out toward the center of the stage. */
+.tutor-face-light::after {
+  content: '';
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90px;
+  height: 200px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 215, 116, 0.42) 0%,
+    rgba(255, 215, 116, 0.18) 32%,
+    rgba(255, 215, 116, 0.06) 70%,
+    transparent 100%
+  );
+  clip-path: polygon(38% 0%, 62% 0%, 100% 100%, 0% 100%);
+  filter: blur(1.2px);
+  z-index: 1;
+  mix-blend-mode: screen;
+}
+
+@keyframes tutor-light-flicker-a {
+  0%, 100% { filter: brightness(0.95); }
+  40%      { filter: brightness(1.08); }
+  70%      { filter: brightness(0.98); }
+}
+@keyframes tutor-light-flicker-b {
+  0%, 100% { filter: brightness(1.02); }
+  35%      { filter: brightness(0.93); }
+  75%      { filter: brightness(1.06); }
+}
+
 .tutor-face-caption {
   width: 100%;
   max-width: 460px;

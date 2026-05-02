@@ -390,8 +390,14 @@ export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVarian
         </motion.div>
       </AnimatePresence>
 
-      {/* Big Spark — keyed on scene so the rig swaps cleanly */}
+      {/* Big Spark — keyed on scene so the rig swaps cleanly. The four
+          corner studio-light stands frame Spark like a photo set; their
+          beams point toward center so the eye lands on the avatar. */}
       <div className={`tutor-face-stage${pulse ? ' pulsing' : ''}`}>
+        <div className="tutor-face-light tutor-face-light--tl" aria-hidden />
+        <div className="tutor-face-light tutor-face-light--tr" aria-hidden />
+        <div className="tutor-face-light tutor-face-light--bl" aria-hidden />
+        <div className="tutor-face-light tutor-face-light--br" aria-hidden />
         <AnimatePresence mode="wait">
           <motion.div
             key={`scene-${scene}`}
