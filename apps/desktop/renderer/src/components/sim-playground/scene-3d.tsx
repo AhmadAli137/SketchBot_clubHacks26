@@ -149,6 +149,10 @@ const SANDBOX_ORBS = [
   { x:  2.8, z:  2.8, headY: 2.1 }, // front-right
 ];
 
+/** Half-angle of the spotlight cone (in radians). Wider = more spill,
+ *  narrower = more focused. Matches the visible beam mesh's cone radius. */
+const SPOT_ANGLE = Math.PI / 4.5;
+
 function StudioLight({
   x, z, headY,
 }: { x: number; z: number; headY: number }) {
@@ -158,22 +162,32 @@ function StudioLight({
   const targetRef = useRef<THREE.Object3D>(null);
   const off = useRef(Math.random() * Math.PI * 2);
 
-  // Aim head + spotlight at the workspace centre. lookAt rotates the
-  // head so its -Z axis points at origin (giving real downward tilt,
-  // not just Y rotation). The spotlight needs an explicit target object
-  // added to the scene; R3F doesn't promote the default target so we
-  // wire ours manually.
+  // Dimensions of the visible volumetric beam — straight-line distance
+  // from the head's pivot to the light target, and the cone's far-end
+  // radius implied by the spotlight angle.
+  const beamLength = Math.sqrt(x * x + (headY - 0.1) ** 2 + z * z);
+  // Slightly narrower than the actual spot angle so the visible beam
+  // reads as the bright core, not the full spill.
+  const beamRadius = beamLength * Math.tan(SPOT_ANGLE * 0.7);
+
+  // Wire the spotlight target once on mount. R3F doesn't promote the
+  // default spotLight.target Object3D into the scene graph, so without
+  // this the light has no aim point and barely illuminates anything.
   useEffect(() => {
-    if (headRef.current) {
-      headRef.current.lookAt(0, 0, 0);
-    }
     if (lightRef.current && targetRef.current) {
       lightRef.current.target = targetRef.current;
       lightRef.current.target.updateMatrixWorld();
     }
   }, []);
 
+  // Re-aim the head at the workspace centre EVERY frame. Doing this in
+  // useEffect runs once before the parent's world matrix is settled,
+  // which produces the wrong tilt; running it from useFrame guarantees
+  // the head's world transform is up-to-date and correct each render.
   useFrame(({ clock }) => {
+    if (headRef.current) {
+      headRef.current.lookAt(0, 0.1, 0);
+    }
     if (bulbRef.current) {
       const mat = bulbRef.current.material as THREE.MeshStandardMaterial;
       // Subtle bulb pulse so it reads as a live filament behind the
@@ -211,10 +225,11 @@ function StudioLight({
           <torusGeometry args={[0.05, 0.014, 8, 16]} />
           <meshStandardMaterial color="#2f3550" roughness={0.5} metalness={0.6} />
         </mesh>
-        {/* Light head — lookAt(0,0,0) tilts it down AND rotates around Y
-            so it actually faces the build. Note: Three.js Object3D.lookAt
-            for non-camera/non-light objects orients +Z (not -Z) toward
-            the target, so the softbox sits at +Z and the housing at -Z. */}
+        {/* Light head — lookAt(0, 0.1, 0) per frame tilts it down AND
+            rotates around Y so it actually faces the build. Three.js
+            Object3D.lookAt for non-camera/non-light objects orients +Z
+            (not -Z) toward the target, so the softbox sits at +Z and
+            the housing at -Z. */}
         <group ref={headRef} position={[0, headY, 0]}>
           {/* Housing — back of the light, away from origin */}
           <mesh position={[0, 0, -0.05]} castShadow>
@@ -236,21 +251,38 @@ function StudioLight({
             <boxGeometry args={[0.26, 0.24, 0.012]} />
             <meshStandardMaterial color="#1a1f2e" roughness={0.8} />
           </mesh>
+          {/* Visible volumetric beam — a translucent cone extending from
+              the softbox toward the build. Without this, the kid sees a
+              lit pool on the floor but no obvious link to the source. */}
+          <mesh
+            position={[0, 0, beamLength / 2 + 0.1]}
+            rotation={[Math.PI / 2, 0, 0]}
+          >
+            <coneGeometry args={[beamRadius, beamLength, 28, 1, true]} />
+            <meshBasicMaterial
+              color="#fff4d6"
+              transparent
+              opacity={0.08}
+              side={THREE.DoubleSide}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
         </group>
       </group>
 
       {/* Real spot illuminating the workspace. Target is the helper
           object3D below at (0, 0.1, 0) — slightly above the floor so
           the beam lands on objects rather than disappearing into the
-          grid. Intensity is high and decay is linear so the cones
-          actually read as cones rather than getting eaten by the fill. */}
+          grid. Linear decay + high intensity so the cones read as the
+          dominant light source rather than fading into the fill. */}
       <spotLight
         ref={lightRef}
         position={[x, headY, z]}
-        intensity={18}
+        intensity={28}
         color="#ffffff"
         distance={14}
-        angle={Math.PI / 4.5}
+        angle={SPOT_ANGLE}
         penumbra={0.45}
         decay={1}
       />
@@ -262,12 +294,9 @@ function StudioLight({
 function StageLights() {
   return (
     <>
-      {/* Soft fill so the playspace isn't pitch-black between spotlights —
-          kept low so the spotlight cones still have visible contrast. */}
-      <ambientLight intensity={0.22} color="#d8d4ff" />
-      {/* Top-down warm key for general scene legibility, weak so it
-          doesn't wash out the directional spots. */}
-      <directionalLight position={[0, 8, 1.5]} intensity={0.25} color="#ffe9d0" />
+      {/* Very low ambient so the scene isn't pitch-black between spots
+          but the spotlight cones are clearly the dominant source. */}
+      <ambientLight intensity={0.12} color="#a9b2d8" />
 
       {SANDBOX_ORBS.map((o, i) => (
         <StudioLight key={i} {...o} />
