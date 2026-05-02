@@ -2731,8 +2731,9 @@ body {
   /* Top-right cluster — sits to the LEFT of the floating profile avatar
      (right: 22px, width: 36px → avatar occupies right: 22-58). We start at
      right: 70px so there's a 12px gap. Was bottom-right, but the tutor
-     input row crashed against it. */
-  top: 14px;
+     input row crashed against it. top: 8px so the 36px button centres at
+     y=26 — matching the 52px-tall .learn-header's vertical centre. */
+  top: 8px;
   right: 70px;
   z-index: 180;
   display: flex;
@@ -10959,7 +10960,10 @@ select.block-param-input{width:auto;padding-right:20px}
 /* ─── Fixed app-level profile button ─────────────────────────────────────── */
 .app-profile-btn {
   position: fixed;
-  top: 14px;
+  /* top: 8px to centre this 36px button at y=26 — matches .learn-header's
+     52px height so the whole top-right cluster (sound, theme, profile)
+     aligns with the header status pill + help button on the same row. */
+  top: 8px;
   right: 22px;
   z-index: 180;
   width: 36px;
