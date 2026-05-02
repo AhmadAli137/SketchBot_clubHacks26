@@ -15,7 +15,7 @@ import { RobotGantry } from './robot-gantry';
 import { CanvasSurface } from './canvas-surface';
 import { ChallengeSim, getSimMode } from './challenge-sim';
 import { SceneObjectsRenderer, BuilderCursor } from './scene-objects';
-import { GRID_SIZE, worldToGridFloat, clampToArena, type SceneObject, type ToolDef } from '@/lib/scene-builder';
+import { GRID_SIZE, worldToGridFloat, clampToArena, rotationStepsForType, type SceneObject, type ToolDef } from '@/lib/scene-builder';
 import type { SimPoint } from '@/lib/sim-path-utils';
 import { CANVAS_W, CANVAS_H } from '@/lib/sim-path-utils';
 import { getEnvironment, type ConceptEnvironment } from '@/lib/concept-environments';
@@ -545,8 +545,15 @@ function SceneContent({
             e.stopPropagation();
             // nativeEvent for preventDefault (R3F event doesn't expose it cleanly)
             (e.nativeEvent as MouseEvent).preventDefault?.();
-            // Clockwise step (CCW Y rotation in Three.js, so decrement).
-            setCursorRotY((r) => ((r + 3) % 4) as 0 | 1 | 2 | 3);
+            // Cycle through the active tool's visually-distinct rotations
+            // (walls = 2, bots/apriltags = 4, symmetric props = 1 / no-op).
+            // Clockwise step from above = decrement by 1 mod steps.
+            if (activeTool) {
+              const steps = rotationStepsForType(activeTool.type);
+              if (steps > 1) {
+                setCursorRotY((r) => ((r + (steps - 1)) % steps) as 0 | 1 | 2 | 3);
+              }
+            }
           }
         } : undefined}
       >

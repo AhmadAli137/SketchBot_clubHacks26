@@ -121,6 +121,32 @@ export function maybeSnapForType(
   return { gx, gz };
 }
 
+/** How many *visually distinct* 90° rotations a type has. Cycling rotY
+ *  through any larger modulus only repeats positions that look identical
+ *  on screen — which the kid reads as "rotate clicks doing nothing" or
+ *  worse, "rotate is toggling back". Walls are 2-fold symmetric (X-axis
+ *  vs Z-axis); radially-symmetric props (cones, spheres, cylinders, the
+ *  waypoint pole, the mat) have only 1 unique state; bots and apriltags
+ *  carry orientation so they cycle the full 4. */
+export function rotationStepsForType(type: SceneObjectType): 1 | 2 | 4 {
+  switch (type) {
+    case 'bot':
+    case 'apriltag':
+      return 4;
+    case 'wall':
+      return 2;
+    case 'block':
+    case 'cone':
+    case 'sphere':
+    case 'cylinder':
+    case 'waypoint':
+    case 'mat':
+    case 'studio-light':
+    default:
+      return 1;
+  }
+}
+
 export function gridToWorld(obj: { gx: number; gz: number; gy?: number }): { x: number; y: number; z: number } {
   return {
     x: obj.gx * GRID_SIZE,

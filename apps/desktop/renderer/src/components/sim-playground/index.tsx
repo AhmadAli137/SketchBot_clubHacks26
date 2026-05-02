@@ -20,6 +20,7 @@ import {
   makeObjectFromTool,
   maybeSnapForType,
   newSceneObjectId,
+  rotationStepsForType,
   type SceneObject,
 } from '@/lib/scene-builder';
 import { SANDBOX_PRESETS, instantiatePreset, type SandboxPreset } from '@/lib/sandbox-presets';
@@ -177,11 +178,19 @@ export function SimPlayground({
 
   const handleRotateSelected = () => {
     if (!selectedObject) return;
-    // Clockwise rotation as viewed from above. Three.js positive Y rotation
-    // is CCW under the right-hand rule, so we DECREMENT rotY (equivalently
-    // +3 mod 4) to step clockwise like the kid expects from a clock face.
+    // Cycle through the type's *visually distinct* rotations. Walls have
+    // 2-fold symmetry (X-axis or Z-axis), bots/apriltags have full
+    // 4-fold orientation, radially-symmetric props (cones, spheres, etc.)
+    // have only 1 unique state and so don't visibly rotate. Without this
+    // cap, walls cycle 0→3→2→1→0 mathematically but the kid only sees
+    // H→V→H→V because rotY=0 looks identical to rotY=2.
+    const steps = rotationStepsForType(selectedObject.type);
+    if (steps === 1) return; // no visible change possible
+    // Clockwise step from above (CCW is +1 in Three.js Y rotation).
+    const cur = (selectedObject.rotY ?? 0);
+    const next = ((cur + (steps - 1)) % steps) as 0 | 1 | 2 | 3;
     updateObjects(sceneObjects.map((o) =>
-      o.id === selectedObject.id ? { ...o, rotY: (((o.rotY ?? 0) + 3) % 4) as 0 | 1 | 2 | 3 } : o,
+      o.id === selectedObject.id ? { ...o, rotY: next } : o,
     ));
     emitSparkEvent('user.rotate');
   };
