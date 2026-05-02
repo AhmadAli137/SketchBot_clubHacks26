@@ -1,11 +1,11 @@
 # Spark State Images — Generation Spec
 
-This is the spec for the **24 polished pre-rendered illustrations** that
+This is the spec for the **36 polished pre-rendered illustrations** that
 power Spark's Face Mode in the desktop app. One image per conversational
 state, all sharing a single character design and lighting style so the set
 feels unified.
 
-When all 24 PNGs land at `apps/desktop/renderer/public/assets/spark-states/`,
+When all 36 PNGs land at `apps/desktop/renderer/public/assets/spark-states/`,
 the [`<SparkStateImage>`](../apps/desktop/renderer/src/components/spark-state-image.tsx)
 component picks them up automatically and Face Mode shows the polished art
 instead of the CSS-rig fallback.
@@ -58,7 +58,7 @@ cwebp -q 85 wave.png -o wave.webp
 
 ---
 
-## The 24 states
+## The 36 states
 
 Each row: file name, what Spark is feeling/doing, and the *suffix* to append
 to the character paragraph above. The full prompt is `{character}` +
@@ -122,6 +122,23 @@ to the character paragraph above. The full prompt is `{character}` +
 |------|---------------|-------------|
 | `emphasizing.png` | "This is important", "always remember" | *Both hands held together in front of the chest in a karate-chop motion (mid-chop), serious-but-warm focused expression, eyes intensely engaged, slight forward lean, a small subtle yellow burst behind the figure to suggest emphasis.* |
 | `sad.png` | "That's ok", "no worries", sympathetic | *Body slumped slightly with shoulders drooped, head tilted down a little, eyes soft and gentle (not sad-sad, just empathetic), mouth in a small caring smile, both hands held softly in front of the body, a tiny blue glow at the chest core suggesting compassion.* |
+
+### 24-35: Robotics workspace + quirky teaching states
+
+| File | When it shows | Pose suffix |
+|------|---------------|-------------|
+| `maze-building.png` | Maze/course wall setup | *Spark actively places low glowing wall segments into a tiny maze path, one hand carrying a wall panel while the other aligns a corner, focused happy eyes, cyan path sparkles and motion lines.* |
+| `placing-cones.png` | Cone placement / marker setup | *Spark crouches while placing an orange traffic cone on the floor, another cone tucked under one arm, attentive eyes, tiny route dots between cones.* |
+| `placing-obstacles.png` | Obstacle course setup | *Spark kneels and arranges a small foam block, low hurdle, and rounded obstacle cube into a course, delighted focused expression, playful kinetic arcs.* |
+| `peek-left-window.png` | Looking left toward the work window | *Spark stretches on tiptoes and leans left, one hand shading its eyes like a visor, eyes peering curiously toward a subtle glowing work-window outline at the left edge.* |
+| `peek-right-window.png` | Looking right toward the work window | *Spark stretches on tiptoes and leans right, one hand shading its eyes like a visor, eyes peering curiously toward a subtle glowing work-window outline at the right edge.* |
+| `blueprint-planning.png` | Planning route / mission layout | *Spark holds a glowing blueprint tablet with both hands, head tilted down studying abstract route lines, antenna perked, floating cyan grid particles.* |
+| `sensor-calibrating.png` | Sensor/camera/LiDAR calibration | *Spark projects a soft cyan scan beam with one hand while adjusting an antenna with the other, narrowed focused eyes, floating scan rings.* |
+| `juggling-ideas.png` | Brainstorming / many ideas | *Spark joyfully juggles three tiny glowing puzzle/code blocks above its head, one foot lifted, excited eyes, motion arcs suggesting playful mental multitasking.* |
+| `route-tracing.png` | Drawing a path / waypoint route | *Spark crouches and traces a bright cyan route line on the floor with one finger like a light pen, waypoint sparks and arrow dots around the path.* |
+| `finish-flag.png` | Successful robot run complete | *Spark leaps with one foot off the ground, waving a tiny checkered finish flag, other arm pumping in victory, glowing finish sparkles at the feet.* |
+| `debugging.png` | Debugging / inspecting an issue | *Spark leans in with an oversized magnifying glass examining a tiny glowing circuit or route dot, one eye comically enlarged through the lens, determined smile.* |
+| `rover-dance.png` | Quirky celebration with rover | *Spark does a playful dance step beside a very small simplified wheeled rover prop, happy crescent eyes, cyan music-note-like sparkles and lively motion arcs.* |
 
 ---
 

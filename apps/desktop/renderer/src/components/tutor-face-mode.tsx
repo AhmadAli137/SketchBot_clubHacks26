@@ -29,6 +29,32 @@ function classifyScene(text: string): ClassifiedScene {
   const t = text.toLowerCase();
   const trimmed = t.trim();
 
+  // Robotics workspace states — keep these before generic guide/explaining cues.
+  if (/(maze|wall segments?|build(?:ing)? walls?|course walls?|corridor)/.test(t))
+    return SPARK_SCENES.MAZE_BUILDING;
+  if (/(cones?|traffic cones?|marker cones?|place(?:ing)? cones?|set(?:ting)? cones?)/.test(t))
+    return SPARK_SCENES.PLACING_CONES;
+  if (/(obstacles?|blocks?|hurdles?|barriers?|course pieces?)/.test(t))
+    return SPARK_SCENES.PLACING_OBSTACLES;
+  if (/(work window|workspace|work area|canvas).*(left|left side)|(?:peek|peer|look).*left/.test(t))
+    return SPARK_SCENES.PEEK_LEFT_WINDOW;
+  if (/(work window|workspace|work area|canvas).*(right|right side)|(?:peek|peer|look).*right/.test(t))
+    return SPARK_SCENES.PEEK_RIGHT_WINDOW;
+  if (/(blueprint|plan the route|route plan|mission plan|path plan)/.test(t))
+    return SPARK_SCENES.BLUEPRINT_PLANNING;
+  if (/(calibrat|sensor|scan|lidar|camera check)/.test(t))
+    return SPARK_SCENES.SENSOR_CALIBRATING;
+  if (/(juggling ideas|many ideas|puzzle pieces|code blocks|brainstorm)/.test(t))
+    return SPARK_SCENES.JUGGLING_IDEAS;
+  if (/(trace the route|draw the route|route line|waypoints?|path on the floor)/.test(t))
+    return SPARK_SCENES.ROUTE_TRACING;
+  if (/(finish flag|checkered flag|finish line|successful run|completed run)/.test(t))
+    return SPARK_SCENES.FINISH_FLAG;
+  if (/(debug|bug|inspect|magnifying|find the problem|diagnos)/.test(t))
+    return SPARK_SCENES.DEBUGGING;
+  if (/(dance|rover dance|happy rover|little rover|victory dance)/.test(t))
+    return SPARK_SCENES.ROVER_DANCE;
+
   // ── Emoji-driven hits (fastest signal, highest specificity) ────────────
   // The personas are encouraged to use emoji freely, so these fire often.
   if (/[🎉🥳🎊🍾]/u.test(text))                                      return SPARK_SCENES.CHEERING;
@@ -172,6 +198,18 @@ const SCENE_META: Record<number, FaceStateMeta> = {
   [SPARK_SCENES.POINT_RIGHT]: { label: '👉 Look right',    color: 'rgba(165,180,252,0.95)' },
   [SPARK_SCENES.POINT_DOWN]:  { label: '👇 Down here',     color: 'rgba(125,211,252,0.95)' },
   [SPARK_SCENES.POINT_UP]:    { label: '☝️ Up there',       color: 'rgba(255,200,90,0.95)' },
+  [SPARK_SCENES.MAZE_BUILDING]:      { label: 'Building maze',   color: 'rgba(125,211,252,0.95)' },
+  [SPARK_SCENES.PLACING_CONES]:      { label: 'Placing cones',   color: 'rgba(255,200,90,0.95)' },
+  [SPARK_SCENES.PLACING_OBSTACLES]:  { label: 'Setting course',  color: 'rgba(216,180,254,0.95)' },
+  [SPARK_SCENES.PEEK_LEFT_WINDOW]:   { label: 'Peeking left',    color: 'rgba(125,211,252,0.95)' },
+  [SPARK_SCENES.PEEK_RIGHT_WINDOW]:  { label: 'Peeking right',   color: 'rgba(125,211,252,0.95)' },
+  [SPARK_SCENES.BLUEPRINT_PLANNING]: { label: 'Planning route',  color: 'rgba(165,180,252,0.95)' },
+  [SPARK_SCENES.SENSOR_CALIBRATING]: { label: 'Calibrating',     color: 'rgba(110,231,183,0.95)' },
+  [SPARK_SCENES.JUGGLING_IDEAS]:     { label: 'Juggling ideas',  color: 'rgba(255,150,210,0.95)' },
+  [SPARK_SCENES.ROUTE_TRACING]:      { label: 'Tracing route',   color: 'rgba(125,211,252,0.95)' },
+  [SPARK_SCENES.FINISH_FLAG]:        { label: 'Run complete',    color: 'rgba(255,215,116,0.95)' },
+  [SPARK_SCENES.DEBUGGING]:          { label: 'Debugging',       color: 'rgba(255,200,90,0.95)' },
+  [SPARK_SCENES.ROVER_DANCE]:        { label: 'Victory dance',   color: 'rgba(255,150,210,0.95)' },
 };
 
 /**

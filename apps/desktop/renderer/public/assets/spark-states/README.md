@@ -1,6 +1,6 @@
 # Spark state images
 
-Drop the 24 `.png` files for Spark's conversational states here. File names
+Drop the `.png` files for Spark's conversational states here. File names
 must match the slugs below (lowercase, hyphenated). Until an image exists,
 the desktop app falls back to the procedural `<SparkRobot>` CSS rig — so the
 app stays usable while you generate the set incrementally.
@@ -8,7 +8,7 @@ app stays usable while you generate the set incrementally.
 See [`docs/spark-state-images.md`](../../../../../../docs/spark-state-images.md)
 for the full spec, base prompt, and per-state visual descriptions.
 
-## Required files (24)
+## Core files (24)
 
 ```
 wave.png           talking.png        nodding.png        surprised.png
@@ -23,3 +23,12 @@ thinking.png                          point-up.png
 Format: PNG, transparent background, 1024 × 1024, square framing, robot
 centered, character ~70% of canvas height. Convert to WebP later for size
 if desired (update `IMAGE_EXT` in `spark-state-image.tsx` to `'webp'`).
+
+## Extra tutor states
+
+```
+maze-building.png       placing-cones.png       placing-obstacles.png
+peek-left-window.png    peek-right-window.png   blueprint-planning.png
+sensor-calibrating.png  juggling-ideas.png      route-tracing.png
+finish-flag.png         debugging.png           rover-dance.png
+```
