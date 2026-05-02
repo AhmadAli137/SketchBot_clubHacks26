@@ -311,6 +311,13 @@ export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVarian
 
   // Resolve current scene + caption.
   const { scene, meta } = useMemo(() => {
+    // WS agent is reasoning between MSG_THINKING and MSG_SPEAK → match the
+    // caption's "Sketch is thinking" with the THINKING avatar pose so the
+    // whole face mode reads as one coherent state, not avatar-says-listening
+    // while caption-says-thinking.
+    if (tutorThinking) {
+      return { scene: SPARK_SCENES.THINKING, meta: metaFor(SPARK_SCENES.THINKING) };
+    }
     // Streaming a tutor reply but no sentence text yet → "thinking".
     if (latest && latest.role === 'tutor' && sentences.length === 0 && isStreaming) {
       return { scene: SPARK_SCENES.THINKING, meta: metaFor(SPARK_SCENES.THINKING) };
@@ -325,7 +332,7 @@ export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVarian
     // Otherwise the behavior coordinator is in charge — reactive override
     // (sandbox actions, sim outcomes, milestones) or ambient idle cycling.
     return { scene: behavior.scene, meta: metaFor(behavior.scene) };
-  }, [latest, sentences, activeIdx, isStreaming, ttsSpeaking, behavior.scene]);
+  }, [tutorThinking, latest, sentences, activeIdx, isStreaming, ttsSpeaking, behavior.scene]);
 
   // Caption: show the FULL spoken section (matches chat) but visually
   // emphasise the currently-being-spoken sentence so face + text stay
@@ -403,64 +410,62 @@ export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVarian
         </AnimatePresence>
       </div>
 
-      {/* Caption — ONE sentence at a time, crossfading as TTS advances.
-          Keeps Spark big and visible; chunks are bite-sized. The
-          thinking state takes priority over showing the *previous*
-          sentence: once the bell rings, we want the kid to see "Sketch
-          is thinking" right away, not the stale last reply. We only
-          fall back to showing the prior sentence when nothing newer
-          is happening. */}
-      <AnimatePresence mode="wait">
-        {tutorThinking ? (
-          <motion.div
-            key="cap-thinking"
-            className="tutor-face-caption tutor-face-caption--thinking"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.22 }}
-            aria-live="polite"
-          >
-            <span className="tutor-thinking-label">Sketch is thinking</span>
-            <span className="tutor-thinking-dots" aria-hidden>
-              <span /><span /><span />
-            </span>
-          </motion.div>
-        ) : fullSpoken && sentences.length > 0 ? (
-          <motion.div
-            key={`sent-${latest?.id ?? 'none'}-${activeIdx}`}
-            className="tutor-face-caption tutor-face-caption--single"
-            initial={{ opacity: 0, y: 12, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.97 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-          >
-            {sentences[activeIdx] ?? sentences.at(-1) ?? ''}
-            {sentences.length > 1 && (
-              <div className="tutor-face-caption-progress">
-                {sentences.map((_, i) => (
-                  <span
-                    key={i}
-                    className={`tutor-face-caption-dot${
-                      i === activeIdx ? ' active' : i < activeIdx ? ' past' : ''
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-          </motion.div>
-        ) : (
-          <motion.div
-            key="cap-idle"
-            className="tutor-face-caption tutor-face-caption--idle"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            Say something to Spark, or use the mic below.
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Thinking caption rendered OUTSIDE AnimatePresence so it can
+          appear/disappear instantly when tutorThinking flips. With it
+          inside an AnimatePresence mode="wait" ternary, the wait-for-
+          exit on the previous sentence (~280 ms) plus a fast
+          MSG_THINKING → MSG_SPEAK round trip would drop the thinking
+          state on the floor — face mode would jump straight from old
+          reply to new reply with no "thinking" visible. Keeping it
+          separate guarantees it shows the moment MSG_THINKING lands. */}
+      {tutorThinking ? (
+        <div
+          className="tutor-face-caption tutor-face-caption--thinking"
+          aria-live="polite"
+        >
+          <span className="tutor-thinking-label">Sketch is thinking</span>
+          <span className="tutor-thinking-dots" aria-hidden>
+            <span /><span /><span />
+          </span>
+        </div>
+      ) : (
+        <AnimatePresence mode="wait">
+          {fullSpoken && sentences.length > 0 ? (
+            <motion.div
+              key={`sent-${latest?.id ?? 'none'}-${activeIdx}`}
+              className="tutor-face-caption tutor-face-caption--single"
+              initial={{ opacity: 0, y: 12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.97 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {sentences[activeIdx] ?? sentences.at(-1) ?? ''}
+              {sentences.length > 1 && (
+                <div className="tutor-face-caption-progress">
+                  {sentences.map((_, i) => (
+                    <span
+                      key={i}
+                      className={`tutor-face-caption-dot${
+                        i === activeIdx ? ' active' : i < activeIdx ? ' past' : ''
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="cap-idle"
+              className="tutor-face-caption tutor-face-caption--idle"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              Say something to Spark, or use the mic below.
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
     </div>
   );
 }
