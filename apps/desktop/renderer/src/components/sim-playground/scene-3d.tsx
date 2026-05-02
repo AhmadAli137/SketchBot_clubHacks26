@@ -600,6 +600,7 @@ function SceneContent({
           onRotate={onRotateSelected}
           onDelete={onDeleteSelected}
           onMove={onMoveSelected}
+          builderEnabled={builderEnabled}
         />
       )}
 

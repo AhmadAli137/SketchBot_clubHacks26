@@ -12,7 +12,7 @@
  *    when a tool is active so the user knows where it'll land
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
@@ -189,6 +189,25 @@ function StackTargetHighlight({
 const WALL_THICKNESS = GRID_SIZE * 0.18;
 const WALL_LENGTH = GRID_SIZE;
 const WALL_HEIGHT = 0.16;
+
+/**
+ * Filler block at a grid intersection where multiple wall ends meet.
+ * Walls placed in the +X+Z quadrant of their cell leave a small wedge
+ * gap at L-corners (just NW of the intersection for an east-then-north
+ * L). A thickness × thickness post centered at the cell-corner position
+ * — same +X+Z quadrant offset as the walls themselves — fills the wedge
+ * without poking outside the maze.
+ */
+function WallCornerPost({ gx, gz }: { gx: number; gz: number }) {
+  const x = gx * GRID_SIZE + WALL_THICKNESS / 2;
+  const z = gz * GRID_SIZE + WALL_THICKNESS / 2;
+  return (
+    <mesh position={[x, WALL_HEIGHT / 2, z]} castShadow receiveShadow>
+      <boxGeometry args={[WALL_THICKNESS, WALL_HEIGHT, WALL_THICKNESS]} />
+      <meshStandardMaterial color="#0a2a10" emissive="#002200" emissiveIntensity={0.3} roughness={0.8} />
+    </mesh>
+  );
+}
 
 function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
   // Two offsets:
@@ -609,6 +628,7 @@ export function SceneObjectsRenderer({
   onRotate,
   onDelete,
   onMove,
+  builderEnabled = false,
 }: {
   objects: SceneObject[];
   selectedId: string | null;
@@ -624,9 +644,38 @@ export function SceneObjectsRenderer({
   onRotate?: () => void;
   onDelete?: () => void;
   onMove?: () => void;
+  /** Builder mode is open. Floating ↻ / ✕ / ⤢ toolbar only appears in
+   *  builder mode — outside it (just looking at a finished sandbox)
+   *  the kid shouldn't see editing chrome at all. */
+  builderEnabled?: boolean;
 }) {
+  // Auto corner posts. Walk every wall, count how many walls have an
+  // endpoint at each grid intersection. Intersections visited by 2+
+  // wall ends are corners — render a small filler block there to close
+  // any visible inside-corner wedge.
+  const cornerKeys = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const obj of objects) {
+      if (obj.type !== 'wall') continue;
+      const isXAxis = ((obj.rotY ?? 0) % 2) === 0;
+      const ends: Array<[number, number]> = isXAxis
+        ? [[Math.round(obj.gx), Math.round(obj.gz)], [Math.round(obj.gx) + 1, Math.round(obj.gz)]]
+        : [[Math.round(obj.gx), Math.round(obj.gz)], [Math.round(obj.gx), Math.round(obj.gz) + 1]];
+      for (const [ex, ez] of ends) {
+        const k = `${ex},${ez}`;
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .filter(([, n]) => n >= 2)
+      .map(([k]) => k.split(',').map(Number) as [number, number]);
+  }, [objects]);
+
   return (
     <group>
+      {cornerKeys.map(([gx, gz]) => (
+        <WallCornerPost key={`corner-${gx},${gz}`} gx={gx} gz={gz} />
+      ))}
       {objects.map((obj) => {
         const { x, y, z } = gridToWorld(obj);
         // Selection ring + hover highlight need the actual rendered
@@ -668,7 +717,7 @@ export function SceneObjectsRenderer({
                 and only on the selected object that isn't being dragged.
                 Hiding it during placement keeps the kid from accidentally
                 clicking ↻/✕ while rapidly dropping more objects. */}
-            {isSelected && !isDragging && !toolActive && (
+            {builderEnabled && isSelected && !isDragging && !toolActive && (
               <SelectionToolbar obj={obj} onRotate={onRotate} onDelete={onDelete} onMove={onMove} />
             )}
           </group>
