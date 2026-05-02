@@ -140,30 +140,45 @@ function SumoRing({ radius }: { radius: number }) {
 
 /** Four studio light stands, one in each corner. headY is the top of the
  *  pole / center of the softbox. Each beam aims at the workspace centre
- *  (the world origin) so the eye lands on the build, not the corners. */
+ *  (the world origin) so the eye lands on the build, not the corners.
+ *  All four are white — colored beams tinted the build distractingly. */
 const SANDBOX_ORBS = [
-  { x: -2.8, z: -2.8, color: '#a855f7', headY: 1.7 }, // back-left  · purple
-  { x:  2.8, z: -2.6, color: '#5de4ff', headY: 1.9 }, // back-right · cyan
-  { x: -2.6, z:  2.8, color: '#ffc96b', headY: 1.7 }, // front-left · amber
-  { x:  2.8, z:  2.8, color: '#ff8fc8', headY: 1.6 }, // front-right · soft pink
+  { x: -2.8, z: -2.8, headY: 2.2 }, // back-left
+  { x:  2.8, z: -2.6, headY: 2.4 }, // back-right
+  { x: -2.6, z:  2.8, headY: 2.2 }, // front-left
+  { x:  2.8, z:  2.8, headY: 2.1 }, // front-right
 ];
 
 function StudioLight({
-  x, z, color, headY,
-}: { x: number; z: number; color: string; headY: number }) {
-  const bulbRef = useRef<THREE.Mesh>(null);
+  x, z, headY,
+}: { x: number; z: number; headY: number }) {
+  const headRef   = useRef<THREE.Group>(null);
+  const bulbRef   = useRef<THREE.Mesh>(null);
+  const lightRef  = useRef<THREE.SpotLight>(null);
+  const targetRef = useRef<THREE.Object3D>(null);
   const off = useRef(Math.random() * Math.PI * 2);
 
-  // Aim the head toward the world origin. atan2(x, z) gives the Y rotation
-  // needed for a child whose default forward is -Z to look at (0, _, 0).
-  const aim = Math.atan2(x, z);
+  // Aim head + spotlight at the workspace centre. lookAt rotates the
+  // head so its -Z axis points at origin (giving real downward tilt,
+  // not just Y rotation). The spotlight needs an explicit target object
+  // added to the scene; R3F doesn't promote the default target so we
+  // wire ours manually.
+  useEffect(() => {
+    if (headRef.current) {
+      headRef.current.lookAt(0, 0, 0);
+    }
+    if (lightRef.current && targetRef.current) {
+      lightRef.current.target = targetRef.current;
+      lightRef.current.target.updateMatrixWorld();
+    }
+  }, []);
 
   useFrame(({ clock }) => {
     if (bulbRef.current) {
       const mat = bulbRef.current.material as THREE.MeshStandardMaterial;
       // Subtle bulb pulse so it reads as a live filament behind the
       // diffuser — but no bobbing, these are bolted to the floor.
-      mat.emissiveIntensity = 1.4 + Math.sin(clock.elapsedTime * 1.3 + off.current) * 0.25;
+      mat.emissiveIntensity = 1.6 + Math.sin(clock.elapsedTime * 1.3 + off.current) * 0.25;
     }
   });
 
@@ -186,21 +201,21 @@ function StudioLight({
           <torusGeometry args={[0.045, 0.012, 8, 16]} />
           <meshStandardMaterial color="#2f3550" roughness={0.5} metalness={0.6} />
         </mesh>
-        {/* Light head — rotated to face origin. Three.js default forward
-            is -Z, so after rotation the softbox points toward (0, _, 0). */}
-        <group position={[0, headY, 0]} rotation={[0, aim, 0]}>
-          {/* Housing behind the softbox (back of the light) */}
+        {/* Light head — lookAt(0,0,0) tilts it down AND rotates around Y so
+            it actually faces the build, not just spins on the spot. */}
+        <group ref={headRef} position={[0, headY, 0]}>
+          {/* Housing behind the softbox (Three.js default +Z is "back" after lookAt) */}
           <mesh position={[0, 0, 0.05]} castShadow>
             <boxGeometry args={[0.20, 0.18, 0.12]} />
             <meshStandardMaterial color="#2a3148" roughness={0.55} metalness={0.45} />
           </mesh>
-          {/* Glowing softbox face — this is what "shines" at the build */}
+          {/* Glowing softbox face — the "front" that shines at the build */}
           <mesh ref={bulbRef} position={[0, 0, -0.02]}>
             <boxGeometry args={[0.24, 0.22, 0.025]} />
             <meshStandardMaterial
-              color={color}
-              emissive={color}
-              emissiveIntensity={1.4}
+              color="#ffffff"
+              emissive="#fff4d6"
+              emissiveIntensity={1.6}
               roughness={0.25}
             />
           </mesh>
@@ -212,18 +227,20 @@ function StudioLight({
         </group>
       </group>
 
-      {/* Spotlight that actually illuminates the scene. Default spotLight
-          target is the world origin, so positioning it at the head puts
-          the cone pointing right where we want — at the build. */}
+      {/* Real spot illuminating the workspace. Target is the helper
+          object3D below at (0, 0.1, 0) — slightly above the floor so the
+          beam lands on objects rather than disappearing into the grid. */}
       <spotLight
+        ref={lightRef}
         position={[x, headY, z]}
-        intensity={1.6}
-        color={color}
-        distance={10}
-        angle={Math.PI / 7}
+        intensity={6}
+        color="#ffffff"
+        distance={14}
+        angle={Math.PI / 4.5}
         penumbra={0.55}
-        decay={1.5}
+        decay={1.2}
       />
+      <object3D ref={targetRef} position={[0, 0.1, 0]} />
     </>
   );
 }
@@ -231,10 +248,10 @@ function StudioLight({
 function StageLights() {
   return (
     <>
-      {/* Soft warm fill so the playspace stays bright between the lights */}
-      <ambientLight intensity={0.55} color="#d8d4ff" />
-      {/* Top-down warm key — like an overhead studio softbox */}
-      <directionalLight position={[0, 8, 1.5]} intensity={0.55} color="#ffe9d0" />
+      {/* Soft fill so the playspace isn't pitch-black between spotlights */}
+      <ambientLight intensity={0.35} color="#d8d4ff" />
+      {/* Top-down warm key — overhead studio softbox effect */}
+      <directionalLight position={[0, 8, 1.5]} intensity={0.45} color="#ffe9d0" />
 
       {SANDBOX_ORBS.map((o, i) => (
         <StudioLight key={i} {...o} />
