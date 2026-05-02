@@ -179,7 +179,18 @@ export function SimPlayground({
    *  painted (other props are free-place and don't benefit from tiling). */
   const paintedCellsRef = useRef<Set<string>>(new Set());
   const lastPaintedRef = useRef<{ gx: number; gz: number } | null>(null);
-  const handlePaintWalls = (gxF: number, gzF: number) => {
+  /** Track painted-wall ids in this stroke so we can retro-fix the
+   *  first wall's rotation once we see direction. */
+  const strokeWallIdsRef = useRef<string[]>([]);
+  const handlePaintWalls = (
+    gxF: number,
+    gzF: number,
+    /** cursorRotY from the ghost preview — used when we haven't yet
+     *  moved enough to infer direction (single-cell click, or very
+     *  start of a stroke). Right-click rotates the cursor; passing it
+     *  here means the kid's chosen orientation actually lands. */
+    cursorRotY: 0 | 1 | 2 | 3 = 0,
+  ) => {
     if (!activeTool || activeTool.type !== 'wall') return;
     const gx = Math.round(gxF);
     const gz = Math.round(gzF);
@@ -193,26 +204,39 @@ export function SimPlayground({
       lastPaintedRef.current = { gx, gz };
       return;
     }
-    // Auto-orient: if we moved primarily in X since the last cell, this
-    // wall lies along X (rotY=0). Else along Z (rotY=1). Falls back to
-    // rotY=0 for the very first cell of a stroke.
-    let rotY: 0 | 1 = 0;
+    // Pick rotation. If we have a prior cell, infer from direction
+    // (horizontal drag → X-axis, vertical → Z-axis). Otherwise honour
+    // the ghost cursor's rotation so right-click-to-rotate before
+    // dropping a single wall actually does what the kid expects.
+    let rotY: 0 | 1 | 2 | 3 = (cursorRotY % 2) as 0 | 1;
     const prev = lastPaintedRef.current;
     if (prev) {
       const dx = Math.abs(gx - prev.gx);
       const dz = Math.abs(gz - prev.gz);
       rotY = dz > dx ? 1 : 0;
+      // Retro-orient the FIRST wall of the stroke once we know the
+      // direction, so it matches the rest of the line. Without this,
+      // a wall painted with cursorRotY=1 then dragged horizontally
+      // would have its first segment vertical and the rest horizontal.
+      const firstId = strokeWallIdsRef.current[0];
+      if (firstId && strokeWallIdsRef.current.length === 1) {
+        updateObjects(sceneObjects.map((o) =>
+          o.id === firstId ? { ...o, rotY } : o,
+        ));
+      }
     }
     const obj = makeObjectFromTool(activeTool, gx, gz);
     obj.rotY = rotY;
     updateObjects([...sceneObjects, obj]);
     paintedCellsRef.current.add(key);
     lastPaintedRef.current = { gx, gz };
+    strokeWallIdsRef.current.push(obj.id);
     emitSparkEvent('user.place', { tool: activeTool.id });
   };
   const handlePaintEnd = () => {
     paintedCellsRef.current = new Set();
     lastPaintedRef.current = null;
+    strokeWallIdsRef.current = [];
   };
 
   const handleSelectObject = (id: string | null) => {

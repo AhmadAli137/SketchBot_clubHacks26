@@ -419,8 +419,10 @@ type SceneContentProps = {
   /** 'press' = traditional drag (mouse held); 'follow' = click-once / click-once. */
   dragMode?: 'press' | 'follow';
   /** Drag-to-paint for walls — called per-cell while the wall tool is
-   *  active and the pointer is dragging across the floor. */
-  onPaintWalls?: (gx: number, gz: number) => void;
+   *  active and the pointer is dragging across the floor. cursorRotY is
+   *  the ghost cursor's current rotation (0-3), used as the rotation
+   *  for the first cell of a stroke before direction can be inferred. */
+  onPaintWalls?: (gx: number, gz: number, cursorRotY: 0 | 1 | 2 | 3) => void;
   onPaintEnd?: () => void;
 };
 
@@ -537,7 +539,7 @@ function SceneContent({
             // Drag-to-paint walls: while pointer is down with the wall
             // tool active, drop walls in every cell the cursor crosses.
             if (isWall && isPaintingRef.current) {
-              onPaintWalls?.(cF.gx, cF.gz);
+              onPaintWalls?.(cF.gx, cF.gz, cursorRotY);
             }
             const cgx = isWall ? Math.round(cF.gx) : cF.gx;
             const cgz = isWall ? Math.round(cF.gz) : cF.gz;
@@ -595,7 +597,7 @@ function SceneContent({
             isPaintingRef.current = true;
             const rawF = worldToGridFloat(e.point.x, e.point.z);
             const cF = clampToArena(rawF.gx, rawF.gz);
-            onPaintWalls?.(cF.gx, cF.gz);
+            onPaintWalls?.(cF.gx, cF.gz, cursorRotY);
           }
         } : undefined}
       >
@@ -762,8 +764,10 @@ type Scene3DProps = {
   /** 'press' = traditional drag (mouse held); 'follow' = click-once / click-once. */
   dragMode?: 'press' | 'follow';
   /** Drag-to-paint for walls — called per-cell while the wall tool is
-   *  active and the pointer is dragging across the floor. */
-  onPaintWalls?: (gx: number, gz: number) => void;
+   *  active and the pointer is dragging across the floor. cursorRotY is
+   *  the ghost cursor's current rotation (0-3), used as the rotation
+   *  for the first cell of a stroke before direction can be inferred. */
+  onPaintWalls?: (gx: number, gz: number, cursorRotY: 0 | 1 | 2 | 3) => void;
   onPaintEnd?: () => void;
 };
 

@@ -182,14 +182,12 @@ function StackTargetHighlight({
 
 // ─── Per-type renderers (real, opaque) ───────────────────────────────────────
 
-/** Wall length is slightly LONGER than a cell — by half the thickness on
- *  each end. That extra ~2.25 cm pokes into the perpendicular wall's
- *  volume at corner joints, so the L-junction seam is buried inside the
- *  other wall instead of being visible at the boundary. Adjacent walls
- *  in the same direction also overlap that little, which is invisible
- *  (interior overlapping faces don't render). */
+/** Wall geometry. Length = GRID_SIZE exactly so adjacent same-direction
+ *  walls meet edge-to-edge cleanly with no visible overlap. Perpendicular
+ *  walls at L-corners will have a tiny seam at the inside corner — that's
+ *  the acceptable trade-off for clean parallel runs. */
 const WALL_THICKNESS = GRID_SIZE * 0.18;
-const WALL_LENGTH = GRID_SIZE + WALL_THICKNESS / 2;
+const WALL_LENGTH = GRID_SIZE;
 const WALL_HEIGHT = 0.16;
 
 function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
