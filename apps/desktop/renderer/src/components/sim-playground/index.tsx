@@ -215,10 +215,26 @@ export function SimPlayground({
     setSelectedObjectId(obj.id);
   };
 
+  /** 'press' — traditional press-drag-release. 'follow' — toolbar Move button:
+   *  object follows cursor until the user clicks anywhere on the floor. */
+  const [dragMode, setDragMode] = useState<'press' | 'follow'>('press');
+
   /** Begin dragging a placed object (only in select mode — when no tool is active). */
   const handleStartDrag = (objectId: string) => {
     if (activeTool) return; // tool mode → click is "stack on top", not drag
+    setDragMode('press');
     setDraggedObjectId(objectId);
+  };
+
+  /** Toolbar Move button: enter follow-cursor mode for the selected object.
+   *  Differs from press-drag in two ways:
+   *   • doesn't end on pointerup (we'd exit the moment the kid releases the
+   *     button click), so the object keeps following the cursor
+   *   • ends on the next floor click instead — that click IS the drop. */
+  const handleStartFollow = () => {
+    if (!selectedObject) return;
+    setDragMode('follow');
+    setDraggedObjectId(selectedObject.id);
   };
 
   const handleDragMove = (gx: number, gz: number) => {
@@ -536,6 +552,8 @@ export function SimPlayground({
               onHoverObject={setHoveredObjectId}
               onRotateSelected={handleRotateSelected}
               onDeleteSelected={handleDeleteSelected}
+              onMoveSelected={handleStartFollow}
+              dragMode={dragMode}
             />
             <div className="sim-3d-hint">
               {builderEnabled

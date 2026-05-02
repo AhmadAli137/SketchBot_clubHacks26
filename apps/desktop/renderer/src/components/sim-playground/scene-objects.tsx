@@ -16,6 +16,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
+import { Move } from 'lucide-react';
 
 import {
   GRID_SIZE,
@@ -58,10 +59,12 @@ function SelectionToolbar({
   obj,
   onRotate,
   onDelete,
+  onMove,
 }: {
   obj: SceneObject;
   onRotate?: () => void;
   onDelete?: () => void;
+  onMove?: () => void;
 }) {
   const { x, y, z } = gridToWorld(obj);
   // Park the toolbar a bit above each object's top face. Same offsets the
@@ -100,6 +103,13 @@ function SelectionToolbar({
         onClick={(e) => e.stopPropagation()}
         style={{ pointerEvents: 'auto' }}
       >
+        <button
+          type="button"
+          className="sandbox-selection-toolbar-btn"
+          onClick={onMove}
+          title="Move — click anywhere on the floor to drop"
+          aria-label="Move"
+        ><Move size={14} /></button>
         <button
           type="button"
           className="sandbox-selection-toolbar-btn"
@@ -581,6 +591,7 @@ export function SceneObjectsRenderer({
   onHoverObject,
   onRotate,
   onDelete,
+  onMove,
 }: {
   objects: SceneObject[];
   selectedId: string | null;
@@ -595,6 +606,7 @@ export function SceneObjectsRenderer({
   /** Floating-toolbar callbacks — operate on the currently selected object. */
   onRotate?: () => void;
   onDelete?: () => void;
+  onMove?: () => void;
 }) {
   return (
     <group>
@@ -636,7 +648,7 @@ export function SceneObjectsRenderer({
                 Hiding it during placement keeps the kid from accidentally
                 clicking ↻/✕ while rapidly dropping more objects. */}
             {isSelected && !isDragging && !toolActive && (
-              <SelectionToolbar obj={obj} onRotate={onRotate} onDelete={onDelete} />
+              <SelectionToolbar obj={obj} onRotate={onRotate} onDelete={onDelete} onMove={onMove} />
             )}
           </group>
         );

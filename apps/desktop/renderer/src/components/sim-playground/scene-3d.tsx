@@ -413,6 +413,11 @@ type SceneContentProps = {
   onHoverObject?: (id: string | null) => void;
   onRotateSelected?: () => void;
   onDeleteSelected?: () => void;
+  /** Toolbar's move button — kicks the selected object into "follow the
+   *  cursor until the next floor click" mode (no mouse-button hold needed). */
+  onMoveSelected?: () => void;
+  /** 'press' = traditional drag (mouse held); 'follow' = click-once / click-once. */
+  dragMode?: 'press' | 'follow';
 };
 
 function SceneContent({
@@ -421,7 +426,7 @@ function SceneContent({
   sceneObjects = [], selectedObjectId = null, draggedObjectId = null, hoveredObjectId = null,
   activeTool = null,
   onPlaceAt, onSelectObject, onStackOnTop, onStartDrag, onDragMove, onEndDrag, onHoverObject,
-  onRotateSelected, onDeleteSelected,
+  onRotateSelected, onDeleteSelected, onMoveSelected, dragMode = 'press',
 }: SceneContentProps) {
   const simMode = getSimMode(conceptId);
   const isDrawingMode = simMode === 'drawing';
@@ -439,13 +444,16 @@ function SceneContent({
   const isDragging = builderEnabled && draggedObjectId !== null;
   const showCursor = builderEnabled && activeTool !== null && cursor !== null && !isDragging;
 
-  // End drag on global pointerup (works even if cursor leaves the canvas)
+  // End drag on global pointerup — only for traditional press-drags.
+  // Toolbar-initiated 'follow' moves end on the next floor click instead,
+  // so the mouse-up from clicking the Move button doesn't immediately
+  // exit the move.
   useEffect(() => {
-    if (!isDragging) return;
+    if (!isDragging || dragMode !== 'press') return;
     const onUp = () => onEndDrag?.();
     window.addEventListener('pointerup', onUp);
     return () => window.removeEventListener('pointerup', onUp);
-  }, [isDragging, onEndDrag]);
+  }, [isDragging, dragMode, onEndDrag]);
 
   return (
     <>
@@ -497,7 +505,10 @@ function SceneContent({
         onClick={builderEnabled ? (e) => {
           e.stopPropagation();
           if (isDragging) {
-            // Defer to onEndDrag (pointerup handler) — don't also place/select
+            // Press-drag: floor click while dragging → no-op, pointerup
+            // already ended the drag. Follow-drag: this click IS the
+            // drop, so end the drag here.
+            if (dragMode === 'follow') onEndDrag?.();
             return;
           }
           if (activeTool && onPlaceAt) {
@@ -560,6 +571,7 @@ function SceneContent({
           onHoverObject={(id) => onHoverObject?.(id)}
           onRotate={onRotateSelected}
           onDelete={onDeleteSelected}
+          onMove={onMoveSelected}
         />
       )}
 
@@ -675,6 +687,11 @@ type Scene3DProps = {
    *  in-scene SelectionToolbar so the kid doesn't have to hunt the rail. */
   onRotateSelected?: () => void;
   onDeleteSelected?: () => void;
+  /** Toolbar's move button — kicks the selected object into "follow the
+   *  cursor until the next floor click" mode (no mouse-button hold needed). */
+  onMoveSelected?: () => void;
+  /** 'press' = traditional drag (mouse held); 'follow' = click-once / click-once. */
+  dragMode?: 'press' | 'follow';
 };
 
 export function Scene3D({
@@ -697,6 +714,8 @@ export function Scene3D({
   onHoverObject,
   onRotateSelected,
   onDeleteSelected,
+  onMoveSelected,
+  dragMode,
 }: Scene3DProps) {
   const env = useMemo(() => getEnvironment(conceptId), [conceptId]);
   return (
@@ -723,7 +742,9 @@ export function Scene3D({
         onDragMove={onDragMove} onEndDrag={onEndDrag}
         onHoverObject={onHoverObject}
         onRotateSelected={onRotateSelected}
-        onDeleteSelected={onDeleteSelected} />
+        onDeleteSelected={onDeleteSelected}
+        onMoveSelected={onMoveSelected}
+        dragMode={dragMode} />
     </Canvas>
   );
 }
