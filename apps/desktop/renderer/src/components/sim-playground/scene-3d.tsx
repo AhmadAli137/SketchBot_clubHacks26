@@ -455,6 +455,22 @@ function SceneContent({
     return () => window.removeEventListener('pointerup', onUp);
   }, [isDragging, dragMode, onEndDrag]);
 
+  // Right-click anywhere during a drag rotates the object being moved.
+  // Without this, the contextmenu handler on the floor only fires when
+  // the cursor is over empty floor — but during follow-drag the dragged
+  // object is right under the cursor, intercepting the event and
+  // stopping propagation. Window-level listener bypasses that.
+  useEffect(() => {
+    if (!isDragging) return;
+    const onContext = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onRotateSelected?.();
+    };
+    window.addEventListener('contextmenu', onContext);
+    return () => window.removeEventListener('contextmenu', onContext);
+  }, [isDragging, onRotateSelected]);
+
   return (
     <>
       <BackgroundLerper targetColor={env.background} />
@@ -529,7 +545,8 @@ function SceneContent({
             e.stopPropagation();
             // nativeEvent for preventDefault (R3F event doesn't expose it cleanly)
             (e.nativeEvent as MouseEvent).preventDefault?.();
-            setCursorRotY((r) => ((r + 1) % 4) as 0 | 1 | 2 | 3);
+            // Clockwise step (CCW Y rotation in Three.js, so decrement).
+            setCursorRotY((r) => ((r + 3) % 4) as 0 | 1 | 2 | 3);
           }
         } : undefined}
       >

@@ -177,8 +177,11 @@ export function SimPlayground({
 
   const handleRotateSelected = () => {
     if (!selectedObject) return;
+    // Clockwise rotation as viewed from above. Three.js positive Y rotation
+    // is CCW under the right-hand rule, so we DECREMENT rotY (equivalently
+    // +3 mod 4) to step clockwise like the kid expects from a clock face.
     updateObjects(sceneObjects.map((o) =>
-      o.id === selectedObject.id ? { ...o, rotY: (((o.rotY ?? 0) + 1) % 4) as 0 | 1 | 2 | 3 } : o,
+      o.id === selectedObject.id ? { ...o, rotY: (((o.rotY ?? 0) + 3) % 4) as 0 | 1 | 2 | 3 } : o,
     ));
     emitSparkEvent('user.rotate');
   };
