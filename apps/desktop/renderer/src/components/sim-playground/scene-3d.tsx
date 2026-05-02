@@ -562,9 +562,12 @@ function SceneContent({
       </mesh>
       <ContactShadows position={[0, -0.015, 0]} opacity={0.45} scale={24} blur={2.8} far={5} color="#000000" />
 
-      {/* Grid — cell size matches GRID_SIZE so every visible line is an
-          actual snap target. Sections every 1 m for spatial reference. */}
-      {showGrid && (
+      {/* Grid — kept for non-builder views (drawing, concept envs) where it
+          gives spatial reference. In builder mode (sandbox + maze building)
+          we hide it; the placed walls and the optional placement-grid
+          overlay carry enough alignment cues, and the dense GRID_SIZE
+          gridlines were just visual clutter behind the maze. */}
+      {showGrid && !builderEnabled && (
         <Grid position={[0, -0.008, 0]} args={[20, 20]} cellSize={GRID_SIZE} cellThickness={0.35}
           cellColor={env.gridColor} sectionSize={1} sectionThickness={0.65} sectionColor={env.sectionColor}
           fadeDistance={20} fadeStrength={1.65} infiniteGrid followCamera={false} />

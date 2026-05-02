@@ -190,11 +190,13 @@ function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: 
   return (
     <mesh position={[x + offX, y + 0.08, z + offZ]} rotation={[0, rotY, 0]} castShadow receiveShadow>
       {/* Length = full GRID_SIZE so walls in adjacent cells meet edge-to-edge
-          with no visible seam — the maze reads as a continuous corridor.
-          Walls are intentionally symmetric (no direction cap): for maze
-          building, the only useful rotation is X-axis vs Z-axis, and
-          rotationStepsForType('wall') = 2 respects that. */}
-      <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
+          with no visible seam. Thickness bumped from 0.18 → 0.32 so two
+          perpendicular walls overlap meaningfully at corners — the inside
+          seam disappears and the corner reads as one solid block instead
+          of two skinny boards barely kissing.
+          Walls are symmetric (no direction cap); rotation toggles X-axis
+          vs Z-axis only via rotationStepsForType('wall') = 2. */}
+      <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.32]} />
       <meshStandardMaterial color="#0a2a10" emissive="#002200" emissiveIntensity={0.3} roughness={0.8} />
     </mesh>
   );
@@ -462,15 +464,14 @@ function GhostShape({
 }) {
   switch (type) {
     case 'wall': {
-      // Mirror WallObject's half-cell offset so the ghost matches where
-      // the wall will land. No direction cap — walls are symmetric and
-      // rotate as X-axis ↔ Z-axis only.
+      // Mirror WallObject's half-cell offset + thickness (0.32) so the
+      // ghost matches the placed wall.
       const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
       const offX = isXAxis ? GRID_SIZE / 2 : 0;
       const offZ = isXAxis ? 0 : GRID_SIZE / 2;
       return (
         <mesh position={[offX, 0.08, offZ]} rotation={[0, rotY, 0]}>
-          <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
+          <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.32]} />
           <GhostMaterial />
         </mesh>
       );
