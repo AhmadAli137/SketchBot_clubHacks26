@@ -156,12 +156,19 @@ export function gridToWorld(obj: { gx: number; gz: number; gy?: number }): { x: 
   };
 }
 
-/** gridToWorld + per-type render offsets. Walls live on cell EDGES with
- *  a half-cell offset along their long axis so their ENDS sit on grid
- *  intersections (real maze-on-edge geometry). Selection chrome anchored
- *  to the bare cell origin would land beside the wall instead of around
- *  it, so use this helper whenever you need the actual visual position
- *  of a placed object: selection ring, hover highlight, floating toolbar. */
+/** Wall thickness as a fraction of GRID_SIZE — kept in sync with
+ *  WALL_THICKNESS in scene-objects.tsx (couldn't import that file from
+ *  a non-component module without a cycle). Used by gridToWorldRendered
+ *  to compute the wall's perpendicular-axis offset. */
+const WALL_THICKNESS_FRAC = 0.18;
+
+/** gridToWorld + per-type render offsets. Walls have two offsets:
+ *  half-cell along their long axis (so ends sit on grid intersections —
+ *  maze-on-edge), and half-thickness along their perpendicular axis (so
+ *  the wall's long edge is flush with a grid line, fully on one side
+ *  of it). Selection chrome anchored to the bare cell origin would
+ *  land beside the wall, so use this whenever you need the wall's
+ *  actual visual position: selection ring, hover highlight, toolbar. */
 export function gridToWorldRendered(obj: {
   gx: number;
   gz: number;
@@ -173,9 +180,11 @@ export function gridToWorldRendered(obj: {
   if (obj.type === 'wall') {
     // rotY 0 / 2 → wall along X-axis; rotY 1 / 3 → along Z-axis.
     const isXAxis = ((obj.rotY ?? 0) % 2) === 0;
+    const offLong = GRID_SIZE / 2;
+    const offThick = (GRID_SIZE * WALL_THICKNESS_FRAC) / 2;
     return isXAxis
-      ? { ...base, x: base.x + GRID_SIZE / 2 }
-      : { ...base, z: base.z + GRID_SIZE / 2 };
+      ? { ...base, x: base.x + offLong, z: base.z + offThick }
+      : { ...base, x: base.x + offThick, z: base.z + offLong };
   }
   return base;
 }

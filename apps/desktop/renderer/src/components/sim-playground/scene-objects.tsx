@@ -191,11 +191,18 @@ const WALL_LENGTH = GRID_SIZE;
 const WALL_HEIGHT = 0.16;
 
 function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
-  // Half-cell offset along the wall's long axis so its ENDS sit on
-  // grid intersections (real maze-on-edge geometry).
+  // Two offsets:
+  //  • half-cell along the LONG axis so the wall's ENDS land on grid
+  //    intersections (maze-on-edge geometry)
+  //  • half-thickness along the PERPENDICULAR axis so the wall's long
+  //    edge is flush with the grid line, not straddling it. This puts
+  //    the wall fully inside one cell instead of half on each side, and
+  //    L-corners overlap solidly in the cell-corner quadrant (no seam).
   const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
-  const offX = isXAxis ? GRID_SIZE / 2 : 0;
-  const offZ = isXAxis ? 0 : GRID_SIZE / 2;
+  const offLong = GRID_SIZE / 2;
+  const offThick = WALL_THICKNESS / 2;
+  const offX = isXAxis ? offLong : offThick;
+  const offZ = isXAxis ? offThick : offLong;
   return (
     <mesh position={[x + offX, y + WALL_HEIGHT / 2, z + offZ]} rotation={[0, rotY, 0]} castShadow receiveShadow>
       <boxGeometry args={[WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS]} />
@@ -466,11 +473,14 @@ function GhostShape({
 }) {
   switch (type) {
     case 'wall': {
-      // Mirror WallObject — thin wall with half-cell offset and slight
-      // overhang so corners read clean.
+      // Mirror WallObject — half-cell offset along long axis, half-
+      // thickness along perpendicular axis so the wall's edge sits on
+      // the grid line (not straddling it).
       const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
-      const offX = isXAxis ? GRID_SIZE / 2 : 0;
-      const offZ = isXAxis ? 0 : GRID_SIZE / 2;
+      const offLong = GRID_SIZE / 2;
+      const offThick = WALL_THICKNESS / 2;
+      const offX = isXAxis ? offLong : offThick;
+      const offZ = isXAxis ? offThick : offLong;
       return (
         <mesh position={[offX, WALL_HEIGHT / 2, offZ]} rotation={[0, rotY, 0]}>
           <boxGeometry args={[WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS]} />
