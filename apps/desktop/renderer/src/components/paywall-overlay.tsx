@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { motion, AnimatePresence } from 'motion/react';
 import type { Entitlements } from '@/lib/use-entitlements';
@@ -10,7 +10,7 @@ type Props = {
   onDismiss?: () => void;
 };
 
-const UPGRADE_URL = 'https://aibotics.app/pricing';
+const UPGRADE_URL = 'https://sayspark.ca/pricing';
 
 const TIER_NEXT: Record<string, { name: string; credits: string; price: string }> = {
   free:      { name: 'Home',      credits: '300',    price: '$12/mo' },

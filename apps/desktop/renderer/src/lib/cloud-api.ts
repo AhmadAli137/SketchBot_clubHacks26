@@ -1,10 +1,10 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { getSupabaseBrowserClient } from './supabase-browser';
 
 /**
- * Base URL for the Aibotics cloud backend — holds API keys, validates auth.
+ * Base URL for the SaySpark cloud backend — holds API keys, validates auth.
  * All AI endpoints (tutor chat, TTS, evaluate) go here; hardware stays at the local runtime.
  */
 export const CLOUD_API_URL =

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -50,7 +50,7 @@ export default function ChangePasswordPage() {
               <Link href="/account" className="account-back-link">← Back to account</Link>
               <h1 className="headline" style={{ fontSize: '1.6rem', marginTop: 8 }}>Change password</h1>
               <p className="body-md" style={{ color: 'var(--muted)', marginTop: 4 }}>
-                Choose a new password for your Aibotics account.
+                Choose a new password for your SaySpark account.
               </p>
             </div>
           </div>

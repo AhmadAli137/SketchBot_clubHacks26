@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -219,7 +219,7 @@ export function AuthScreen({ onAuthenticated, onBack, authMode = 'teacher' }: Au
             )}
             <MotrixLogo size={34} showWordmark={false} animate={false} />
             <div>
-              <div className="entry-brand-title">AIbotics</div>
+              <div className="entry-brand-title">SaySpark</div>
               <div className="entry-brand-sub">
                 {authMode === 'personal' ? 'Personal account' : 'Teacher sign-in'}
               </div>

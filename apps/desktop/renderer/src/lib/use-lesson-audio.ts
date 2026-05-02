@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LessonStep } from './lesson-types';
 import { CLOUD_API_URL, cloudHeaders } from './cloud-api';
 
@@ -11,7 +11,7 @@ type UseLessonAudioOptions = {
 
 /**
  * Manages TTS audio playback synchronized with lesson steps.
- * Fetches audio from the Aibotics cloud backend (auth-gated, keys never in installer).
+ * Fetches audio from the SaySpark cloud backend (auth-gated, keys never in installer).
  */
 export function useLessonAudio({ apiBase, authToken = null, enabled = true, voice = 'alloy' }: UseLessonAudioOptions) {
   const audioRef = useRef<HTMLAudioElement | null>(null);

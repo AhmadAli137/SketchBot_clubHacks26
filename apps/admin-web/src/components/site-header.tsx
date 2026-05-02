@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/client';
-import { AiboticsLogo } from '@/components/aibotics-logo';
+import { SaySparkLogo } from '@/components/sayspark-logo';
 
 function userInitial(user: User): string {
   const name = user.user_metadata?.full_name as string | undefined;
@@ -95,7 +95,7 @@ export function SiteHeader() {
         <div className="nav-inner">
           {/* Logo */}
           <Link href="/" className="nav-logo">
-            <AiboticsLogo size={38} />
+            <SaySparkLogo size={38} />
           </Link>
 
           {/* Desktop links */}
@@ -200,7 +200,7 @@ export function SiteHeader() {
             >
               <div className="nav-mobile-header">
                 <Link href="/" className="nav-logo" onClick={() => setMobileNavOpen(false)}>
-                  <AiboticsLogo size={34} animate={false} />
+                  <SaySparkLogo size={34} animate={false} />
                 </Link>
                 <button
                   type="button"

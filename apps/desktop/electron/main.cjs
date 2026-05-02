@@ -386,7 +386,7 @@ async function createMainWindow() {
     minWidth: 1180,
     minHeight: 760,
     backgroundColor: '#060a12',
-    title: 'Aibotics',
+    title: 'SaySpark',
     icon: path.join(__dirname, 'icon.ico'),
     autoHideMenuBar: true,
     webPreferences: {

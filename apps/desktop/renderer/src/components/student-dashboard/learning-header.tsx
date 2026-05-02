@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
@@ -8,7 +8,7 @@ import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { useGuidedTour } from '@/components/guided-tour/guided-tour-context';
 
 import { Button } from '@/components/ui/button';
-import { AiboticsLogo } from '@/components/aibotics-logo';
+import { SaySparkLogo } from '@/components/sayspark-logo';
 import { AGE_GROUP_META, type AgeGroup } from '@/lib/concept-types';
 import { getConceptPreviews, ROBOT_LAB_CONCEPT_IDS } from '@/lib/concept-catalog';
 import { SaveStatus } from '@/components/save-status';
@@ -120,8 +120,8 @@ export function LearningHeader({
         {isSandbox && <div className="learn-header-spacer" />}
 
         <div className="learn-header-brand">
-          <AiboticsLogo size={26} showWordmark={false} animate={false} />
-          <span className="learn-header-name">Aibotics</span>
+          <SaySparkLogo size={26} showWordmark={false} animate={false} />
+          <span className="learn-header-name">SaySpark</span>
         </div>
 
         {!isSandbox && <div className="learn-header-divider" />}

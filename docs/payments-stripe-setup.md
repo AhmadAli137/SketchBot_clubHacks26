@@ -1,6 +1,6 @@
-# Payments & Stripe Setup
+﻿# Payments & Stripe Setup
 
-Complete reference for AIBotics subscription billing — Stripe configuration, Render environment variables, backend logic, frontend flow, and Supabase schema.
+Complete reference for SaySpark subscription billing — Stripe configuration, Render environment variables, backend logic, frontend flow, and Supabase schema.
 
 ---
 
@@ -21,7 +21,7 @@ admin-web (Next.js)                      Stripe
 Browser redirects to Stripe-hosted checkout page
   │
   ▼ (payment complete)
-Stripe redirects to https://aibotics.app/account?upgraded=1
+Stripe redirects to https://sayspark.ca/account?upgraded=1
   │
   │  Stripe also fires webhooks:
   │    1. checkout.session.completed  ──► backend links stripe_customer_id → user_id
@@ -37,10 +37,10 @@ Entitlements endpoint returns new tier on next fetch
 ## Stripe Dashboard Setup
 
 ### Account
-- **Name:** AIBotics sandbox / AiBotics
+- **Name:** SaySpark sandbox / SaySpark
 - **Mode:** Test mode during development — switch to Live when ready
-- **Statement descriptor:** `AIBOTICS EDU`
-- **Shortened descriptor:** `AIBOTICS`
+- **Statement descriptor:** `SAYSPARK EDU`
+- **Shortened descriptor:** `SAYSPARK`
 
 ---
 
@@ -48,7 +48,7 @@ Entitlements endpoint returns new tier on next fetch
 
 Create 3 products in **Product catalog**, each with 2 recurring prices.
 
-#### AIBotics Home
+#### SaySpark Home
 > Full access for one learner and a parent. 300 AI credits/month, real robot support for 1 SketchBot.
 
 | Price | Amount | Period | Env var |
@@ -56,7 +56,7 @@ Create 3 products in **Product catalog**, each with 2 recurring prices.
 | Monthly | CA$15.99 | Monthly | `STRIPE_PRICE_HOME_MONTHLY` |
 | Annual  | CA$159.99 | Yearly | `STRIPE_PRICE_HOME_ANNUAL` |
 
-#### AIBotics Classroom
+#### SaySpark Classroom
 > One teacher + 30 students. 2,500 pooled AI credits/month, up to 4 robots.
 
 | Price | Amount | Period | Env var |
@@ -64,7 +64,7 @@ Create 3 products in **Product catalog**, each with 2 recurring prices.
 | Monthly | CA$59.99 | Monthly | `STRIPE_PRICE_CLASSROOM_MONTHLY` |
 | Annual  | CA$599.99 | Yearly | `STRIPE_PRICE_CLASSROOM_ANNUAL` |
 
-#### AIBotics School
+#### SaySpark School
 > Building-wide license, 10 teachers + unlimited students. 15,000 pooled AI credits/month, up to 20 robots.
 
 | Price | Amount | Period | Env var |
@@ -88,7 +88,7 @@ Create 3 products in **Product catalog**, each with 2 recurring prices.
 After creating the webhook, click **Reveal** next to **Signing secret** to get the `whsec_...` value.
 
 > **Why `checkout.session.completed`?**  
-> Stripe's `customer.subscription.created` event only carries the Stripe customer ID, not the AIBotics user UUID. `checkout.session.completed` includes `client_reference_id` (the user UUID passed at checkout creation), which the backend uses to link the two. This event must be processed before `subscription.created` or the sync will silently fail.
+> Stripe's `customer.subscription.created` event only carries the Stripe customer ID, not the SaySpark user UUID. `checkout.session.completed` includes `client_reference_id` (the user UUID passed at checkout creation), which the backend uses to link the two. This event must be processed before `subscription.created` or the sync will silently fail.
 
 ---
 
@@ -116,11 +116,11 @@ Set these on the cloud-backend service in the Render dashboard:
 | `STRIPE_PRICE_CLASSROOM_ANNUAL` | `price_...` | |
 | `STRIPE_PRICE_SCHOOL_MONTHLY` | `price_...` | |
 | `STRIPE_PRICE_SCHOOL_ANNUAL` | `price_...` | |
-| `APP_URL` | `https://aibotics.app` | Stripe redirects back here after checkout |
+| `APP_URL` | `https://sayspark.ca` | Stripe redirects back here after checkout |
 | `SUPABASE_URL` | `https://wpphapmlomoppseapfjn.supabase.co` | Already set |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJ...` | Already set |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` | Already set |
-| `CLOUD_CORS_ORIGINS` | `https://aibotics.app,...` | Already set |
+| `CLOUD_CORS_ORIGINS` | `https://sayspark.ca,...` | Already set |
 
 > `SKIP_AUTH` is **not** set on Render — the backend defaults to `false` (real JWT validation active).  
 > Only set `SKIP_AUTH=true` in local `.env` to bypass auth during development.
@@ -298,7 +298,7 @@ on conflict (user_id) do nothing;
 
 ## Subscription Plans Managed In
 
-Subscriptions can **only be managed through the admin-web** (`aibotics.app`). The desktop app shows entitlement state (tier badge, credit gauge) via the account panel, but has no checkout flow — it links to `aibotics.app/pricing`.
+Subscriptions can **only be managed through the admin-web** (`sayspark.ca`). The desktop app shows entitlement state (tier badge, credit gauge) via the account panel, but has no checkout flow — it links to `sayspark.ca/pricing`.
 
 ---
 
@@ -309,8 +309,8 @@ Subscriptions can **only be managed through the admin-web** (`aibotics.app`). Th
 - [ ] Update all `STRIPE_PRICE_*` env vars on Render with Live price IDs
 - [ ] Update `STRIPE_SECRET_KEY` on Render with Live secret key (`sk_live_...`)
 - [ ] Create a new webhook in Live mode pointing to the same endpoint, update `STRIPE_WEBHOOK_SECRET`
-- [ ] Set `APP_URL=https://aibotics.app` on Render (already the default)
-- [ ] Verify `CLOUD_CORS_ORIGINS` includes `https://aibotics.app`
+- [ ] Set `APP_URL=https://sayspark.ca` on Render (already the default)
+- [ ] Verify `CLOUD_CORS_ORIGINS` includes `https://sayspark.ca`
 - [ ] Test end-to-end with a real card in Live mode
 - [ ] Enable Stripe Radar fraud rules
 - [ ] Set up Stripe tax settings if charging tax (GST/HST for Canadian customers)

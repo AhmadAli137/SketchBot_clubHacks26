@@ -1,21 +1,21 @@
-import type { TourFlowId, TourStep } from './types';
+﻿import type { TourFlowId, TourStep } from './types';
 
 export const GUIDED_TOUR_STORAGE: Record<TourFlowId, string> = {
-  studentSession: 'aibotics-tour-session-v2',
-  studentHome:    'aibotics-tour-home-v2',
-  planPicker:     'aibotics-tour-plan-v2',
-  progressMap:    'aibotics-tour-map-v2',
-  challenge:      'aibotics-tour-challenge-v2',
-  lessonPlayer:   'aibotics-tour-lesson-v2',
-  blockEditor:    'aibotics-tour-blocks-v2',
-  simPlayground:  'aibotics-tour-sim-v2',
+  studentSession: 'sayspark-tour-session-v2',
+  studentHome:    'sayspark-tour-home-v2',
+  planPicker:     'sayspark-tour-plan-v2',
+  progressMap:    'sayspark-tour-map-v2',
+  challenge:      'sayspark-tour-challenge-v2',
+  lessonPlayer:   'sayspark-tour-lesson-v2',
+  blockEditor:    'sayspark-tour-blocks-v2',
+  simPlayground:  'sayspark-tour-sim-v2',
 };
 
 // ─── Plan Picker ─────────────────────────────────────────────────────────────
 export const PLAN_PICKER_STEPS: TourStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to AIbotics!',
+    title: 'Welcome to SaySpark!',
     body: 'I\'m Spark, your AI robotics tutor. I\'ll guide you through everything — building robots, learning to code, and competing with friends.',
     targetSelector: null,
     placement: 'center',
@@ -205,7 +205,7 @@ export const PROGRESS_MAP_STEPS: TourStep[] = [
   {
     id: 'map-intro',
     title: 'Your learning path',
-    body: 'This is your AIbotics journey map — like Duolingo but for robotics! Complete concepts to unlock new nodes on the path.',
+    body: 'This is your SaySpark journey map — like Duolingo but for robotics! Complete concepts to unlock new nodes on the path.',
     targetSelector: null,
     placement: 'center',
     tutorSpeech: 'Every node is a concept you can master!',

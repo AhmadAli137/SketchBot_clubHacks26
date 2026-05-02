@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
@@ -248,7 +248,7 @@ export function GuidedTourOverlay({
               <div className="tour-intro-body">
                 <div className="tour-intro-label">✨ Quick tour</div>
                 <h2 className="tour-intro-title">
-                  {introPhase.flow === 'planPicker'    ? 'Welcome to AIbotics!'       :
+                  {introPhase.flow === 'planPicker'    ? 'Welcome to SaySpark!'       :
                    introPhase.flow === 'studentSession' ? 'New to this workspace?'     :
                    introPhase.flow === 'progressMap'   ? 'Your learning map awaits!'  :
                    introPhase.flow === 'challenge'     ? 'Challenge time!'             :
@@ -259,7 +259,7 @@ export function GuidedTourOverlay({
                 </h2>
                 <p className="tour-intro-desc">
                   {introPhase.flow === 'planPicker'
-                    ? "I'm Spark, your AI tutor! Let me show you what AIbotics can do — takes about 30 seconds."
+                    ? "I'm Spark, your AI tutor! Let me show you what SaySpark can do — takes about 30 seconds."
                     : introPhase.flow === 'studentSession'
                     ? "Let me show you the key controls and features — it'll only take a minute!"
                     : introPhase.flow === 'progressMap'

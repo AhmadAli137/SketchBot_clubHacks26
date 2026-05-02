@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
@@ -13,7 +13,7 @@ import {
   onAgenticSettingsChange,
 } from '@/lib/agentic-settings';
 
-const PRICING_URL = 'https://aibotics.app/pricing';
+const PRICING_URL = 'https://sayspark.ca/pricing';
 
 type Props = {
   role: AuthRole;

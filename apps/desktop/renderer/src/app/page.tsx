@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getShortLoopBuffer, useMenuMusic } from '@/lib/menu-music'; // triggers offline render immediately
 import { AnimatePresence, motion } from 'motion/react';
 import { Volume2, VolumeX, UserRound } from 'lucide-react';
 
-import { AiboticsLogo } from '@/components/aibotics-logo';
+import { SaySparkLogo } from '@/components/sayspark-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { AuthScreen, type AuthResult, type AuthRole } from '@/components/auth-screen';
 import { PlanPicker } from '@/components/onboarding/plan-picker';
@@ -1153,7 +1153,7 @@ export default function HomePage() {
               <div className="plan-boot-mark-wrap" aria-hidden="true">
                 <div className="plan-boot-ring" />
                 <div className="plan-boot-ring plan-boot-ring-d" />
-                <AiboticsLogo size={72} showWordmark={false} animate={false} />
+                <SaySparkLogo size={72} showWordmark={false} animate={false} />
               </div>
 
               {/* Wordmark */}

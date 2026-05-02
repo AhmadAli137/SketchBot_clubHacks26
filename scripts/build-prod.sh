@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────────────────────
-# Aibotics Desktop — production build pipeline
+# SaySpark Desktop — production build pipeline
 # Usage: bash scripts/build-prod.sh
 # Output: apps/desktop/dist/  (NSIS installer + unpacked dir)
 # ──────────────────────────────────────────────────────────────────────────────

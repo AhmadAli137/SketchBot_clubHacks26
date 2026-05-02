@@ -1,4 +1,4 @@
-import './globals.css';
+﻿import './globals.css';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { ReactNode } from 'react';
@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Aibotics — AI-Tutored Robotics',
+  title: 'SaySpark — AI-Tutored Robotics',
   description: 'Learn robotics by doing — real robots, real code, AI personal tutor.',
 };
 

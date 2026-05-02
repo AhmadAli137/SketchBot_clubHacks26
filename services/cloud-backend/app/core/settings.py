@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -21,7 +21,7 @@ class Settings:
         )
         self.cors_origin_regex = os.getenv(
             "CLOUD_CORS_ORIGIN_REGEX",
-            r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://.*\.aibotics\.app$|^https://.*\.vercel\.app$|^app://localhost$",
+            r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://.*\.sayspark\.app$|^https://.*\.vercel\.app$|^app://localhost$",
         )
         self.data_file = Path(
             os.getenv(
@@ -61,7 +61,7 @@ class Settings:
         self.stripe_price_classroom_annual = os.getenv("STRIPE_PRICE_CLASSROOM_ANNUAL", "")
         self.stripe_price_school_monthly = os.getenv("STRIPE_PRICE_SCHOOL_MONTHLY", "")
         self.stripe_price_school_annual = os.getenv("STRIPE_PRICE_SCHOOL_ANNUAL", "")
-        self.app_url = os.getenv("APP_URL", "https://aibotics.app")
+        self.app_url = os.getenv("APP_URL", "https://sayspark.ca")
 
 
 settings = Settings()

@@ -6,7 +6,7 @@ import { Suspense, useState } from 'react';
 import { motion } from 'framer-motion';
 
 import { createClient } from '@/lib/supabase/client';
-import { AiboticsLogo } from '@/components/aibotics-logo';
+import { SaySparkLogo } from '@/components/sayspark-logo';
 
 function SignInForm() {
   const router = useRouter();
@@ -48,12 +48,12 @@ function SignInForm() {
         transition={{ duration: 0.45, ease: 'easeOut' }}
       >
         <Link href="/" className="auth-logo-link">
-          <AiboticsLogo size={42} />
-          <span className="auth-logo-name">Aibotics</span>
+          <SaySparkLogo size={42} />
+          <span className="auth-logo-name">SaySpark</span>
         </Link>
 
         <h1 className="auth-title">Welcome back</h1>
-        <p className="auth-subtitle">Sign in to your Aibotics account</p>
+        <p className="auth-subtitle">Sign in to your SaySpark account</p>
 
         {error && (
           <motion.div className="auth-error" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>

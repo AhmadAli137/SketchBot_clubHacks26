@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   color-scheme: light;
   --bg: #edf3fb;
   --bg-2: #f8fbff;
@@ -11697,16 +11697,20 @@ select.block-param-input{width:auto;padding-right:20px}
 @keyframes plan-spin { to { transform: rotate(360deg); } }
 .auth-back-to-plan { margin-bottom: 12px; }
 
-/* AIbotics logo / wordmark */
-.aibotics-wordmark-name { color: var(--text); }
-.aibotics-wordmark-ai {
-  background: linear-gradient(90deg, #6366f1, #5de4ff);
+/* SaySpark logo / wordmark — "Say" sits in the body text colour, "Spark"
+   picks up the cyan→purple gradient that matches the in-app tutor
+   character so the brand and product feel like one thing. */
+.sayspark-wordmark-name { color: var(--text); }
+.sayspark-wordmark-say  { color: var(--text); }
+.sayspark-wordmark-spark {
+  background: linear-gradient(90deg, #5de4ff 0%, #a855f7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  margin-left: 2px;
 }
-.aibotics-wordmark-sub { color: rgba(255, 255, 255, 0.42); text-transform: uppercase; }
-:root:not([data-theme='dark']) .aibotics-wordmark-sub { color: rgba(0, 0, 0, 0.38); }
+.sayspark-wordmark-sub  { color: rgba(255, 255, 255, 0.50); text-transform: uppercase; }
+:root:not([data-theme='dark']) .sayspark-wordmark-sub { color: rgba(0, 0, 0, 0.45); }
 
 /* ─── Session Banner ──────────────────────────────────────────────────────── */
 

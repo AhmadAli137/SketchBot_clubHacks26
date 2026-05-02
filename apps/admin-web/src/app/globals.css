@@ -1,4 +1,4 @@
-/* ─── Design tokens — matches desktop dark theme exactly ─────────────────── */
+﻿/* ─── Design tokens — matches desktop dark theme exactly ─────────────────── */
 :root {
   color-scheme: dark;
 
@@ -3586,14 +3586,18 @@ body::before {
   .upgrade-banner-text strong { color: #059669; }
 }
 
-/* ─── Aibotics logo / wordmark ─────────────────────────────────────────────── */
-.aibotics-wordmark-name { color: var(--text); }
-.aibotics-wordmark-ai {
-  background: linear-gradient(90deg, #6366f1, #5de4ff);
+/* ─── SaySpark logo / wordmark ─────────────────────────────────────────────── */
+.sayspark-wordmark-name { color: var(--text); }
+.sayspark-wordmark-say  { color: var(--text); }
+.sayspark-wordmark-spark {
+  background: linear-gradient(90deg, #5de4ff 0%, #a855f7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  margin-left: 2px;
 }
+.sayspark-wordmark-sub { color: rgba(255, 255, 255, 0.50); text-transform: uppercase; }
+:root:not([data-theme='dark']) .sayspark-wordmark-sub { color: rgba(0, 0, 0, 0.45); }
 .nav-logo { gap: 0 !important; }
 
 /* ── Download page ──────────────────────────────────────────────────────── */

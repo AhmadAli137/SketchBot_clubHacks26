@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 import { createClient } from '@/lib/supabase/client';
-import { AiboticsLogo } from '@/components/aibotics-logo';
+import { SaySparkLogo } from '@/components/sayspark-logo';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -54,8 +54,8 @@ export default function SignUpPage() {
         transition={{ duration: 0.45, ease: 'easeOut' }}
       >
         <Link href="/" className="auth-logo-link">
-          <AiboticsLogo size={42} />
-          <span className="auth-logo-name">Aibotics</span>
+          <SaySparkLogo size={42} />
+          <span className="auth-logo-name">SaySpark</span>
         </Link>
 
         {success ? (
@@ -73,7 +73,7 @@ export default function SignUpPage() {
         ) : (
           <>
             <h1 className="auth-title">Create your account</h1>
-            <p className="auth-subtitle">Start your Aibotics journey — free forever on Explorer</p>
+            <p className="auth-subtitle">Start your SaySpark journey — free forever on Explorer</p>
 
             {error && (
               <motion.div className="auth-error" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>

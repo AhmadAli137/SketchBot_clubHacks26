@@ -12,7 +12,7 @@ const { dialog } = require('electron');
  * available the user is prompted to download it; on next quit it installs.
  */
 function setupAutoUpdater(mainWindow) {
-  const cdnBase = process.env.RELEASE_CDN_URL || 'https://releases.aibotics.app';
+  const cdnBase = process.env.RELEASE_CDN_URL || 'https://releases.sayspark.ca';
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
@@ -27,7 +27,7 @@ function setupAutoUpdater(mainWindow) {
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update available',
-      message: `Aibotics ${info.version} is ready to download.`,
+      message: `SaySpark ${info.version} is ready to download.`,
       detail: 'The update will be installed when you quit the app.',
       buttons: ['Download in background', 'Later'],
       defaultId: 0,
@@ -40,7 +40,7 @@ function setupAutoUpdater(mainWindow) {
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update ready',
-      message: 'Restart Aibotics to apply the update.',
+      message: 'Restart SaySpark to apply the update.',
       buttons: ['Restart now', 'Later'],
       defaultId: 0,
     }).then(({ response }) => {

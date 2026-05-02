@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { SiteHeader } from '@/components/site-header';
@@ -7,12 +7,12 @@ import { Reveal } from '@/components/reveal';
 import { DownloadPageClient } from './download-client';
 
 export const metadata: Metadata = {
-  title: 'Download Aibotics — AI-Tutored Robotics Platform',
+  title: 'Download SaySpark — AI-Tutored Robotics Platform',
   description:
-    'Download the Aibotics desktop app for Windows. Includes the AI tutor, robot simulator, and the local Python runtime — everything bundled, no setup required.',
+    'Download the SaySpark desktop app for Windows. Includes the AI tutor, robot simulator, and the local Python runtime — everything bundled, no setup required.',
 };
 
-const RELEASE_CDN = process.env.NEXT_PUBLIC_RELEASE_CDN_URL ?? 'https://releases.aibotics.app';
+const RELEASE_CDN = process.env.NEXT_PUBLIC_RELEASE_CDN_URL ?? 'https://releases.sayspark.ca';
 
 const REQUIREMENTS = [
   { icon: '🖥️', label: 'OS',         value: 'Windows 10 or 11 (64-bit)' },
@@ -26,13 +26,13 @@ const WHATS_INSIDE = [
   { icon: '🧠', title: 'AI Tutor',         desc: 'Claude-powered guidance, adapts to your level' },
   { icon: '🔬', title: '3D Simulator',      desc: 'Test robot code without hardware' },
   { icon: '🐍', title: 'Python Runtime',    desc: 'Bundled venv — no installation needed' },
-  { icon: '📡', title: 'Robot Bridge',      desc: 'Wi-Fi link to your physical Aibotics robot' },
+  { icon: '📡', title: 'Robot Bridge',      desc: 'Wi-Fi link to your physical SaySpark robot' },
   { icon: '🏆', title: 'Challenge Library', desc: '20+ guided challenges across 5 domains' },
   { icon: '📶', title: 'Works offline',     desc: 'Simulator and block runner need no internet' },
 ];
 
 export default function DownloadPage() {
-  const exeUrl  = `${RELEASE_CDN}/latest/Aibotics-Setup.exe`;
+  const exeUrl  = `${RELEASE_CDN}/latest/SaySpark-Setup.exe`;
   const yamlUrl = `${RELEASE_CDN}/latest.yml`;
 
   return (

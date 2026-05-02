@@ -1,4 +1,4 @@
-name: Release Desktop App
+﻿name: Release Desktop App
 
 # Triggers on version tags: git tag v1.2.3 && git push --tags
 on:
@@ -13,7 +13,7 @@ env:
 #   R2_ACCESS_KEY_ID      — Cloudflare R2 Access Key ID
 #   R2_SECRET_ACCESS_KEY  — Cloudflare R2 Secret Access Key
 #   R2_ENDPOINT           — https://<account_id>.r2.cloudflarestorage.com
-#   R2_BUCKET             — bucket name, e.g. aibotics-releases
+#   R2_BUCKET             — bucket name, e.g. sayspark-releases
 
 jobs:
   build-windows:
@@ -95,10 +95,10 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           SRC=$(ls "apps/desktop/dist/"*.exe | head -1)
-          DEST="apps/desktop/dist/Aibotics-Setup-${VERSION}.exe"
+          DEST="apps/desktop/dist/SaySpark-Setup-${VERSION}.exe"
           mv "$SRC" "$DEST"
           echo "INSTALLER_PATH=$DEST" >> "$GITHUB_ENV"
-          echo "INSTALLER_NAME=Aibotics-Setup-${VERSION}.exe" >> "$GITHUB_ENV"
+          echo "INSTALLER_NAME=SaySpark-Setup-${VERSION}.exe" >> "$GITHUB_ENV"
 
       # ── Upload to Cloudflare R2 ──────────────────────────────────────────
       - name: Configure AWS CLI for R2
@@ -119,7 +119,7 @@ jobs:
         shell: bash
         run: |
           aws s3 cp "${{ env.INSTALLER_PATH }}" \
-            "s3://${{ secrets.R2_BUCKET }}/latest/Aibotics-Setup.exe" \
+            "s3://${{ secrets.R2_BUCKET }}/latest/SaySpark-Setup.exe" \
             --endpoint-url "${{ secrets.R2_ENDPOINT }}"
 
       - name: Upload latest.yml (electron-updater manifest)
@@ -135,7 +135,7 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ github.ref_name }}"
-          CDN="${{ secrets.RELEASE_CDN_URL }}"   # e.g. https://releases.aibotics.app
+          CDN="${{ secrets.RELEASE_CDN_URL }}"   # e.g. https://releases.sayspark.ca
           # Replace the path line so electron-updater downloads from CDN
           sed -i "s|path:.*|path: ${CDN}/releases/${VERSION}/${{ env.INSTALLER_NAME }}|" \
             apps/desktop/dist/latest.yml

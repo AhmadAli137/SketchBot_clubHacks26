@@ -1,6 +1,6 @@
-# Authentication & Security Architecture
+﻿# Authentication & Security Architecture
 
-This document covers how Aibotics handles identity, session management, and API key security across every surface: the desktop app, web app, mobile companion, and the cloud backend.
+This document covers how SaySpark handles identity, session management, and API key security across every surface: the desktop app, web app, mobile companion, and the cloud backend.
 
 ---
 
@@ -8,7 +8,7 @@ This document covers how Aibotics handles identity, session management, and API 
 
 **No API key ever lives in a client application.**
 
-Anthropic, ElevenLabs, and OpenAI keys exist in exactly one place: the Aibotics cloud backend, running on a server we control. Every client — desktop, web, or mobile — must authenticate with *us* first before any AI feature works. We validate that identity on the server before forwarding anything to a third-party API.
+Anthropic, ElevenLabs, and OpenAI keys exist in exactly one place: the SaySpark cloud backend, running on a server we control. Every client — desktop, web, or mobile — must authenticate with *us* first before any AI feature works. We validate that identity on the server before forwarding anything to a third-party API.
 
 A kid installing the desktop app, a teacher opening the web dashboard, or a parent using the mobile companion never has access to the underlying AI credentials. If an account is suspended, the backend stops serving requests — no key rotation required.
 
@@ -53,7 +53,7 @@ We never store or transmit passwords ourselves.
                       │  HTTPS
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Aibotics Cloud Backend  (sketchbot-backend.onrender.com)       │
+│  SaySpark Cloud Backend  (sketchbot-backend.onrender.com)       │
 │                                                                 │
 │  3. require_auth() calls supabase.auth.get_user(jwt)            │
 │     → 401 if invalid, expired, or from a suspended account      │

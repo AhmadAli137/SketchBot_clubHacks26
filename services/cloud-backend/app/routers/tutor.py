@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -64,7 +64,7 @@ async def tutor_message(body: TutorMessageRequest, user: AuthUser):
     has_credits, remaining = check_credits(user["id"])
     if not has_credits:
         async def no_credits():
-            yield f"data: {json.dumps({'type': 'error', 'message': f'You have used all your AI credits for this month (0 remaining). Upgrade your plan at aibotics.app/pricing to continue.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': f'You have used all your AI credits for this month (0 remaining). Upgrade your plan at sayspark.ca/pricing to continue.'})}\n\n"
         return StreamingResponse(no_credits(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 

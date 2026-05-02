@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Annotated
@@ -156,7 +156,7 @@ def create_checkout(body: CheckoutRequest, user: Annotated[dict, Depends(require
     if not settings.stripe_secret_key:
         raise HTTPException(
             status_code=501,
-            detail="Payments are not yet configured on this server. Email support@aibotics.app to upgrade.",
+            detail="Payments are not yet configured on this server. Email support@sayspark.ca to upgrade.",
         )
     try:
         import stripe  # type: ignore[import]

@@ -1,8 +1,8 @@
-{
-  "name": "aibotics-desktop",
+﻿{
+  "name": "sayspark-desktop",
   "version": "1.0.0",
   "description": "AI-Tutored Robotics Platform",
-  "author": "Aibotics",
+  "author": "SaySpark",
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
@@ -24,8 +24,8 @@
     "wait-on": "^8.0.5"
   },
   "build": {
-    "appId": "com.aibotics.desktop",
-    "productName": "Aibotics",
+    "appId": "com.sayspark.desktop",
+    "productName": "SaySpark",
     "icon": "electron/icon.ico",
     "directories": {
       "output": "dist"
@@ -58,7 +58,7 @@
     ],
     "publish": {
       "provider": "generic",
-      "url": "https://releases.aibotics.app"
+      "url": "https://releases.sayspark.ca"
     },
     "win": {
       "signAndEditExecutable": false,
