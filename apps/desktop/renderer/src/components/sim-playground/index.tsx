@@ -171,73 +171,6 @@ export function SimPlayground({
     emitSparkEvent('user.place', { tool: activeTool.id });
   };
 
-  /** Drag-to-paint walls. Called continuously while the wall tool is
-   *  active and the user is dragging on the floor. Auto-orients each new
-   *  wall based on the direction from the previous painted cell, so a
-   *  horizontal drag drops X-axis walls and a vertical drag drops Z-axis
-   *  walls — no rotate-clicking between segments. Only walls can be
-   *  painted (other props are free-place and don't benefit from tiling). */
-  const paintedCellsRef = useRef<Set<string>>(new Set());
-  const lastPaintedRef = useRef<{ gx: number; gz: number } | null>(null);
-  /** Track painted-wall ids in this stroke so we can retro-fix the
-   *  first wall's rotation once we see direction. */
-  const strokeWallIdsRef = useRef<string[]>([]);
-  const handlePaintWalls = (
-    gxF: number,
-    gzF: number,
-    /** cursorRotY from the ghost preview — used when we haven't yet
-     *  moved enough to infer direction (single-cell click, or very
-     *  start of a stroke). Right-click rotates the cursor; passing it
-     *  here means the kid's chosen orientation actually lands. */
-    cursorRotY: 0 | 1 | 2 | 3 = 0,
-  ) => {
-    if (!activeTool || activeTool.type !== 'wall') return;
-    const gx = Math.round(gxF);
-    const gz = Math.round(gzF);
-    const key = `${gx},${gz}`;
-    if (paintedCellsRef.current.has(key)) return;
-    // Skip if a wall already exists at this exact cell — don't double up.
-    if (sceneObjects.some((o) =>
-      o.type === 'wall' && Math.round(o.gx) === gx && Math.round(o.gz) === gz,
-    )) {
-      paintedCellsRef.current.add(key);
-      lastPaintedRef.current = { gx, gz };
-      return;
-    }
-    // Pick rotation. If we have a prior cell, infer from direction
-    // (horizontal drag → X-axis, vertical → Z-axis). Otherwise honour
-    // the ghost cursor's rotation so right-click-to-rotate before
-    // dropping a single wall actually does what the kid expects.
-    let rotY: 0 | 1 | 2 | 3 = (cursorRotY % 2) as 0 | 1;
-    const prev = lastPaintedRef.current;
-    if (prev) {
-      const dx = Math.abs(gx - prev.gx);
-      const dz = Math.abs(gz - prev.gz);
-      rotY = dz > dx ? 1 : 0;
-      // Retro-orient the FIRST wall of the stroke once we know the
-      // direction, so it matches the rest of the line. Without this,
-      // a wall painted with cursorRotY=1 then dragged horizontally
-      // would have its first segment vertical and the rest horizontal.
-      const firstId = strokeWallIdsRef.current[0];
-      if (firstId && strokeWallIdsRef.current.length === 1) {
-        updateObjects(sceneObjects.map((o) =>
-          o.id === firstId ? { ...o, rotY } : o,
-        ));
-      }
-    }
-    const obj = makeObjectFromTool(activeTool, gx, gz);
-    obj.rotY = rotY;
-    updateObjects([...sceneObjects, obj]);
-    paintedCellsRef.current.add(key);
-    lastPaintedRef.current = { gx, gz };
-    strokeWallIdsRef.current.push(obj.id);
-    emitSparkEvent('user.place', { tool: activeTool.id });
-  };
-  const handlePaintEnd = () => {
-    paintedCellsRef.current = new Set();
-    lastPaintedRef.current = null;
-    strokeWallIdsRef.current = [];
-  };
 
   const handleSelectObject = (id: string | null) => {
     setSelectedObjectId(id);
@@ -634,15 +567,11 @@ export function SimPlayground({
               onDeleteSelected={handleDeleteSelected}
               onMoveSelected={handleStartFollow}
               dragMode={dragMode}
-              onPaintWalls={handlePaintWalls}
-              onPaintEnd={handlePaintEnd}
             />
             <div className="sim-3d-hint">
               {builderEnabled
                 ? (activeTool
-                    ? (activeTool.type === 'wall'
-                        ? '💡 Drag to paint walls · right-click to rotate'
-                        : '💡 Click the floor to drop · right-click to rotate')
+                    ? '💡 Click the floor to drop · right-click to rotate'
                     : '💡 Pick a tool · click an object to select')
                 : '💡 Drag to spin · scroll to zoom'}
             </div>
