@@ -522,6 +522,8 @@ export function SimPlayground({
               onDragMove={handleDragMove}
               onEndDrag={handleEndDrag}
               onHoverObject={setHoveredObjectId}
+              onRotateSelected={handleRotateSelected}
+              onDeleteSelected={handleDeleteSelected}
             />
             <div className="sim-3d-hint">
               {builderEnabled

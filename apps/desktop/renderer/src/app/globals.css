@@ -8385,6 +8385,50 @@ select.block-param-input{width:auto;padding-right:20px}
   font-size: 0.86rem;
 }
 
+/* ── Sandbox: floating in-scene toolbar above selected object ──────────── */
+
+.sandbox-selection-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(15, 18, 38, 0.92);
+  border: 1px solid rgba(93, 228, 255, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  user-select: none;
+  /* Sit just above the avatar with a tiny tail so the connection reads */
+  transform-origin: center bottom;
+}
+
+.sandbox-selection-toolbar-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(28, 32, 70, 0.7);
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.sandbox-selection-toolbar-btn:hover {
+  background: rgba(93, 228, 255, 0.18);
+  border-color: rgba(93, 228, 255, 0.6);
+}
+.sandbox-selection-toolbar-btn:active {
+  transform: scale(0.94);
+}
+.sandbox-selection-toolbar-btn--danger:hover {
+  background: rgba(255, 90, 110, 0.22);
+  border-color: rgba(255, 90, 110, 0.7);
+  color: #ffd6dc;
+}
+
 /* ── Sandbox: friendly Build CTA + view tabs + view-options popover ── */
 
 .sim-playground-toolbar.sandbox {

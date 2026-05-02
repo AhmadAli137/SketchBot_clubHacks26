@@ -411,6 +411,8 @@ type SceneContentProps = {
   onDragMove?: (gx: number, gz: number) => void;
   onEndDrag?: () => void;
   onHoverObject?: (id: string | null) => void;
+  onRotateSelected?: () => void;
+  onDeleteSelected?: () => void;
 };
 
 function SceneContent({
@@ -419,6 +421,7 @@ function SceneContent({
   sceneObjects = [], selectedObjectId = null, draggedObjectId = null, hoveredObjectId = null,
   activeTool = null,
   onPlaceAt, onSelectObject, onStackOnTop, onStartDrag, onDragMove, onEndDrag, onHoverObject,
+  onRotateSelected, onDeleteSelected,
 }: SceneContentProps) {
   const simMode = getSimMode(conceptId);
   const isDrawingMode = simMode === 'drawing';
@@ -531,6 +534,8 @@ function SceneContent({
           onStackOnTop={(id) => onStackOnTop?.(id)}
           onStartDrag={(id) => onStartDrag?.(id)}
           onHoverObject={(id) => onHoverObject?.(id)}
+          onRotate={onRotateSelected}
+          onDelete={onDeleteSelected}
         />
       )}
 
@@ -641,6 +646,10 @@ type Scene3DProps = {
   onDragMove?: (gx: number, gz: number) => void;
   onEndDrag?: () => void;
   onHoverObject?: (id: string | null) => void;
+  /** Rotate / delete the currently-selected object — wired into the
+   *  in-scene SelectionToolbar so the kid doesn't have to hunt the rail. */
+  onRotateSelected?: () => void;
+  onDeleteSelected?: () => void;
 };
 
 export function Scene3D({
@@ -661,6 +670,8 @@ export function Scene3D({
   onDragMove,
   onEndDrag,
   onHoverObject,
+  onRotateSelected,
+  onDeleteSelected,
 }: Scene3DProps) {
   const env = useMemo(() => getEnvironment(conceptId), [conceptId]);
   return (
@@ -682,7 +693,9 @@ export function Scene3D({
         onPlaceAt={onPlaceAt} onSelectObject={onSelectObject}
         onStackOnTop={onStackOnTop} onStartDrag={onStartDrag}
         onDragMove={onDragMove} onEndDrag={onEndDrag}
-        onHoverObject={onHoverObject} />
+        onHoverObject={onHoverObject}
+        onRotateSelected={onRotateSelected}
+        onDeleteSelected={onDeleteSelected} />
     </Canvas>
   );
 }

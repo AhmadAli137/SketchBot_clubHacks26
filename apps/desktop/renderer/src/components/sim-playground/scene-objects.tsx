@@ -15,6 +15,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 
 import {
   GRID_SIZE,
@@ -43,6 +44,77 @@ function SelectionRing({ x, z }: { x: number; z: number }) {
       <ringGeometry args={[GRID_SIZE * 0.55, GRID_SIZE * 0.7, 32]} />
       <meshBasicMaterial color="#5de4ff" transparent opacity={0.5} side={THREE.DoubleSide} />
     </mesh>
+  );
+}
+
+// ─── Floating action toolbar above the selected object ──────────────────────
+//
+// Renders rotate / delete buttons in screen-space anchored to the selected
+// object's world position. Drei's <Html> handles the projection + DOM
+// pointer events, so the kid doesn't have to know R / Delete keys exist.
+
+function SelectionToolbar({
+  obj,
+  onRotate,
+  onDelete,
+}: {
+  obj: SceneObject;
+  onRotate?: () => void;
+  onDelete?: () => void;
+}) {
+  const { x, y, z } = gridToWorld(obj);
+  // Park the toolbar a bit above each object's top face. Same offsets the
+  // stack-target highlight uses, plus a small clearance.
+  const topY = (() => {
+    switch (obj.type) {
+      case 'wall':
+      case 'block':         return y + 0.16;
+      case 'cone':          return y + 0.26;
+      case 'sphere':        return y + 0.20;
+      case 'cylinder':      return y + 0.24;
+      case 'bot':           return y + 0.10;
+      case 'studio-light':  return y + 1.7;
+      case 'mat':           return y + 0.05;
+      default:              return y + 0.10;
+    }
+  })();
+
+  return (
+    <Html
+      position={[x, topY + 0.18, z]}
+      center
+      // Scale with distance so the toolbar stays a comfortable size on screen
+      // regardless of camera zoom — without this, near objects get a giant
+      // toolbar and far ones get a tiny unreadable one.
+      distanceFactor={5}
+      // Sit above 3D content of the same depth — these are UI controls.
+      zIndexRange={[100, 0]}
+      // Don't intercept floor pointer events for the surrounding hit area.
+      style={{ pointerEvents: 'none' }}
+    >
+      <div
+        className="sandbox-selection-toolbar"
+        // Stop drag/scroll bleed-through on the actual buttons.
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        style={{ pointerEvents: 'auto' }}
+      >
+        <button
+          type="button"
+          className="sandbox-selection-toolbar-btn"
+          onClick={onRotate}
+          title="Rotate (R)"
+          aria-label="Rotate"
+        >↻</button>
+        <button
+          type="button"
+          className="sandbox-selection-toolbar-btn sandbox-selection-toolbar-btn--danger"
+          onClick={onDelete}
+          title="Delete (Del)"
+          aria-label="Delete"
+        >✕</button>
+      </div>
+    </Html>
   );
 }
 
@@ -491,6 +563,8 @@ export function SceneObjectsRenderer({
   onStackOnTop,
   onStartDrag,
   onHoverObject,
+  onRotate,
+  onDelete,
 }: {
   objects: SceneObject[];
   selectedId: string | null;
@@ -502,13 +576,17 @@ export function SceneObjectsRenderer({
   onStackOnTop: (objectId: string) => void;
   onStartDrag: (objectId: string) => void;
   onHoverObject: (id: string | null) => void;
+  /** Floating-toolbar callbacks — operate on the currently selected object. */
+  onRotate?: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <group>
       {objects.map((obj) => {
         const { x, y, z } = gridToWorld(obj);
         const rotY = rotationToRadians(obj.rotY ?? 0);
-        const isSelected = obj.id === selectedId || obj.id === draggedId;
+        const isSelected = obj.id === selectedId;
+        const isDragging = obj.id === draggedId;
         const isHovered  = obj.id === hoveredId && toolActive;
         return (
           <group
@@ -533,9 +611,14 @@ export function SceneObjectsRenderer({
             }}
           >
             <PlacedObjectMesh obj={obj} />
-            {isSelected && <SelectionRing x={x} z={z} />}
+            {(isSelected || isDragging) && <SelectionRing x={x} z={z} />}
             {isHovered && (
               <StackTargetHighlight x={x} y={y} z={z} rotY={rotY} type={obj.type} />
+            )}
+            {/* Toolbar only on the selected object, and not while it's being
+                dragged (to prevent accidental click-on-button while moving). */}
+            {isSelected && !isDragging && (
+              <SelectionToolbar obj={obj} onRotate={onRotate} onDelete={onDelete} />
             )}
           </group>
         );
