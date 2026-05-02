@@ -201,16 +201,18 @@ function StudioLight({
           <torusGeometry args={[0.045, 0.012, 8, 16]} />
           <meshStandardMaterial color="#2f3550" roughness={0.5} metalness={0.6} />
         </mesh>
-        {/* Light head — lookAt(0,0,0) tilts it down AND rotates around Y so
-            it actually faces the build, not just spins on the spot. */}
+        {/* Light head — lookAt(0,0,0) tilts it down AND rotates around Y
+            so it actually faces the build. Note: Three.js Object3D.lookAt
+            for non-camera/non-light objects orients +Z (not -Z) toward
+            the target, so the softbox sits at +Z and the housing at -Z. */}
         <group ref={headRef} position={[0, headY, 0]}>
-          {/* Housing behind the softbox (Three.js default +Z is "back" after lookAt) */}
-          <mesh position={[0, 0, 0.05]} castShadow>
+          {/* Housing — back of the light, away from origin */}
+          <mesh position={[0, 0, -0.05]} castShadow>
             <boxGeometry args={[0.20, 0.18, 0.12]} />
             <meshStandardMaterial color="#2a3148" roughness={0.55} metalness={0.45} />
           </mesh>
-          {/* Glowing softbox face — the "front" that shines at the build */}
-          <mesh ref={bulbRef} position={[0, 0, -0.02]}>
+          {/* Glowing softbox face — the front, shining at the build */}
+          <mesh ref={bulbRef} position={[0, 0, 0.02]}>
             <boxGeometry args={[0.24, 0.22, 0.025]} />
             <meshStandardMaterial
               color="#ffffff"
@@ -220,7 +222,7 @@ function StudioLight({
             />
           </mesh>
           {/* Thin frame around the softbox face for definition */}
-          <mesh position={[0, 0, -0.005]}>
+          <mesh position={[0, 0, 0.005]}>
             <boxGeometry args={[0.26, 0.24, 0.012]} />
             <meshStandardMaterial color="#1a1f2e" roughness={0.8} />
           </mesh>
@@ -228,17 +230,19 @@ function StudioLight({
       </group>
 
       {/* Real spot illuminating the workspace. Target is the helper
-          object3D below at (0, 0.1, 0) — slightly above the floor so the
-          beam lands on objects rather than disappearing into the grid. */}
+          object3D below at (0, 0.1, 0) — slightly above the floor so
+          the beam lands on objects rather than disappearing into the
+          grid. Intensity is high and decay is linear so the cones
+          actually read as cones rather than getting eaten by the fill. */}
       <spotLight
         ref={lightRef}
         position={[x, headY, z]}
-        intensity={6}
+        intensity={18}
         color="#ffffff"
         distance={14}
         angle={Math.PI / 4.5}
-        penumbra={0.55}
-        decay={1.2}
+        penumbra={0.45}
+        decay={1}
       />
       <object3D ref={targetRef} position={[0, 0.1, 0]} />
     </>
@@ -248,10 +252,12 @@ function StudioLight({
 function StageLights() {
   return (
     <>
-      {/* Soft fill so the playspace isn't pitch-black between spotlights */}
-      <ambientLight intensity={0.35} color="#d8d4ff" />
-      {/* Top-down warm key — overhead studio softbox effect */}
-      <directionalLight position={[0, 8, 1.5]} intensity={0.45} color="#ffe9d0" />
+      {/* Soft fill so the playspace isn't pitch-black between spotlights —
+          kept low so the spotlight cones still have visible contrast. */}
+      <ambientLight intensity={0.22} color="#d8d4ff" />
+      {/* Top-down warm key for general scene legibility, weak so it
+          doesn't wash out the directional spots. */}
+      <directionalLight position={[0, 8, 1.5]} intensity={0.25} color="#ffe9d0" />
 
       {SANDBOX_ORBS.map((o, i) => (
         <StudioLight key={i} {...o} />
