@@ -223,6 +223,11 @@ export function SimPlayground({
     if (!activeTool) return; // no tool → just selection (handled by onSelect)
     const target = sceneObjects.find((o) => o.id === objectId);
     if (!target) return;
+    // Wall-on-wall isn't a meaningful maze operation — ignore so the kid
+    // can sweep out a row without accidental clicks on existing walls
+    // creating phantom stacked walls. They asked for these clicks to
+    // "just ignore" and stay in placement mode.
+    if (activeTool.type === 'wall' && target.type === 'wall') return;
     const obj = makeObjectFromTool(activeTool, target.gx, target.gz, (target.gy ?? 0) + 1);
     updateObjects([...sceneObjects, obj]);
     setSelectedObjectId(obj.id);

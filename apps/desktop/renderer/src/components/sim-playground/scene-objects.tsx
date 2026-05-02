@@ -691,6 +691,14 @@ export function SceneObjectsRenderer({
             key={obj.id}
             onPointerDown={(e) => {
               e.stopPropagation();
+              // While a placement tool is active, clicks on existing
+              // objects do NOT switch to selection mode. The kid stays in
+              // placement mode (most likely they accidentally clicked an
+              // existing wall while sweeping out a row); selection is
+              // entered only via the explicit Select tool. The onClick
+              // handler below still routes to stack-on-top (which itself
+              // is gated against meaningless cases like wall-on-wall).
+              if (toolActive) return;
               onSelect(obj.id);
               onStartDrag(obj.id);
             }}
