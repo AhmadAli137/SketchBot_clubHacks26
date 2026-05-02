@@ -404,9 +404,29 @@ export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVarian
       </div>
 
       {/* Caption — ONE sentence at a time, crossfading as TTS advances.
-          Keeps Spark big and visible; chunks are bite-sized. */}
+          Keeps Spark big and visible; chunks are bite-sized. The
+          thinking state takes priority over showing the *previous*
+          sentence: once the bell rings, we want the kid to see "Sketch
+          is thinking" right away, not the stale last reply. We only
+          fall back to showing the prior sentence when nothing newer
+          is happening. */}
       <AnimatePresence mode="wait">
-        {fullSpoken && sentences.length > 0 ? (
+        {tutorThinking ? (
+          <motion.div
+            key="cap-thinking"
+            className="tutor-face-caption tutor-face-caption--thinking"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+            aria-live="polite"
+          >
+            <span className="tutor-thinking-label">Sketch is thinking</span>
+            <span className="tutor-thinking-dots" aria-hidden>
+              <span /><span /><span />
+            </span>
+          </motion.div>
+        ) : fullSpoken && sentences.length > 0 ? (
           <motion.div
             key={`sent-${latest?.id ?? 'none'}-${activeIdx}`}
             className="tutor-face-caption tutor-face-caption--single"
@@ -428,21 +448,6 @@ export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVarian
                 ))}
               </div>
             )}
-          </motion.div>
-        ) : tutorThinking ? (
-          <motion.div
-            key="cap-thinking"
-            className="tutor-face-caption tutor-face-caption--thinking"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.22 }}
-            aria-live="polite"
-          >
-            <span className="tutor-thinking-label">Sketch is thinking</span>
-            <span className="tutor-thinking-dots" aria-hidden>
-              <span /><span /><span />
-            </span>
           </motion.div>
         ) : (
           <motion.div
