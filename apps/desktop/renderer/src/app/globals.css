@@ -11019,19 +11019,6 @@ select.block-param-input{width:auto;padding-right:20px}
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.75);
 }
-/* Avatar carries its own coloured circle, so the button drops its chrome —
-   otherwise you get two concentric circles (button border + avatar ring). */
-.app-profile-btn.has-avatar {
-  border: none;
-  background: transparent;
-  padding: 0;
-}
-.app-profile-btn.has-avatar:hover {
-  box-shadow: 0 0 0 2px rgba(93, 228, 255, 0.55), 0 0 16px rgba(93, 228, 255, 0.35);
-}
-.app-profile-btn.has-avatar:focus-visible {
-  box-shadow: 0 0 0 2px rgba(93, 228, 255, 0.75);
-}
 .app-profile-btn.is-guest:hover {
   border-color: rgba(93, 228, 255, 0.4);
   color: #5de4ff;

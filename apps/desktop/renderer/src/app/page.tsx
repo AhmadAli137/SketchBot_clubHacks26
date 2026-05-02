@@ -1458,11 +1458,12 @@ export default function HomePage() {
           stack two avatars in the same spot). */}
       {view !== 'auth' && view !== 'plan' && (() => {
         const showAvatar = userRole !== 'guest' && profileAvatar;
-        // When the personal avatar is shown it brings its own circular
-        // chrome — adding the button's border on top creates two concentric
-        // circles. The .has-avatar modifier strips the button's chrome so
-        // the avatar IS the button.
-        const cls = `app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}${showAvatar ? ' has-avatar' : ''}`;
+        // The button frame matches the sound/theme widgets exactly (36px,
+        // 1.5px border, subtle fill). Inside, we render a small content
+        // mark — UserRound icon when guest, or the avatar at icon-size
+        // when signed in — so all three top-right widgets share the same
+        // visual rhythm: chrome + small centered content.
+        const cls = `app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}`;
         return (
           <motion.button
             type="button"
@@ -1476,7 +1477,7 @@ export default function HomePage() {
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
           >
             {showAvatar
-              ? <StudentProfileAvatar kind={profileAvatar.kind} emoji={profileAvatar.emoji} robotPresetId={profileAvatar.robotPreset} accent={profileAvatar.color} size={36} />
+              ? <StudentProfileAvatar kind={profileAvatar.kind} emoji={profileAvatar.emoji} robotPresetId={profileAvatar.robotPreset} accent={profileAvatar.color} size={22} />
               : <UserRound size={16} />
             }
           </motion.button>
