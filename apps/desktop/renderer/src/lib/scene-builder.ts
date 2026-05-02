@@ -22,7 +22,8 @@ export type SceneObjectType =
   | 'waypoint'
   | 'apriltag'
   | 'bot'
-  | 'mat';
+  | 'mat'
+  | 'studio-light';
 
 export type BotVariant = 'standard' | 'sumo';
 
@@ -43,7 +44,7 @@ export type SceneObject = {
   botVariant?: BotVariant;
 };
 
-export type ToolCategory = 'surfaces' | 'walls' | 'obstacles' | 'markers' | 'bots';
+export type ToolCategory = 'surfaces' | 'walls' | 'obstacles' | 'markers' | 'bots' | 'lights';
 
 export type ToolDef = {
   /** Stable id used by the rail. May differ from `type` for bot variants. */
@@ -68,6 +69,7 @@ export const TOOLS: ToolDef[] = [
   { id: 'apriltag',     type: 'apriltag', label: 'AprilTag', emoji: '🏷️', category: 'markers',   description: 'Localization marker' },
   { id: 'bot-standard', type: 'bot',      label: 'Bot',      emoji: '🤖', category: 'bots',      description: 'Standard SketchBot', botVariant: 'standard' },
   { id: 'bot-sumo',     type: 'bot',      label: 'Sumo Bot', emoji: '🥋', category: 'bots',      description: 'Combat-tier sumo bot', botVariant: 'sumo' },
+  { id: 'studio-light', type: 'studio-light', label: 'Studio Light', emoji: '💡', category: 'lights', description: 'Studio softbox stand — aims its beam at the build' },
 ];
 
 export const TOOLS_BY_ID: Record<string, ToolDef> = TOOLS.reduce(
@@ -81,6 +83,7 @@ export const CATEGORIES: { id: ToolCategory; label: string; emoji: string }[] = 
   { id: 'obstacles', label: 'Obstacles', emoji: '🚧' },
   { id: 'markers',   label: 'Markers',   emoji: '📍' },
   { id: 'bots',      label: 'Bots',      emoji: '🤖' },
+  { id: 'lights',    label: 'Lights',    emoji: '💡' },
 ];
 
 // ─── Grid helpers ─────────────────────────────────────────────────────────────
@@ -212,15 +215,16 @@ const THUMB_W = 200;
 const THUMB_H = 110;
 
 const TYPE_COLORS: Record<SceneObjectType, string> = {
-  wall:     '#22c55e',
-  block:    '#5dadff',
-  cone:     '#ff8c00',
-  sphere:   '#a855f7',
-  cylinder: '#cccccc',
-  waypoint: '#4dffb8',
-  apriltag: '#f5f0e6',
-  bot:      '#5de4ff',
-  mat:      '#a855f7',
+  wall:           '#22c55e',
+  block:          '#5dadff',
+  cone:           '#ff8c00',
+  sphere:         '#a855f7',
+  cylinder:       '#cccccc',
+  waypoint:       '#4dffb8',
+  apriltag:       '#f5f0e6',
+  bot:            '#5de4ff',
+  mat:            '#a855f7',
+  'studio-light': '#fff4d6',
 };
 
 /**

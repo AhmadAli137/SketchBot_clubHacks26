@@ -12,7 +12,7 @@
  *    when a tool is active so the user knows where it'll land
  */
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 
@@ -66,12 +66,13 @@ function StackTargetHighlight({
   const topY = (() => {
     switch (type) {
       case 'wall':
-      case 'block':    return y + 0.16;
-      case 'cone':     return y + 0.26;
-      case 'sphere':   return y + 0.20;
-      case 'cylinder': return y + 0.24;
-      case 'bot':      return y + 0.10;
-      default:         return y + 0.05;
+      case 'block':         return y + 0.16;
+      case 'cone':          return y + 0.26;
+      case 'sphere':        return y + 0.20;
+      case 'cylinder':      return y + 0.24;
+      case 'bot':           return y + 0.10;
+      case 'studio-light':  return y + 1.7;
+      default:              return y + 0.05;
     }
   })();
 
@@ -237,6 +238,85 @@ function MatObject({ x, y, z, rotY, color = '#a855f7' }: { x: number; y: number;
   );
 }
 
+/**
+ * Placeable studio light. Same shape as the four fixed corner lights
+ * (tripod base + pole + softbox head), but the head re-aims at the
+ * world origin every frame so wherever the kid drops it, the beam
+ * still points at the build. The spotlight target is wired manually
+ * because R3F doesn't promote the default target Object3D into the
+ * scene graph.
+ */
+function StudioLightObject({ x, y, z }: { x: number; y: number; z: number }) {
+  const headRef   = useRef<THREE.Group>(null);
+  const lightRef  = useRef<THREE.SpotLight>(null);
+  const targetRef = useRef<THREE.Object3D>(null);
+  const headY = 1.6;
+
+  useEffect(() => {
+    if (lightRef.current && targetRef.current) {
+      lightRef.current.target = targetRef.current;
+      lightRef.current.target.updateMatrixWorld();
+    }
+  }, []);
+
+  useFrame(() => {
+    if (headRef.current) headRef.current.lookAt(0, 0.1, 0);
+  });
+
+  return (
+    <>
+      <group position={[x, y, z]}>
+        {/* Tripod base */}
+        <mesh position={[0, 0.02, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.13, 0.17, 0.04, 16]} />
+          <meshStandardMaterial color="#1a1f2e" roughness={0.85} metalness={0.3} />
+        </mesh>
+        {/* Pole — stops below the head bulk */}
+        <mesh position={[0, (headY - 0.18) * 0.5, 0]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, headY - 0.18, 8]} />
+          <meshStandardMaterial color="#252b40" roughness={0.6} metalness={0.5} />
+        </mesh>
+        {/* Mount knuckle */}
+        <mesh position={[0, headY - 0.16, 0]} castShadow>
+          <boxGeometry args={[0.05, 0.06, 0.05]} />
+          <meshStandardMaterial color="#2f3550" roughness={0.5} metalness={0.6} />
+        </mesh>
+        {/* Yoke ring at head pivot */}
+        <mesh position={[0, headY - 0.11, 0]}>
+          <torusGeometry args={[0.05, 0.014, 8, 16]} />
+          <meshStandardMaterial color="#2f3550" roughness={0.5} metalness={0.6} />
+        </mesh>
+        {/* Aim-at-origin softbox head */}
+        <group ref={headRef} position={[0, headY, 0]}>
+          <mesh position={[0, 0, -0.05]} castShadow>
+            <boxGeometry args={[0.20, 0.18, 0.12]} />
+            <meshStandardMaterial color="#2a3148" roughness={0.55} metalness={0.45} />
+          </mesh>
+          <mesh position={[0, 0, 0.02]}>
+            <boxGeometry args={[0.24, 0.22, 0.025]} />
+            <meshStandardMaterial color="#ffffff" emissive="#fff4d6" emissiveIntensity={1.6} roughness={0.25} />
+          </mesh>
+          <mesh position={[0, 0, 0.005]}>
+            <boxGeometry args={[0.26, 0.24, 0.012]} />
+            <meshStandardMaterial color="#1a1f2e" roughness={0.8} />
+          </mesh>
+        </group>
+      </group>
+      <spotLight
+        ref={lightRef}
+        position={[x, y + headY, z]}
+        intensity={10}
+        color="#ffffff"
+        distance={12}
+        angle={Math.PI / 4.5}
+        penumbra={0.55}
+        decay={1.2}
+      />
+      <object3D ref={targetRef} position={[0, 0.1, 0]} />
+    </>
+  );
+}
+
 function BotObject({ x, y, z, rotY, variant = 'standard' }: { x: number; y: number; z: number; rotY: number; variant?: 'standard' | 'sumo' }) {
   const isSumo = variant === 'sumo';
   const bodyColor    = isSumo ? '#cc1818' : '#3a4d8a';
@@ -359,6 +439,20 @@ function GhostShape({
         </mesh>
       );
     }
+    case 'studio-light':
+      // Vertical pole + softbox preview
+      return (
+        <group>
+          <mesh position={[0, 0.7, 0]}>
+            <cylinderGeometry args={[0.022, 0.022, 1.4, 8]} />
+            <GhostMaterial color="#fff4d6" />
+          </mesh>
+          <mesh position={[0, 1.55, 0]}>
+            <boxGeometry args={[0.26, 0.22, 0.13]} />
+            <GhostMaterial color="#fff4d6" />
+          </mesh>
+        </group>
+      );
     default:
       return null;
   }
@@ -380,6 +474,7 @@ function PlacedObjectMesh({ obj }: { obj: SceneObject }) {
     case 'apriltag': return <AprilTagObject x={x} y={y} z={z} rotY={rotY} />;
     case 'bot':      return <BotObject x={x} y={y} z={z} rotY={rotY} variant={obj.botVariant} />;
     case 'mat':      return <MatObject x={x} y={y} z={z} rotY={rotY} color={obj.color} />;
+    case 'studio-light': return <StudioLightObject x={x} y={y} z={z} />;
     default:         return null;
   }
 }
