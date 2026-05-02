@@ -150,7 +150,7 @@ const SANDBOX_ORBS = [
 ];
 
 /** Half-angle of the spotlight cone (in radians). Wider = more spill,
- *  narrower = more focused. Matches the visible beam mesh's cone radius. */
+ *  narrower = more focused. */
 const SPOT_ANGLE = Math.PI / 4.5;
 
 function StudioLight({
@@ -161,14 +161,6 @@ function StudioLight({
   const lightRef  = useRef<THREE.SpotLight>(null);
   const targetRef = useRef<THREE.Object3D>(null);
   const off = useRef(Math.random() * Math.PI * 2);
-
-  // Dimensions of the visible volumetric beam — straight-line distance
-  // from the head's pivot to the light target, and the cone's far-end
-  // radius implied by the spotlight angle.
-  const beamLength = Math.sqrt(x * x + (headY - 0.1) ** 2 + z * z);
-  // Slightly narrower than the actual spot angle so the visible beam
-  // reads as the bright core, not the full spill.
-  const beamRadius = beamLength * Math.tan(SPOT_ANGLE * 0.7);
 
   // Wire the spotlight target once on mount. R3F doesn't promote the
   // default spotLight.target Object3D into the scene graph, so without
@@ -250,23 +242,6 @@ function StudioLight({
           <mesh position={[0, 0, 0.005]}>
             <boxGeometry args={[0.26, 0.24, 0.012]} />
             <meshStandardMaterial color="#1a1f2e" roughness={0.8} />
-          </mesh>
-          {/* Visible volumetric beam — a translucent cone extending from
-              the softbox toward the build. Without this, the kid sees a
-              lit pool on the floor but no obvious link to the source. */}
-          <mesh
-            position={[0, 0, beamLength / 2 + 0.1]}
-            rotation={[Math.PI / 2, 0, 0]}
-          >
-            <coneGeometry args={[beamRadius, beamLength, 28, 1, true]} />
-            <meshBasicMaterial
-              color="#fff4d6"
-              transparent
-              opacity={0.08}
-              side={THREE.DoubleSide}
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-            />
           </mesh>
         </group>
       </group>
