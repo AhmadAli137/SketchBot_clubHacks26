@@ -1452,9 +1452,11 @@ export default function HomePage() {
 
       {/* ── Persistent profile button — every view, every role ── */}
       {/* PFP button is global — visible on every screen so the kid always
-          has a one-tap way to see their account / sign in. The only exception
-          is the auth screen itself, where it'd be circular UX. */}
-      {view !== 'auth' && (() => {
+          has a one-tap way to see their account / sign in. Skipped on the
+          auth screen (circular UX) and the plan picker (which renders its
+          own contextual profile button at the top-right and would otherwise
+          stack two avatars in the same spot). */}
+      {view !== 'auth' && view !== 'plan' && (() => {
         const showAvatar = userRole !== 'guest' && profileAvatar;
         // When the personal avatar is shown it brings its own circular
         // chrome — adding the button's border on top creates two concentric
