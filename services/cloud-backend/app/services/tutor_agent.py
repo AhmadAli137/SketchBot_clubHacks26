@@ -73,6 +73,12 @@ IMMEDIATE_THINK_KINDS = frozenset({
     "session.return",
 })
 
+# When the kid rings the bell, they want Spark NOW. We bypass the regular
+# 6s think rate limit but apply our own short cooldown so spamming the
+# bell doesn't spam Anthropic. 3s is enough to feel responsive while
+# preventing accidental double-clicks from doubling cost.
+BELL_COOLDOWN_SEC = 3.0
+
 BUILD_EVENT_KINDS = frozenset({
     "user.place", "user.delete", "user.rotate", "user.code-run",
 })
@@ -154,6 +160,7 @@ class TutorAgent:
 
         # ── Reasoning lifecycle ──────────────────────────────────────────
         self.last_think_at: float = 0.0
+        self.last_bell_at: float = 0.0
         self._build_settle_task: asyncio.Task | None = None
         # Self-paced one-shot, re-armed after each think_and_act using
         # next_check from the model. Replaces the old fixed safety_tick
@@ -358,6 +365,23 @@ class TutorAgent:
             self.id, evt.kind, evt.payload,
         )
 
+        # Bell — explicit "Spark, look at me!" from the kid. Bypasses
+        # the regular think rate limit (the whole point is responsiveness)
+        # but enforces its own short cooldown so spam-clicking doesn't
+        # spam Anthropic.
+        if evt.kind == "user.bell":
+            now = time.time()
+            if (now - self.last_bell_at) < BELL_COOLDOWN_SEC:
+                logger.info(
+                    "agent.bell_skip cooldown session_id=%s elapsed=%.1fs",
+                    self.id, now - self.last_bell_at,
+                )
+                return
+            self.last_bell_at = now
+            logger.info("agent.bell session_id=%s", self.id)
+            await self._maybe_think("user_bell", force=True)
+            return
+
         # Outcome events → reason immediately (subject to rate limit).
         if evt.kind in IMMEDIATE_THINK_KINDS:
             await self._maybe_think("event:" + evt.kind)
@@ -487,9 +511,14 @@ class TutorAgent:
         last_event = self.event_log[-1]
         return last_event.received_at > self.last_think_at
 
-    async def _maybe_think(self, trigger: str) -> None:
+    async def _maybe_think(self, trigger: str, *, force: bool = False) -> None:
         """Rate-limited entry point to the reasoning loop. Drops the call
-        if we thought too recently, the WS is gone, or we're draining."""
+        if we thought too recently, the WS is gone, or we're draining.
+
+        Pass force=True to bypass the rate limit — used by explicit
+        user-attention triggers like the bell, where the whole point is
+        responsiveness. The caller is responsible for its own cooldown
+        in that case."""
         if self._closed or self._ws is None:
             return
         if self._drain_pending:
@@ -500,14 +529,15 @@ class TutorAgent:
                 self.id, trigger,
             )
             return
-        now = time.time()
-        if (now - self.last_think_at) < THINK_RATE_LIMIT_SEC:
-            logger.debug(
-                "agent.think_skip rate_limited session_id=%s trigger=%s",
-                self.id, trigger,
-            )
-            return
-        self.last_think_at = now
+        if not force:
+            now = time.time()
+            if (now - self.last_think_at) < THINK_RATE_LIMIT_SEC:
+                logger.debug(
+                    "agent.think_skip rate_limited session_id=%s trigger=%s",
+                    self.id, trigger,
+                )
+                return
+        self.last_think_at = time.time()
         # Don't await — fire and forget so events keep flowing in. The
         # think_lock inside think_and_act serialises actual reasoning.
         asyncio.create_task(self.think_and_act(trigger))

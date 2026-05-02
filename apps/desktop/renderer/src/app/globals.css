@@ -4713,6 +4713,23 @@ body {
 .tutor-icon-btn:hover { color: var(--text); background: var(--panel); }
 .tutor-icon-btn.active { color: var(--cyan); border-color: rgba(93,228,255,0.3); }
 
+/* Bell ring — quick wiggle + cyan glow when the user calls Spark. */
+.tutor-bell-btn.ringing {
+  color: var(--cyan);
+  border-color: rgba(93, 228, 255, 0.55);
+  background: rgba(93, 228, 255, 0.1);
+  box-shadow: 0 0 0 0 rgba(93, 228, 255, 0.35);
+  animation: tutor-bell-ring 0.7s ease-out;
+}
+@keyframes tutor-bell-ring {
+  0%   { transform: rotate(0deg)   scale(1);    box-shadow: 0 0 0 0 rgba(93, 228, 255, 0.5); }
+  15%  { transform: rotate(-18deg) scale(1.12); box-shadow: 0 0 0 6px rgba(93, 228, 255, 0.0); }
+  35%  { transform: rotate(15deg)  scale(1.08); }
+  55%  { transform: rotate(-10deg) scale(1.05); }
+  75%  { transform: rotate(6deg)   scale(1.02); }
+  100% { transform: rotate(0deg)   scale(1); }
+}
+
 /* Starter suggestion chips */
 .tutor-starter-chips {
   display: flex;

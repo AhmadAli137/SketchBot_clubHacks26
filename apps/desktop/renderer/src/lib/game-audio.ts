@@ -899,7 +899,8 @@ type SfxType =
   | 'celebration'
   | 'unlock'
   | 'whoosh'
-  | 'beep';
+  | 'beep'
+  | 'bell';
 
 export function playSfx(type: SfxType) {
   if (typeof window === 'undefined' || !sfxEnabled) return;
@@ -1035,6 +1036,21 @@ export function playSfx(type: SfxType) {
         // Tonic, 2 octaves up — clean in-key beep
         play(scaleNote(0, 2), 0.05, 'sine', 0.004, 0.04, 0.2);
         break;
+      case 'bell': {
+        // Concierge-style desk bell: bright tonic ding with two upper
+        // partials (octave + 12th) for that metallic shimmer, ~0.9s
+        // exponential decay so it actually rings instead of pip-ing.
+        // Two staggered strikes give the "ding-ding" call-the-tutor feel.
+        const ringOnce = (offset: number) => {
+          play(scaleNote(0, 2), 0.9, 'sine', 0.001, 0.85, 0.34);   // fundamental
+          setTimeout(() => play(scaleNote(0, 3), 0.7, 'sine', 0.001, 0.65, 0.18), 0); // octave
+          setTimeout(() => play(scaleNote(4, 3), 0.55, 'sine', 0.001, 0.5, 0.1), 0);  // shimmer
+          void offset; // (timing handled by the outer setTimeout caller)
+        };
+        ringOnce(0);
+        setTimeout(() => ringOnce(160), 160);
+        break;
+      }
     }
   } catch { /* silently ignore audio errors */ }
 }

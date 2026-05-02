@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Download, Lightbulb, Mic, MicOff, RefreshCw, RotateCcw, Send, Square, TrendingUp, Volume2, VolumeX, WifiOff, X, MessageSquare, Video } from 'lucide-react';
+import { ArrowRight, Bell, Download, Lightbulb, Mic, MicOff, RefreshCw, RotateCcw, Send, Square, TrendingUp, Volume2, VolumeX, WifiOff, X, MessageSquare, Video } from 'lucide-react';
 
 import { TutorFaceMode } from '@/components/tutor-face-mode';
 import { AGE_GROUP_META, LAYER_META, type AgeGroup, type ConceptLayer } from '@/lib/concept-types';
@@ -1703,6 +1703,23 @@ export function TutorPanel({
     });
   };
 
+  // 3 s client-side cooldown that mirrors the agent's BELL_COOLDOWN_SEC
+  // so we don't even send WS frames the server is going to throttle.
+  const lastBellAtRef = useRef<number>(0);
+  const [bellRinging, setBellRinging] = useState(false);
+  const handleBell = () => {
+    const now = Date.now();
+    if (now - lastBellAtRef.current < 3_000) return;
+    lastBellAtRef.current = now;
+    try { playSfx('bell'); } catch { /* sfx is best-effort */ }
+    setBellRinging(true);
+    window.setTimeout(() => setBellRinging(false), 700);
+    // Spark-events bus auto-forwards to the WS agent via the bridge in
+    // useTutorWebSocket. Backend sees "user.bell", bypasses the regular
+    // 6 s rate limit, and runs an immediate think.
+    emitSparkEvent('user.bell', { source: 'tutor_panel_button' });
+  };
+
   const handleHint = async () => {
     const cap = effectiveMaxHints(classroomRestrictions ?? undefined);
     if (cap !== null && hintsUsedRef.current >= cap) {
@@ -2002,6 +2019,16 @@ export function TutorPanel({
             aria-label={displayMode === 'face' ? 'Show chat history' : 'Show Spark face mode'}
           >
             {displayMode === 'face' ? <MessageSquare size={13} /> : <Video size={13} />}
+          </button>
+          {/* Ring the bell — pulls Spark's attention right now */}
+          <button
+            type="button"
+            className={`tutor-icon-btn tutor-bell-btn${bellRinging ? ' ringing' : ''}`}
+            onClick={handleBell}
+            title="Ring the bell — get Spark's attention"
+            aria-label="Ring the bell to call Sketch"
+          >
+            <Bell size={13} />
           </button>
           {/* Clear conversation */}
           <button

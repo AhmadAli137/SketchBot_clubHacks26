@@ -12,6 +12,8 @@ export type SparkEventKind =
   | 'user.delete'
   | 'user.rotate'
   | 'user.code-run'
+  // explicit "look at me" — kid rang the bell to summon Spark right now
+  | 'user.bell'
   // sim / robot lifecycle
   | 'sim.start'
   | 'sim.complete'
