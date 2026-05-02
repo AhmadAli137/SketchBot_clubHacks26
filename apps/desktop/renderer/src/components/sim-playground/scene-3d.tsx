@@ -564,7 +564,10 @@ function SceneContent({
         <planeGeometry args={[40, 40]} />
         <meshStandardMaterial color={env.groundColor} roughness={0.92} metalness={0.05} />
       </mesh>
-      <ContactShadows position={[0, -0.015, 0]} opacity={0.45} scale={24} blur={2.8} far={5} color="#000000" />
+      {/* Sits just above the floor (y=0) so the shadow plane isn't occluded
+          by it. Was previously at -0.015 when the floor was sunk to -0.018; both
+          moved together when we lifted the floor to make placed objects flush. */}
+      <ContactShadows position={[0, 0.002, 0]} opacity={0.45} scale={24} blur={2.8} far={5} color="#000000" />
 
       {/* Grid — kept for non-builder views (drawing, concept envs) where it
           gives spatial reference. In builder mode (sandbox + maze building)
