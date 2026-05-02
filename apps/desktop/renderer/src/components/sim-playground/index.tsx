@@ -148,7 +148,7 @@ export function SimPlayground({
     onSceneObjectsChange?.(next);
   };
 
-  const handlePlaceAt = (gx: number, gz: number) => {
+  const handlePlaceAt = (gx: number, gz: number, rotY: 0 | 1 | 2 | 3 = 0) => {
     if (!activeTool) return;
     // If cursor is over an existing object, stack-on-top via that object's
     // position instead of the floor click point. This makes stacking forgiving:
@@ -164,6 +164,7 @@ export function SimPlayground({
     // free-places at the cursor's exact float position.
     const snapped = maybeSnapForType(activeTool.type, gx, gz);
     const obj = makeObjectFromTool(activeTool, snapped.gx, snapped.gz);
+    obj.rotY = rotY;
     updateObjects([...sceneObjects, obj]);
     setSelectedObjectId(obj.id);
     emitSparkEvent('user.place', { tool: activeTool.id });
@@ -536,7 +537,9 @@ export function SimPlayground({
             />
             <div className="sim-3d-hint">
               {builderEnabled
-                ? '💡 Pick a tool · click the floor to drop it'
+                ? (activeTool
+                    ? '💡 Click the floor to drop · right-click to rotate'
+                    : '💡 Pick a tool · click an object to select')
                 : '💡 Drag to spin · scroll to zoom'}
             </div>
             {/* Builder rail overlay (sandbox only) */}

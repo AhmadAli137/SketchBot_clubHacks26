@@ -404,7 +404,7 @@ type SceneContentProps = {
   draggedObjectId?: string | null;
   hoveredObjectId?: string | null;
   activeTool?: ToolDef | null;
-  onPlaceAt?: (gx: number, gz: number) => void;
+  onPlaceAt?: (gx: number, gz: number, rotY?: 0 | 1 | 2 | 3) => void;
   onSelectObject?: (id: string | null) => void;
   onStackOnTop?: (objectId: string) => void;
   onStartDrag?: (objectId: string) => void;
@@ -431,6 +431,11 @@ function SceneContent({
 
   // Cursor grid coords for the builder ghost preview
   const [cursor, setCursor] = useState<{ gx: number; gz: number } | null>(null);
+  // Ghost rotation while a tool is active — right-click to advance 90°.
+  // Resets to 0 whenever the active tool changes so the cursor doesn't
+  // start pre-rotated for the new tool.
+  const [cursorRotY, setCursorRotY] = useState<0 | 1 | 2 | 3>(0);
+  useEffect(() => { setCursorRotY(0); }, [activeTool?.id]);
   const isDragging = builderEnabled && draggedObjectId !== null;
   const showCursor = builderEnabled && activeTool !== null && cursor !== null && !isDragging;
 
@@ -498,10 +503,22 @@ function SceneContent({
           if (activeTool && onPlaceAt) {
             const rawF = worldToGridFloat(e.point.x, e.point.z);
             const cF = clampToArena(rawF.gx, rawF.gz);
-            onPlaceAt(cF.gx, cF.gz);
+            onPlaceAt(cF.gx, cF.gz, cursorRotY);
           } else if (onSelectObject) {
             // Click on empty floor in select mode → clear selection
             onSelectObject(null);
+          }
+        } : undefined}
+        // Right-click while placing rotates the ghost 90°. Without this
+        // the kid has to drop, click-select, then rotate — three steps
+        // for what should be one. We swallow the browser context menu
+        // by also handling onContextMenu on the canvas wrapper.
+        onPointerDown={builderEnabled && activeTool ? (e) => {
+          if (e.button === 2) {
+            e.stopPropagation();
+            // nativeEvent for preventDefault (R3F event doesn't expose it cleanly)
+            (e.nativeEvent as MouseEvent).preventDefault?.();
+            setCursorRotY((r) => ((r + 1) % 4) as 0 | 1 | 2 | 3);
           }
         } : undefined}
       >
@@ -563,6 +580,7 @@ function SceneContent({
             gz={cgz}
             gy={cgy}
             visible={true}
+            rotY={(cursorRotY * Math.PI) / 2}
           />
         );
       })()}
@@ -646,7 +664,7 @@ type Scene3DProps = {
   draggedObjectId?: string | null;
   hoveredObjectId?: string | null;
   activeTool?: ToolDef | null;
-  onPlaceAt?: (gx: number, gz: number) => void;
+  onPlaceAt?: (gx: number, gz: number, rotY?: 0 | 1 | 2 | 3) => void;
   onSelectObject?: (id: string | null) => void;
   onStackOnTop?: (objectId: string) => void;
   onStartDrag?: (objectId: string) => void;
@@ -687,6 +705,9 @@ export function Scene3D({
       camera={{ position: [5.2, 4.2, 5.2], fov: 42, near: 0.1, far: 60 }}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.92, powerPreference: 'high-performance' }}
       style={{ width: '100%', height: '100%', background: env.background }}
+      // Right-click in builder mode = rotate the ghost cursor; suppress the
+      // native browser context menu so it doesn't pop up over the canvas.
+      onContextMenu={builderEnabled ? (e) => e.preventDefault() : undefined}
       onCreated={({ gl, scene }) => {
         gl.setClearColor(new THREE.Color(env.background), 1);
         scene.background = new THREE.Color(env.background);

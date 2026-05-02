@@ -170,8 +170,15 @@ function StackTargetHighlight({
 // ─── Per-type renderers (real, opaque) ───────────────────────────────────────
 
 function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
+  // Offset along the wall's long axis by half a cell so the wall's ENDS
+  // land on grid intersections (real maze-on-edge geometry) instead of
+  // its CENTER landing on intersections. Walls along X (rotY=0 or PI)
+  // shift in X; walls along Z (rotY=PI/2 or 3PI/2) shift in Z.
+  const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
+  const offX = isXAxis ? GRID_SIZE / 2 : 0;
+  const offZ = isXAxis ? 0 : GRID_SIZE / 2;
   return (
-    <mesh position={[x, y + 0.08, z]} rotation={[0, rotY, 0]} castShadow receiveShadow>
+    <mesh position={[x + offX, y + 0.08, z + offZ]} rotation={[0, rotY, 0]} castShadow receiveShadow>
       {/* Length = full GRID_SIZE so walls in adjacent cells meet edge-to-edge
           with no visible seam — the maze reads as a continuous corridor. */}
       <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
@@ -441,13 +448,19 @@ function GhostShape({
   variant?: 'standard' | 'sumo';
 }) {
   switch (type) {
-    case 'wall':
+    case 'wall': {
+      // Mirror WallObject's half-cell offset so the ghost matches where
+      // the wall will actually land.
+      const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
+      const offX = isXAxis ? GRID_SIZE / 2 : 0;
+      const offZ = isXAxis ? 0 : GRID_SIZE / 2;
       return (
-        <mesh position={[0, 0.08, 0]} rotation={[0, rotY, 0]}>
+        <mesh position={[offX, 0.08, offZ]} rotation={[0, rotY, 0]}>
           <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
           <GhostMaterial />
         </mesh>
       );
+    }
     case 'block':
       return (
         <mesh position={[0, 0.08, 0]} rotation={[0, rotY, 0]}>
