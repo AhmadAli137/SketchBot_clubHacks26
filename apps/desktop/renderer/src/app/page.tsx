@@ -1454,24 +1454,32 @@ export default function HomePage() {
       {/* PFP button is global — visible on every screen so the kid always
           has a one-tap way to see their account / sign in. The only exception
           is the auth screen itself, where it'd be circular UX. */}
-      {view !== 'auth' && (
-        <motion.button
-          type="button"
-          className={`app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}`}
-          onClick={() => userRole === 'guest' ? setView('plan') : setAccountPanelOpen(true)}
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.92 }}
-          title={userRole === 'guest' ? 'Sign in' : 'Account'}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        >
-          {userRole === 'guest' || !profileAvatar
-            ? <UserRound size={16} />
-            : <StudentProfileAvatar kind={profileAvatar.kind} emoji={profileAvatar.emoji} robotPresetId={profileAvatar.robotPreset} accent={profileAvatar.color} size={28} />
-          }
-        </motion.button>
-      )}
+      {view !== 'auth' && (() => {
+        const showAvatar = userRole !== 'guest' && profileAvatar;
+        // When the personal avatar is shown it brings its own circular
+        // chrome — adding the button's border on top creates two concentric
+        // circles. The .has-avatar modifier strips the button's chrome so
+        // the avatar IS the button.
+        const cls = `app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}${showAvatar ? ' has-avatar' : ''}`;
+        return (
+          <motion.button
+            type="button"
+            className={cls}
+            onClick={() => userRole === 'guest' ? setView('plan') : setAccountPanelOpen(true)}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            title={userRole === 'guest' ? 'Sign in' : 'Account'}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          >
+            {showAvatar
+              ? <StudentProfileAvatar kind={profileAvatar.kind} emoji={profileAvatar.emoji} robotPresetId={profileAvatar.robotPreset} accent={profileAvatar.color} size={36} />
+              : <UserRound size={16} />
+            }
+          </motion.button>
+        );
+      })()}
 
       <AnimatePresence>
         {accountPanelOpen && (
