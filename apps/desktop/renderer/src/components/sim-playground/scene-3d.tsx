@@ -15,7 +15,7 @@ import { RobotGantry } from './robot-gantry';
 import { CanvasSurface } from './canvas-surface';
 import { ChallengeSim, getSimMode } from './challenge-sim';
 import { SceneObjectsRenderer, BuilderCursor } from './scene-objects';
-import { GRID_SIZE, worldToGrid, clampToArena, type SceneObject, type ToolDef } from '@/lib/scene-builder';
+import { GRID_SIZE, worldToGridFloat, clampToArena, type SceneObject, type ToolDef } from '@/lib/scene-builder';
 import type { SimPoint } from '@/lib/sim-path-utils';
 import { CANVAS_W, CANVAS_H } from '@/lib/sim-path-utils';
 import { getEnvironment, type ConceptEnvironment } from '@/lib/concept-environments';
@@ -471,14 +471,21 @@ function SceneContent({
         position={[0, -0.018, 0]}
         receiveShadow
         onPointerMove={builderEnabled ? (e) => {
-          const raw = worldToGrid(e.point.x, e.point.z);
-          const { gx, gz } = clampToArena(raw.gx, raw.gz);
+          // Float coords pass through to placement/drag handlers; the
+          // index.tsx layer decides per-type whether to round (walls) or
+          // keep float (everything else). Cursor preview snaps for walls
+          // and follows the mouse for free-place props.
+          const rawF = worldToGridFloat(e.point.x, e.point.z);
+          const cF = clampToArena(rawF.gx, rawF.gz);
           if (isDragging) {
-            // Drag in progress — update the dragged object's grid position
-            onDragMove?.(gx, gz);
+            onDragMove?.(cF.gx, cF.gz);
           } else if (activeTool) {
-            // No drag — update the cursor preview
-            if (!cursor || cursor.gx !== gx || cursor.gz !== gz) setCursor({ gx, gz });
+            const isWall = activeTool.type === 'wall';
+            const cgx = isWall ? Math.round(cF.gx) : cF.gx;
+            const cgz = isWall ? Math.round(cF.gz) : cF.gz;
+            if (!cursor || cursor.gx !== cgx || cursor.gz !== cgz) {
+              setCursor({ gx: cgx, gz: cgz });
+            }
           }
         } : undefined}
         onPointerLeave={builderEnabled ? () => setCursor(null) : undefined}
@@ -489,9 +496,9 @@ function SceneContent({
             return;
           }
           if (activeTool && onPlaceAt) {
-            const raw = worldToGrid(e.point.x, e.point.z);
-            const { gx, gz } = clampToArena(raw.gx, raw.gz);
-            onPlaceAt(gx, gz);
+            const rawF = worldToGridFloat(e.point.x, e.point.z);
+            const cF = clampToArena(rawF.gx, rawF.gz);
+            onPlaceAt(cF.gx, cF.gz);
           } else if (onSelectObject) {
             // Click on empty floor in select mode → clear selection
             onSelectObject(null);

@@ -96,6 +96,31 @@ export function worldToGrid(x: number, z: number): { gx: number; gz: number } {
   return { gx: Math.round(x / GRID_SIZE), gz: Math.round(z / GRID_SIZE) };
 }
 
+/** Same as worldToGrid but without rounding — returns float grid units.
+ *  Used for free-placement props (everything except walls) so the object
+ *  lands exactly where the cursor is, instead of being snapped to the
+ *  nearest grid cell. */
+export function worldToGridFloat(x: number, z: number): { gx: number; gz: number } {
+  return { gx: x / GRID_SIZE, gz: z / GRID_SIZE };
+}
+
+/** Object types that must snap to the grid (for clean maze geometry).
+ *  Everything else free-places at float coords. */
+export const GRID_SNAP_TYPES: ReadonlySet<SceneObjectType> = new Set(['wall']);
+
+/** Snap (gx, gz) to integer cells iff the type requires grid alignment.
+ *  Walls snap, everything else passes through unchanged. */
+export function maybeSnapForType(
+  type: SceneObjectType,
+  gx: number,
+  gz: number,
+): { gx: number; gz: number } {
+  if (GRID_SNAP_TYPES.has(type)) {
+    return { gx: Math.round(gx), gz: Math.round(gz) };
+  }
+  return { gx, gz };
+}
+
 export function gridToWorld(obj: { gx: number; gz: number; gy?: number }): { x: number; y: number; z: number } {
   return {
     x: obj.gx * GRID_SIZE,

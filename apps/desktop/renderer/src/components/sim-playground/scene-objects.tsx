@@ -19,6 +19,7 @@ import { Html } from '@react-three/drei';
 
 import {
   GRID_SIZE,
+  GRID_SNAP_TYPES,
   STACK_HEIGHT,
   gridToWorld,
   rotationToRadians,
@@ -171,7 +172,9 @@ function StackTargetHighlight({
 function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
   return (
     <mesh position={[x, y + 0.08, z]} rotation={[0, rotY, 0]} castShadow receiveShadow>
-      <boxGeometry args={[GRID_SIZE * 0.95, 0.16, GRID_SIZE * 0.18]} />
+      {/* Length = full GRID_SIZE so walls in adjacent cells meet edge-to-edge
+          with no visible seam — the maze reads as a continuous corridor. */}
+      <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
       <meshStandardMaterial color="#0a2a10" emissive="#002200" emissiveIntensity={0.3} roughness={0.8} />
     </mesh>
   );
@@ -441,7 +444,7 @@ function GhostShape({
     case 'wall':
       return (
         <mesh position={[0, 0.08, 0]} rotation={[0, rotY, 0]}>
-          <boxGeometry args={[GRID_SIZE * 0.95, 0.16, GRID_SIZE * 0.18]} />
+          <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
           <GhostMaterial />
         </mesh>
       );
@@ -646,11 +649,15 @@ export function BuilderCursor({
 }) {
   if (!tool || !visible) return null;
   const { x, y, z } = gridToWorld({ gx, gz, gy });
+  // Floor cell rectangle reads as "drop into this cell". For free-place
+  // tools (anything that doesn't snap) the rect would slide around at
+  // sub-cell granularity, which is misleading — show only the ghost
+  // shape for those.
+  const showCellRect = (!gy || gy === 0) && GRID_SNAP_TYPES.has(tool.type);
 
   return (
     <group position={[x, y, z]}>
-      {/* Floor cell highlight — drawn underneath the ghost shape */}
-      {(!gy || gy === 0) && (
+      {showCellRect && (
         <mesh position={[0, 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[GRID_SIZE * 0.98, GRID_SIZE * 0.98]} />
           <meshBasicMaterial color={GHOST_COLOR} transparent opacity={0.22} />

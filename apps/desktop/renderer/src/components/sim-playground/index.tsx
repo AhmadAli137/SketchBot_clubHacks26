@@ -18,6 +18,7 @@ import { playBGM, stopBGM, playSfx } from '@/lib/game-audio';
 import {
   TOOLS_BY_ID,
   makeObjectFromTool,
+  maybeSnapForType,
   newSceneObjectId,
   type SceneObject,
 } from '@/lib/scene-builder';
@@ -159,7 +160,10 @@ export function SimPlayground({
       handleStackOnTop(stackTarget.id);
       return;
     }
-    const obj = makeObjectFromTool(activeTool, gx, gz);
+    // Walls snap to the grid for clean maze geometry; everything else
+    // free-places at the cursor's exact float position.
+    const snapped = maybeSnapForType(activeTool.type, gx, gz);
+    const obj = makeObjectFromTool(activeTool, snapped.gx, snapped.gz);
     updateObjects([...sceneObjects, obj]);
     setSelectedObjectId(obj.id);
     emitSparkEvent('user.place', { tool: activeTool.id });
@@ -218,9 +222,14 @@ export function SimPlayground({
 
   const handleDragMove = (gx: number, gz: number) => {
     if (!draggedObjectId) return;
-    updateObjects(sceneObjects.map((o) =>
-      o.id === draggedObjectId ? { ...o, gx, gz } : o,
-    ));
+    updateObjects(sceneObjects.map((o) => {
+      if (o.id !== draggedObjectId) return o;
+      // Per-type snap: walls lock to the grid mid-drag, everything else
+      // follows the cursor freely so the kid can slide cones / lights /
+      // bots into any position they want.
+      const snapped = maybeSnapForType(o.type, gx, gz);
+      return { ...o, gx: snapped.gx, gz: snapped.gz };
+    }));
   };
 
   const handleEndDrag = () => setDraggedObjectId(null);
