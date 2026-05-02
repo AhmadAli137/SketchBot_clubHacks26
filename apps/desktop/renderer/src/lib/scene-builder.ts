@@ -124,17 +124,18 @@ export function maybeSnapForType(
 /** How many *visually distinct* 90° rotations a type has. Cycling rotY
  *  through any larger modulus only repeats positions that look identical
  *  on screen — which the kid reads as "rotate clicks doing nothing" or
- *  worse, "rotate is toggling back". Radially-symmetric props (cones,
- *  spheres, cylinders, the waypoint pole, the mat) have only 1 unique
- *  state; everything else carries orientation (walls have a direction
- *  cap, bots have a tab, apriltags have an asymmetric pattern) and
- *  cycles the full 4. */
+ *  worse, "rotate is toggling back". Walls are intentionally symmetric
+ *  (X-axis vs Z-axis is the only thing that matters for maze building);
+ *  radially-symmetric props (cones, spheres, cylinders, the waypoint
+ *  pole, the mat) have only 1 unique state; bots and apriltags carry
+ *  full orientation and cycle 4. */
 export function rotationStepsForType(type: SceneObjectType): 1 | 2 | 4 {
   switch (type) {
-    case 'wall':
     case 'bot':
     case 'apriltag':
       return 4;
+    case 'wall':
+      return 2;
     case 'block':
     case 'cone':
     case 'sphere':

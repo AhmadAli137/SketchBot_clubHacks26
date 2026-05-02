@@ -188,22 +188,15 @@ function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: 
   const offX = isXAxis ? GRID_SIZE / 2 : 0;
   const offZ = isXAxis ? 0 : GRID_SIZE / 2;
   return (
-    <group position={[x + offX, y + 0.08, z + offZ]} rotation={[0, rotY, 0]}>
+    <mesh position={[x + offX, y + 0.08, z + offZ]} rotation={[0, rotY, 0]} castShadow receiveShadow>
       {/* Length = full GRID_SIZE so walls in adjacent cells meet edge-to-edge
-          with no visible seam — the maze reads as a continuous corridor. */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
-        <meshStandardMaterial color="#0a2a10" emissive="#002200" emissiveIntensity={0.3} roughness={0.8} />
-      </mesh>
-      {/* Direction marker — small cyan cap on the +X end. Makes the wall
-          asymmetric so rotY=0 and rotY=2 (which were visually identical
-          on a plain box and made rotation read as a 2-state toggle) are
-          now distinguishable. All four 90° rotations look different. */}
-      <mesh position={[GRID_SIZE * 0.46, 0.045, 0]} castShadow>
-        <boxGeometry args={[GRID_SIZE * 0.06, 0.07, GRID_SIZE * 0.18]} />
-        <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.65} roughness={0.4} />
-      </mesh>
-    </group>
+          with no visible seam — the maze reads as a continuous corridor.
+          Walls are intentionally symmetric (no direction cap): for maze
+          building, the only useful rotation is X-axis vs Z-axis, and
+          rotationStepsForType('wall') = 2 respects that. */}
+      <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
+      <meshStandardMaterial color="#0a2a10" emissive="#002200" emissiveIntensity={0.3} roughness={0.8} />
+    </mesh>
   );
 }
 
@@ -469,22 +462,17 @@ function GhostShape({
 }) {
   switch (type) {
     case 'wall': {
-      // Mirror WallObject's half-cell offset + direction cap so the
-      // ghost matches where the wall will land AND its orientation.
+      // Mirror WallObject's half-cell offset so the ghost matches where
+      // the wall will land. No direction cap — walls are symmetric and
+      // rotate as X-axis ↔ Z-axis only.
       const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
       const offX = isXAxis ? GRID_SIZE / 2 : 0;
       const offZ = isXAxis ? 0 : GRID_SIZE / 2;
       return (
-        <group position={[offX, 0.08, offZ]} rotation={[0, rotY, 0]}>
-          <mesh>
-            <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
-            <GhostMaterial />
-          </mesh>
-          <mesh position={[GRID_SIZE * 0.46, 0.045, 0]}>
-            <boxGeometry args={[GRID_SIZE * 0.06, 0.07, GRID_SIZE * 0.18]} />
-            <GhostMaterial color="#5de4ff" />
-          </mesh>
-        </group>
+        <mesh position={[offX, 0.08, offZ]} rotation={[0, rotY, 0]}>
+          <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.18]} />
+          <GhostMaterial />
+        </mesh>
       );
     }
     case 'block':
