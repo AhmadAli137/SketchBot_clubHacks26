@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getShortLoopBuffer, useMenuMusic } from '@/lib/menu-music'; // triggers offline render immediately

@@ -1,4 +1,4 @@
-﻿/** SaySpark cloud backend — AI gateway + admin APIs */
+/** SaySpark cloud backend — AI gateway + admin APIs */
 export const CLOUD_API_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? 'https://sketchbot-backend.onrender.com';
 

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -166,13 +166,14 @@
         letter-spacing: -0.035em; line-height: 1;
         margin-bottom: 6px;
       }
-      .wordmark-ai {
-        background: linear-gradient(120deg, var(--cyan) 0%, #b8a8ff 50%, var(--pink) 100%);
+      .wordmark-say { color: var(--text); }
+      .wordmark-spark {
+        background: linear-gradient(90deg, var(--cyan) 0%, var(--violet) 100%);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
+        margin-left: 2px;
       }
-      .wordmark-rest { color: var(--text); }
       .wordmark-sub {
         font-size: 0.68rem; font-weight: 600;
         letter-spacing: 0.20em; text-transform: uppercase;
@@ -277,34 +278,37 @@
     </div>
 
     <div class="center">
-      <!-- SaySpark logo mark (inline SVG — no build step needed) -->
+      <!-- SaySpark logo mark — speech bubble + spark -->
       <div class="mark-wrap" aria-hidden="true">
         <div class="mark-ring"></div>
         <div class="mark-ring d"></div>
-        <svg width="72" height="72" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="0.5" y="0.5" width="27" height="27" rx="7.5"
-            fill="url(#s-bg)" stroke="url(#s-bd)" stroke-width="0.6"/>
-          <circle cx="14" cy="13" r="8.5" fill="url(#s-head)"/>
-          <circle cx="14" cy="13" r="10" fill="none" stroke="#5de4ff" stroke-width="0.5" opacity="0.20"/>
-          <ellipse cx="11.0" cy="12.4" rx="1.55" ry="1.05" fill="#020810" opacity="0.90"/>
-          <ellipse cx="17.0" cy="12.4" rx="1.55" ry="1.05" fill="#020810" opacity="0.90"/>
-          <circle cx="11.7" cy="11.8" r="0.46" fill="white" opacity="0.92"/>
-          <circle cx="17.7" cy="11.8" r="0.46" fill="white" opacity="0.92"/>
-          <path d="M11.2 14.8 Q14 16.4 16.8 14.8"
-            stroke="#020810" stroke-width="0.70" fill="none" stroke-linecap="round" opacity="0.68"/>
+        <svg width="72" height="72" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="14.5" r="14" fill="url(#ss-halo)" opacity="0.55"/>
+          <path d="M 7 5 H 25 A 5 5 0 0 1 30 10 V 19 A 5 5 0 0 1 25 24 H 14 L 9 29 V 24 H 7 A 5 5 0 0 1 2 19 V 10 A 5 5 0 0 1 7 5 Z"
+            fill="url(#ss-bubble)" stroke="url(#ss-stroke)" stroke-width="0.9" stroke-linejoin="round"/>
+          <g transform="translate(16 14.5)">
+            <path d="M 0 -7 L 1.6 -1.6 L 7 0 L 1.6 1.6 L 0 7 L -1.6 1.6 L -7 0 L -1.6 -1.6 Z" fill="url(#ss-spark)"/>
+            <circle cx="0" cy="0" r="1.7" fill="#ffffff" opacity="0.92"/>
+            <circle cx="3.2" cy="-3.0" r="0.5" fill="#ffffff" opacity="0.85"/>
+            <circle cx="-3.4" cy="2.8" r="0.45" fill="#ffffff" opacity="0.75"/>
+          </g>
           <defs>
-            <linearGradient id="s-bg" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-              <stop offset="0%"   stop-color="#060e22"/>
-              <stop offset="100%" stop-color="#07122a"/>
+            <radialGradient id="ss-halo" cx="50%" cy="40%" r="60%">
+              <stop offset="0%"   stop-color="#5de4ff" stop-opacity="0.45"/>
+              <stop offset="100%" stop-color="#5de4ff" stop-opacity="0"/>
+            </radialGradient>
+            <linearGradient id="ss-bubble" x1="2" y1="5" x2="30" y2="29" gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#0c1530"/>
+              <stop offset="100%" stop-color="#152244"/>
             </linearGradient>
-            <linearGradient id="s-bd" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-              <stop offset="0%"   stop-color="#6366f1" stop-opacity="0.70"/>
-              <stop offset="100%" stop-color="#5de4ff" stop-opacity="0.35"/>
+            <linearGradient id="ss-stroke" x1="2" y1="5" x2="30" y2="29" gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#5de4ff" stop-opacity="0.85"/>
+              <stop offset="100%" stop-color="#a855f7" stop-opacity="0.55"/>
             </linearGradient>
-            <radialGradient id="s-head" cx="38%" cy="30%" r="70%">
-              <stop offset="0%"   stop-color="#c4f5ff"/>
-              <stop offset="52%"  stop-color="#5de4ff"/>
-              <stop offset="100%" stop-color="#2563eb"/>
+            <radialGradient id="ss-spark" cx="50%" cy="50%" r="55%">
+              <stop offset="0%"   stop-color="#fff4d6"/>
+              <stop offset="40%"  stop-color="#5de4ff"/>
+              <stop offset="100%" stop-color="#a855f7"/>
             </radialGradient>
           </defs>
         </svg>
@@ -312,9 +316,9 @@
 
       <!-- Wordmark -->
       <p class="wordmark-name" aria-label="SaySpark">
-        <span class="wordmark-ai">Ai</span><span class="wordmark-rest">botics</span>
+        <span class="wordmark-say">Say</span><span class="wordmark-spark">Spark</span>
       </p>
-      <p class="wordmark-sub">AI Robotics Studio</p>
+      <p class="wordmark-sub">Voice-First AI Tutor</p>
 
       <!-- Load status -->
       <div class="load-area">

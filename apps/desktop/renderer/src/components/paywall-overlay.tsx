@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { motion, AnimatePresence } from 'motion/react';
 import type { Entitlements } from '@/lib/use-entitlements';

@@ -1,4 +1,4 @@
-﻿# Authentication & Security Architecture
+# Authentication & Security Architecture
 
 This document covers how SaySpark handles identity, session management, and API key security across every surface: the desktop app, web app, mobile companion, and the cloud backend.
 

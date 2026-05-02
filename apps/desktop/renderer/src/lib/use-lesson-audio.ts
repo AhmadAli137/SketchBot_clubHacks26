@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LessonStep } from './lesson-types';
 import { CLOUD_API_URL, cloudHeaders } from './cloud-api';
 

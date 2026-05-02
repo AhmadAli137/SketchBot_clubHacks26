@@ -1,4 +1,4 @@
-﻿import type { TourFlowId, TourStep } from './types';
+import type { TourFlowId, TourStep } from './types';
 
 export const GUIDED_TOUR_STORAGE: Record<TourFlowId, string> = {
   studentSession: 'sayspark-tour-session-v2',

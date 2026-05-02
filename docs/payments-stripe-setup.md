@@ -1,4 +1,4 @@
-﻿# Payments & Stripe Setup
+# Payments & Stripe Setup
 
 Complete reference for SaySpark subscription billing — Stripe configuration, Render environment variables, backend logic, frontend flow, and Supabase schema.
 
