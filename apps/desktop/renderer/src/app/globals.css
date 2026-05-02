@@ -4713,17 +4713,10 @@ body {
 .tutor-icon-btn:hover { color: var(--text); background: var(--panel); }
 .tutor-icon-btn.active { color: var(--cyan); border-color: rgba(93,228,255,0.3); }
 
-/* Bell ring — quick wiggle + cyan glow when the user calls Spark. */
-.tutor-bell-btn.ringing {
-  color: var(--cyan);
-  border-color: rgba(93, 228, 255, 0.55);
-  background: rgba(93, 228, 255, 0.1);
-  box-shadow: 0 0 0 0 rgba(93, 228, 255, 0.35);
-  animation: tutor-bell-ring 0.7s ease-out;
-}
+/* Bell ring — quick wiggle, used by .tutor-bell-call below. */
 @keyframes tutor-bell-ring {
-  0%   { transform: rotate(0deg)   scale(1);    box-shadow: 0 0 0 0 rgba(93, 228, 255, 0.5); }
-  15%  { transform: rotate(-18deg) scale(1.12); box-shadow: 0 0 0 6px rgba(93, 228, 255, 0.0); }
+  0%   { transform: rotate(0deg)   scale(1); }
+  15%  { transform: rotate(-18deg) scale(1.12); }
   35%  { transform: rotate(15deg)  scale(1.08); }
   55%  { transform: rotate(-10deg) scale(1.05); }
   75%  { transform: rotate(6deg)   scale(1.02); }
@@ -5060,6 +5053,92 @@ body {
   border-color: rgba(93,228,255,0.4);
   background: rgba(93,228,255,0.08);
   cursor: not-allowed;
+}
+
+/* Bell call button — same physical size as the mic so it reads as a
+   primary action, with an amber-leaning palette so the kid can tell
+   the two apart at a glance. Idle ambient pulse draws attention when
+   Spark hasn't been speaking for a while; ringing wiggle confirms the
+   tap; is-thinking dims it during the resulting reasoning pass so
+   the kid doesn't spam the bell waiting. */
+.tutor-bell-call {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 200, 90, 0.35);
+  background: rgba(255, 200, 90, 0.06);
+  color: rgba(255, 215, 116, 0.9);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  animation: tutor-bell-idle 3.2s ease-in-out infinite;
+}
+.tutor-bell-call:hover {
+  color: #fff;
+  border-color: rgba(255, 215, 116, 0.7);
+  background: rgba(255, 215, 116, 0.18);
+  transform: scale(1.04);
+}
+.tutor-bell-call:disabled,
+.tutor-bell-call.is-thinking {
+  cursor: not-allowed;
+  opacity: 0.5;
+  animation: none;
+}
+.tutor-bell-call.ringing {
+  color: #fff;
+  border-color: rgba(255, 215, 116, 0.85);
+  background: rgba(255, 215, 116, 0.28);
+  animation: tutor-bell-ring 0.7s ease-out;
+}
+@keyframes tutor-bell-idle {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 116, 0.0); }
+  50%      { box-shadow: 0 0 0 5px rgba(255, 215, 116, 0.18); }
+}
+/* @keyframes tutor-bell-ring is defined near the icon-button rules above. */
+
+/* Thinking dots — in chat bubble + face caption */
+.tutor-thinking-row { opacity: 0.85; }
+.tutor-thinking-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-style: italic;
+  color: var(--muted);
+}
+.tutor-thinking-label {
+  letter-spacing: 0.01em;
+}
+.tutor-thinking-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.tutor-thinking-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.4;
+  animation: tutor-thinking-bounce 1s ease-in-out infinite;
+}
+.tutor-thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
+.tutor-thinking-dots span:nth-child(3) { animation-delay: 0.30s; }
+@keyframes tutor-thinking-bounce {
+  0%, 80%, 100% { transform: translateY(0);   opacity: 0.4; }
+  40%           { transform: translateY(-4px); opacity: 1;   }
+}
+.tutor-face-caption--thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 18, 38, 0.55);
+  border: 1px solid rgba(168, 85, 247, 0.32);
+  color: rgba(216, 180, 254, 0.92);
+  font-style: italic;
 }
 
 /* "Listening…" bar shown above the input */

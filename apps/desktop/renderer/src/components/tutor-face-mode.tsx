@@ -234,10 +234,15 @@ type Props = {
   /** Word-level karaoke highlight from useTTS — drives sentence sync. */
   ttsHighlight?: TutorTtsHighlight;
   sparkVariant?: 'mark' | 'lori';
+  /** True while the WS agent is reasoning (between MSG_THINKING and MSG_SPEAK).
+   *  When true and there's nothing currently being spoken, face mode shows
+   *  a "Sketch is thinking…" caption with animated dots so the kid sees the
+   *  wait instead of dead air. */
+  tutorThinking?: boolean;
   onExit: () => void;
 };
 
-export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVariant = 'mark', onExit }: Props) {
+export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVariant = 'mark', tutorThinking = false, onExit }: Props) {
   const latest = messages.at(-1);
   const isStreaming = Boolean(latest?.isStreaming);
 
@@ -423,6 +428,21 @@ export function TutorFaceMode({ messages, ttsSpeaking, ttsHighlight, sparkVarian
                 ))}
               </div>
             )}
+          </motion.div>
+        ) : tutorThinking ? (
+          <motion.div
+            key="cap-thinking"
+            className="tutor-face-caption tutor-face-caption--thinking"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+            aria-live="polite"
+          >
+            <span className="tutor-thinking-label">Sketch is thinking</span>
+            <span className="tutor-thinking-dots" aria-hidden>
+              <span /><span /><span />
+            </span>
           </motion.div>
         ) : (
           <motion.div

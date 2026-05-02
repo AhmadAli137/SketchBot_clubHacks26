@@ -1149,6 +1149,16 @@ export function TutorPanel({
   const [studentInput, setStudentInput] = useState('');
   /** True while any tutor SSE reply is in flight (greeting, hint, student reply, etc.). */
   const [tutorStreaming, setTutorStreaming] = useState(false);
+  /** True while the WS agent is reasoning (between MSG_THINKING and MSG_SPEAK). */
+  const [tutorThinking, setTutorThinking] = useState(false);
+  // Auto-clear thinking state if no MSG_SPEAK arrives — protects against
+  // the agent silently failing mid-think and leaving the UI stuck.
+  const tutorThinkingTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (tutorThinkingTimerRef.current !== null) {
+      window.clearTimeout(tutorThinkingTimerRef.current);
+    }
+  }, []);
   const [progressSnapshot, setProgressSnapshot] = useState<ConceptProgressSnapshot | null>(null);
   const [evaluationNotice, setEvaluationNotice] = useState<EvaluationNotice | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
@@ -1851,6 +1861,12 @@ export function TutorPanel({
       if (msg.type === MSG_SPEAK) {
         if (!msg.message?.trim() || tutorStreaming) return;
         const text = msg.message.trim();
+        // Speak arrived → clear any pending thinking indicator.
+        setTutorThinking(false);
+        if (tutorThinkingTimerRef.current !== null) {
+          window.clearTimeout(tutorThinkingTimerRef.current);
+          tutorThinkingTimerRef.current = null;
+        }
         // Stop any in-progress TTS so a fresh interjection takes the
         // floor (same pattern useSparkTick used to follow).
         tts.stopSpeaking();
@@ -1875,9 +1891,18 @@ export function TutorPanel({
         return;
       }
       if (msg.type === MSG_THINKING) {
-        // Phase 3 will surface this as a UI indicator. For now it's a
-        // logged signal that the agent is reasoning.
-        console.info('[tutor-ws] thinking:', msg.status);
+        // Agent started reasoning — surface the wait so the kid sees
+        // "thinking…" instead of dead air. Auto-clears in 30s if the
+        // agent silently fails (think_and_act early-returns without a
+        // speak), so the UI never gets stuck.
+        setTutorThinking(true);
+        if (tutorThinkingTimerRef.current !== null) {
+          window.clearTimeout(tutorThinkingTimerRef.current);
+        }
+        tutorThinkingTimerRef.current = window.setTimeout(() => {
+          setTutorThinking(false);
+          tutorThinkingTimerRef.current = null;
+        }, 30_000);
         return;
       }
       if (msg.type === MSG_RESTART) {
@@ -2020,16 +2045,6 @@ export function TutorPanel({
           >
             {displayMode === 'face' ? <MessageSquare size={13} /> : <Video size={13} />}
           </button>
-          {/* Ring the bell — pulls Spark's attention right now */}
-          <button
-            type="button"
-            className={`tutor-icon-btn tutor-bell-btn${bellRinging ? ' ringing' : ''}`}
-            onClick={handleBell}
-            title="Ring the bell — get Spark's attention"
-            aria-label="Ring the bell to call Sketch"
-          >
-            <Bell size={13} />
-          </button>
           {/* Clear conversation */}
           <button
             type="button"
@@ -2110,6 +2125,7 @@ export function TutorPanel({
           ttsSpeaking={tts.speaking}
           ttsHighlight={tts.highlight}
           sparkVariant={tts.voice.alias}
+          tutorThinking={tutorThinking}
           onExit={() => setDisplayMode('chat')}
         />
       )}
@@ -2154,6 +2170,20 @@ export function TutorPanel({
             </div>
           );
         })}
+        {/* Thinking indicator — animated dots in a pseudo-bubble while
+            the WS agent is reasoning. Hidden during HTTP streaming
+            because that path renders its own placeholder bubble. */}
+        {tutorThinking && !tutorStreaming && (
+          <div className="tutor-msg-row tutor-thinking-row">
+            <div className="tutor-msg-avatar">🤖</div>
+            <div className="tutor-msg-bubble tutor-thinking-bubble" aria-live="polite">
+              <span className="tutor-thinking-label">Sketch is thinking</span>
+              <span className="tutor-thinking-dots" aria-hidden>
+                <span /><span /><span />
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Starter chips */}
@@ -2391,6 +2421,20 @@ export function TutorPanel({
         );
       })()}
       <div className="tutor-input-row">
+        {/* Bell — prominent "look at me, Spark!" button next to the mic.
+            Same size as the mic so it reads as primary, with a subtle
+            ambient pulse that draws attention when Spark has been
+            silent. */}
+        <button
+          type="button"
+          className={`tutor-bell-call${bellRinging ? ' ringing' : ''}${tutorThinking ? ' is-thinking' : ''}`}
+          onClick={handleBell}
+          disabled={tutorThinking}
+          title="Ring the bell — get Sketch's attention"
+          aria-label="Ring the bell to call Sketch"
+        >
+          <Bell size={16} />
+        </button>
         <button
           type="button"
           className={`tutor-mic-btn ${speech.isListening ? 'recording' : ''} ${speech.isTranscribing ? 'transcribing' : ''}`}
