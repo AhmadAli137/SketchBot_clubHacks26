@@ -134,7 +134,8 @@ export function rotationStepsForType(type: SceneObjectType): 1 | 2 | 4 {
     case 'bot':
     case 'apriltag':
       return 4;
-    case 'wall':           // cell-fill cube → no visible rotation
+    case 'wall':
+      return 2;
     case 'block':
     case 'cone':
     case 'sphere':
@@ -155,12 +156,12 @@ export function gridToWorld(obj: { gx: number; gz: number; gy?: number }): { x: 
   };
 }
 
-/** gridToWorld + per-type render offsets. Currently identical to
- *  gridToWorld — walls used to live on cell EDGES with a half-cell offset
- *  so their ends would sit on grid intersections, but they're now
- 'cell-fill cubes (one cube per cell, no offset). Kept as a separate
- *  helper so future asymmetric props can declare their own visual
- *  offsets here without touching every selection-chrome callsite. */
+/** gridToWorld + per-type render offsets. Walls live on cell EDGES with
+ *  a half-cell offset along their long axis so their ENDS sit on grid
+ *  intersections (real maze-on-edge geometry). Selection chrome anchored
+ *  to the bare cell origin would land beside the wall instead of around
+ *  it, so use this helper whenever you need the actual visual position
+ *  of a placed object: selection ring, hover highlight, floating toolbar. */
 export function gridToWorldRendered(obj: {
   gx: number;
   gz: number;
@@ -168,7 +169,15 @@ export function gridToWorldRendered(obj: {
   type: SceneObjectType;
   rotY?: 0 | 1 | 2 | 3;
 }): { x: number; y: number; z: number } {
-  return gridToWorld(obj);
+  const base = gridToWorld(obj);
+  if (obj.type === 'wall') {
+    // rotY 0 / 2 → wall along X-axis; rotY 1 / 3 → along Z-axis.
+    const isXAxis = ((obj.rotY ?? 0) % 2) === 0;
+    return isXAxis
+      ? { ...base, x: base.x + GRID_SIZE / 2 }
+      : { ...base, z: base.z + GRID_SIZE / 2 };
+  }
+  return base;
 }
 
 export function rotationToRadians(rotY: 0 | 1 | 2 | 3 = 0): number {

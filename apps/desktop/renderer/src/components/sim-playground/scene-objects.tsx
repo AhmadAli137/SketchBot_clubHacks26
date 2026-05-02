@@ -182,17 +182,25 @@ function StackTargetHighlight({
 
 // ─── Per-type renderers (real, opaque) ───────────────────────────────────────
 
-function WallObject({ x, y, z }: { x: number; y: number; z: number; rotY?: number }) {
-  // Cell-fill cube. Two adjacent walls share a full face and merge into
-  // one continuous block — no more visible corner seams. Trade-off:
-  // walls are chunky cubes rather than thin maze segments. For an easy-
-  // to-use maze builder this is the right call: corners are clean by
-  // construction (you can't get the geometry wrong because there is no
-  // junction geometry, just two cubes touching). Rotation is meaningless
-  // on a cube, so rotationStepsForType('wall') is 1 (rotate is a no-op).
+/** Wall length is slightly LONGER than a cell — by half the thickness on
+ *  each end. That extra ~2.25 cm pokes into the perpendicular wall's
+ *  volume at corner joints, so the L-junction seam is buried inside the
+ *  other wall instead of being visible at the boundary. Adjacent walls
+ *  in the same direction also overlap that little, which is invisible
+ *  (interior overlapping faces don't render). */
+const WALL_THICKNESS = GRID_SIZE * 0.18;
+const WALL_LENGTH = GRID_SIZE + WALL_THICKNESS / 2;
+const WALL_HEIGHT = 0.16;
+
+function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
+  // Half-cell offset along the wall's long axis so its ENDS sit on
+  // grid intersections (real maze-on-edge geometry).
+  const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
+  const offX = isXAxis ? GRID_SIZE / 2 : 0;
+  const offZ = isXAxis ? 0 : GRID_SIZE / 2;
   return (
-    <mesh position={[x, y + 0.08, z]} castShadow receiveShadow>
-      <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE]} />
+    <mesh position={[x + offX, y + WALL_HEIGHT / 2, z + offZ]} rotation={[0, rotY, 0]} castShadow receiveShadow>
+      <boxGeometry args={[WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS]} />
       <meshStandardMaterial color="#0a2a10" emissive="#002200" emissiveIntensity={0.3} roughness={0.8} />
     </mesh>
   );
@@ -459,14 +467,19 @@ function GhostShape({
   variant?: 'standard' | 'sumo';
 }) {
   switch (type) {
-    case 'wall':
-      // Cell-fill cube — same as the placed wall (see WallObject).
+    case 'wall': {
+      // Mirror WallObject — thin wall with half-cell offset and slight
+      // overhang so corners read clean.
+      const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
+      const offX = isXAxis ? GRID_SIZE / 2 : 0;
+      const offZ = isXAxis ? 0 : GRID_SIZE / 2;
       return (
-        <mesh position={[0, 0.08, 0]}>
-          <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE]} />
+        <mesh position={[offX, WALL_HEIGHT / 2, offZ]} rotation={[0, rotY, 0]}>
+          <boxGeometry args={[WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS]} />
           <GhostMaterial />
         </mesh>
       );
+    }
     case 'block':
       return (
         <mesh position={[0, 0.08, 0]} rotation={[0, rotY, 0]}>

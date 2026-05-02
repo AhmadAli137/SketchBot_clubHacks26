@@ -171,6 +171,50 @@ export function SimPlayground({
     emitSparkEvent('user.place', { tool: activeTool.id });
   };
 
+  /** Drag-to-paint walls. Called continuously while the wall tool is
+   *  active and the user is dragging on the floor. Auto-orients each new
+   *  wall based on the direction from the previous painted cell, so a
+   *  horizontal drag drops X-axis walls and a vertical drag drops Z-axis
+   *  walls — no rotate-clicking between segments. Only walls can be
+   *  painted (other props are free-place and don't benefit from tiling). */
+  const paintedCellsRef = useRef<Set<string>>(new Set());
+  const lastPaintedRef = useRef<{ gx: number; gz: number } | null>(null);
+  const handlePaintWalls = (gxF: number, gzF: number) => {
+    if (!activeTool || activeTool.type !== 'wall') return;
+    const gx = Math.round(gxF);
+    const gz = Math.round(gzF);
+    const key = `${gx},${gz}`;
+    if (paintedCellsRef.current.has(key)) return;
+    // Skip if a wall already exists at this exact cell — don't double up.
+    if (sceneObjects.some((o) =>
+      o.type === 'wall' && Math.round(o.gx) === gx && Math.round(o.gz) === gz,
+    )) {
+      paintedCellsRef.current.add(key);
+      lastPaintedRef.current = { gx, gz };
+      return;
+    }
+    // Auto-orient: if we moved primarily in X since the last cell, this
+    // wall lies along X (rotY=0). Else along Z (rotY=1). Falls back to
+    // rotY=0 for the very first cell of a stroke.
+    let rotY: 0 | 1 = 0;
+    const prev = lastPaintedRef.current;
+    if (prev) {
+      const dx = Math.abs(gx - prev.gx);
+      const dz = Math.abs(gz - prev.gz);
+      rotY = dz > dx ? 1 : 0;
+    }
+    const obj = makeObjectFromTool(activeTool, gx, gz);
+    obj.rotY = rotY;
+    updateObjects([...sceneObjects, obj]);
+    paintedCellsRef.current.add(key);
+    lastPaintedRef.current = { gx, gz };
+    emitSparkEvent('user.place', { tool: activeTool.id });
+  };
+  const handlePaintEnd = () => {
+    paintedCellsRef.current = new Set();
+    lastPaintedRef.current = null;
+  };
+
   const handleSelectObject = (id: string | null) => {
     setSelectedObjectId(id);
     if (id) setActiveToolId(null); // selecting clears the tool cursor
@@ -566,11 +610,15 @@ export function SimPlayground({
               onDeleteSelected={handleDeleteSelected}
               onMoveSelected={handleStartFollow}
               dragMode={dragMode}
+              onPaintWalls={handlePaintWalls}
+              onPaintEnd={handlePaintEnd}
             />
             <div className="sim-3d-hint">
               {builderEnabled
                 ? (activeTool
-                    ? '💡 Click the floor to drop · right-click to rotate'
+                    ? (activeTool.type === 'wall'
+                        ? '💡 Drag to paint walls · right-click to rotate'
+                        : '💡 Click the floor to drop · right-click to rotate')
                     : '💡 Pick a tool · click an object to select')
                 : '💡 Drag to spin · scroll to zoom'}
             </div>

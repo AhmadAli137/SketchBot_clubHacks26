@@ -418,6 +418,10 @@ type SceneContentProps = {
   onMoveSelected?: () => void;
   /** 'press' = traditional drag (mouse held); 'follow' = click-once / click-once. */
   dragMode?: 'press' | 'follow';
+  /** Drag-to-paint for walls — called per-cell while the wall tool is
+   *  active and the pointer is dragging across the floor. */
+  onPaintWalls?: (gx: number, gz: number) => void;
+  onPaintEnd?: () => void;
 };
 
 function SceneContent({
@@ -427,6 +431,7 @@ function SceneContent({
   activeTool = null,
   onPlaceAt, onSelectObject, onStackOnTop, onStartDrag, onDragMove, onEndDrag, onHoverObject,
   onRotateSelected, onDeleteSelected, onMoveSelected, dragMode = 'press',
+  onPaintWalls, onPaintEnd,
 }: SceneContentProps) {
   const simMode = getSimMode(conceptId);
   const isDrawingMode = simMode === 'drawing';
@@ -436,6 +441,10 @@ function SceneContent({
 
   // Cursor grid coords for the builder ghost preview
   const [cursor, setCursor] = useState<{ gx: number; gz: number } | null>(null);
+  // Drag-to-paint state — only meaningful while wall tool is active.
+  // Held in a ref (not state) because pointer move fires very fast and
+  // we don't want to trigger React re-renders just to track a boolean.
+  const isPaintingRef = useRef(false);
   // Ghost rotation while a tool is active — right-click to advance 90°.
   // Resets to 0 whenever the active tool changes so the cursor doesn't
   // start pre-rotated for the new tool.
@@ -470,6 +479,21 @@ function SceneContent({
     window.addEventListener('contextmenu', onContext);
     return () => window.removeEventListener('contextmenu', onContext);
   }, [isDragging, onRotateSelected]);
+
+  // End paint stroke on global pointerup, even if the cursor left the
+  // canvas. Without window-scope, releasing outside the floor leaves
+  // the paint flag stuck and the next cursor move re-triggers paints.
+  useEffect(() => {
+    if (!builderEnabled) return;
+    const onUp = () => {
+      if (isPaintingRef.current) {
+        isPaintingRef.current = false;
+        onPaintEnd?.();
+      }
+    };
+    window.addEventListener('pointerup', onUp);
+    return () => window.removeEventListener('pointerup', onUp);
+  }, [builderEnabled, onPaintEnd]);
 
   return (
     <>
@@ -510,6 +534,11 @@ function SceneContent({
             onDragMove?.(cF.gx, cF.gz);
           } else if (activeTool) {
             const isWall = activeTool.type === 'wall';
+            // Drag-to-paint walls: while pointer is down with the wall
+            // tool active, drop walls in every cell the cursor crosses.
+            if (isWall && isPaintingRef.current) {
+              onPaintWalls?.(cF.gx, cF.gz);
+            }
             const cgx = isWall ? Math.round(cF.gx) : cF.gx;
             const cgz = isWall ? Math.round(cF.gz) : cF.gz;
             if (!cursor || cursor.gx !== cgx || cursor.gz !== cgz) {
@@ -528,6 +557,10 @@ function SceneContent({
             return;
           }
           if (activeTool && onPlaceAt) {
+            // Walls are painted via pointerdown / pointermove and don't
+            // need an additional onClick placement. Skip to avoid
+            // double-placing the first cell of every paint stroke.
+            if (activeTool.type === 'wall') return;
             const rawF = worldToGridFloat(e.point.x, e.point.z);
             const cF = clampToArena(rawF.gx, rawF.gz);
             onPlaceAt(cF.gx, cF.gz, cursorRotY);
@@ -554,6 +587,15 @@ function SceneContent({
                 setCursorRotY((r) => ((r + (steps - 1)) % steps) as 0 | 1 | 2 | 3);
               }
             }
+          } else if (e.button === 0 && activeTool.type === 'wall') {
+            // Left-button down with wall tool active → start paint mode.
+            // Drop the first wall here too (the kid expects a wall to
+            // appear at click-down, not only after they've moved an
+            // entire cell). Subsequent cells are filled by onPointerMove.
+            isPaintingRef.current = true;
+            const rawF = worldToGridFloat(e.point.x, e.point.z);
+            const cF = clampToArena(rawF.gx, rawF.gz);
+            onPaintWalls?.(cF.gx, cF.gz);
           }
         } : undefined}
       >
@@ -719,6 +761,10 @@ type Scene3DProps = {
   onMoveSelected?: () => void;
   /** 'press' = traditional drag (mouse held); 'follow' = click-once / click-once. */
   dragMode?: 'press' | 'follow';
+  /** Drag-to-paint for walls — called per-cell while the wall tool is
+   *  active and the pointer is dragging across the floor. */
+  onPaintWalls?: (gx: number, gz: number) => void;
+  onPaintEnd?: () => void;
 };
 
 export function Scene3D({
@@ -743,6 +789,8 @@ export function Scene3D({
   onDeleteSelected,
   onMoveSelected,
   dragMode,
+  onPaintWalls,
+  onPaintEnd,
 }: Scene3DProps) {
   const env = useMemo(() => getEnvironment(conceptId), [conceptId]);
   return (
@@ -771,7 +819,9 @@ export function Scene3D({
         onRotateSelected={onRotateSelected}
         onDeleteSelected={onDeleteSelected}
         onMoveSelected={onMoveSelected}
-        dragMode={dragMode} />
+        dragMode={dragMode}
+        onPaintWalls={onPaintWalls}
+        onPaintEnd={onPaintEnd} />
     </Canvas>
   );
 }
