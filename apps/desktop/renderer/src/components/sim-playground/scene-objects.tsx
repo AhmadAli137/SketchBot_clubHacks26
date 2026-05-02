@@ -23,6 +23,7 @@ import {
   GRID_SNAP_TYPES,
   STACK_HEIGHT,
   gridToWorld,
+  gridToWorldRendered,
   rotationToRadians,
   type SceneObject,
   type ToolDef,
@@ -66,7 +67,9 @@ function SelectionToolbar({
   onDelete?: () => void;
   onMove?: () => void;
 }) {
-  const { x, y, z } = gridToWorld(obj);
+  // Use the rendered position so the toolbar floats over the actual mesh,
+  // not the bare cell origin (matters for walls — half-cell offset).
+  const { x, y, z } = gridToWorldRendered(obj);
   // Park the toolbar a bit above each object's top face. Same offsets the
   // stack-target highlight uses, plus a small clearance.
   const topY = (() => {
@@ -179,24 +182,17 @@ function StackTargetHighlight({
 
 // ─── Per-type renderers (real, opaque) ───────────────────────────────────────
 
-function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
-  // Offset along the wall's long axis by half a cell so the wall's ENDS
-  // land on grid intersections (real maze-on-edge geometry) instead of
-  // its CENTER landing on intersections. Walls along X (rotY=0 or PI)
-  // shift in X; walls along Z (rotY=PI/2 or 3PI/2) shift in Z.
-  const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
-  const offX = isXAxis ? GRID_SIZE / 2 : 0;
-  const offZ = isXAxis ? 0 : GRID_SIZE / 2;
+function WallObject({ x, y, z }: { x: number; y: number; z: number; rotY?: number }) {
+  // Cell-fill cube. Two adjacent walls share a full face and merge into
+  // one continuous block — no more visible corner seams. Trade-off:
+  // walls are chunky cubes rather than thin maze segments. For an easy-
+  // to-use maze builder this is the right call: corners are clean by
+  // construction (you can't get the geometry wrong because there is no
+  // junction geometry, just two cubes touching). Rotation is meaningless
+  // on a cube, so rotationStepsForType('wall') is 1 (rotate is a no-op).
   return (
-    <mesh position={[x + offX, y + 0.08, z + offZ]} rotation={[0, rotY, 0]} castShadow receiveShadow>
-      {/* Length = full GRID_SIZE so walls in adjacent cells meet edge-to-edge
-          with no visible seam. Thickness bumped from 0.18 → 0.32 so two
-          perpendicular walls overlap meaningfully at corners — the inside
-          seam disappears and the corner reads as one solid block instead
-          of two skinny boards barely kissing.
-          Walls are symmetric (no direction cap); rotation toggles X-axis
-          vs Z-axis only via rotationStepsForType('wall') = 2. */}
-      <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.32]} />
+    <mesh position={[x, y + 0.08, z]} castShadow receiveShadow>
+      <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE]} />
       <meshStandardMaterial color="#0a2a10" emissive="#002200" emissiveIntensity={0.3} roughness={0.8} />
     </mesh>
   );
@@ -463,19 +459,14 @@ function GhostShape({
   variant?: 'standard' | 'sumo';
 }) {
   switch (type) {
-    case 'wall': {
-      // Mirror WallObject's half-cell offset + thickness (0.32) so the
-      // ghost matches the placed wall.
-      const isXAxis = Math.abs(Math.cos(rotY)) > 0.5;
-      const offX = isXAxis ? GRID_SIZE / 2 : 0;
-      const offZ = isXAxis ? 0 : GRID_SIZE / 2;
+    case 'wall':
+      // Cell-fill cube — same as the placed wall (see WallObject).
       return (
-        <mesh position={[offX, 0.08, offZ]} rotation={[0, rotY, 0]}>
-          <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE * 0.32]} />
+        <mesh position={[0, 0.08, 0]}>
+          <boxGeometry args={[GRID_SIZE, 0.16, GRID_SIZE]} />
           <GhostMaterial />
         </mesh>
       );
-    }
     case 'block':
       return (
         <mesh position={[0, 0.08, 0]} rotation={[0, rotY, 0]}>
@@ -617,6 +608,10 @@ export function SceneObjectsRenderer({
     <group>
       {objects.map((obj) => {
         const { x, y, z } = gridToWorld(obj);
+        // Selection ring + hover highlight need the actual rendered
+        // position, which for walls is offset half a cell so the ring
+        // sits around the wall rather than beside it.
+        const rendered = gridToWorldRendered(obj);
         const rotY = rotationToRadians(obj.rotY ?? 0);
         const isSelected = obj.id === selectedId;
         const isDragging = obj.id === draggedId;

@@ -134,8 +134,7 @@ export function rotationStepsForType(type: SceneObjectType): 1 | 2 | 4 {
     case 'bot':
     case 'apriltag':
       return 4;
-    case 'wall':
-      return 2;
+    case 'wall':           // cell-fill cube → no visible rotation
     case 'block':
     case 'cone':
     case 'sphere':
@@ -154,6 +153,22 @@ export function gridToWorld(obj: { gx: number; gz: number; gy?: number }): { x: 
     y: (obj.gy ?? 0) * STACK_HEIGHT,
     z: obj.gz * GRID_SIZE,
   };
+}
+
+/** gridToWorld + per-type render offsets. Currently identical to
+ *  gridToWorld — walls used to live on cell EDGES with a half-cell offset
+ *  so their ends would sit on grid intersections, but they're now
+ 'cell-fill cubes (one cube per cell, no offset). Kept as a separate
+ *  helper so future asymmetric props can declare their own visual
+ *  offsets here without touching every selection-chrome callsite. */
+export function gridToWorldRendered(obj: {
+  gx: number;
+  gz: number;
+  gy?: number;
+  type: SceneObjectType;
+  rotY?: 0 | 1 | 2 | 3;
+}): { x: number; y: number; z: number } {
+  return gridToWorld(obj);
 }
 
 export function rotationToRadians(rotY: 0 | 1 | 2 | 3 = 0): number {
