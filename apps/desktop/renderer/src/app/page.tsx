@@ -1435,7 +1435,11 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* ── Global bottom-right controls: sound + theme ── */}
+      {/* ── Top-right cluster: sound + theme + profile ──
+          All three live in the SAME flex row so they share `align-items: center`
+          and can't drift vertically relative to each other. The profile button
+          is skipped on the auth screen (circular UX) and the plan picker
+          (which renders its own contextual profile button). */}
       <div className="app-global-br-controls">
         <motion.button
           type="button"
@@ -1448,41 +1452,29 @@ export default function HomePage() {
           {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
         </motion.button>
         <ThemeToggle variant="icon" />
+        {view !== 'auth' && view !== 'plan' && (() => {
+          const showAvatar = userRole !== 'guest' && profileAvatar;
+          const cls = `app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}`;
+          return (
+            <motion.button
+              type="button"
+              className={cls}
+              onClick={() => userRole === 'guest' ? setView('plan') : setAccountPanelOpen(true)}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              title={userRole === 'guest' ? 'Sign in' : 'Account'}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            >
+              {showAvatar
+                ? <StudentProfileAvatar kind={profileAvatar.kind} emoji={profileAvatar.emoji} robotPresetId={profileAvatar.robotPreset} accent={profileAvatar.color} size={22} />
+                : <UserRound size={16} />
+              }
+            </motion.button>
+          );
+        })()}
       </div>
-
-      {/* ── Persistent profile button — every view, every role ── */}
-      {/* PFP button is global — visible on every screen so the kid always
-          has a one-tap way to see their account / sign in. Skipped on the
-          auth screen (circular UX) and the plan picker (which renders its
-          own contextual profile button at the top-right and would otherwise
-          stack two avatars in the same spot). */}
-      {view !== 'auth' && view !== 'plan' && (() => {
-        const showAvatar = userRole !== 'guest' && profileAvatar;
-        // The button frame matches the sound/theme widgets exactly (36px,
-        // 1.5px border, subtle fill). Inside, we render a small content
-        // mark — UserRound icon when guest, or the avatar at icon-size
-        // when signed in — so all three top-right widgets share the same
-        // visual rhythm: chrome + small centered content.
-        const cls = `app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}`;
-        return (
-          <motion.button
-            type="button"
-            className={cls}
-            onClick={() => userRole === 'guest' ? setView('plan') : setAccountPanelOpen(true)}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            title={userRole === 'guest' ? 'Sign in' : 'Account'}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-          >
-            {showAvatar
-              ? <StudentProfileAvatar kind={profileAvatar.kind} emoji={profileAvatar.emoji} robotPresetId={profileAvatar.robotPreset} accent={profileAvatar.color} size={22} />
-              : <UserRound size={16} />
-            }
-          </motion.button>
-        );
-      })()}
 
       <AnimatePresence>
         {accountPanelOpen && (
