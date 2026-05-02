@@ -717,8 +717,11 @@ export function SceneObjectsRenderer({
             }}
           >
             <PlacedObjectMesh obj={obj} />
-            {(isSelected || isDragging) && <SelectionRing x={x} z={z} />}
-            {isHovered && (
+            {/* Selection / hover affordances are builder-mode only. Outside
+                Builder there's nothing the kid can do with a selected object,
+                so the chrome would just be visual noise on every click. */}
+            {builderEnabled && (isSelected || isDragging) && <SelectionRing x={x} z={z} />}
+            {builderEnabled && isHovered && (
               <StackTargetHighlight x={x} y={y} z={z} rotY={rotY} type={obj.type} />
             )}
             {/* Toolbar only when in select mode (no placement tool active),

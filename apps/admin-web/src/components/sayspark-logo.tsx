@@ -25,9 +25,12 @@ export function SaySparkLogo({ size = 40, showWordmark = true, className, animat
       style={{ display: 'flex', alignItems: 'center', gap: Math.round(s * 0.18) }}
     >
       {/* ── Mark: Spark with a glowing antenna. The spark is the character; the
-            antenna marks it as a robot — universal signifier, works for any chassis. ── */}
+            antenna marks it as a robot — universal signifier, works for any chassis.
+            marginBottom shifts the spark visually upward so it centers on the wordmark
+            NAME line, not the wordmark+tagline block. ── */}
       <motion.svg
         width={markSize} height={Math.round(markSize * 37 / 32)} viewBox="0 -5 32 37" fill="none"
+        style={{ marginBottom: Math.round(s * 0.42) }}
         initial={animate ? { opacity: 0, scale: 0.80 } : undefined}
         animate={animate ? { opacity: 1, scale: 1 } : undefined}
         transition={{ duration: 0.40, ease: [0.22, 1, 0.36, 1] }}

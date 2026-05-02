@@ -495,10 +495,13 @@ function SceneContent({
         </>
       )}
 
-      {/* Ground */}
+      {/* Ground — at exactly y=0 so placed objects (whose bottoms compute to
+          y=0 by design) sit flush with the surface. Z-fight prevention for
+          mat / canvas / shadow planes is handled per-object via tiny +y
+          offsets (0.001–0.005), not by sinking the floor. */}
       <mesh
         rotation={[-Math.PI/2, 0, 0]}
-        position={[0, -0.018, 0]}
+        position={[0, 0, 0]}
         receiveShadow
         onPointerMove={builderEnabled ? (e) => {
           // Float coords pass through to placement/drag handlers; the
