@@ -10969,11 +10969,12 @@ select.block-param-input{width:auto;padding-right:20px}
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  /* 1.5px border to match the sound/theme toggles in the same cluster.
-     The cyan tint is what makes this button visually special, not its
-     thickness. */
-  border: 1.5px solid rgba(93, 228, 255, 0.5);
-  background: transparent;
+  /* Match the sound/theme toggles' fill + border so the three top-right
+     widgets read as one visual cluster. The cyan accent comes through
+     in the icon colour and on hover, not via a dim hairline border that
+     reads as misaligned dashes against the dark background. */
+  border: 1.5px solid rgba(93, 228, 255, 0.45);
+  background: rgba(93, 228, 255, 0.10);
   color: var(--cyan, #5de4ff);
   font-size: 0.8rem;
   font-weight: 700;
@@ -10983,8 +10984,7 @@ select.block-param-input{width:auto;padding-right:20px}
   justify-content: center;
   overflow: hidden;
   padding: 0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .app-profile-btn:hover {
   border-color: var(--cyan, #5de4ff);
@@ -10997,9 +10997,12 @@ select.block-param-input{width:auto;padding-right:20px}
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 .app-profile-btn.is-guest {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.55);
+  /* Match the sound/theme buttons exactly — same fill, same border, same
+     icon colour — so a signed-out kid sees three identical-looking widgets
+     in the corner instead of one ghosted outline that reads as broken. */
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.75);
 }
 .app-profile-btn.is-guest:hover {
   border-color: rgba(93, 228, 255, 0.4);

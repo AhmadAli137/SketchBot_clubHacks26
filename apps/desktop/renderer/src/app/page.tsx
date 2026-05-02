@@ -1385,7 +1385,10 @@ export default function HomePage() {
       </div>
 
       {/* ── Persistent profile button — every view, every role ── */}
-      {(view === 'home' || view === 'session' || view === 'difficulty-onboarding') && (
+      {/* PFP button is global — visible on every screen so the kid always
+          has a one-tap way to see their account / sign in. The only exception
+          is the auth screen itself, where it'd be circular UX. */}
+      {view !== 'auth' && (
         <motion.button
           type="button"
           className={`app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}`}
