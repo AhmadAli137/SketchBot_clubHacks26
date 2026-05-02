@@ -631,9 +631,11 @@ export function SceneObjectsRenderer({
             {isHovered && (
               <StackTargetHighlight x={x} y={y} z={z} rotY={rotY} type={obj.type} />
             )}
-            {/* Toolbar only on the selected object, and not while it's being
-                dragged (to prevent accidental click-on-button while moving). */}
-            {isSelected && !isDragging && (
+            {/* Toolbar only when in select mode (no placement tool active),
+                and only on the selected object that isn't being dragged.
+                Hiding it during placement keeps the kid from accidentally
+                clicking ↻/✕ while rapidly dropping more objects. */}
+            {isSelected && !isDragging && !toolActive && (
               <SelectionToolbar obj={obj} onRotate={onRotate} onDelete={onDelete} />
             )}
           </group>

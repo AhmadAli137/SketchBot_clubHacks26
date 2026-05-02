@@ -380,10 +380,12 @@ export function SimPlayground({
               setBuilderEnabled((v) => !v);
               setSelectedObjectId(null);
             }}
-            title={builderEnabled ? 'Close builder' : 'Add walls, cones, waypoints, robots'}
+            title={builderEnabled
+              ? 'Close builder'
+              : 'Open builder — add walls / cones / lights and modify what’s already here'}
           >
             {builderEnabled ? <X size={14} /> : <Hammer size={14} />}
-            <span>{builderEnabled ? 'Close builder' : 'Add things'}</span>
+            <span>{builderEnabled ? 'Close Builder' : 'Open Builder'}</span>
           </button>
         )}
 
@@ -604,7 +606,7 @@ export function SimPlayground({
               <div className="sim-sandbox-mascot" aria-hidden>🤖</div>
               <div className="sim-sandbox-welcome-title">Your sandbox is empty</div>
               <div className="sim-sandbox-welcome-sub">
-                Pick a starter, click <strong>Add things</strong> to place objects yourself, or just dive in.
+                Pick a starter, click <strong>Open Builder</strong> to place objects yourself, or just dive in.
               </div>
               <div className="sim-sandbox-starters">
                 {SANDBOX_PRESETS.map((preset) => (
