@@ -24,9 +24,9 @@ export function SaySparkLogo({ size = 40, showWordmark = true, className, animat
       className={`sayspark-logo-root ${className ?? ''}`}
       style={{ display: 'flex', alignItems: 'center', gap: Math.round(s * 0.18) }}
     >
-      {/* ── Mark: speech bubble + spark ── */}
+      {/* ── Mark: speech bubble (kid speaking) + spark (Sketch listening/replying) + voice waves ── */}
       <motion.svg
-        width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"
+        width={Math.round(markSize * 1.28)} height={markSize} viewBox="0 0 41 32" fill="none"
         initial={animate ? { opacity: 0, scale: 0.80 } : undefined}
         animate={animate ? { opacity: 1, scale: 1 } : undefined}
         transition={{ duration: 0.40, ease: [0.22, 1, 0.36, 1] }}
@@ -54,6 +54,36 @@ export function SaySparkLogo({ size = 40, showWordmark = true, className, animat
           <circle cx="-3.4" cy="2.8" r="0.45" fill="#ffffff" opacity={0.75} />
         </g>
 
+        {/* Voice waves radiating right out of the bubble — emphasises "speaking" */}
+        <motion.g
+          stroke="url(#ss-wave)"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          fill="none"
+          initial={animate ? { opacity: 0 } : undefined}
+          animate={animate ? { opacity: 1 } : undefined}
+          transition={{ duration: 0.5, delay: 0.25 }}
+        >
+          <motion.path
+            d="M 31.5 11.5 Q 33.4 14.5 31.5 17.5"
+            initial={animate ? { pathLength: 0, opacity: 0 } : undefined}
+            animate={animate ? { pathLength: 1, opacity: 1 } : undefined}
+            transition={{ duration: 0.45, delay: 0.30, ease: 'easeOut' }}
+          />
+          <motion.path
+            d="M 34.7 9.5 Q 37.4 14.5 34.7 19.5"
+            initial={animate ? { pathLength: 0, opacity: 0 } : undefined}
+            animate={animate ? { pathLength: 1, opacity: 0.85 } : undefined}
+            transition={{ duration: 0.50, delay: 0.40, ease: 'easeOut' }}
+          />
+          <motion.path
+            d="M 37.9 7.5 Q 41.2 14.5 37.9 21.5"
+            initial={animate ? { pathLength: 0, opacity: 0 } : undefined}
+            animate={animate ? { pathLength: 1, opacity: 0.55 } : undefined}
+            transition={{ duration: 0.55, delay: 0.50, ease: 'easeOut' }}
+          />
+        </motion.g>
+
         <defs>
           <radialGradient id="ss-halo" cx="50%" cy="40%" r="60%">
             <stop offset="0%" stopColor="#5de4ff" stopOpacity="0.45" />
@@ -72,6 +102,10 @@ export function SaySparkLogo({ size = 40, showWordmark = true, className, animat
             <stop offset="40%" stopColor="#5de4ff" />
             <stop offset="100%" stopColor="#a855f7" />
           </radialGradient>
+          <linearGradient id="ss-wave" x1="30" y1="14.5" x2="42" y2="14.5" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#5de4ff" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.55" />
+          </linearGradient>
         </defs>
       </motion.svg>
 

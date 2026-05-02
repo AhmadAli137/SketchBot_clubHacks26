@@ -282,7 +282,7 @@
       <div class="mark-wrap" aria-hidden="true">
         <div class="mark-ring"></div>
         <div class="mark-ring d"></div>
-        <svg width="72" height="72" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="92" height="72" viewBox="0 0 41 32" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="16" cy="14.5" r="14" fill="url(#ss-halo)" opacity="0.55"/>
           <path d="M 7 5 H 25 A 5 5 0 0 1 30 10 V 19 A 5 5 0 0 1 25 24 H 14 L 9 29 V 24 H 7 A 5 5 0 0 1 2 19 V 10 A 5 5 0 0 1 7 5 Z"
             fill="url(#ss-bubble)" stroke="url(#ss-stroke)" stroke-width="0.9" stroke-linejoin="round"/>
@@ -291,6 +291,11 @@
             <circle cx="0" cy="0" r="1.7" fill="#ffffff" opacity="0.92"/>
             <circle cx="3.2" cy="-3.0" r="0.5" fill="#ffffff" opacity="0.85"/>
             <circle cx="-3.4" cy="2.8" r="0.45" fill="#ffffff" opacity="0.75"/>
+          </g>
+          <g stroke="url(#ss-wave)" stroke-width="1.4" stroke-linecap="round" fill="none">
+            <path d="M 31.5 11.5 Q 33.4 14.5 31.5 17.5" opacity="1"/>
+            <path d="M 34.7 9.5 Q 37.4 14.5 34.7 19.5"  opacity="0.85"/>
+            <path d="M 37.9 7.5 Q 41.2 14.5 37.9 21.5"  opacity="0.55"/>
           </g>
           <defs>
             <radialGradient id="ss-halo" cx="50%" cy="40%" r="60%">
@@ -310,6 +315,10 @@
               <stop offset="40%"  stop-color="#5de4ff"/>
               <stop offset="100%" stop-color="#a855f7"/>
             </radialGradient>
+            <linearGradient id="ss-wave" x1="30" y1="14.5" x2="42" y2="14.5" gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#5de4ff" stop-opacity="0.95"/>
+              <stop offset="100%" stop-color="#a855f7" stop-opacity="0.55"/>
+            </linearGradient>
           </defs>
         </svg>
       </div>
