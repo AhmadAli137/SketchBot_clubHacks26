@@ -175,9 +175,10 @@
         margin-left: 2px;
       }
       .wordmark-sub {
-        font-size: 0.68rem; font-weight: 600;
-        letter-spacing: 0.20em; text-transform: uppercase;
+        font-size: 0.66rem; font-weight: 600;
+        letter-spacing: 0.30em; text-transform: uppercase;
         color: var(--muted);
+        margin-top: 14px;
         margin-bottom: 52px;
       }
 
@@ -282,7 +283,11 @@
       <div class="mark-wrap" aria-hidden="true">
         <div class="mark-ring"></div>
         <div class="mark-ring d"></div>
-        <svg width="80" height="80" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="80" height="92" viewBox="0 -5 32 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <line x1="16" y1="2" x2="16" y2="-2.2" stroke="url(#ss-spark)" stroke-width="1" stroke-linecap="round"/>
+          <circle cx="16" cy="-3.6" r="2.4" fill="url(#ss-tip-glow)" opacity="0.85"/>
+          <circle cx="16" cy="-3.6" r="1.5" fill="url(#ss-spark)"/>
+          <circle cx="16" cy="-3.6" r="0.7" fill="#ffffff" opacity="0.92"/>
           <circle cx="16" cy="16" r="15" fill="url(#ss-halo)" opacity="0.65"/>
           <g transform="translate(16 16)">
             <path d="M 0 -14 L 3 -3 L 14 0 L 3 3 L 0 14 L -3 3 L -14 0 L -3 -3 Z" fill="url(#ss-spark)"/>
@@ -306,6 +311,10 @@
             </radialGradient>
             <radialGradient id="ss-core" cx="50%" cy="50%" r="55%">
               <stop offset="0%"   stop-color="#ffffff"/>
+              <stop offset="100%" stop-color="#5de4ff" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="ss-tip-glow" cx="50%" cy="50%" r="55%">
+              <stop offset="0%"   stop-color="#5de4ff" stop-opacity="0.65"/>
               <stop offset="100%" stop-color="#5de4ff" stop-opacity="0"/>
             </radialGradient>
           </defs>

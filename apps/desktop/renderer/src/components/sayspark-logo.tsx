@@ -24,15 +24,27 @@ export function SaySparkLogo({ size = 40, showWordmark = true, className, animat
       className={`sayspark-logo-root ${className ?? ''}`}
       style={{ display: 'flex', alignItems: 'center', gap: Math.round(s * 0.18) }}
     >
-      {/* ── Mark: just the Spark. Spark IS the character — the AI tutor that lives in
-            every robot the platform connects to. Pure 4-point star with halo + core. ── */}
+      {/* ── Mark: Spark with a glowing antenna. The spark is the character; the
+            antenna marks it as a robot — universal signifier, works for any chassis. ── */}
       <motion.svg
-        width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"
+        width={markSize} height={Math.round(markSize * 37 / 32)} viewBox="0 -5 32 37" fill="none"
         initial={animate ? { opacity: 0, scale: 0.80 } : undefined}
         animate={animate ? { opacity: 1, scale: 1 } : undefined}
         transition={{ duration: 0.40, ease: [0.22, 1, 0.36, 1] }}
       >
-        {/* Soft halo */}
+        {/* Antenna stem + glowing tip — the robot signal */}
+        <motion.g
+          initial={animate ? { opacity: 0, y: 4 } : undefined}
+          animate={animate ? { opacity: 1, y: 0 } : undefined}
+          transition={{ duration: 0.35, delay: 0.15, ease: 'easeOut' }}
+        >
+          <line x1="16" y1="2" x2="16" y2="-2.2" stroke="url(#ss-spark)" strokeWidth="1" strokeLinecap="round" />
+          <circle cx="16" cy="-3.6" r="2.4" fill="url(#ss-tip-glow)" opacity={0.85} />
+          <circle cx="16" cy="-3.6" r="1.5" fill="url(#ss-spark)" />
+          <circle cx="16" cy="-3.6" r="0.7" fill="#ffffff" opacity={0.92} />
+        </motion.g>
+
+        {/* Soft halo behind the spark */}
         <circle cx="16" cy="16" r="15" fill="url(#ss-halo)" opacity={0.65} />
 
         <g transform="translate(16 16)">
@@ -72,6 +84,10 @@ export function SaySparkLogo({ size = 40, showWordmark = true, className, animat
             <stop offset="0%" stopColor="#ffffff" />
             <stop offset="100%" stopColor="#5de4ff" stopOpacity="0" />
           </radialGradient>
+          <radialGradient id="ss-tip-glow" cx="50%" cy="50%" r="55%">
+            <stop offset="0%" stopColor="#5de4ff" stopOpacity="0.65" />
+            <stop offset="100%" stopColor="#5de4ff" stopOpacity="0" />
+          </radialGradient>
         </defs>
       </motion.svg>
 
@@ -93,7 +109,12 @@ export function SaySparkLogo({ size = 40, showWordmark = true, className, animat
           </div>
           <div
             className="sayspark-wordmark-sub"
-            style={{ fontSize: Math.round(s * 0.22), letterSpacing: '0.14em', fontWeight: 600 }}
+            style={{
+              fontSize: Math.round(s * 0.20),
+              letterSpacing: '0.22em',
+              fontWeight: 600,
+              marginTop: Math.round(s * 0.22),
+            }}
           >
             VOICE-FIRST AI TUTOR
           </div>
