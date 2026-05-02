@@ -28,7 +28,8 @@ import type {
   WebRTCConfigResponse,
 } from '@/lib/types';
 import type { AgeGroup } from '@/lib/concept-types';
-import { signOutAuth } from '@/lib/account-storage';
+import { signOutAuth, loadAccount } from '@/lib/account-storage';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { getDifficultyLevel, setDifficultyLevel, getStudentProgress } from '@/lib/progress-store';
 import { StudentProfileAvatar } from '@/components/student-profile-avatar';
 import { loadClassroomProfile, saveClassroomProfile } from '@/lib/classroom-profile';
@@ -189,16 +190,81 @@ export default function HomePage() {
     } as const;
   }, [userName, selectedAgeGroup, userRole]);
 
-  // Load persisted browser-only state after mount.
+  // Restore signed-in state on mount, then keep it synced with Supabase auth.
+  // We treat Supabase as the source of truth: as long as a Supabase session
+  // exists, the user is signed in — even if the app's localStorage saved-session
+  // slot was cleared, never written, or got corrupted. Without this, a stale
+  // localStorage made the PFP show as guest after reopening the app.
   useEffect(() => {
-    const saved = readSavedSession();
-    if (!saved) return;
-    setUserRole(saved.role);
-    setUserName(saved.name);
-    setUserEmail(saved.email ?? '');
-    setSavedSession({ role: saved.role, name: saved.name, email: saved.email });
-    setActiveClassSession(getClassSession());
-    setView(resumeViewFromSavedSession(saved));
+    let cancelled = false;
+
+    const hydrateFromSupabase = async () => {
+      const sb = getSupabaseBrowserClient();
+      if (!sb) return false;
+      const { data: { session } } = await sb.auth.getSession();
+      if (cancelled || !session?.user?.email) return false;
+      const account = loadAccount();
+      const role: AuthRole = account?.lastRole ?? 'student';
+      const email = session.user.email;
+      const name = account?.displayName?.trim()
+        || (session.user.user_metadata?.display_name as string | undefined)?.trim()
+        || (session.user.user_metadata?.name as string | undefined)?.trim()
+        || email.split('@')[0];
+      setUserRole(role);
+      setUserName(name);
+      setUserEmail(email);
+      setSavedSession({ role, name, email });
+      setActiveClassSession(getClassSession());
+      // Keep localStorage in sync so other code paths that read it directly
+      // (older callers) see the same state.
+      localStorage.setItem(
+        'sketchbot-session-v1',
+        JSON.stringify({ role, name, email, view: 'home' }),
+      );
+      return true;
+    };
+
+    void hydrateFromSupabase().then((restored) => {
+      if (cancelled) return;
+      if (!restored) {
+        // Fall back to legacy localStorage-only restore (works for dev / no-supabase).
+        const saved = readSavedSession();
+        if (!saved) return;
+        setUserRole(saved.role);
+        setUserName(saved.name);
+        setUserEmail(saved.email ?? '');
+        setSavedSession({ role: saved.role, name: saved.name, email: saved.email });
+        setActiveClassSession(getClassSession());
+        setView(resumeViewFromSavedSession(saved));
+      }
+    });
+
+    // Live updates: when Supabase session changes (sign-in elsewhere, refresh,
+    // sign-out), reflect it immediately so the PFP and cloud auth stay aligned.
+    const sb = getSupabaseBrowserClient();
+    const sub = sb?.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if (event === 'SIGNED_OUT' || !session?.user?.email) {
+        // Only flip to guest if we were previously signed in via Supabase —
+        // don't clobber a legacy localStorage session in dev mode.
+        const account = loadAccount();
+        if (account?.sessionToken === 'supabase') {
+          setUserRole('guest');
+          setUserName('');
+          setUserEmail('');
+          setSavedSession(null);
+        }
+        return;
+      }
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        void hydrateFromSupabase();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      sub?.data.subscription.unsubscribe();
+    };
   }, []);
 
   // Load classroom profile on mount.

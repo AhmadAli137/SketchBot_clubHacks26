@@ -10990,6 +10990,21 @@ select.block-param-input{width:auto;padding-right:20px}
   border-color: var(--cyan, #5de4ff);
   box-shadow: 0 0 16px rgba(93, 228, 255, 0.35);
 }
+/* Suppress the browser's default focus dotted/dashed ring that lingers after
+   a click — it extended past the 36px button and read as a misaligned hairline.
+   Keyboard-only focus still gets a clean cyan ring via :focus-visible. */
+.app-profile-btn:focus { outline: none; }
+.app-profile-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(93, 228, 255, 0.55), 0 0 16px rgba(93, 228, 255, 0.35);
+}
+.app-sound-btn:focus,
+.auth-theme-fab:focus { outline: none; }
+.app-sound-btn:focus-visible,
+.auth-theme-fab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(93, 228, 255, 0.55);
+}
 :root[data-theme='light'] .app-profile-btn {
   color: var(--cyan, #0ea5e9);
   background: rgba(14, 165, 233, 0.12);
