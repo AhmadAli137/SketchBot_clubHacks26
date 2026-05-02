@@ -136,62 +136,108 @@ function SumoRing({ radius }: { radius: number }) {
   );
 }
 
-// ─── Sandbox atmosphere — warm playspace lighting ────────────────────────────
+// ─── Sandbox atmosphere — studio lighting at four corners ────────────────────
 
-/** One soft floating orb in each corner — fairy-light vibe, no industrial poles. */
+/** Four studio light stands, one in each corner. headY is the top of the
+ *  pole / center of the softbox. Each beam aims at the workspace centre
+ *  (the world origin) so the eye lands on the build, not the corners. */
 const SANDBOX_ORBS = [
-  { x: -2.8, y: 1.3, z: -2.8, color: '#a855f7', size: 0.10 }, // back-left  · purple
-  { x:  2.8, y: 1.6, z: -2.6, color: '#5de4ff', size: 0.11 }, // back-right · cyan
-  { x: -2.6, y: 1.4, z:  2.8, color: '#ffc96b', size: 0.10 }, // front-left · amber
-  { x:  2.8, y: 1.2, z:  2.8, color: '#ff8fc8', size: 0.11 }, // front-right · soft pink
+  { x: -2.8, z: -2.8, color: '#a855f7', headY: 1.7 }, // back-left  · purple
+  { x:  2.8, z: -2.6, color: '#5de4ff', headY: 1.9 }, // back-right · cyan
+  { x: -2.6, z:  2.8, color: '#ffc96b', headY: 1.7 }, // front-left · amber
+  { x:  2.8, z:  2.8, color: '#ff8fc8', headY: 1.6 }, // front-right · soft pink
 ];
 
-function FloatingOrb({
-  x, y, z, color, size,
-}: { x: number; y: number; z: number; color: string; size: number }) {
-  const groupRef = useRef<THREE.Group>(null);
-  const bulbRef  = useRef<THREE.Mesh>(null);
+function StudioLight({
+  x, z, color, headY,
+}: { x: number; z: number; color: string; headY: number }) {
+  const bulbRef = useRef<THREE.Mesh>(null);
   const off = useRef(Math.random() * Math.PI * 2);
 
+  // Aim the head toward the world origin. atan2(x, z) gives the Y rotation
+  // needed for a child whose default forward is -Z to look at (0, _, 0).
+  const aim = Math.atan2(x, z);
+
   useFrame(({ clock }) => {
-    if (groupRef.current) {
-      // Gentle bob in air — like a paper lantern
-      groupRef.current.position.y = y + Math.sin(clock.elapsedTime * 0.7 + off.current) * 0.08;
-    }
     if (bulbRef.current) {
       const mat = bulbRef.current.material as THREE.MeshStandardMaterial;
-      mat.emissiveIntensity = 1.6 + Math.sin(clock.elapsedTime * 1.4 + off.current) * 0.4;
+      // Subtle bulb pulse so it reads as a live filament behind the
+      // diffuser — but no bobbing, these are bolted to the floor.
+      mat.emissiveIntensity = 1.4 + Math.sin(clock.elapsedTime * 1.3 + off.current) * 0.25;
     }
   });
 
   return (
-    <group ref={groupRef} position={[x, y, z]}>
-      {/* Soft outer halo */}
-      <mesh>
-        <sphereGeometry args={[size * 1.9, 16, 16]} />
-        <meshBasicMaterial color={color} transparent opacity={0.18} />
-      </mesh>
-      {/* Glowing core */}
-      <mesh ref={bulbRef}>
-        <sphereGeometry args={[size, 24, 24]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.6} roughness={0.2} />
-      </mesh>
-      {/* Real point light */}
-      <pointLight intensity={1.6} color={color} distance={8} decay={1.5} />
-    </group>
+    <>
+      {/* Visible stand: tripod base + pole + light head, all stationary. */}
+      <group position={[x, 0, z]}>
+        {/* Disc base — slightly wider than the pole for stability look */}
+        <mesh position={[0, 0.02, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.13, 0.17, 0.04, 16]} />
+          <meshStandardMaterial color="#1a1f2e" roughness={0.85} metalness={0.3} />
+        </mesh>
+        {/* Vertical pole from base up to the head */}
+        <mesh position={[0, headY * 0.5, 0]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, headY, 8]} />
+          <meshStandardMaterial color="#252b40" roughness={0.6} metalness={0.5} />
+        </mesh>
+        {/* Yoke ring where the head meets the pole — small visual detail */}
+        <mesh position={[0, headY - 0.04, 0]}>
+          <torusGeometry args={[0.045, 0.012, 8, 16]} />
+          <meshStandardMaterial color="#2f3550" roughness={0.5} metalness={0.6} />
+        </mesh>
+        {/* Light head — rotated to face origin. Three.js default forward
+            is -Z, so after rotation the softbox points toward (0, _, 0). */}
+        <group position={[0, headY, 0]} rotation={[0, aim, 0]}>
+          {/* Housing behind the softbox (back of the light) */}
+          <mesh position={[0, 0, 0.05]} castShadow>
+            <boxGeometry args={[0.20, 0.18, 0.12]} />
+            <meshStandardMaterial color="#2a3148" roughness={0.55} metalness={0.45} />
+          </mesh>
+          {/* Glowing softbox face — this is what "shines" at the build */}
+          <mesh ref={bulbRef} position={[0, 0, -0.02]}>
+            <boxGeometry args={[0.24, 0.22, 0.025]} />
+            <meshStandardMaterial
+              color={color}
+              emissive={color}
+              emissiveIntensity={1.4}
+              roughness={0.25}
+            />
+          </mesh>
+          {/* Thin frame around the softbox face for definition */}
+          <mesh position={[0, 0, -0.005]}>
+            <boxGeometry args={[0.26, 0.24, 0.012]} />
+            <meshStandardMaterial color="#1a1f2e" roughness={0.8} />
+          </mesh>
+        </group>
+      </group>
+
+      {/* Spotlight that actually illuminates the scene. Default spotLight
+          target is the world origin, so positioning it at the head puts
+          the cone pointing right where we want — at the build. */}
+      <spotLight
+        position={[x, headY, z]}
+        intensity={1.6}
+        color={color}
+        distance={10}
+        angle={Math.PI / 7}
+        penumbra={0.55}
+        decay={1.5}
+      />
+    </>
   );
 }
 
 function StageLights() {
   return (
     <>
-      {/* Soft warm fill so the playspace stays bright between the orbs */}
+      {/* Soft warm fill so the playspace stays bright between the lights */}
       <ambientLight intensity={0.55} color="#d8d4ff" />
       {/* Top-down warm key — like an overhead studio softbox */}
       <directionalLight position={[0, 8, 1.5]} intensity={0.55} color="#ffe9d0" />
 
       {SANDBOX_ORBS.map((o, i) => (
-        <FloatingOrb key={i} {...o} />
+        <StudioLight key={i} {...o} />
       ))}
     </>
   );
