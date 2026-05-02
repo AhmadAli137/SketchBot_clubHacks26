@@ -191,14 +191,24 @@ function StudioLight({
           <cylinderGeometry args={[0.13, 0.17, 0.04, 16]} />
           <meshStandardMaterial color="#1a1f2e" roughness={0.85} metalness={0.3} />
         </mesh>
-        {/* Vertical pole from base up to the head */}
-        <mesh position={[0, headY * 0.5, 0]} castShadow>
-          <cylinderGeometry args={[0.022, 0.022, headY, 8]} />
+        {/* Vertical pole — stops short of the head so the housing isn't
+            speared by the cylinder. The head sits above the pole top
+            with a knuckle + yoke in between like a real lighting rig. */}
+        <mesh position={[0, (headY - 0.18) * 0.5, 0]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, headY - 0.18, 8]} />
           <meshStandardMaterial color="#252b40" roughness={0.6} metalness={0.5} />
         </mesh>
-        {/* Yoke ring where the head meets the pole — small visual detail */}
-        <mesh position={[0, headY - 0.04, 0]}>
-          <torusGeometry args={[0.045, 0.012, 8, 16]} />
+        {/* Mounting knuckle — small cube at the top of the pole the head
+            attaches to. Visible boundary between pole and head. */}
+        <mesh position={[0, headY - 0.16, 0]} castShadow>
+          <boxGeometry args={[0.05, 0.06, 0.05]} />
+          <meshStandardMaterial color="#2f3550" roughness={0.5} metalness={0.6} />
+        </mesh>
+        {/* Yoke ring at the head's pivot — visual continuation of the
+            mount bracket where the head tilts. Sits at the underside of
+            the housing so it reads as a hinge, not a halo. */}
+        <mesh position={[0, headY - 0.11, 0]}>
+          <torusGeometry args={[0.05, 0.014, 8, 16]} />
           <meshStandardMaterial color="#2f3550" roughness={0.5} metalness={0.6} />
         </mesh>
         {/* Light head — lookAt(0,0,0) tilts it down AND rotates around Y
