@@ -1,15 +1,16 @@
 'use client';
 
 /**
- * BotController — floating arrow-pad for driving bots placed in the sandbox.
+ * BotController — floating drive-pad for placed bots, with proper differential
+ * drive physics. Each direction button writes left/right motor speeds (m/s)
+ * to the bot's live pose; a rAF loop integrates pose at frame rate and the
+ * bot meshes consume pose every useFrame to update position + heading +
+ * wheel rotation.
  *
- * Appears whenever the scene contains at least one bot. If multiple bots exist
- * a small selector lets the kid choose which one is "active". Buttons support
- * both single-tap (one step) and press-and-hold (continuous drive at 10 Hz).
- *
- * Movement is applied directly to the SceneObject's gx / gz / rotY fields,
- * so bot motion persists through saves and re-renders. Rotation snaps to 90°
- * since rotY is a discrete 0|1|2|3.
+ * Pose lives in bot-drive.ts (module-level Map) so the loop and the meshes
+ * stay decoupled from React reconciliation. Periodic + on-release commits
+ * write pose back to the SceneObject (gx / gz / headingRad) so motion
+ * persists through saves and re-renders.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -17,16 +18,23 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Square, Gamepad2 } from 'lucide-react';
 
 import { GRID_SIZE, type SceneObject } from '@/lib/scene-builder';
+import { ensurePose, getPose, integrateBotPose, setMotors, stopAllMotors } from './bot-drive';
 
 type BotControllerProps = {
   sceneObjects: SceneObject[];
   onUpdateObjects: (next: SceneObject[]) => void;
 };
 
-const STEP_WORLD_M = 0.10;             // 10 cm per single press
-const STEP_GRID    = STEP_WORLD_M / GRID_SIZE;
-const HOLD_INTERVAL_MS = 110;          // ~9 Hz repeat while held
-const ARENA_LIMIT = 8;                 // rough soft-clamp so bots can't drive forever
+/** Linear speed of one motor at full throttle (m/s). */
+const MAX_MOTOR_SPEED = 0.45;
+/** Distance between wheels (m) — used for ω = (R−L)/wheelBase integration. */
+const WHEEL_BASE = 0.20;
+/** Wheel radius (m) — used for visual wheel-rotation rate. */
+const WHEEL_RADIUS = 0.052;
+/** Throttle the React-side commit so we don't blow up sceneObjects updates
+ *  at 60 Hz. The mesh reads pose every frame, so this is purely about
+ *  persistence — the visible bot stays smooth between commits. */
+const COMMIT_INTERVAL_MS = 220;
 
 function botLabel(o: SceneObject, idx: number): string {
   const base = o.botVariant === 'sumo' ? 'Sumo Bot' : 'Spark Mini';
@@ -34,7 +42,6 @@ function botLabel(o: SceneObject, idx: number): string {
 }
 
 export function BotController({ sceneObjects, onUpdateObjects }: BotControllerProps) {
-  // Pull every bot in the scene, in placement order (stable for the dropdown).
   const bots = useMemo(
     () => sceneObjects.filter((o) => o.type === 'bot'),
     [sceneObjects],
@@ -42,9 +49,11 @@ export function BotController({ sceneObjects, onUpdateObjects }: BotControllerPr
 
   const [activeBotId, setActiveBotId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  // Which buttons are currently pressed — drives the integration step.
+  const heldRef = useRef<{ forward: boolean; back: boolean; left: boolean; right: boolean }>({
+    forward: false, back: false, left: false, right: false,
+  });
 
-  // Keep activeBotId valid as bots come and go: prefer the previously-active
-  // one if it still exists, otherwise pick the first available.
   useEffect(() => {
     if (bots.length === 0) {
       if (activeBotId !== null) setActiveBotId(null);
@@ -55,61 +64,107 @@ export function BotController({ sceneObjects, onUpdateObjects }: BotControllerPr
     }
   }, [bots, activeBotId]);
 
-  // Keep a live ref to the current scene so the hold-interval callback always
-  // reads the latest position (not the stale closure value at press time).
+  // Live ref so the rAF loop reads the latest scene without re-binding.
   const objectsRef = useRef(sceneObjects);
   useEffect(() => { objectsRef.current = sceneObjects; }, [sceneObjects]);
+  const onUpdateRef = useRef(onUpdateObjects);
+  useEffect(() => { onUpdateRef.current = onUpdateObjects; }, [onUpdateObjects]);
+  const activeIdRef = useRef<string | null>(activeBotId);
+  useEffect(() => { activeIdRef.current = activeBotId; }, [activeBotId]);
 
-  const moveActive = (action: 'forward' | 'back' | 'left' | 'right') => {
-    if (!activeBotId) return;
-    const list = objectsRef.current;
-    const target = list.find((o) => o.id === activeBotId);
-    if (!target) return;
+  // ─── rAF physics loop ──────────────────────────────────────────────
+  // Runs continuously — cheap when idle (no held buttons → motors zero,
+  // pose doesn't drift, no commits). When inputs are held it sets motors
+  // on the active bot's pose, integrates its pose by dt, and commits the
+  // pose back to the SceneObject every COMMIT_INTERVAL_MS so saves stay
+  // in sync without re-rendering at frame rate.
+  useEffect(() => {
+    let raf = 0;
+    let lastT = performance.now();
+    let lastCommitT = lastT;
+    let driving = false;       // were we driving on the last tick?
 
-    let next = { ...target };
-    if (action === 'left' || action === 'right') {
-      const cur = (target.rotY ?? 0);
-      const delta = action === 'left' ? 3 : 1; // -1 mod 4 = +3
-      next = { ...target, rotY: ((cur + delta) % 4) as 0 | 1 | 2 | 3 };
-    } else {
-      // Forward direction in world: (cos θ, -sin θ) where θ = rotY * π/2.
-      // Bot's local +X is "forward" and the parent group rotates CCW around Y.
-      const angle = (target.rotY ?? 0) * (Math.PI / 2);
-      const sign = action === 'forward' ? 1 : -1;
-      const dgx = sign * STEP_GRID * Math.cos(angle);
-      const dgz = sign * STEP_GRID * (-Math.sin(angle));
-      next = {
-        ...target,
-        gx: Math.max(-ARENA_LIMIT, Math.min(ARENA_LIMIT, target.gx + dgx)),
-        gz: Math.max(-ARENA_LIMIT, Math.min(ARENA_LIMIT, target.gz + dgz)),
-      };
-    }
-    onUpdateObjects(list.map((o) => (o.id === target.id ? next : o)));
-  };
+    const tick = () => {
+      const now = performance.now();
+      const dt = Math.min(0.05, (now - lastT) / 1000); // clamp big tabs/blurs to 50 ms
+      lastT = now;
 
-  // Press-and-hold drive: tick once immediately, then repeat at HOLD_INTERVAL_MS.
-  const intervalRef = useRef<number | null>(null);
-  const startHold = (action: 'forward' | 'back' | 'left' | 'right') => {
-    moveActive(action);
-    if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
-    intervalRef.current = window.setInterval(() => moveActive(action), HOLD_INTERVAL_MS);
+      const id = activeIdRef.current;
+      if (id) {
+        const held = heldRef.current;
+        const fwd = (held.forward ? 1 : 0) - (held.back ? 1 : 0);
+        const turn = (held.right ? 1 : 0) - (held.left ? 1 : 0);
+        // Differential drive: forward both, turn flips one motor.
+        // Pivot turn (no forward) = motors equal & opposite.
+        const left  = (fwd - turn) * MAX_MOTOR_SPEED;
+        const right = (fwd + turn) * MAX_MOTOR_SPEED;
+        setMotors(id, left, right);
+
+        const isDriving = fwd !== 0 || turn !== 0;
+        if (isDriving) driving = true;
+
+        const pose = getPose(id);
+        if (pose) {
+          integrateBotPose(pose, dt, WHEEL_BASE, WHEEL_RADIUS);
+
+          // Periodic commit while driving so saves and React-side state
+          // catch up — and one final commit on release.
+          const commitDue = isDriving && (now - lastCommitT) > COMMIT_INTERVAL_MS;
+          if (commitDue || (driving && !isDriving)) {
+            const list = objectsRef.current;
+            const target = list.find((o) => o.id === id);
+            if (target) {
+              const ngx = pose.worldX / GRID_SIZE;
+              const ngz = pose.worldZ / GRID_SIZE;
+              if (target.gx !== ngx || target.gz !== ngz || target.headingRad !== pose.heading) {
+                onUpdateRef.current(
+                  list.map((o) =>
+                    o.id === id
+                      ? { ...o, gx: ngx, gz: ngz, headingRad: pose.heading }
+                      : o,
+                  ),
+                );
+              }
+            }
+            lastCommitT = now;
+            if (!isDriving) driving = false;
+          }
+        }
+      }
+
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      stopAllMotors();
+    };
+  }, []);
+
+  // Hard stop: zero motors + clear all held flags.
+  const handleStop = () => {
+    heldRef.current = { forward: false, back: false, left: false, right: false };
+    stopAllMotors();
   };
-  const stopHold = () => {
-    if (intervalRef.current !== null) {
-      window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
-  // Belt-and-suspenders cleanup so an unmount mid-hold doesn't strand a timer.
-  useEffect(() => () => stopHold(), []);
 
   if (bots.length === 0) return null;
 
+  // Press-and-hold helpers — set the held flag on pointerdown, clear on
+  // pointerup / pointerleave / pointercancel. This keeps fingers-on-button
+  // = motor-on, fingers-off = motor-off, with no edge cases for "stuck on
+  // because pointerup happened off-button".
   const padBtnProps = (action: 'forward' | 'back' | 'left' | 'right') => ({
-    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); startHold(action); },
-    onPointerUp: stopHold,
-    onPointerLeave: stopHold,
-    onPointerCancel: stopHold,
+    onPointerDown: (e: React.PointerEvent) => {
+      e.preventDefault();
+      (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+      heldRef.current[action] = true;
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      heldRef.current[action] = false;
+      (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
+    },
+    onPointerLeave: () => { heldRef.current[action] = false; },
+    onPointerCancel: () => { heldRef.current[action] = false; },
   });
 
   return (
@@ -153,50 +208,15 @@ export function BotController({ sceneObjects, onUpdateObjects }: BotControllerPr
             )}
 
             <div className="bot-controller-pad">
-              <button
-                type="button"
-                className="bot-controller-btn bot-controller-btn--up"
-                title="Drive forward (hold)"
-                {...padBtnProps('forward')}
-              >
-                <ChevronUp size={18} />
-              </button>
-              <button
-                type="button"
-                className="bot-controller-btn bot-controller-btn--left"
-                title="Turn left (hold)"
-                {...padBtnProps('left')}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                type="button"
-                className="bot-controller-btn bot-controller-btn--stop"
-                title="Stop"
-                onClick={stopHold}
-              >
-                <Square size={12} />
-              </button>
-              <button
-                type="button"
-                className="bot-controller-btn bot-controller-btn--right"
-                title="Turn right (hold)"
-                {...padBtnProps('right')}
-              >
-                <ChevronRight size={18} />
-              </button>
-              <button
-                type="button"
-                className="bot-controller-btn bot-controller-btn--down"
-                title="Drive back (hold)"
-                {...padBtnProps('back')}
-              >
-                <ChevronDown size={18} />
-              </button>
+              <button type="button" className="bot-controller-btn bot-controller-btn--up"    title="Drive forward (hold)" {...padBtnProps('forward')}><ChevronUp size={18} /></button>
+              <button type="button" className="bot-controller-btn bot-controller-btn--left"  title="Turn left (hold)"     {...padBtnProps('left')}><ChevronLeft size={18} /></button>
+              <button type="button" className="bot-controller-btn bot-controller-btn--stop"  title="Stop"                 onClick={handleStop}><Square size={12} /></button>
+              <button type="button" className="bot-controller-btn bot-controller-btn--right" title="Turn right (hold)"    {...padBtnProps('right')}><ChevronRight size={18} /></button>
+              <button type="button" className="bot-controller-btn bot-controller-btn--down"  title="Drive back (hold)"    {...padBtnProps('back')}><ChevronDown size={18} /></button>
             </div>
 
             <div className="bot-controller-hint">
-              Tap to step · Hold to drive
+              Hold to drive · Combine for arcs
             </div>
           </motion.div>
         )}

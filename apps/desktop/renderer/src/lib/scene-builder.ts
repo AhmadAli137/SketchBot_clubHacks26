@@ -38,6 +38,11 @@ export type SceneObject = {
   gy?: number;
   /** Y rotation in 90° steps. 0 = +X, 1 = +Z, 2 = -X, 3 = -Z. */
   rotY?: 0 | 1 | 2 | 3;
+  /** Continuous heading override in radians (CCW around +Y). When present
+   *  the renderer prefers this over rotY * π/2 — used by the live bot
+   *  driver so smooth turns don't snap to 90° increments. Placement and
+   *  the rotate toolbar still write rotY. */
+  headingRad?: number;
   /** Colour override (waypoint / sphere / cylinder). */
   color?: string;
   /** Only used when type === 'bot'. */

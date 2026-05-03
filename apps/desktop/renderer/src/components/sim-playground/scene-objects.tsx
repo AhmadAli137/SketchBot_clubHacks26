@@ -28,6 +28,7 @@ import {
   type SceneObject,
   type ToolDef,
 } from '@/lib/scene-builder';
+import { ensurePose, getPose, syncPoseToPlacement } from './bot-drive';
 
 const GHOST_COLOR    = '#5de4ff';
 const STACK_COLOR    = '#a855f7';
@@ -442,10 +443,12 @@ function StudioLightObject({ x, y, z }: { x: number; y: number; z: number }) {
   );
 }
 
-function BotObject({ x, y, z, rotY, variant = 'standard' }: { x: number; y: number; z: number; rotY: number; variant?: 'standard' | 'sumo' }) {
-  if (variant === 'sumo') return <SumoBot x={x} y={y} z={z} rotY={rotY} />;
-  return <SparkMiniBot x={x} y={y} z={z} rotY={rotY} />;
+function BotObject({ id, x, y, z, rotY, variant = 'standard' }: { id: string; x: number; y: number; z: number; rotY: number; variant?: 'standard' | 'sumo' }) {
+  if (variant === 'sumo') return <SumoBot id={id} x={x} y={y} z={z} rotY={rotY} />;
+  return <SparkMiniBot id={id} x={x} y={y} z={z} rotY={rotY} />;
 }
+
+
 
 /**
  * Spark Mini — the standard sandbox bot. Models a basic Arduino-car kit:
@@ -455,7 +458,7 @@ function BotObject({ x, y, z, rotY, variant = 'standard' }: { x: number; y: numb
  * on a small post at the bow, and an Arduino-shaped board sitting on top.
  * No face — recognizable by silhouette alone. Local +X is "forward".
  */
-function SparkMiniBot({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
+function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: number; rotY: number }) {
   // Wheel + chassis geometry — generous ground clearance so the chassis
   // floats above the wheels' axle line, exposing the motors and caster.
   const wheelR     = 0.052;
@@ -468,8 +471,37 @@ function SparkMiniBot({ x, y, z, rotY }: { x: number; y: number; z: number; rotY
   const wheelX     = -0.020;            // axle slightly behind centre
   const wheelZouter = plateRZ + wheelT / 2 + 0.003;
 
+  // Differential-drive live state — pose drives the visible transform every
+  // frame. ensurePose hydrates from props on first render; useEffect resyncs
+  // whenever the placed position/heading change so external moves (Move tool,
+  // session restore) snap the live pose to match instead of drifting.
+  const groupRef      = useRef<THREE.Group>(null);
+  const leftWheelRef  = useRef<THREE.Group>(null);
+  const rightWheelRef = useRef<THREE.Group>(null);
+  useEffect(() => {
+    ensurePose(id, () => ({
+      worldX: x, worldZ: z, heading: rotY,
+      leftWheelRot: 0, rightWheelRot: 0, motorLeft: 0, motorRight: 0,
+    }));
+    syncPoseToPlacement(id, x, z, rotY);
+  }, [id, x, z, rotY]);
+  useFrame(() => {
+    const pose = getPose(id);
+    if (!pose) return;
+    if (groupRef.current) {
+      groupRef.current.position.x = pose.worldX;
+      groupRef.current.position.z = pose.worldZ;
+      groupRef.current.rotation.y = pose.heading;
+    }
+    // Wheel axles run along the bot's local Z (the cylinder mesh is laid
+    // flat with rotation [π/2, 0, 0]). Forward rolling = negative rotation
+    // around Z (the bottom of the wheel sweeps from -Y to -X).
+    if (leftWheelRef.current)  leftWheelRef.current.rotation.z  = -pose.leftWheelRot;
+    if (rightWheelRef.current) rightWheelRef.current.rotation.z = -pose.rightWheelRot;
+  });
+
   return (
-    <group position={[x, y, z]} rotation={[0, rotY, 0]}>
+    <group ref={groupRef} position={[x, y, z]} rotation={[0, rotY, 0]}>
       {/* ── Chassis plate (round-cornered acrylic look via stretched cylinder) ── */}
       <mesh position={[0, plateY, 0]} scale={[plateRX / 0.090, 1, plateRZ / 0.090]} castShadow receiveShadow>
         <cylinderGeometry args={[0.090, 0.090, plateT, 36]} />
@@ -497,29 +529,43 @@ function SparkMiniBot({ x, y, z, rotY }: { x: number; y: number; z: number; rotY
         </group>
       ))}
 
-      {/* ── Drive wheels (left + right) ── */}
-      {[wheelZouter, -wheelZouter].map((zPos, i) => (
+      {/* ── Drive wheels (left + right) ──
+          Each wheel sits inside an inner group whose rotation.x is driven
+          by the bot-drive store every frame. The cylinder geometry is laid
+          flat (its axis along Z) so spinning around X makes it roll. */}
+      {[
+        { zPos:  wheelZouter, ref: leftWheelRef  },
+        { zPos: -wheelZouter, ref: rightWheelRef },
+      ].map(({ zPos, ref }, i) => (
         <group key={i} position={[wheelX, axleY, zPos]}>
-          {/* Tire */}
-          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[wheelR, wheelR, wheelT, 32]} />
-            <meshStandardMaterial color="#161620" roughness={0.94} metalness={0.04} />
-          </mesh>
-          {/* Inner sidewall — slightly lighter so the tire reads as rubber, not a black disc */}
-          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? -1 : 1) * (wheelT / 2 - 0.0005)]}>
-            <ringGeometry args={[wheelR * 0.55, wheelR - 0.003, 28]} />
-            <meshStandardMaterial color="#2a2a30" roughness={0.85} side={THREE.DoubleSide} />
-          </mesh>
-          {/* Hub disc on the outer face */}
-          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
-            <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 20]} />
-            <meshStandardMaterial color="#d2d4dc" roughness={0.4} metalness={0.6} />
-          </mesh>
-          {/* Hub centre cap */}
-          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
-            <cylinderGeometry args={[wheelR * 0.18, wheelR * 0.18, 0.004, 14]} />
-            <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.5} />
-          </mesh>
+          <group ref={ref}>
+            {/* Tire — laid flat so cylinder axis runs along Z; wheel forward
+                rolling = rotation around X. */}
+            <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <cylinderGeometry args={[wheelR, wheelR, wheelT, 32]} />
+              <meshStandardMaterial color="#161620" roughness={0.94} metalness={0.04} />
+            </mesh>
+            {/* Inner sidewall ring */}
+            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? -1 : 1) * (wheelT / 2 - 0.0005)]}>
+              <ringGeometry args={[wheelR * 0.55, wheelR - 0.003, 28]} />
+              <meshStandardMaterial color="#2a2a30" roughness={0.85} side={THREE.DoubleSide} />
+            </mesh>
+            {/* Hub disc on the outer face */}
+            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
+              <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 20]} />
+              <meshStandardMaterial color="#d2d4dc" roughness={0.4} metalness={0.6} />
+            </mesh>
+            {/* Hub centre cap — picks up rotation so the cyan dot orbits with the wheel */}
+            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
+              <cylinderGeometry args={[wheelR * 0.18, wheelR * 0.18, 0.004, 14]} />
+              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.5} />
+            </mesh>
+            {/* Spoke — single visible radial bar so the wheel's rotation is readable */}
+            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
+              <boxGeometry args={[wheelR * 1.05, 0.005, 0.005]} />
+              <meshStandardMaterial color="#363a45" roughness={0.7} metalness={0.4} />
+            </mesh>
+          </group>
         </group>
       ))}
 
@@ -606,7 +652,7 @@ function SparkMiniBot({ x, y, z, rotY }: { x: number; y: number; z: number; rotY
  * scoop — the leading edge sits practically on the floor so it can wedge
  * under an opponent and lift them off the ring. Local +X is "forward".
  */
-function SumoBot({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
+function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: number; rotY: number }) {
   // Geometry — wider, longer, lower than Spark Mini
   const wheelR = 0.045;
   const wheelT = 0.028;
@@ -620,8 +666,32 @@ function SumoBot({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: num
   const wheelXFront = 0.075;
   const wheelXRear  = -0.075;
 
+  // Live-drive integration — Sumo is a 4WD bot, so all four wheels track
+  // motorLeft/motorRight in sync with whichever side they're on.
+  const groupRef       = useRef<THREE.Group>(null);
+  const leftWheelRefs  = [useRef<THREE.Group>(null), useRef<THREE.Group>(null)];
+  const rightWheelRefs = [useRef<THREE.Group>(null), useRef<THREE.Group>(null)];
+  useEffect(() => {
+    ensurePose(id, () => ({
+      worldX: x, worldZ: z, heading: rotY,
+      leftWheelRot: 0, rightWheelRot: 0, motorLeft: 0, motorRight: 0,
+    }));
+    syncPoseToPlacement(id, x, z, rotY);
+  }, [id, x, z, rotY]);
+  useFrame(() => {
+    const pose = getPose(id);
+    if (!pose) return;
+    if (groupRef.current) {
+      groupRef.current.position.x = pose.worldX;
+      groupRef.current.position.z = pose.worldZ;
+      groupRef.current.rotation.y = pose.heading;
+    }
+    leftWheelRefs.forEach((r)  => { if (r.current) r.current.rotation.z  = -pose.leftWheelRot; });
+    rightWheelRefs.forEach((r) => { if (r.current) r.current.rotation.z = -pose.rightWheelRot; });
+  });
+
   return (
-    <group position={[x, y, z]} rotation={[0, rotY, 0]}>
+    <group ref={groupRef} position={[x, y, z]} rotation={[0, rotY, 0]}>
       {/* ── Lower armor plate (the heavy base) ── */}
       <mesh position={[0, plateY, 0]} castShadow receiveShadow>
         <boxGeometry args={[plateRX * 2, plateT, plateRZ * 2]} />
@@ -705,51 +775,61 @@ function SumoBot({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: num
         );
       })()}
 
-      {/* ── Four wheels with TT motors slung beneath each corner ── */}
+      {/* ── Four wheels with TT motors slung beneath each corner.
+          left/right side (z>0 vs z<0) decides which wheel-rot ref the
+          inner spinner picks up. Front and rear wheels on the same side
+          share the same motor speed — 4WD differential drive. ── */}
       {[
-        { wx: wheelXFront, wz:  wheelZouter, mz:  wheelZouter - wheelT - 0.020 },
-        { wx: wheelXFront, wz: -wheelZouter, mz: -(wheelZouter - wheelT - 0.020) },
-        { wx: wheelXRear,  wz:  wheelZouter, mz:  wheelZouter - wheelT - 0.020 },
-        { wx: wheelXRear,  wz: -wheelZouter, mz: -(wheelZouter - wheelT - 0.020) },
-      ].map(({ wx, wz, mz }, i) => (
-        <group key={`drive${i}`}>
-          {/* TT gear motor */}
-          <group position={[wx, axleY, mz]}>
-            <mesh castShadow>
-              <boxGeometry args={[0.075, 0.030, 0.022]} />
-              <meshStandardMaterial color="#d8a821" roughness={0.55} metalness={0.30} />
-            </mesh>
-            {/* Output shaft */}
-            <mesh position={[0.010, 0, (mz > 0 ? 1 : -1) * 0.020]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[0.003, 0.003, 0.020, 10]} />
-              <meshStandardMaterial color="#c0c0c8" roughness={0.4} metalness={0.85} />
-            </mesh>
+        { wx: wheelXFront, wz:  wheelZouter, mz:  wheelZouter - wheelT - 0.020, sideIdx: 0 },
+        { wx: wheelXFront, wz: -wheelZouter, mz: -(wheelZouter - wheelT - 0.020), sideIdx: 0 },
+        { wx: wheelXRear,  wz:  wheelZouter, mz:  wheelZouter - wheelT - 0.020, sideIdx: 1 },
+        { wx: wheelXRear,  wz: -wheelZouter, mz: -(wheelZouter - wheelT - 0.020), sideIdx: 1 },
+      ].map(({ wx, wz, mz, sideIdx }, i) => {
+        const spinnerRef = wz > 0 ? leftWheelRefs[sideIdx] : rightWheelRefs[sideIdx];
+        return (
+          <group key={`drive${i}`}>
+            {/* TT gear motor — bolted to the chassis, doesn't spin. */}
+            <group position={[wx, axleY, mz]}>
+              <mesh castShadow>
+                <boxGeometry args={[0.075, 0.030, 0.022]} />
+                <meshStandardMaterial color="#d8a821" roughness={0.55} metalness={0.30} />
+              </mesh>
+              <mesh position={[0.010, 0, (mz > 0 ? 1 : -1) * 0.020]} rotation={[Math.PI / 2, 0, 0]}>
+                <cylinderGeometry args={[0.003, 0.003, 0.020, 10]} />
+                <meshStandardMaterial color="#c0c0c8" roughness={0.4} metalness={0.85} />
+              </mesh>
+            </group>
+            {/* Wheel — outer position-only group, inner spinner group rotated by useFrame. */}
+            <group position={[wx, axleY, wz]}>
+              <group ref={spinnerRef}>
+                {/* Tire */}
+                <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+                  <cylinderGeometry args={[wheelR, wheelR, wheelT, 28]} />
+                  <meshStandardMaterial color="#0e0e14" roughness={0.95} metalness={0.04} />
+                </mesh>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[wheelR + 0.001, wheelR + 0.001, wheelT * 0.5, 28]} />
+                  <meshStandardMaterial color="#1a1a22" roughness={0.95} />
+                </mesh>
+                <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
+                  <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 18]} />
+                  <meshStandardMaterial color="#bd1a1a" roughness={0.5} metalness={0.45} />
+                </mesh>
+                {/* Hex lug nut — six-sided so it visually rotates with the wheel. */}
+                <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
+                  <cylinderGeometry args={[wheelR * 0.16, wheelR * 0.16, 0.005, 6]} />
+                  <meshStandardMaterial color="#9a9aa2" roughness={0.45} metalness={0.85} />
+                </mesh>
+                {/* Visible spoke so spin is readable at small wheel sizes. */}
+                <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
+                  <boxGeometry args={[wheelR * 1.05, 0.005, 0.005]} />
+                  <meshStandardMaterial color="#3a1010" roughness={0.7} metalness={0.4} />
+                </mesh>
+              </group>
+            </group>
           </group>
-          {/* Wheel */}
-          <group position={[wx, axleY, wz]}>
-            {/* Tire */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <cylinderGeometry args={[wheelR, wheelR, wheelT, 28]} />
-              <meshStandardMaterial color="#0e0e14" roughness={0.95} metalness={0.04} />
-            </mesh>
-            {/* Tread band — slightly bumpier mid-ring for grip read */}
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[wheelR + 0.001, wheelR + 0.001, wheelT * 0.5, 28]} />
-              <meshStandardMaterial color="#1a1a22" roughness={0.95} />
-            </mesh>
-            {/* Hub disc */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
-              <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 18]} />
-              <meshStandardMaterial color="#bd1a1a" roughness={0.5} metalness={0.45} />
-            </mesh>
-            {/* Centre lug nut */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
-              <cylinderGeometry args={[wheelR * 0.16, wheelR * 0.16, 0.005, 6]} />
-              <meshStandardMaterial color="#9a9aa2" roughness={0.45} metalness={0.85} />
-            </mesh>
-          </group>
-        </group>
-      ))}
+        );
+      })}
 
       {/* ── Rear "exhaust" — two short black tubes for character ── */}
       {[0.024, -0.024].map((zPos, i) => (
@@ -979,7 +1059,7 @@ function PlacedObjectMesh({ obj }: { obj: SceneObject }) {
     case 'cylinder': return <CylinderObject x={x} y={y} z={z} color={obj.color} />;
     case 'waypoint': return <WaypointObject x={x} y={y} z={z} color={obj.color} />;
     case 'apriltag': return <AprilTagObject x={x} y={y} z={z} rotY={rotY} />;
-    case 'bot':      return <BotObject x={x} y={y} z={z} rotY={rotY} variant={obj.botVariant} />;
+    case 'bot':      return <BotObject id={obj.id} x={x} y={y} z={z} rotY={obj.headingRad ?? rotY} variant={obj.botVariant} />;
     case 'mat':      return <MatObject x={x} y={y} z={z} rotY={rotY} color={obj.color} />;
     case 'studio-light': return <StudioLightObject x={x} y={y} z={z} />;
     default:         return null;
