@@ -358,10 +358,10 @@ function ArrowSegment({
       {dashed && (
         <DashTicks x0={startX} z0={startZ} dx={ux} dz={uz} length={ribbonLen} color={color} opacity={opacity} />
       )}
-      {/* Step number puck floats above the END of this segment — that's
-          where the action LANDS, which reads better as "step N happens
-          here" than parking it at the start. */}
-      <StepLabel x={headTipX} z={headTipZ} number={stepNumber} color={color} isActive={isActive} />
+      {/* Step number puck flat at the END of this segment, oriented
+          along the arrow direction so the digit reads "along the path"
+          rather than at a random world angle. */}
+      <StepLabel x={headTipX} z={headTipZ} number={stepNumber} color={color} isActive={isActive} yaw={yaw} />
       {/* Distance label hovering above the ribbon midpoint. */}
       <Html position={[ribbonMidX, FLOOR_HEIGHT + 0.12, ribbonMidZ]} center distanceFactor={3}>
         <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
@@ -493,11 +493,10 @@ function TurnArc({
           depthWrite={false}
         />
       </mesh>
-      {/* Step number at the END of the arc — where the bot finishes
-          rotating. The degree label is painted FLAT on the floor at
-          the arc midpoint so it reads as part of the path, not a
-          floating sticker. */}
-      <StepLabel x={last.x} z={last.z} number={stepNumber} color={color} isActive={isActive} yOffset={0.04} />
+      {/* Step number flat at the END of the arc — oriented along the
+          tangent at the arc terminus so the digit reads "you finished
+          rotating, now facing this way". */}
+      <StepLabel x={last.x} z={last.z} number={stepNumber} color={color} isActive={isActive} yaw={tipYaw} />
       {(() => {
         const midIdx = Math.floor(points.length / 2);
         const mid = points[midIdx];
@@ -555,36 +554,71 @@ function PausePuck({
 // ─── Step number puck — small floating disc with the step number ─────────
 
 function StepLabel({
-  x, z, number, color, isActive, yOffset = 0.0,
+  x, z, number, color, isActive, yaw = 0,
 }: {
-  x: number; z: number; number: number; color: string; isActive: boolean; yOffset?: number;
+  x: number; z: number; number: number; color: string; isActive: boolean;
+  /** Yaw (radians) to orient the puck along the segment's direction so
+   *  the number reads "along" the path of travel. Defaults to 0 (puck's
+   *  local +X aligned with world +X). */
+  yaw?: number;
+  /** Legacy prop kept for compatibility with PausePuck callsite. */
+  yOffset?: number;
 }) {
-  // Number rendered as an HTML overlay so we don't pull in a 3D font.
-  // The disc floats above the segment start, attached by a short stem,
-  // so the kid can quickly count steps without the disc getting buried
-  // under other floor objects.
-  const HEIGHT = 0.20 + yOffset;
+  // Painted-on-floor step puck: colored ring + white fill + canvas-
+  // textured number on top, all lying flat. No stem, no Html — reads as
+  // a waypoint marker on the path rather than a UI sticker hovering
+  // above. The number is canvas-painted (no 3D font) so it never
+  // suspends the canvas.
+  const numberTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    const S = 128;
+    canvas.width = S;
+    canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, S, S);
+    ctx.font = '900 96px Inter, system-ui, "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.strokeText(String(number), S / 2, S / 2);
+    ctx.fillStyle = '#0a0d18';
+    ctx.fillText(String(number), S / 2, S / 2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return tex;
+  }, [number]);
+
+  const radius = 0.07;
   return (
-    <group position={[x, HEIGHT, z]}>
-      {/* Stem from the floor up to the disc — a thin vertical line. */}
-      <mesh position={[0, -HEIGHT / 2 + FLOOR_HEIGHT, 0]}>
-        <cylinderGeometry args={[0.003, 0.003, HEIGHT - FLOOR_HEIGHT, 6]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} transparent opacity={0.7} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.045, 24]} />
+    <group position={[x, FLOOR_HEIGHT + 0.0015, z]} rotation={[-Math.PI / 2, 0, yaw]}>
+      {/* Colored emissive ring — matches the segment's stripe color. */}
+      <mesh>
+        <ringGeometry args={[radius * 0.78, radius, 28]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={isActive ? 1.2 : 0.75}
+          emissiveIntensity={isActive ? 1.4 : 0.95}
           transparent
-          opacity={0.95}
+          opacity={0.98}
           side={THREE.DoubleSide}
+          depthWrite={false}
         />
       </mesh>
-      <Html position={[0, 0.002, 0]} center distanceFactor={3}>
-        <div className={`program-overlay-step${isActive ? ' is-active' : ''}`}>{number}</div>
-      </Html>
+      {/* White inner fill — the canvas the number sits on. */}
+      <mesh position={[0, 0, 0.0006]}>
+        <circleGeometry args={[radius * 0.78, 28]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.97} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      {/* Number — slightly smaller plane than the inner circle so the
+          glyph has breathing room against the ring. */}
+      <mesh position={[0, 0, 0.0012]}>
+        <planeGeometry args={[radius * 1.55, radius * 1.55]} />
+        <meshBasicMaterial map={numberTexture} transparent depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
     </group>
   );
 }
