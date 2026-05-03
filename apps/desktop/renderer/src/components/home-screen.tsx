@@ -85,6 +85,11 @@ type HomeScreenProps = {
   classroomName?: string;
   studentCount?: number;
   apiBase?: string;
+  /** When true, render the sandbox-style home (hero + sessions gallery)
+   *  regardless of role — used after Just Play so signed-in users still
+   *  see the sandbox selection menu instead of the educational concept
+   *  catalog. */
+  forceSandboxView?: boolean;
   onStartSession: (conceptId?: string, starterPrompt?: string, ageGroup?: AgeGroup, options?: StartSessionOptions) => void;
   onSignOut: () => void;
   onBackToMenu?: () => void;
@@ -99,12 +104,16 @@ export function HomeScreen({
   classroomName,
   studentCount,
   apiBase = '',
+  forceSandboxView = false,
   onStartSession,
   onSignOut,
   onBackToMenu,
   onClassroomSaved,
   onOpenTeacherDashboard,
 }: HomeScreenProps) {
+  // Sandbox-style rendering: guests always get it; signed-in users get it
+  // when they entered through the Just Play card on the plan picker.
+  const isSandboxView = role === 'guest' || forceSandboxView;
   const [ageGroup, setAgeGroupState] = useState<AgeGroup>('explorer');
   const [showClassroomModal, setShowClassroomModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -471,31 +480,34 @@ export function HomeScreen({
           <h1>
             {role === 'teacher'
               ? `Welcome back, ${friendlyName(userName)}`
-              : role === 'guest'
+              : isSandboxView
                 ? 'Sandbox Mode'
                 : `Hi, ${friendlyName(userName)}!`}
           </h1>
           <p>
             {role === 'teacher'
               ? `${classroomName ?? 'Your classroom'} — ${studentCount ?? 0} student${studentCount !== 1 ? 's' : ''}`
-              : role === 'guest'
+              : isSandboxView
                 ? 'You\'re in free-draw mode. No lessons or XP — just you and the bot.'
                 : 'Your student dashboard is ready. Pick a lesson or customize your profile.'}
           </p>
         </div>
 
-        {role === 'guest' && (
+        {isSandboxView && (
           <>
             <SandboxHeroScene />
-            <div className="guest-unlock-nudge">
-              <span className="guest-unlock-icon">🎓</span>
-              <span className="guest-unlock-text">
-                Want lessons, XP, and badges?
-              </span>
-              <button type="button" className="guest-unlock-btn" onClick={onSignOut}>
-                Switch to Personal Tutor →
-              </button>
-            </div>
+            {/* Guest-only nudge: signed-in users already chose sandbox knowingly. */}
+            {role === 'guest' && (
+              <div className="guest-unlock-nudge">
+                <span className="guest-unlock-icon">🎓</span>
+                <span className="guest-unlock-text">
+                  Want lessons, XP, and badges?
+                </span>
+                <button type="button" className="guest-unlock-btn" onClick={onSignOut}>
+                  Switch to Personal Tutor →
+                </button>
+              </div>
+            )}
           </>
         )}
 
@@ -639,7 +651,7 @@ export function HomeScreen({
           </section>
         )}
 
-        {role === 'student' ? (
+        {role === 'student' && !isSandboxView ? (
           <>
           <div className="dashboard-top-grid">
             <section className="student-profile-panel" data-tour="home-profile">
@@ -868,13 +880,13 @@ export function HomeScreen({
           </div>
         ) : null}
 
-        {role !== 'student' && (
+        {(role !== 'student' || isSandboxView) && (
         <div className="concept-domain-section">
           {/* Header row */}
           <div className="sessions-header">
             <div className="sessions-header-left">
-              <h2>{role === 'guest' ? 'Your sessions' : 'Activities'}</h2>
-              {role === 'guest' && (
+              <h2>{isSandboxView ? 'Your sessions' : 'Activities'}</h2>
+              {isSandboxView && (
                 <p className="sessions-header-sub">
                   Pick up where you left off or start a new one. Every session auto-saves chats and code.
                 </p>
@@ -882,8 +894,8 @@ export function HomeScreen({
             </div>
           </div>
 
-          {/* Unified sessions gallery (guest only): [+ New] [Continue] [...Saved] [...Recent] */}
-          {role === 'guest' && (
+          {/* Unified sessions gallery (sandbox view): [+ New] [Continue] [...Saved] [...Recent] */}
+          {isSandboxView && (
             <motion.div
               className="sessions-gallery"
               variants={cardGridContainer}

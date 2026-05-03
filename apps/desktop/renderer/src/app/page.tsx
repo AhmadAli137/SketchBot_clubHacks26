@@ -162,6 +162,11 @@ export default function HomePage() {
   const [lessonPlanActive, setLessonPlanActive] = useState(false);
   const [activeChallengeId, setActiveChallengeId] = useState<string | null>(null);
   const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+  // True after the user clicks Just Play — makes the home screen render its
+  // sandbox-view layout (hero + sessions gallery) regardless of role.
+  // Reset whenever they leave to a non-sandbox surface (auth, session view
+  // entered via a tutor concept, etc.).
+  const [sandboxModeRequested, setSandboxModeRequested] = useState(false);
 
   // ─── Music — persists across home/auth/onboarding views and PAUSES during
   //   active sessions so the sandbox / concept BGM (game-audio.ts) doesn't
@@ -285,6 +290,9 @@ export default function HomePage() {
     setUserName(name);
     setUserEmail(email ?? '');
     setActiveClassSession(getClassSession());
+    // Coming through the auth flow means the user wants the educational
+    // home, not the sandbox-view layout, so reset the sandbox request.
+    setSandboxModeRequested(false);
 
     // Students who haven't chosen a difficulty level go to onboarding first
     let nextView: AppView = 'home';
@@ -1263,11 +1271,9 @@ export default function HomePage() {
               }}
               onJustPlay={() => {
                 // Sandbox is open to everyone. Preserve any existing session
-                // (signed-in users keep their PFP + cloud auth — the AI tutor
-                // chat still works). For never-signed-in users, give them a
-                // disposable "Player" handle so the dashboard renders. Force
-                // sandbox mode by clearing any concept / lesson selection so
-                // we don't accidentally land on a tutor or classroom view.
+                // (signed-in users keep their PFP + cloud auth). Land on the
+                // home screen in sandbox-view mode so the user sees the
+                // sessions gallery (resume / new) before diving in.
                 if (userRole === 'guest' && !userName.trim()) {
                   setUserName('Player');
                 }
@@ -1275,7 +1281,8 @@ export default function HomePage() {
                 setSelectedConceptTitle('Free Draw');
                 setLessonPlanActive(false);
                 setActiveChallengeId(null);
-                setView('session');
+                setSandboxModeRequested(true);
+                setView('home');
               }}
               onTeacherAuth={() => { setAuthMode('teacher'); setView('auth'); }}
               onPersonalTutor={() => { setAuthMode('personal'); setView('auth'); }}
@@ -1344,9 +1351,10 @@ export default function HomePage() {
               classroomName={classroomName || undefined}
               studentCount={studentCount}
               apiBase={apiBase}
+              forceSandboxView={sandboxModeRequested}
               onStartSession={handleStartSession}
               onSignOut={handleSignOut}
-              onBackToMenu={() => setView('plan')}
+              onBackToMenu={() => { setSandboxModeRequested(false); setView('plan'); }}
               onClassroomSaved={handleClassroomSaved}
               onOpenTeacherDashboard={userRole === 'teacher' ? () => setShowTeacherDash(true) : undefined}
             />
