@@ -564,16 +564,6 @@ function SceneContent({
         <planeGeometry args={[40, 40]} />
         <meshStandardMaterial color={env.groundColor} roughness={0.92} metalness={0.05} />
       </mesh>
-      {/* Soft stage highlight — radial brightening over the floor so the
-          play area reads as a lit stage, not a continuation of the
-          background. Sandbox-only; concept envs already have their own
-          accent props (cones, paper canvas, etc.) doing the same job. */}
-      {isSandboxEnv && (
-        <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.003, 0]}>
-          <circleGeometry args={[5.5, 64]} />
-          <meshBasicMaterial color="#5060a0" transparent opacity={0.18} depthWrite={false} />
-        </mesh>
-      )}
       {/* Sits just above the floor (y=0) so the shadow plane isn't occluded
           by it. Was previously at -0.015 when the floor was sunk to -0.018; both
           moved together when we lifted the floor to make placed objects flush. */}
