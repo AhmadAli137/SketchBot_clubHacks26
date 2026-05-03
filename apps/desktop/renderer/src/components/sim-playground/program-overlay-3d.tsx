@@ -495,7 +495,13 @@ function TurnArc({
       {/* Step number flat at the END of the arc — oriented along the
           tangent at the arc terminus so the digit reads "you finished
           rotating, now facing this way". */}
-      <FloorStepLabel x={last.x} z={last.z} number={stepNumber} color={color} isActive={isActive} yaw={tipYaw} />
+      <StepLabel
+        x={last.x} z={last.z}
+        number={stepNumber}
+        color={color}
+        isActive={isActive}
+        rotationGlyph
+      />
       {(() => {
         const midIdx = Math.floor(points.length / 2);
         const mid = points[midIdx];
@@ -553,15 +559,15 @@ function PausePuck({
 // ─── Step number puck — small floating disc with the step number ─────────
 
 function StepLabel({
-  x, z, number, color, isActive, yOffset = 0.0,
+  x, z, number, color, isActive, yOffset = 0.0, rotationGlyph = false,
 }: {
-  x: number; z: number; number: number; color: string; isActive: boolean; yOffset?: number;
+  x: number; z: number; number: number; color: string; isActive: boolean;
+  yOffset?: number;
+  /** Render a small curved-arrow icon next to the digit so the kid can
+   *  tell at a glance that this stop is the corner of a turn, not just
+   *  another straight-drive destination. */
+  rotationGlyph?: boolean;
 }) {
-  // Vertical stick + camera-facing white disc with the step number.
-  // Reads as a waypoint flag planted in the floor — the kid's eye
-  // tracks the numbers easily even when the path crosses other scene
-  // objects. (Earlier flat-on-floor version got buried by props and
-  // foreshortened at oblique camera angles.)
   const HEIGHT = 0.20 + yOffset;
   return (
     <group position={[x, HEIGHT, z]}>
@@ -581,7 +587,10 @@ function StepLabel({
         />
       </mesh>
       <Html position={[0, 0.002, 0]} center distanceFactor={3}>
-        <div className={`program-overlay-step${isActive ? ' is-active' : ''}`}>{number}</div>
+        <div className={`program-overlay-step${isActive ? ' is-active' : ''}${rotationGlyph ? ' is-rotation' : ''}`}>
+          {rotationGlyph && <span className="program-overlay-step-glyph">↻</span>}
+          {number}
+        </div>
       </Html>
     </group>
   );
@@ -640,85 +649,3 @@ function FloorLabel({
   );
 }
 
-// ─── Floor-style step puck — flat-on-floor variant of StepLabel used
-// for turn segments. Drive/pause keep the vertical-stick StepLabel; turns
-// get this one so the rotation step reads as part of the painted floor
-// language (ribbon + arc + angle label all flat).
-
-function FloorStepLabel({
-  x, z, number, color, isActive, yaw = 0,
-}: {
-  x: number; z: number; number: number; color: string; isActive: boolean; yaw?: number;
-}) {
-  const numberTexture = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    const S = 256;
-    canvas.width = S;
-    canvas.height = S;
-    const ctx = canvas.getContext('2d')!;
-    ctx.clearRect(0, 0, S, S);
-    ctx.font = '900 192px Inter, system-ui, "Segoe UI", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineWidth = 8;
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
-    ctx.strokeText(String(number), S / 2, S / 2);
-    ctx.fillStyle = '#0a0d18';
-    ctx.fillText(String(number), S / 2, S / 2);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    tex.anisotropy = 8;
-    return tex;
-  }, [number]);
-
-  const radius = 0.075;
-  // Lift above the arc tube (radius 0.016 at FLOOR_HEIGHT) plus a small
-  // safety margin so the disc clearly sits ON TOP of the painted curve
-  // instead of being occluded mid-tube. A short translucent post anchors
-  // it visually to the floor without reading as a full upright stick.
-  const DISC_Y = FLOOR_HEIGHT + 0.030;
-  return (
-    <group position={[x, 0, z]}>
-      {/* Short translucent post connecting floor to disc — keeps the
-          floor-anchored feel while pulling the disc clear of the tube. */}
-      <mesh position={[0, DISC_Y / 2 + FLOOR_HEIGHT / 2, 0]}>
-        <cylinderGeometry args={[0.0025, 0.0025, DISC_Y - FLOOR_HEIGHT, 6]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.55}
-          transparent
-          opacity={0.55}
-        />
-      </mesh>
-      <group position={[0, DISC_Y, 0]} rotation={[-Math.PI / 2, 0, yaw]}>
-        {/* Colored emissive ring — matches the segment's stripe color. */}
-        <mesh>
-          <ringGeometry args={[radius * 0.80, radius, 28]} />
-          <meshStandardMaterial
-            color={color}
-            emissive={color}
-            emissiveIntensity={isActive ? 1.7 : 1.15}
-            transparent
-            opacity={0.99}
-            side={THREE.DoubleSide}
-            depthWrite={false}
-          />
-        </mesh>
-        {/* White inner fill — backdrop for the digit. */}
-        <mesh position={[0, 0, 0.0006]}>
-          <circleGeometry args={[radius * 0.80, 28]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.98} side={THREE.DoubleSide} depthWrite={false} />
-        </mesh>
-        {/* Number painted via canvas texture so we don't load a 3D font. */}
-        <mesh position={[0, 0, 0.0012]}>
-          <planeGeometry args={[radius * 1.6, radius * 1.6]} />
-          <meshBasicMaterial map={numberTexture} transparent depthWrite={false} side={THREE.DoubleSide} />
-        </mesh>
-      </group>
-    </group>
-  );
-}

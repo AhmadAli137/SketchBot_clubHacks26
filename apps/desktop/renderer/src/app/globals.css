@@ -16309,6 +16309,28 @@ select.block-param-input{width:auto;padding-right:20px}
   background: #fff;
   box-shadow: 0 0 0 2px rgba(93, 228, 255, 0.85), 0 0 12px rgba(93, 228, 255, 0.65);
 }
+/* Turn-step variant — adds a small "↻" glyph beside the digit so the
+   kid recognises the corner step without needing to read the angle
+   label. The glyph slightly enlarges the puck so it stands apart from
+   identical-looking drive destinations. */
+.program-overlay-step.is-rotation {
+  width: auto;
+  min-width: 28px;
+  padding: 0 5px;
+  border-radius: 14px;
+  gap: 2px;
+}
+.program-overlay-step-glyph {
+  font-size: 0.95em;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(245, 158, 11, 0.95);
+  margin-right: 1px;
+}
+.program-overlay-step.is-rotation.is-active .program-overlay-step-glyph {
+  color: rgba(245, 158, 11, 1);
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.85);
+}
 
 /* Sim transport controls — bottom-center pill anchored to the simulator
    pane. Reads as a video-player control: Play/Pause toggle (primary),
