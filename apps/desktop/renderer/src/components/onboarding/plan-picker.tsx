@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Users, GraduationCap, ChevronLeft, ChevronRight, Loader2, Cpu, Zap, Trophy, UserRound } from 'lucide-react';
+import { Sparkles, Users, GraduationCap, ChevronLeft, ChevronRight, Loader2, Cpu, Zap, Trophy } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { MotrixLogo } from '@/components/motrix-logo';
@@ -11,7 +11,6 @@ import { SparkStage3D } from '@/components/spark-robot/spark-scene-3d';
 import { setClassSession } from '@/lib/session-store';
 import { playSfx } from '@/lib/game-audio';
 import { getProgressSummary, getStudentProgress } from '@/lib/progress-store';
-import { StudentProfileAvatar } from '@/components/student-profile-avatar';
 import type { AuthResult, AuthRole } from '@/components/auth-screen';
 
 type Plan = 'pick' | 'join-class';
@@ -53,7 +52,6 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
   const [error, setError] = useState<string | null>(null);
   const [speechIndex, setSpeechIndex] = useState(0);
   const [isDark, setIsDark] = useState(true);
-  const [profileOpen, setProfileOpen] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
 
   // Gate all localStorage-derived UI behind a mount flag so SSR/first-client-render
@@ -236,72 +234,10 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
               animate={{ x: 0, opacity: 1 }}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
             >
-              {/* Controls anchored top-right, out of flow */}
-              <div className="plan-right-controls">
-                {/* Profile / sign-in button — always visible */}
-                <div className="plan-profile-wrap">
-                  <motion.button
-                    type="button"
-                    className={`plan-profile-btn${!effectiveSession ? ' is-guest' : ''}`}
-                    onClick={() => setProfileOpen((v) => !v)}
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.92 }}
-                    title={effectiveSession ? effectiveSession.name : 'Sign in'}
-                  >
-                    {effectiveSession && savedAvatar
-                      ? <StudentProfileAvatar kind={savedAvatar.kind} emoji={savedAvatar.emoji} robotPresetId={savedAvatar.robotPreset} accent={savedAvatar.color} size={26} />
-                      : <UserRound size={15} />
-                    }
-                  </motion.button>
-                  <AnimatePresence>
-                    {profileOpen && (
-                      <motion.div
-                        className="plan-profile-dropdown"
-                        initial={{ opacity: 0, y: -6, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.95 }}
-                        transition={{ duration: 0.16 }}
-                      >
-                        {effectiveSession ? (
-                          <>
-                            <div className="plan-profile-dropdown-name">{effectiveSession.name}</div>
-                            <div className="plan-profile-dropdown-role">
-                              {effectiveSession.role === 'teacher' ? 'Teacher account' : 'Student account'}
-                            </div>
-                            <button
-                              type="button"
-                              className="plan-profile-switch"
-                              onClick={() => { setProfileOpen(false); playSfx('click'); onClearSavedSession?.(); }}
-                            >
-                              Switch user
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <div className="plan-profile-dropdown-name">Sign in</div>
-                            <button
-                              type="button"
-                              className="plan-profile-signin-opt"
-                              onClick={() => { setProfileOpen(false); playSfx('click'); onPersonalTutor(); }}
-                            >
-                              <GraduationCap size={13} /> Student / Tutor
-                              <ChevronRight size={11} className="plan-profile-signin-arrow" />
-                            </button>
-                            <button
-                              type="button"
-                              className="plan-profile-signin-opt"
-                              onClick={() => { setProfileOpen(false); playSfx('click'); onTeacherAuth(); }}
-                            >
-                              <Users size={13} /> Teacher
-                              <ChevronRight size={11} className="plan-profile-signin-arrow" />
-                            </button>
-                          </>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
+              {/* Profile button moved to global top-right cluster (handled by
+                  page.tsx's .app-global-br-controls) so it lives in the same
+                  spot on every screen. Sign-in routing happens through the
+                  plan cards (Personal Tutor / Teacher) below. */}
 
               {/* Vertically centred content */}
               <div className="plan-right-body">

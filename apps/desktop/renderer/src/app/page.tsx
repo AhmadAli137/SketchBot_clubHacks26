@@ -1452,7 +1452,7 @@ export default function HomePage() {
           {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
         </motion.button>
         <ThemeToggle variant="icon" />
-        {view !== 'auth' && view !== 'plan' && (() => {
+        {view !== 'auth' && (() => {
           const showAvatar = userRole !== 'guest' && profileAvatar;
           const cls = `app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}`;
           return (
