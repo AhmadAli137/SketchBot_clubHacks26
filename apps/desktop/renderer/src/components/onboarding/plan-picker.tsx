@@ -99,7 +99,19 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
 
   const handleJustPlay = () => {
     playSfx('whoosh');
-    onPicked({ role: 'guest', name: 'Player', authSource: 'classroom_device' });
+    // If the user is already signed in, keep their session — they're just
+    // entering sandbox mode, not signing out. Only fall back to guest when
+    // there's no existing session.
+    if (effectiveSession) {
+      onPicked({
+        role: effectiveSession.role,
+        name: effectiveSession.name,
+        email: effectiveSession.email,
+        authSource: 'account',
+      });
+    } else {
+      onPicked({ role: 'guest', name: 'Player', authSource: 'classroom_device' });
+    }
   };
 
   const handleJoinSubmit = async (e: React.FormEvent) => {
