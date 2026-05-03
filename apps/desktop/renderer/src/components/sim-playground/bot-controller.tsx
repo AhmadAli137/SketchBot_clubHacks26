@@ -51,11 +51,12 @@ const BOT_RADIUS_SUMO     = 0.17;
  *  wall mesh in scene-objects.tsx. */
 const WALL_THICKNESS = GRID_SIZE * 0.18;
 const WALL_LENGTH    = GRID_SIZE;
-/** Ramp footprint — same length as a wall along its rotated forward axis,
- *  ~85% of a cell wide on the perpendicular. Matches RAMP_LENGTH/WIDTH in
- *  scene-objects.tsx. Ramps are treated as solid AABBs by the collision
- *  pass for now (drive-up physics is future work). */
-const RAMP_LENGTH = GRID_SIZE;
+/** Ramp footprint — TWO cells long along its forward axis (gentle ~18°
+ *  slope so a bot can ascend), ~85% of a cell wide on the perpendicular.
+ *  Matches RAMP_LENGTH/WIDTH in scene-objects.tsx. Ramps are treated as
+ *  solid AABBs by the collision pass for now; drive-up physics (Y
+ *  interpolation) is future work. */
+const RAMP_LENGTH = GRID_SIZE * 2;
 const RAMP_WIDTH  = GRID_SIZE * 0.85;
 
 function botLabel(o: SceneObject, idx: number): string {

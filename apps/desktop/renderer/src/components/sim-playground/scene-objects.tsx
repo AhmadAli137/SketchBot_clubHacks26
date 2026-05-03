@@ -238,33 +238,38 @@ function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: 
   );
 }
 
-/** Sloped ramp — triangular prism. One cell long along its forward axis,
- *  one cell wide on the perpendicular, rises to WALL_HEIGHT at the high
- *  end. Treated as a solid AABB by the bot-collision system for now (no
- *  drive-up); the slanted top is purely visual until the drive-over code
- *  lands. Local +X = base of the ramp (low end, where the bot would drive
- *  in); high end is at -X. */
-const RAMP_LENGTH = GRID_SIZE;
+/** Sloped ramp — triangular prism. Two cells long along its forward axis
+ *  for a ~18° climb (atan(0.16/0.50)) — gradual enough that a bot can
+ *  drive up onto a stack-1 platform. ~85% of a cell wide on the
+ *  perpendicular. Treated as a solid AABB by the bot-collision system
+ *  for now; the slanted top is purely visual until the drive-up code
+ *  lands. Local +X = HIGH end (top of the ramp), -X = LOW end (where
+ *  a bot at rotY=0 enters and climbs from). */
+const RAMP_LENGTH = GRID_SIZE * 2;
 const RAMP_WIDTH  = GRID_SIZE * 0.85;
 const RAMP_HEIGHT = WALL_HEIGHT;
+
+let _rampGeometry: THREE.BufferGeometry | null = null;
+/** Cached extrude geometry — both RampObject and its ghost preview use
+ *  this so we don't rebuild a 200-vert prism every cursor move. Triangle
+ *  profile is the right-triangle (-L/2, 0) → (+L/2, 0) → (+L/2, H), so
+ *  the hypotenuse rises from -X (low) toward +X (high). */
+function getRampGeometry(): THREE.BufferGeometry {
+  if (_rampGeometry) return _rampGeometry;
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.lineTo(RAMP_LENGTH, 0);
+  shape.lineTo(RAMP_LENGTH, RAMP_HEIGHT);
+  shape.lineTo(0, 0);
+  const g = new THREE.ExtrudeGeometry(shape, { depth: RAMP_WIDTH, bevelEnabled: false });
+  // Centre the prism on origin in X and Z. Y stays 0..H.
+  g.translate(-RAMP_LENGTH / 2, 0, -RAMP_WIDTH / 2);
+  _rampGeometry = g;
+  return g;
+}
+
 function RampObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
-  const geom = useMemo(() => {
-    // 2D triangle profile in XY: tip at the low end, hypotenuse rising.
-    //   (0,0) ── (L,0)
-    //    │
-    //    │
-    //   (0,H)
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0);
-    shape.lineTo(RAMP_LENGTH, 0);
-    shape.lineTo(0, RAMP_HEIGHT);
-    shape.lineTo(0, 0);
-    const g = new THREE.ExtrudeGeometry(shape, { depth: RAMP_WIDTH, bevelEnabled: false });
-    // ExtrudeGeometry extrudes along +Z. Centre the prism so its base sits
-    // at y=0 and its centre-of-base is at the cell centre.
-    g.translate(-RAMP_LENGTH / 2, 0, -RAMP_WIDTH / 2);
-    return g;
-  }, []);
+  const geom = useMemo(() => getRampGeometry(), []);
   return (
     <mesh
       position={[x, y, z]}
@@ -1088,12 +1093,11 @@ function GhostShape({
       );
     }
     case 'ramp': {
-      // Approximate the wedge silhouette with a tilted box for the ghost —
-      // matches the placed mesh's rough footprint without recomputing the
-      // ExtrudeGeometry on every cursor move.
+      // Real wedge silhouette — same cached geometry as the placed mesh,
+      // wrapped in GhostMaterial. The triangular profile reads as a ramp
+      // immediately so the kid can see the slope direction at the cursor.
       return (
-        <mesh position={[0, RAMP_HEIGHT / 2, 0]} rotation={[0, rotY, 0]}>
-          <boxGeometry args={[RAMP_LENGTH, RAMP_HEIGHT, RAMP_WIDTH]} />
+        <mesh position={[0, 0, 0]} rotation={[0, rotY, 0]} geometry={getRampGeometry()}>
           <GhostMaterial />
         </mesh>
       );
