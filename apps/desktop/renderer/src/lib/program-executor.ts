@@ -15,7 +15,7 @@
  * real-sensor reads against the same interface.
  */
 
-import { getPose, setMotors, type BotPose } from '@/components/sim-playground/bot-drive';
+import { getPose, setMotors, hardStopBot, type BotPose } from '@/components/sim-playground/bot-drive';
 import {
   lengthToMeters, speedToMetersPerSec,
   type Condition, type Program, type ProgramBlock,
@@ -171,6 +171,7 @@ async function execBlock(block: ProgramBlock, botId: string, opts: ExecutorOptio
         const apply = () => writeSideMotors(botId, block.side, mps);
         apply();
         await delay(block.seconds * 1000, abortSignal, undefined, botId, apply);
+        hardStopBot(botId);
         break;
       }
       case 'motor.until': {
@@ -185,16 +186,14 @@ async function execBlock(block: ProgramBlock, botId: string, opts: ExecutorOptio
         // Tight poll (~one frame) so the bot stops within ~16 ms of the
         // condition firing — a kid would notice longer reaction lag.
         await delay(60_000, abortSignal, () => evaluateCondition(block.condition, ctx), botId, apply);
-        setMotors(botId, 0, 0);
+        hardStopBot(botId);
         break;
       }
       case 'turn': {
         // Pivot in place: opposite-direction motors. Positive degrees =
-        // CCW (left turn). Time to pivot = |angleRad| / pivotRate where
-        // pivotRate = 2 * mps / wheelBase. Tracks heading instead of
-        // wall-clock so the brake-early prediction works the same way
-        // as drive: stop spinning when remaining-rotation equals the
-        // angular coast distance the LPF will carry through.
+        // CCW (left turn). Hard-stop at the end so the next block starts
+        // from rest — without it the previous block's motor speeds leak
+        // in and the chassis spirals instead of pivoting cleanly.
         const mps = speedToMetersPerSec(block.speed, PROGRAM_MAX_SPEED);
         const dir = Math.sign(block.degrees) || 1;
         const apply = () => setMotors(botId, -dir * mps, dir * mps);
@@ -212,7 +211,7 @@ async function execBlock(block: ProgramBlock, botId: string, opts: ExecutorOptio
           },
           botId, apply,
         );
-        setMotors(botId, 0, 0);
+        hardStopBot(botId);
         break;
       }
       case 'drive': {
@@ -221,12 +220,9 @@ async function execBlock(block: ProgramBlock, botId: string, opts: ExecutorOptio
         const ox = pose.worldX, oz = pose.worldZ;
         const apply = () => setMotors(botId, mps, mps);
         apply();
-        // Brake early by exactly the coast distance the asymmetric motor
-        // LPF will carry the bot through after release, so the bot lands
-        // at target instead of sailing past it. Coast = v · τ_release
-        // (integral of an exponential decay), so we cut motors when
-        // travelled + coast >= target. Tau matches MOTOR_TAU_RELEASE in
-        // bot-drive.ts; if that ever moves, this constant tracks it.
+        // Brake early by the coast distance the LPF release would carry,
+        // then hard-stop so the bot lands cleanly at target with no
+        // leftover momentum bleeding into the next block.
         const COAST_TAU = 0.45;
         await delay(
           60_000, abortSignal,
@@ -237,11 +233,11 @@ async function execBlock(block: ProgramBlock, botId: string, opts: ExecutorOptio
           },
           botId, apply,
         );
-        setMotors(botId, 0, 0);
+        hardStopBot(botId);
         break;
       }
       case 'wait': {
-        setMotors(botId, 0, 0);
+        hardStopBot(botId);
         await delay(block.seconds * 1000, abortSignal, undefined, botId);
         break;
       }

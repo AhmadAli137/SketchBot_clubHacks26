@@ -358,8 +358,10 @@ function ArrowSegment({
       {dashed && (
         <DashTicks x0={startX} z0={startZ} dx={ux} dz={uz} length={ribbonLen} color={color} opacity={opacity} />
       )}
-      {/* Step number puck floating above the START of this segment. */}
-      <StepLabel x={startX} z={startZ} number={stepNumber} color={color} isActive={isActive} />
+      {/* Step number puck floats above the END of this segment — that's
+          where the action LANDS, which reads better as "step N happens
+          here" than parking it at the start. */}
+      <StepLabel x={headTipX} z={headTipZ} number={stepNumber} color={color} isActive={isActive} />
       {/* Distance label hovering above the ribbon midpoint. */}
       <Html position={[ribbonMidX, FLOOR_HEIGHT + 0.12, ribbonMidZ]} center distanceFactor={3}>
         <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
@@ -491,10 +493,19 @@ function TurnArc({
           depthWrite={false}
         />
       </mesh>
-      <StepLabel x={x} z={z} number={stepNumber} color={color} isActive={isActive} yOffset={0.04} />
-      <Html position={[(x + last.x) / 2, FLOOR_HEIGHT + 0.14, (z + last.z) / 2]} center distanceFactor={3}>
-        <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
-      </Html>
+      {/* Step number at the END of the arc — where the bot finishes
+          rotating. The degree label sits at the arc's midpoint, which
+          IS the angle, so the kid reads "this is the rotation, by N°". */}
+      <StepLabel x={last.x} z={last.z} number={stepNumber} color={color} isActive={isActive} yOffset={0.04} />
+      {(() => {
+        // Midpoint of the arc — the visual centroid of the rotation.
+        const mid = points[Math.floor(points.length / 2)];
+        return (
+          <Html position={[mid.x, FLOOR_HEIGHT + 0.05, mid.z]} center distanceFactor={3}>
+            <div className="program-overlay-arc-label" style={{ color: labelColor }}>{label}</div>
+          </Html>
+        );
+      })()}
     </group>
   );
 }
@@ -521,7 +532,9 @@ function PausePuck({
           depthWrite={false}
         />
       </mesh>
-      <StepLabel x={x} z={z} number={stepNumber} color={color} isActive={isActive} />
+      {/* Pause / stop sits at a single point so "end" and "start" are
+          the same — keep the step number above the puck. */}
+      <StepLabel x={x} z={z} number={stepNumber} color={color} isActive={isActive} yOffset={0.06} />
       <Html position={[x, FLOOR_HEIGHT + 0.13, z]} center distanceFactor={3}>
         <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
       </Html>

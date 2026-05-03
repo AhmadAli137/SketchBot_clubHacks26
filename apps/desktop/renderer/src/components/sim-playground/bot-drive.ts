@@ -98,6 +98,27 @@ export function setMotors(id: string, left: number, right: number): void {
   }
 }
 
+/** Hard-stop a single bot — zeros motor TARGETS, motor CURRENTS, and
+ *  the slip-velocity accumulator. Used by the program executor between
+ *  blocks so each step starts from rest, instead of inheriting the
+ *  previous block's residual momentum (which would, e.g., leave one
+ *  motor still coasting forward when a turn block begins, killing the
+ *  pivot rate). Bypasses the LPF release coast — the kid expects each
+ *  programmed step to be a discrete, reproducible action, not a real-
+ *  world chassis-with-inertia. */
+export function hardStopBot(id: string): void {
+  const p = livePoses.get(id);
+  if (p) {
+    p.motorTargetLeft = 0;
+    p.motorTargetRight = 0;
+    p.motorLeft = 0;
+    p.motorRight = 0;
+    p.driftLocalVX = 0;
+    p.driftLocalVZ = 0;
+    p.worldVY = 0;
+  }
+}
+
 export function stopAllMotors(): void {
   livePoses.forEach((p) => {
     p.motorTargetLeft = 0;
