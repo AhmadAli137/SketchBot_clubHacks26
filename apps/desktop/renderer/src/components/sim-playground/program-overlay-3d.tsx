@@ -674,32 +674,51 @@ function FloorStepLabel({
     return tex;
   }, [number]);
 
-  const radius = 0.06;
+  const radius = 0.075;
+  // Lift above the arc tube (radius 0.016 at FLOOR_HEIGHT) plus a small
+  // safety margin so the disc clearly sits ON TOP of the painted curve
+  // instead of being occluded mid-tube. A short translucent post anchors
+  // it visually to the floor without reading as a full upright stick.
+  const DISC_Y = FLOOR_HEIGHT + 0.030;
   return (
-    <group position={[x, FLOOR_HEIGHT + 0.0015, z]} rotation={[-Math.PI / 2, 0, yaw]}>
-      {/* Colored emissive ring — matches the segment's stripe color. */}
-      <mesh>
-        <ringGeometry args={[radius * 0.78, radius, 28]} />
+    <group position={[x, 0, z]}>
+      {/* Short translucent post connecting floor to disc — keeps the
+          floor-anchored feel while pulling the disc clear of the tube. */}
+      <mesh position={[0, DISC_Y / 2 + FLOOR_HEIGHT / 2, 0]}>
+        <cylinderGeometry args={[0.0025, 0.0025, DISC_Y - FLOOR_HEIGHT, 6]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={isActive ? 1.4 : 0.95}
+          emissiveIntensity={0.55}
           transparent
-          opacity={0.98}
-          side={THREE.DoubleSide}
-          depthWrite={false}
+          opacity={0.55}
         />
       </mesh>
-      {/* White inner fill — backdrop for the digit. */}
-      <mesh position={[0, 0, 0.0006]}>
-        <circleGeometry args={[radius * 0.78, 28]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.97} side={THREE.DoubleSide} depthWrite={false} />
-      </mesh>
-      {/* Number painted via canvas texture so we don't load a 3D font. */}
-      <mesh position={[0, 0, 0.0012]}>
-        <planeGeometry args={[radius * 1.55, radius * 1.55]} />
-        <meshBasicMaterial map={numberTexture} transparent depthWrite={false} side={THREE.DoubleSide} />
-      </mesh>
+      <group position={[0, DISC_Y, 0]} rotation={[-Math.PI / 2, 0, yaw]}>
+        {/* Colored emissive ring — matches the segment's stripe color. */}
+        <mesh>
+          <ringGeometry args={[radius * 0.80, radius, 28]} />
+          <meshStandardMaterial
+            color={color}
+            emissive={color}
+            emissiveIntensity={isActive ? 1.7 : 1.15}
+            transparent
+            opacity={0.99}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
+        {/* White inner fill — backdrop for the digit. */}
+        <mesh position={[0, 0, 0.0006]}>
+          <circleGeometry args={[radius * 0.80, 28]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.98} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+        {/* Number painted via canvas texture so we don't load a 3D font. */}
+        <mesh position={[0, 0, 0.0012]}>
+          <planeGeometry args={[radius * 1.6, radius * 1.6]} />
+          <meshBasicMaterial map={numberTexture} transparent depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
     </group>
   );
 }
