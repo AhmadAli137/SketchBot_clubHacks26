@@ -16258,6 +16258,43 @@ select.block-param-input{width:auto;padding-right:20px}
   background: rgba(60, 20, 28, 0.6);
 }
 
+/* 3D scene overlays for the program preview — labels and step numbers
+   that float over the bot's predicted path. Rendered via drei's <Html>
+   so they don't require a 3D font (which would suspend the canvas). */
+.program-overlay-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(8, 14, 30, 0.85);
+  border: 1px solid rgba(93, 228, 255, 0.30);
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.program-overlay-step {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #0a0d18;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(0, 0, 0, 0.20);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.30);
+  pointer-events: none;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.program-overlay-step.is-active {
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(93, 228, 255, 0.85), 0 0 12px rgba(93, 228, 255, 0.65);
+}
+
 /* Floating program strip — anchored to the top-right of the simulator
    pane (opposite the BotController at bottom-right) so the kid sees the
    sequence the tutor is building while keeping eyes on the 3D bot. */

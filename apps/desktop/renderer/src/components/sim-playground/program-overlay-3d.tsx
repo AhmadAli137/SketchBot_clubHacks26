@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { Text } from '@react-three/drei';
+import { Html } from '@react-three/drei';
 
 import { subscribeProgram } from '@/lib/program-store';
 import { simulateTrajectory, type TrajectorySegment } from '@/lib/program-trajectory';
@@ -213,18 +213,12 @@ function ArrowSegment({
       {dashed && <DashTicks x0={x0} z0={z0} dx={dx / length} dz={dz / length} length={length} color={color} opacity={opacity} />}
       {/* Step number puck floating just above the start, billboarded */}
       <StepLabel x={x0} z={z0} number={stepNumber} color={color} isActive={isActive} />
-      {/* Sub-label ("12 in") near the midpoint */}
-      <Text
-        position={[midX, HOVER_HEIGHT + 0.07, midZ]}
-        fontSize={0.038}
-        color={labelColor}
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.003}
-        outlineColor="#0a0d18"
-      >
-        {label}
-      </Text>
+      {/* Sub-label ("12 in") near the midpoint, rendered as an HTML
+          overlay so we don't need to load a 3D font (which can suspend
+          the whole canvas). */}
+      <Html position={[midX, HOVER_HEIGHT + 0.10, midZ]} center distanceFactor={3}>
+        <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
+      </Html>
     </group>
   );
 }
@@ -308,17 +302,9 @@ function TurnArc({
         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={isActive ? 0.95 : 0.55} transparent opacity={opacity} />
       </mesh>
       <StepLabel x={x} z={z} number={stepNumber} color={color} isActive={isActive} yOffset={0.04} />
-      <Text
-        position={[(x + last.x) / 2, HOVER_HEIGHT + 0.09, (z + last.z) / 2]}
-        fontSize={0.038}
-        color={labelColor}
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.003}
-        outlineColor="#0a0d18"
-      >
-        {label}
-      </Text>
+      <Html position={[(x + last.x) / 2, HOVER_HEIGHT + 0.12, (z + last.z) / 2]} center distanceFactor={3}>
+        <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
+      </Html>
     </group>
   );
 }
@@ -338,17 +324,9 @@ function PausePuck({
         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={isActive ? 0.9 : 0.5} transparent opacity={opacity} side={THREE.DoubleSide} />
       </mesh>
       <StepLabel x={x} z={z} number={stepNumber} color={color} isActive={isActive} />
-      <Text
-        position={[x, HOVER_HEIGHT + 0.10, z]}
-        fontSize={0.04}
-        color={labelColor}
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.003}
-        outlineColor="#0a0d18"
-      >
-        {label}
-      </Text>
+      <Html position={[x, HOVER_HEIGHT + 0.13, z]} center distanceFactor={3}>
+        <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
+      </Html>
     </group>
   );
 }
@@ -360,23 +338,25 @@ function StepLabel({
 }: {
   x: number; z: number; number: number; color: string; isActive: boolean; yOffset?: number;
 }) {
+  // Number rendered as an HTML overlay so we don't pull in a 3D font.
+  // The colored disc is still a real 3D mesh so it sits in-scene with
+  // proper depth + lighting.
   return (
-    <group position={[x, HOVER_HEIGHT + 0.13 + yOffset, z]}>
+    <group position={[x, HOVER_HEIGHT + 0.18 + yOffset, z]}>
       <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.035, 24]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={isActive ? 1.0 : 0.6} transparent opacity={0.95} />
+        <circleGeometry args={[0.04, 24]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={isActive ? 1.0 : 0.6}
+          transparent
+          opacity={0.95}
+          side={THREE.DoubleSide}
+        />
       </mesh>
-      <Text
-        position={[0, 0.001, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.045}
-        color="#0a0d18"
-        anchorX="center"
-        anchorY="middle"
-        fontWeight={800}
-      >
-        {String(number)}
-      </Text>
+      <Html position={[0, 0.002, 0]} center distanceFactor={3}>
+        <div className={`program-overlay-step${isActive ? ' is-active' : ''}`}>{number}</div>
+      </Html>
     </group>
   );
 }
