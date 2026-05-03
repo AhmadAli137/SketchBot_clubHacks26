@@ -494,16 +494,26 @@ function TurnArc({
         />
       </mesh>
       {/* Step number at the END of the arc — where the bot finishes
-          rotating. The degree label sits at the arc's midpoint, which
-          IS the angle, so the kid reads "this is the rotation, by N°". */}
+          rotating. The degree label is painted FLAT on the floor at
+          the arc midpoint so it reads as part of the path, not a
+          floating sticker. */}
       <StepLabel x={last.x} z={last.z} number={stepNumber} color={color} isActive={isActive} yOffset={0.04} />
       {(() => {
-        // Midpoint of the arc — the visual centroid of the rotation.
-        const mid = points[Math.floor(points.length / 2)];
+        const midIdx = Math.floor(points.length / 2);
+        const mid = points[midIdx];
+        // Tangent yaw at midpoint — orient the label so it reads along
+        // the arc's direction of travel rather than at a random angle.
+        const before = points[Math.max(0, midIdx - 1)];
+        const after  = points[Math.min(points.length - 1, midIdx + 1)];
+        const tangentYaw = Math.atan2(-(after.z - before.z), after.x - before.x);
         return (
-          <Html position={[mid.x, FLOOR_HEIGHT + 0.05, mid.z]} center distanceFactor={3}>
-            <div className="program-overlay-arc-label" style={{ color: labelColor }}>{label}</div>
-          </Html>
+          <FloorLabel
+            text={label}
+            x={mid.x}
+            z={mid.z}
+            yaw={tangentYaw}
+            color={labelColor}
+          />
         );
       })()}
     </group>
@@ -576,5 +586,53 @@ function StepLabel({
         <div className={`program-overlay-step${isActive ? ' is-active' : ''}`}>{number}</div>
       </Html>
     </group>
+  );
+}
+
+// ─── Floor label — text painted FLAT on the floor ────────────────────────
+// Used for the angle measurement on a turn arc (and any future "this is
+// part of the painted path" labels). Renders as a CanvasTexture on a
+// horizontal plane so the text reads as if drawn on the ground, not as
+// a camera-facing UI sticker. Yaw orients the text along the arc tangent
+// so it reads in the direction of travel.
+
+function FloorLabel({
+  text, x, z, yaw, color, size = 0.16,
+}: {
+  text: string; x: number; z: number; yaw: number; color: string; size?: number;
+}) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    const W = 256, H = 128;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = '900 88px "JetBrains Mono", "Fira Code", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Heavy black outline so the value stays legible over the grid floor
+    // and the painted ribbons regardless of camera angle.
+    ctx.lineWidth = 12;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.92)';
+    ctx.strokeText(text, W / 2, H / 2);
+    ctx.fillStyle = color;
+    ctx.fillText(text, W / 2, H / 2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return tex;
+  }, [text, color]);
+  // 256/128 = 2 aspect ratio; plane width=size*2, height=size.
+  return (
+    <mesh
+      position={[x, FLOOR_HEIGHT + 0.0012, z]}
+      rotation={[-Math.PI / 2, 0, -yaw]}
+    >
+      <planeGeometry args={[size * 2, size]} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
   );
 }
