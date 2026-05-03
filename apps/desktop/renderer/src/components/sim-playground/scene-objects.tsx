@@ -443,11 +443,14 @@ function StudioLightObject({ x, y, z }: { x: number; y: number; z: number }) {
 }
 
 function BotObject({ x, y, z, rotY, variant = 'standard' }: { x: number; y: number; z: number; rotY: number; variant?: 'standard' | 'sumo' }) {
-  const isSumo = variant === 'sumo';
-  const bodyColor    = isSumo ? '#cc1818' : '#3a4d8a';
-  const accentColor  = isSumo ? '#ffaa00' : '#5de4ff';
-  const radius       = isSumo ? 0.13     : 0.10;
-  const height       = isSumo ? 0.10     : 0.09;
+  if (variant === 'standard') {
+    return <SparkMiniBot x={x} y={y} z={z} rotY={rotY} />;
+  }
+  // Sumo variant — keeps the chunky combat-style cylinder. Targeted refresh later.
+  const bodyColor   = '#cc1818';
+  const accentColor = '#ffaa00';
+  const radius      = 0.13;
+  const height      = 0.10;
   return (
     <group position={[x, y, z]} rotation={[0, rotY, 0]}>
       <mesh position={[0, height / 2 + 0.01, 0]} castShadow>
@@ -461,6 +464,141 @@ function BotObject({ x, y, z, rotY, variant = 'standard' }: { x: number; y: numb
       <mesh position={[radius * 0.55, height / 2 + 0.01, 0]} castShadow>
         <boxGeometry args={[radius * 0.4, 0.025, radius * 0.5]} />
         <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={0.5} />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Spark Mini — the standard sandbox bot. Modeled as a basic Arduino-car
+ * chassis: white plate body, two motorized drive wheels on the sides,
+ * a passive caster ball at the front-center, an HC-SR04-style ultrasonic
+ * sensor housed at the bow, and a small OLED panel on top that wears the
+ * Spark face (cyan eyes, smile) and blinks periodically. Local +X is
+ * "forward" — same convention as the other bots in this scene.
+ */
+function SparkMiniBot({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
+  const leftEyeRef  = useRef<THREE.Mesh>(null);
+  const rightEyeRef = useRef<THREE.Mesh>(null);
+
+  // Periodic blink — squash the eyes vertically every 3.4s for ~120ms.
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const phase = t % 3.4;
+    const blinking = phase < 0.12;
+    const sy = blinking ? 0.12 : 1;
+    if (leftEyeRef.current)  leftEyeRef.current.scale.y  = sy;
+    if (rightEyeRef.current) rightEyeRef.current.scale.y = sy;
+  });
+
+  // Chassis dimensions
+  const W = 0.22;   // along X (forward depth)
+  const D = 0.18;   // along Z (side-to-side)
+  const H = 0.05;   // chassis thickness
+  const wheelR = 0.045;
+  const wheelT = 0.022;
+  // Wheel axle is slightly behind center so the caster carries the front
+  const wheelX = -0.025;
+  // Floor of chassis sits just above the wheel bottom so the wheels show
+  const baseY = wheelR - H / 2 + 0.005;
+
+  return (
+    <group position={[x, y, z]} rotation={[0, rotY, 0]}>
+      {/* ── Chassis plate ── */}
+      <mesh position={[0, baseY, 0]} castShadow receiveShadow>
+        <boxGeometry args={[W, H, D]} />
+        <meshStandardMaterial color="#f5f6fa" roughness={0.38} metalness={0.1} />
+      </mesh>
+      {/* Side accent strips (Spark cyan), one per side */}
+      <mesh position={[0, baseY + H / 2 + 0.0005, D / 2 + 0.0001]}>
+        <boxGeometry args={[W * 0.86, 0.006, 0.001]} />
+        <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.9} />
+      </mesh>
+      <mesh position={[0, baseY + H / 2 + 0.0005, -D / 2 - 0.0001]}>
+        <boxGeometry args={[W * 0.86, 0.006, 0.001]} />
+        <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.9} />
+      </mesh>
+
+      {/* ── Drive wheels (left + right) ── */}
+      {[D / 2 + wheelT / 2 + 0.002, -(D / 2 + wheelT / 2 + 0.002)].map((zPos, i) => (
+        <group key={i} position={[wheelX, wheelR, zPos]}>
+          {/* Tire */}
+          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[wheelR, wheelR, wheelT, 28]} />
+            <meshStandardMaterial color="#15151b" roughness={0.92} metalness={0.05} />
+          </mesh>
+          {/* Hub cap — cyan glow so the wheels read as "powered" */}
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
+            <cylinderGeometry args={[wheelR * 0.45, wheelR * 0.45, 0.004, 18]} />
+            <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.6} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* ── Front caster ball bearing ── */}
+      <mesh position={[W / 2 - 0.025, 0.018, 0]} castShadow>
+        <sphereGeometry args={[0.018, 18, 14]} />
+        <meshStandardMaterial color="#1f2330" roughness={0.25} metalness={0.85} />
+      </mesh>
+      {/* Caster bracket plate so the ball doesn't look like it's floating */}
+      <mesh position={[W / 2 - 0.025, baseY - H / 2 - 0.005, 0]}>
+        <boxGeometry args={[0.04, 0.01, 0.04]} />
+        <meshStandardMaterial color="#2a2f3e" roughness={0.6} metalness={0.5} />
+      </mesh>
+
+      {/* ── HC-SR04 ultrasonic sensor at the bow ── */}
+      <group position={[W / 2 - 0.005, baseY + H / 2 + 0.022, 0]}>
+        {/* Sensor PCB */}
+        <mesh castShadow>
+          <boxGeometry args={[0.022, 0.04, 0.10]} />
+          <meshStandardMaterial color="#1f3a25" roughness={0.65} metalness={0.25} />
+        </mesh>
+        {/* Two transducer "eyes" — silver cylinders facing forward */}
+        {[0.024, -0.024].map((zPos, i) => (
+          <mesh key={i} position={[0.014, 0, zPos]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.013, 0.013, 0.008, 18]} />
+            <meshStandardMaterial color="#c8c8cf" roughness={0.35} metalness={0.85} />
+          </mesh>
+        ))}
+        {/* Tiny PCB crystal between the transducers — adds detail */}
+        <mesh position={[0.012, 0, 0]}>
+          <boxGeometry args={[0.005, 0.006, 0.014]} />
+          <meshStandardMaterial color="#888888" roughness={0.4} metalness={0.7} />
+        </mesh>
+      </group>
+
+      {/* ── OLED face panel — top of chassis, slightly tilted for visibility ── */}
+      <group position={[-0.005, baseY + H / 2 + 0.012, 0]} rotation={[-Math.PI / 9, 0, 0]}>
+        {/* Bezel */}
+        <mesh castShadow>
+          <boxGeometry args={[0.075, 0.005, 0.13]} />
+          <meshStandardMaterial color="#0a0c14" roughness={0.7} metalness={0.4} />
+        </mesh>
+        {/* Active screen — emissive black so the painted face glows */}
+        <mesh position={[0, 0.0028, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.115, 0.062]} />
+          <meshStandardMaterial color="#03060c" emissive="#0a1530" emissiveIntensity={0.3} roughness={0.5} />
+        </mesh>
+        {/* Eyes — cyan, scaled vertically by useFrame for blinks */}
+        <mesh ref={leftEyeRef}  position={[-0.018, 0.0030, -0.024]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.011, 18]} />
+          <meshStandardMaterial color="#a3f3ff" emissive="#5de4ff" emissiveIntensity={2.4} />
+        </mesh>
+        <mesh ref={rightEyeRef} position={[-0.018, 0.0030, 0.024]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.011, 18]} />
+          <meshStandardMaterial color="#a3f3ff" emissive="#5de4ff" emissiveIntensity={2.4} />
+        </mesh>
+        {/* Smile — thin curved arc made from a flat ring segment */}
+        <mesh position={[0.020, 0.0030, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
+          <ringGeometry args={[0.018, 0.022, 22, 1, Math.PI * 0.18, Math.PI * 0.64]} />
+          <meshStandardMaterial color="#a3f3ff" emissive="#5de4ff" emissiveIntensity={2.0} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+
+      {/* ── Tiny "power" LED on the back, for cuteness ── */}
+      <mesh position={[-W / 2 + 0.012, baseY + H / 2 + 0.001, 0]}>
+        <sphereGeometry args={[0.005, 10, 8]} />
+        <meshStandardMaterial color="#7affae" emissive="#7affae" emissiveIntensity={2.2} />
       </mesh>
     </group>
   );
