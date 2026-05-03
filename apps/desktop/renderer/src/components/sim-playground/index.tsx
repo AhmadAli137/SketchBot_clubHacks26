@@ -168,7 +168,12 @@ export function SimPlayground({
     const snapped = maybeSnapForType(activeTool.type, gx, gz);
     const obj = makeObjectFromTool(activeTool, snapped.gx, snapped.gz);
     obj.rotY = rotY;
-    updateObjects([...sceneObjects, obj]);
+    // Start markers are unique — placing a new one replaces any existing
+    // one so the program always anchors to a single, unambiguous origin.
+    const filtered = obj.type === 'start'
+      ? sceneObjects.filter((o) => o.type !== 'start')
+      : sceneObjects;
+    updateObjects([...filtered, obj]);
     setSelectedObjectId(obj.id);
     emitSparkEvent('user.place', { tool: activeTool.id });
   };

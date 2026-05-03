@@ -21,6 +21,7 @@ export type SceneObjectType =
   | 'sphere'
   | 'cylinder'
   | 'waypoint'
+  | 'start'
   | 'apriltag'
   | 'bot'
   | 'mat'
@@ -72,6 +73,7 @@ export const TOOLS: ToolDef[] = [
   { id: 'cone',         type: 'cone',     label: 'Cone',     emoji: '🚧', category: 'obstacles', description: 'Traffic cone obstacle' },
   { id: 'sphere',       type: 'sphere',   label: 'Sphere',   emoji: '⚪', category: 'obstacles', description: 'Round obstacle' },
   { id: 'cylinder',     type: 'cylinder', label: 'Cylinder', emoji: '🥫', category: 'obstacles', description: 'Pillar obstacle' },
+  { id: 'start',        type: 'start',    label: 'Start',    emoji: '🚦', category: 'markers',   description: 'Where the program starts — only one per scene', defaultColor: '#22c55e' },
   { id: 'waypoint',     type: 'waypoint', label: 'Waypoint', emoji: '📍', category: 'markers',   description: 'Glowing checkpoint', defaultColor: '#4dffb8' },
   { id: 'apriltag',     type: 'apriltag', label: 'AprilTag', emoji: '🏷️', category: 'markers',   description: 'Localization marker' },
   { id: 'bot-standard', type: 'bot',      label: 'Bot',      emoji: '🤖', category: 'bots',      description: 'Standard SketchBot', botVariant: 'standard' },
@@ -140,6 +142,7 @@ export function rotationStepsForType(type: SceneObjectType): 1 | 2 | 4 {
   switch (type) {
     case 'bot':
     case 'apriltag':
+    case 'start':        // start marker carries the bot's launch heading
     case 'ramp':         // ramps need full 4-way orientation (low end can face any cardinal direction)
       return 4;
     case 'wall':
@@ -315,6 +318,7 @@ const TYPE_COLORS: Record<SceneObjectType, string> = {
   sphere:         '#a855f7',
   cylinder:       '#cccccc',
   waypoint:       '#4dffb8',
+  start:          '#22c55e',
   apriltag:       '#f5f0e6',
   bot:            '#5de4ff',
   mat:            '#a855f7',

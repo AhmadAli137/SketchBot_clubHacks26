@@ -616,10 +616,13 @@ function SceneContent({
       )}
 
       {/* Program preview — numbered arrows / arcs / pause pucks chained
-          from the active bot's pose. Anchors to the first bot in the
-          scene; auto-disappears when the program is empty. */}
+          from the program origin. Prefers a placed Start marker when the
+          kid has dropped one (so the preview is anchored regardless of
+          where the bot has drifted to); falls back to the bot's current
+          pose. Auto-disappears when the program is empty. */}
       <ProgramOverlay3D
         activeBotId={sceneObjects.find((o) => o.type === 'bot')?.id ?? null}
+        startObject={sceneObjects.find((o) => o.type === 'start') ?? null}
       />
 
       {/* Ghost cursor preview while a tool is active.

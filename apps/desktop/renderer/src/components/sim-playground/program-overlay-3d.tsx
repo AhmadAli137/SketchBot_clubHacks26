@@ -21,12 +21,17 @@ import { subscribeProgram } from '@/lib/program-store';
 import { simulateTrajectory, type TrajectorySegment } from '@/lib/program-trajectory';
 import { type Program } from '@/lib/program-schema';
 import { onSparkEvent } from '@/lib/spark-events';
+import { gridToWorldRendered, type SceneObject } from '@/lib/scene-builder';
 import { getPose } from './bot-drive';
 
 type Props = {
-  /** The bot id whose pose anchors the program preview. Usually the
-   *  first bot in the scene. Null suppresses the overlay. */
+  /** The bot id whose pose anchors the program preview when no Start
+   *  marker has been placed. Usually the first bot in the scene. */
   activeBotId: string | null;
+  /** Placed Start marker — when present, takes precedence over the bot
+   *  pose so the preview is locked to a fixed launch point regardless
+   *  of how the bot has drifted around. */
+  startObject?: SceneObject | null;
 };
 
 // Painted-on-floor aesthetic — arrows sit just above the ground so
@@ -50,7 +55,7 @@ const COLOR_BY_KIND: Record<string, string> = {
   if:           '#06b6d4',
 };
 
-export function ProgramOverlay3D({ activeBotId }: Props) {
+export function ProgramOverlay3D({ activeBotId, startObject }: Props) {
   const [program, setProgram] = useState<Program>({ id: 'p-default', blocks: [] });
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   // Re-anchor when the bot pose drifts more than 1 cm or rotates more
@@ -76,8 +81,11 @@ export function ProgramOverlay3D({ activeBotId }: Props) {
     });
   }, []);
 
-  // Watch the bot's pose so the preview chain re-anchors as it moves.
+  // Watch the bot's pose so the preview chain re-anchors as it moves —
+  // only relevant when there's no Start marker. With a Start, the
+  // trajectory anchor is fixed to the marker's grid position.
   useFrame(() => {
+    if (startObject) return;          // start marker takes precedence; no need to poll bot
     if (!activeBotId) return;
     const pose = getPose(activeBotId);
     if (!pose) return;
@@ -91,7 +99,14 @@ export function ProgramOverlay3D({ activeBotId }: Props) {
   });
 
   const segments = useMemo<TrajectorySegment[]>(() => {
-    if (!activeBotId || program.blocks.length === 0) return [];
+    if (program.blocks.length === 0) return [];
+    // Anchor preference: placed Start marker → bot pose → nothing.
+    if (startObject) {
+      const { x, z } = gridToWorldRendered(startObject);
+      const heading = startObject.headingRad ?? ((startObject.rotY ?? 0) * Math.PI) / 2;
+      return simulateTrajectory(program, { x, z, heading });
+    }
+    if (!activeBotId) return [];
     const pose = getPose(activeBotId);
     if (!pose) return [];
     return simulateTrajectory(program, {
@@ -101,9 +116,9 @@ export function ProgramOverlay3D({ activeBotId }: Props) {
     // it in deps even though it isn't read inside — the dependency itself
     // is the trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [program, activeBotId, anchorTick]);
+  }, [program, activeBotId, anchorTick, startObject]);
 
-  if (!activeBotId || segments.length === 0) return null;
+  if (segments.length === 0) return null;
 
   return (
     <group>

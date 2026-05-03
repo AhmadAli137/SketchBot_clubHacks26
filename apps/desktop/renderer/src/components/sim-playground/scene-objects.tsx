@@ -449,6 +449,89 @@ function WaypointObject({ x, y, z, color = '#4dffb8' }: { x: number; y: number; 
   );
 }
 
+/** Start marker — a green ring on the floor with a forward-pointing
+ *  chevron arrow that anchors a voice-built program. Always rendered
+ *  flat on the ground so it reads as "the bot launches from here facing
+ *  THIS way", and the program-overlay arrows chain forward from the
+ *  same pose. Rotates with rotY so the kid can aim the bot's start
+ *  heading by rotating the marker. */
+function StartMarkerObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
+  const ringRef = useRef<THREE.Mesh>(null);
+  // Subtle pulse so the start reads as "active anchor", not as a static prop.
+  useFrame(({ clock }) => {
+    if (!ringRef.current) return;
+    const mat = ringRef.current.material as THREE.MeshStandardMaterial;
+    mat.emissiveIntensity = 0.85 + Math.sin(clock.elapsedTime * 2.2) * 0.30;
+  });
+  // Chevron arrow geometry — built once. Two triangles forming a ">" shape
+  // on the floor pointing along the marker's local +X (= forward).
+  const chevronGeom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const verts = new Float32Array([
+      // tip
+      0.16, 0, 0,
+      // upper inner
+      0.04, 0,  0.06,
+      // upper outer
+      0.04, 0,  0.10,
+      // tip (repeat for second triangle)
+      0.16, 0, 0,
+      // lower outer
+      0.04, 0, -0.10,
+      // lower inner
+      0.04, 0, -0.06,
+    ]);
+    g.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+    g.setIndex([0, 1, 2, 3, 4, 5]);
+    g.computeVertexNormals();
+    return g;
+  }, []);
+  return (
+    <group position={[x, y, z]} rotation={[0, rotY, 0]}>
+      {/* Ring on the floor */}
+      <mesh ref={ringRef} position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.16, 0.20, 32]} />
+        <meshStandardMaterial
+          color="#22c55e"
+          emissive="#22c55e"
+          emissiveIntensity={0.85}
+          transparent
+          opacity={0.95}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Inner filled disc — fainter, anchors the eye to the spot */}
+      <mesh position={[0, 0.004, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.16, 32]} />
+        <meshStandardMaterial
+          color="#22c55e"
+          emissive="#22c55e"
+          emissiveIntensity={0.18}
+          transparent
+          opacity={0.20}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Forward-pointing chevron — sits inside the ring, indicates heading */}
+      <mesh position={[0, 0.008, 0]} geometry={chevronGeom}>
+        <meshStandardMaterial
+          color="#ffffff"
+          emissive="#22c55e"
+          emissiveIntensity={1.2}
+          transparent
+          opacity={0.95}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Soft green glow above the ring */}
+      <pointLight position={[0, 0.10, 0]} color="#22c55e" intensity={0.45} distance={0.9} />
+    </group>
+  );
+}
+
 /** Pre-baked tag36h11-style 6×6 inner pattern. Procedural enough to read
  *  as a real AprilTag from above. The 1-cell black border is added by the
  *  texture generator; this string only describes the data area. */
@@ -1164,6 +1247,19 @@ function GhostShape({
           </mesh>
         </group>
       );
+    case 'start':
+      return (
+        <group rotation={[0, rotY, 0]}>
+          <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.16, 0.20, 32]} />
+            <GhostMaterial color="#22c55e" />
+          </mesh>
+          <mesh position={[0.10, 0.008, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.10, 0.025]} />
+            <GhostMaterial color="#22c55e" />
+          </mesh>
+        </group>
+      );
     case 'apriltag':
       return (
         <mesh position={[0, 0.002, 0]} rotation={[-Math.PI / 2, 0, rotY]}>
@@ -1299,6 +1395,7 @@ function PlacedObjectMesh({ obj }: { obj: SceneObject }) {
     case 'sphere':   return <SphereObject id={obj.id} x={x} y={y} z={z} color={obj.color} />;
     case 'cylinder': return <CylinderObject id={obj.id} x={x} y={y} z={z} color={obj.color} />;
     case 'waypoint': return <WaypointObject x={x} y={y} z={z} color={obj.color} />;
+    case 'start':    return <StartMarkerObject x={x} y={y} z={z} rotY={obj.headingRad ?? rotY} />;
     case 'apriltag': return <AprilTagObject x={x} y={y} z={z} rotY={rotY} />;
     case 'bot':      return <BotObject id={obj.id} x={x} y={y} z={z} rotY={obj.headingRad ?? rotY} variant={obj.botVariant} />;
     case 'mat':      return <MatObject x={x} y={y} z={z} rotY={rotY} color={obj.color} />;

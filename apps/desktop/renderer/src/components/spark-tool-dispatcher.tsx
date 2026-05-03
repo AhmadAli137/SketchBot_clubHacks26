@@ -20,7 +20,8 @@ import {
   type SparkToolRequest,
   type SparkToolResult,
 } from '@/lib/spark-tools';
-import { type SceneObject, GRID_SIZE, newSceneObjectId } from '@/lib/scene-builder';
+import { type SceneObject, GRID_SIZE, gridToWorldRendered, newSceneObjectId } from '@/lib/scene-builder';
+import { syncPoseToPlacement } from '@/components/sim-playground/bot-drive';
 import { awardXP } from '@/lib/progress-store';
 import { emitSparkEvent } from '@/lib/spark-events';
 import { recordInterjection, markInterjectionOutcome } from '@/lib/spark-memory';
@@ -144,6 +145,17 @@ export function SparkToolDispatcher({
         if (!botId) return { ok: false, message: 'no active bot to run the program' };
         const program = getProgram();
         if (program.blocks.length === 0) return { ok: false, message: 'program is empty' };
+        // Snap the bot to the placed Start marker (if any) BEFORE the
+        // executor begins, so each run launches from the same anchored
+        // pose. Without this, repeated runs would chain off the bot's
+        // previous final position and the visual preview would lie about
+        // where the bot actually goes.
+        const start = sceneRef.current.find((o) => o.type === 'start');
+        if (start) {
+          const { x, z } = gridToWorldRendered(start);
+          const heading = start.headingRad ?? ((start.rotY ?? 0) * Math.PI) / 2;
+          syncPoseToPlacement(botId, x, z, heading);
+        }
         // Stop any currently-running program before starting a new one.
         runningRef.current?.abort.abort();
         const abort = new AbortController();
