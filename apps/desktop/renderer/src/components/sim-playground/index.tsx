@@ -581,16 +581,19 @@ export function SimPlayground({
                     : '💡 Pick a tool · click an object to select')
                 : '💡 Drag to spin · scroll to zoom'}
             </div>
-            {/* Bot controller — appears whenever a bot is in the scene.
-                Hidden during active tool placement so it doesn't get in the
-                way of placing more objects, and during drag so the kid can
-                wrestle objects without accidentally driving them. */}
-            {!activeTool && !draggedObjectId && (
-              <BotController
-                sceneObjects={sceneObjects}
-                onUpdateObjects={updateObjects}
-              />
-            )}
+            {/* Bot controller — stays mounted whenever any bot is in the
+                scene so it can't blink in/out from incidental state churn.
+                Selecting a bot in the scene routes the controller to that
+                bot via selectedBotId. */}
+            <BotController
+              sceneObjects={sceneObjects}
+              onUpdateObjects={updateObjects}
+              selectedBotId={
+                selectedObject && selectedObject.type === 'bot'
+                  ? selectedObject.id
+                  : null
+              }
+            />
 
             {/* Builder rail overlay (sandbox only) */}
             {builderEnabled && (

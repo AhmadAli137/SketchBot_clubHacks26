@@ -23,6 +23,9 @@ import { ensurePose, getPose, integrateBotPose, setMotors, stopAllMotors } from 
 type BotControllerProps = {
   sceneObjects: SceneObject[];
   onUpdateObjects: (next: SceneObject[]) => void;
+  /** Bot the user just clicked in the scene — when set, the controller
+   *  switches to driving that bot and auto-expands if collapsed. */
+  selectedBotId?: string | null;
 };
 
 /** Linear speed of one motor at full throttle (m/s). */
@@ -41,7 +44,7 @@ function botLabel(o: SceneObject, idx: number): string {
   return `${base} #${idx + 1}`;
 }
 
-export function BotController({ sceneObjects, onUpdateObjects }: BotControllerProps) {
+export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: BotControllerProps) {
   const bots = useMemo(
     () => sceneObjects.filter((o) => o.type === 'bot'),
     [sceneObjects],
@@ -63,6 +66,15 @@ export function BotController({ sceneObjects, onUpdateObjects }: BotControllerPr
       setActiveBotId(bots[0].id);
     }
   }, [bots, activeBotId]);
+
+  // Click-to-control: when the parent reports the user just selected a
+  // bot in the scene, route the controller to that bot and force-expand.
+  useEffect(() => {
+    if (!selectedBotId) return;
+    if (!bots.find((b) => b.id === selectedBotId)) return;
+    setActiveBotId(selectedBotId);
+    setCollapsed(false);
+  }, [selectedBotId, bots]);
 
   // Live ref so the rAF loop reads the latest scene without re-binding.
   const objectsRef = useRef(sceneObjects);
