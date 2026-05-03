@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Bell, Download, Lightbulb, Mic, MicOff, RefreshCw, RotateCcw, Send, Square, TrendingUp, Volume2, VolumeX, WifiOff, X, MessageSquare, Video } from 'lucide-react';
+import { ArrowRight, Bell, Download, Lightbulb, Mic, MicOff, RefreshCw, RotateCcw, Send, Sparkles, Square, TrendingUp, Volume2, VolumeX, WifiOff, X, MessageSquare, Video } from 'lucide-react';
 
 import { TutorFaceMode } from '@/components/tutor-face-mode';
 import { AGE_GROUP_META, LAYER_META, type AgeGroup, type ConceptLayer } from '@/lib/concept-types';
@@ -67,6 +67,11 @@ type TutorPanelProps = {
   sessionId?: string | null;
   /** Hide Academy-only affordances (Hint, Go Deeper, layer pills) in sandbox sessions. */
   isSandbox?: boolean;
+  /** True when the current user is a guest (no Supabase session). The chat
+   *  area shows a "sign in to chat with Spark" CTA instead of the input row. */
+  isGuest?: boolean;
+  /** Sends the user to the sign-in flow when they tap the guest CTA. */
+  onRequestSignIn?: () => void;
   /**
    * Build the situational-awareness context (rendered text) for tutor calls.
    * Provided by the parent because scene state lives there. The parent
@@ -1063,6 +1068,8 @@ export function TutorPanel({
   classroomRestrictions,
   sessionId = null,
   isSandbox = false,
+  isGuest = false,
+  onRequestSignIn,
   getContextText,
   getContextSignature,
 }: TutorPanelProps) {
@@ -2420,6 +2427,22 @@ export function TutorPanel({
           </div>
         );
       })()}
+      {isGuest ? (
+        <div className="tutor-guest-gate">
+          <Sparkles size={16} className="tutor-guest-gate-icon" aria-hidden />
+          <div className="tutor-guest-gate-copy">
+            <strong>Sign in to chat with Spark</strong>
+            <span>Sandbox is open to everyone, but the AI tutor needs an account.</span>
+          </div>
+          <button
+            type="button"
+            className="tutor-guest-gate-btn"
+            onClick={() => onRequestSignIn?.()}
+          >
+            Sign in
+          </button>
+        </div>
+      ) : (
       <div className="tutor-input-row">
         {/* Bell — prominent "look at me, Spark!" button next to the mic.
             Same size as the mic so it reads as primary, with a subtle
@@ -2502,6 +2525,7 @@ export function TutorPanel({
           <Send size={14} />
         </button>
       </div>
+      )}
     </div>
   );
 }

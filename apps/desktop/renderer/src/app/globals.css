@@ -4943,6 +4943,61 @@ body {
   gap: 10px;
 }
 
+/* Guest gate — replaces the input row when there's no Supabase session.
+   Visible message + sign-in CTA so the kid knows the tutor is gated, not
+   broken. Sandbox itself stays fully usable; only Spark's chat is locked. */
+.tutor-guest-gate {
+  margin: 10px 14px 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(93, 228, 255, 0.28);
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.08), rgba(168, 85, 247, 0.08));
+}
+.tutor-guest-gate-icon {
+  flex-shrink: 0;
+  color: #5de4ff;
+  filter: drop-shadow(0 0 6px rgba(93, 228, 255, 0.6));
+}
+.tutor-guest-gate-copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tutor-guest-gate-copy strong {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.tutor-guest-gate-copy span {
+  color: var(--muted);
+  font-size: 0.80rem;
+  line-height: 1.35;
+}
+.tutor-guest-gate-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(93, 228, 255, 0.5);
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.18), rgba(168, 85, 247, 0.18));
+  color: #5de4ff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s;
+}
+.tutor-guest-gate-btn:hover {
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.28), rgba(168, 85, 247, 0.28));
+  border-color: #5de4ff;
+}
+.tutor-guest-gate-btn:active { transform: scale(0.97); }
+
 .tutor-input {
   flex: 1;
   padding: 14px 16px;

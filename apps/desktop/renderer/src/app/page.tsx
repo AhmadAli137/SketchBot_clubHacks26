@@ -1402,6 +1402,7 @@ export default function HomePage() {
         setView('home');
       }}
       onChangeDifficulty={() => setShowDifficultyModal(true)}
+      onRequestSignIn={() => { setAuthMode('personal'); setView('auth'); }}
       operatorMode={operator.mock_mode ? 'Practice mode' : 'Live mode'}
       nextActionTitle={nextActionTitle}
       nextActionCopy={nextActionCopy}

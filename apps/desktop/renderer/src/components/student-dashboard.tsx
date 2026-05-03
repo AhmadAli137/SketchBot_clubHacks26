@@ -88,6 +88,7 @@ export function StudentDashboard({
   onConceptSelect,
   onBackToHome,
   onChangeDifficulty,
+  onRequestSignIn,
   onVideoMount,
   onActivateCompanionCamera,
   onActivateBrowserCamera,
@@ -998,6 +999,8 @@ export function StudentDashboard({
               classroomRestrictions={userRole === 'student' ? classroomRestrictions : undefined}
               sessionId={sessionId}
               isSandbox={appMode === 'sandbox'}
+              isGuest={userRole === 'guest'}
+              onRequestSignIn={onRequestSignIn}
               getContextText={(extras) => describeContextAsText(buildSparkContext({
                 sceneObjects,
                 mode: appMode === 'sandbox' ? 'sandbox' : 'concept',

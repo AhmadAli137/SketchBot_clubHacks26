@@ -68,6 +68,9 @@ export type StudentDashboardProps = {
   onConceptSelect?: (conceptId: string, conceptTitle: string) => void;
   onBackToHome?: () => void;
   onChangeDifficulty?: () => void;
+  /** Send the user to the sign-in flow — used by the tutor panel's
+   *  "Sign in to chat with Spark" CTA when the current session is a guest. */
+  onRequestSignIn?: () => void;
   onActivateCompanionCamera: () => void;
   onActivateBrowserCamera: () => void;
   onDeactivateCamera: () => void;
