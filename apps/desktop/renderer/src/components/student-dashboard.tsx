@@ -17,8 +17,9 @@ import { SimPlayground } from '@/components/sim-playground';
 import { type SceneObject, generateThumbnailSvg } from '@/lib/scene-builder';
 import { buildSparkContext, describeContextAsText } from '@/lib/spark-context';
 import { SparkToolDispatcher } from '@/components/spark-tool-dispatcher';
+import { ProgramView } from '@/components/program-view';
 import { getSession as getSavedSession, updateSession as updateSavedSessionRecord, SAVE_NOW_EVENT } from '@/lib/session-storage';
-import type { StudentDashboardProps } from '@/components/student-dashboard/types';
+import type { StudentDashboardProps, InteractionMode } from '@/components/student-dashboard/types';
 import type { AgeGroup, ConceptLayer, InputMode } from '@/lib/concept-types';
 import {
   awardBadge,
@@ -155,7 +156,7 @@ export function StudentDashboard({
   const difficultyLevel = studentName ? (getDifficultyLevel(studentName) ?? ageGroupProp) : ageGroupProp;
   const { entitlements, refresh: refreshEntitlements } = useEntitlements(userRole !== 'guest');
   const [paywallVisible, setPaywallVisible] = useState(false);
-  const [interactionMode, setInteractionMode] = useState<'rules' | 'blocks' | 'code' | 'arduino'>(
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>(
     difficultyLevel === 'explorer' ? 'rules' : difficultyLevel === 'engineer' ? 'arduino' : 'blocks',
   );
   const [codeGeneratedSvg, setCodeGeneratedSvg] = useState<string | null>(null);
@@ -456,11 +457,11 @@ export function StudentDashboard({
     onSubmitPrompt(event);
   };
 
-  const handleInteractionModeChange = (mode: 'rules' | 'blocks' | 'code' | 'arduino') => {
+  const handleInteractionModeChange = (mode: InteractionMode) => {
     setInteractionMode(mode);
     setPrimaryTab('programming');
     setBlockRunnerNotice(null);
-    if (mode !== 'rules' && mode !== 'arduino') trackInputMode(mode);
+    if (mode !== 'rules' && mode !== 'arduino' && mode !== 'intuition') trackInputMode(mode);
   };
 
   // Watch for newly generated SVG content. On the very first non-null value
@@ -573,6 +574,7 @@ export function StudentDashboard({
 
     return (
       <div className="workspace-programming">
+        <ProgramView />
         {blockRunnerNotice && (
           <div className="block-runner-notice" role="alert">
             <span>{blockRunnerNotice}</span>
@@ -1036,6 +1038,7 @@ export function StudentDashboard({
         sceneObjects={sceneObjects}
         onSceneObjectsChange={setSceneObjects}
         studentName={studentName}
+        getActiveBotId={() => sceneObjects.find((o) => o.type === 'bot')?.id ?? null}
       />
 
       {pendingTask && !lessonPlan && !isRobotChallenge && (

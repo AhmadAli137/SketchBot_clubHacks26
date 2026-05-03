@@ -7969,6 +7969,27 @@ select.block-param-input{width:auto;padding-right:20px}
   font-size: 0.8em;
 }
 
+/* Intuition tab — voice-first program builder. Subtle cyan/violet
+   gradient on the active state to set it apart as the natural-language
+   path next to the more code-y siblings. */
+.intuition-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.intuition-tab-icon {
+  font-size: 0.95em;
+  color: rgba(168, 85, 247, 0.95);
+}
+.learn-mode-tab.intuition-tab.active {
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.18), rgba(168, 85, 247, 0.16));
+  border-color: rgba(168, 85, 247, 0.50);
+}
+.learn-mode-tab.intuition-tab.active .intuition-tab-icon {
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.65);
+}
+
 /* ── Port row + footer ── */
 
 .ard-footer {
@@ -8364,6 +8385,24 @@ select.block-param-input{width:auto;padding-right:20px}
 }
 .bot-controller-btn:hover  { background: rgba(93, 228, 255, 0.16); border-color: rgba(93, 228, 255, 0.45); }
 .bot-controller-btn:active { background: rgba(93, 228, 255, 0.30); transform: scale(0.94); }
+.bot-controller-btn.is-pressed {
+  background: rgba(93, 228, 255, 0.34);
+  border-color: rgba(93, 228, 255, 0.70);
+  box-shadow: 0 0 0 1px rgba(93, 228, 255, 0.35), 0 0 12px rgba(93, 228, 255, 0.45);
+  transform: scale(0.94);
+}
+.bot-controller-btn { position: relative; }
+.bot-controller-key {
+  position: absolute;
+  bottom: 2px;
+  right: 3px;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: rgba(180, 220, 255, 0.55);
+  pointer-events: none;
+}
+.bot-controller-btn--stop .bot-controller-key { color: rgba(255, 170, 170, 0.55); }
 .bot-controller-btn--up    { grid-column: 2; grid-row: 1; }
 .bot-controller-btn--left  { grid-column: 1; grid-row: 2; }
 .bot-controller-btn--stop  {
@@ -8380,6 +8419,25 @@ select.block-param-input{width:auto;padding-right:20px}
   text-align: center;
   color: rgba(180, 210, 255, 0.52);
   letter-spacing: 0.04em;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+}
+.bot-controller-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-family: inherit;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: rgba(220, 240, 255, 0.85);
+  background: rgba(93, 228, 255, 0.10);
+  border: 1px solid rgba(93, 228, 255, 0.30);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  letter-spacing: 0;
+  line-height: 1;
 }
 
 .sim-2d-pane {
@@ -16198,5 +16256,270 @@ select.block-param-input{width:auto;padding-right:20px}
   color: rgb(252, 165, 165);
   border-color: rgba(239, 68, 68, 0.5);
   background: rgba(60, 20, 28, 0.6);
+}
+
+/* Floating program strip — anchored to the top-right of the simulator
+   pane (opposite the BotController at bottom-right) so the kid sees the
+   sequence the tutor is building while keeping eyes on the 3D bot. */
+.program-strip-floating {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 11;
+  width: 220px;
+  max-height: calc(100% - 220px);
+  overflow-y: auto;
+  pointer-events: auto;
+}
+.program-strip-floating .program-view {
+  background: rgba(8, 14, 30, 0.86);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(93, 228, 255, 0.22);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  margin-bottom: 0;
+}
+
+/* ── Program view (voice-built program in Programming tab) ──────────── */
+
+.program-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20, 26, 48, 0.85) 0%, rgba(14, 18, 36, 0.85) 100%);
+  border: 1px solid rgba(93, 228, 255, 0.16);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+.program-view.compact {
+  padding: 10px;
+  gap: 8px;
+}
+
+.program-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.program-view-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(180, 220, 255, 0.85);
+}
+.program-view-count {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: rgba(120, 180, 255, 0.85);
+  background: rgba(93, 228, 255, 0.10);
+  border: 1px solid rgba(93, 228, 255, 0.22);
+  text-transform: none;
+}
+
+.program-view-actions {
+  display: flex;
+  gap: 6px;
+}
+.program-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(220, 240, 255, 0.95);
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.40);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+.program-view-btn:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.26);
+  border-color: rgba(34, 197, 94, 0.60);
+}
+.program-view-btn:active:not(:disabled) { transform: scale(0.97); }
+.program-view-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.program-view-btn-stop {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.40);
+}
+.program-view-btn-stop:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.26);
+  border-color: rgba(239, 68, 68, 0.60);
+}
+.program-view-btn-pause {
+  background: rgba(245, 158, 11, 0.20);
+  border-color: rgba(245, 158, 11, 0.45);
+}
+.program-view-btn-pause:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.30);
+  border-color: rgba(245, 158, 11, 0.65);
+}
+
+/* Hint pill — what the floating strip shows when no program exists yet.
+   Subtle, low-key, just a reminder that voice rules build the program. */
+.program-view.program-view-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(180, 220, 255, 0.78);
+  background: rgba(8, 14, 30, 0.70);
+  backdrop-filter: blur(6px);
+  border: 1px dashed rgba(93, 228, 255, 0.30);
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.30);
+}
+.program-view.program-view-hint svg {
+  color: rgba(168, 85, 247, 0.85);
+  flex-shrink: 0;
+}
+.program-view-btn-ghost {
+  background: rgba(148, 163, 184, 0.10);
+  border-color: rgba(148, 163, 184, 0.25);
+  padding: 5px 8px;
+}
+.program-view-btn-ghost:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.18);
+  border-color: rgba(148, 163, 184, 0.40);
+}
+
+.program-view-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 16px;
+  text-align: center;
+  border-radius: 12px;
+  background: rgba(15, 20, 38, 0.5);
+  border: 1px dashed rgba(93, 228, 255, 0.20);
+}
+.program-view-empty-icon {
+  color: rgba(93, 228, 255, 0.55);
+  margin-bottom: 2px;
+}
+.program-view-empty-title {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: rgba(220, 240, 255, 0.95);
+}
+.program-view-empty-hint {
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: rgba(180, 210, 255, 0.65);
+  max-width: 380px;
+}
+.program-view-empty-hint em {
+  color: rgba(255, 200, 130, 0.95);
+  font-style: italic;
+}
+
+.program-view-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.program-block {
+  position: relative;
+  display: flex;
+  gap: 0;
+  border-radius: 9px;
+  background: rgba(15, 20, 38, 0.55);
+  border: 1px solid rgba(93, 228, 255, 0.12);
+  overflow: hidden;
+  transition: border-color 200ms ease, background 200ms ease, transform 150ms ease;
+}
+.program-block.is-active {
+  border-color: rgba(93, 228, 255, 0.85);
+  background: rgba(93, 228, 255, 0.08);
+  box-shadow: 0 0 0 1px rgba(93, 228, 255, 0.40), 0 0 14px rgba(93, 228, 255, 0.30);
+}
+.program-block-stripe {
+  width: 4px;
+  flex-shrink: 0;
+}
+.program-block-body {
+  flex: 1;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.program-block-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: rgba(220, 240, 255, 0.95);
+}
+.program-block-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(180, 210, 255, 0.75);
+  background: rgba(93, 228, 255, 0.10);
+  border: 1px solid rgba(93, 228, 255, 0.22);
+}
+.program-block-icon {
+  font-size: 1rem;
+  line-height: 1;
+  color: rgba(220, 240, 255, 0.85);
+}
+.program-block-label {
+  font-weight: 700;
+}
+.program-block-detail {
+  font-size: 0.74rem;
+  color: rgba(180, 210, 255, 0.70);
+  margin-left: 28px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  letter-spacing: 0;
+}
+
+.program-block-nested {
+  margin-top: 6px;
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 1px dashed rgba(93, 228, 255, 0.20);
+}
+.program-block-nested-title {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(168, 85, 247, 0.85);
+  margin-bottom: 4px;
+}
+.program-block-nested-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 

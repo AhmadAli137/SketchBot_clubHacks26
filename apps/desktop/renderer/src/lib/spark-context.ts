@@ -24,6 +24,8 @@ import { GRID_SIZE, STACK_HEIGHT } from './scene-builder';
 import { sparkBehavior } from './spark-behavior';
 import type { SparkEventDetail } from './spark-events';
 import { getProgressSummary } from './progress-store';
+import { getProgram } from './program-store';
+import type { ProgramBlock, Length } from './program-schema';
 import { listSessions, getMostRecent } from './session-storage';
 import { getRecentSummaries, summariseInterjections, type SessionSummary, type InterjectionStats } from './spark-memory';
 
@@ -399,6 +401,18 @@ export function describeContextAsText(ctx: SparkContext): string {
     }
   }
 
+  // ── Program state (Programming tab) ──────────────────────────────────────
+  // Tells Spark which blocks the kid has built so it can avoid duplicating
+  // and reference existing steps when extending the program.
+  const program = getProgram();
+  if (program.blocks.length > 0) {
+    lines.push('');
+    lines.push(`Program (${program.blocks.length} block${program.blocks.length === 1 ? '' : 's'}):`);
+    for (const b of program.blocks) {
+      lines.push(`  - [${b.id}] ${describeProgramBlockShort(b)}`);
+    }
+  }
+
   // ── Recent activity ──────────────────────────────────────────────────────
   lines.push('');
   if (ctx.events.recent.length === 0) {
@@ -448,4 +462,21 @@ function formatRelativeDays(ms: number): string {
   if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
   const days = Math.floor(ms / 86_400_000);
   return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+function fmtLen(l: Length): string { return `${l.value}${l.unit}`; }
+
+/** One-line summary of a top-level program block — terse for context budget.
+ *  Nested if/loop bodies are summarised by count, not by recursing. */
+function describeProgramBlockShort(b: ProgramBlock): string {
+  switch (b.kind) {
+    case 'motor.set':   return `motor.set ${b.side} speed=${b.speed} for ${b.seconds}s`;
+    case 'motor.until': return `motor.until ${b.side} speed=${b.speed} until ${b.condition.kind}`;
+    case 'turn':        return `turn ${b.degrees}° at speed ${b.speed}`;
+    case 'drive':       return `drive ${fmtLen(b.distance)} at speed ${b.speed}`;
+    case 'wait':        return `wait ${b.seconds}s`;
+    case 'if':          return `if ${b.condition.kind} (${b.then.length} then-block${b.then.length === 1 ? '' : 's'}${b.else ? `, ${b.else.length} else-block${b.else.length === 1 ? '' : 's'}` : ''})`;
+    case 'loop':        return `loop ${typeof b.times === 'number' ? `times=${b.times}` : `until ${b.until?.kind}`} (${b.body.length} body block${b.body.length === 1 ? '' : 's'})`;
+    case 'stop':        return 'stop';
+  }
 }

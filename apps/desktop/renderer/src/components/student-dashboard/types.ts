@@ -6,7 +6,7 @@ import type { AgeGroup, ConceptLayer } from '@/lib/concept-types';
 import type { BlockProgram } from '@/components/block-editor';
 
 export type DashboardStatusItem = { label: string; value: string };
-export type InteractionMode = 'rules' | 'blocks' | 'code' | 'arduino';
+export type InteractionMode = 'intuition' | 'rules' | 'blocks' | 'code' | 'arduino';
 
 export type StudentDashboardProps = {
   topStatus: DashboardStatusItem[];

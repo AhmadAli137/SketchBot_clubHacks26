@@ -66,6 +66,50 @@ _PERSONAS = {
     "engineer": _PERSONA_ENGINEER,
 }
 
+# ─── Programming-tab capability ──────────────────────────────────────────────
+# Cached system block describing the voice-to-program flow. Appended to
+# every chat + observe system stack so the tutor knows it can interpret
+# kid-spoken rules into structured ProgramBlocks via the program_append_block
+# tool. Kept generic across age groups — the persona above already adjusts
+# vocabulary; the capability description is the same for everyone.
+_PROGRAMMING_CAPABILITY = """\
+PROGRAMMING TAB — voice-built robot programs.
+
+When the kid talks about what they want the robot to do, you can BUILD a program for them, one block at a time, by calling the program_append_block tool. Each block becomes a visible step in the Programming tab on the right. Then they tap Run (or say "run it") and the robot executes the program in the simulator.
+
+When to use this:
+- The kid describes an action ("drive forward 12 inches", "turn right 90 degrees", "stop when it sees something close").
+- The kid sketches a routine ("first go forward, then turn, then go forward again").
+- They ask "can you make the robot ___?".
+
+WHAT YOU CAN BUILD (every block has a fresh unique id you generate):
+- drive { distance: { value, unit: cm|in|m }, speed }      — go forward (negative distance = backward)
+- turn  { degrees, speed }                                  — pivot in place; +deg = left, -deg = right
+- motor.set { side: left|right|both, speed, seconds }       — raw motor control for one or both sides; speed is -100..100, negative reverses
+- motor.until { side, speed, condition }                    — run motors until a condition fires
+- wait { seconds }
+- if    { condition, then: [...], else?: [...] }
+- loop  { body: [...], times? OR until? }                   — exactly one of times|until
+- stop                                                       — halt the program
+
+Conditions:
+- distance.lt / distance.gt with sensor=ultrasonic and threshold={value, unit} — front-facing range sensor on the bot
+- travelled with distance — how far the bot has moved since the block started
+- elapsed with seconds — wall-clock time since the block started
+
+Speed is normalised 0..100 (kid-friendly, never m/s). 100 is full speed, 50 is half. Negative reverses. Distances ALWAYS carry their unit — keep the kid's words ("12 inches" stays inches, don't silently convert to cm).
+
+Behavior rules:
+1. Append blocks AS the kid describes them — don't wait for a perfect spec. They'll iterate.
+2. If they're vague ("kinda fast"), pick a reasonable number (60) and tell them what you picked: "I'll try 60 — too fast?". Never refuse to act because of imprecision.
+3. If they say something the schema can't represent (e.g., "drive in a figure 8"), either decompose it ("a figure 8 is two circles — let me start with the first loop") or ask one clarifying question.
+4. Do NOT call program_run yourself unless the kid clearly says "run it"/"try it"/"go". Build silently, run on their command.
+5. When you append a block, briefly say what you added in plain language ("Added a forward step — 12 inches at speed 60") so they know it landed.
+6. To clear and start over, call program_clear (mutative — confirms with the kid).
+
+Tell the kid up front (when they're new to the tab) that they can SAY rules and you'll turn them into steps. A starter line like "Try saying 'drive forward 12 inches' or 'turn right 90'." helps them know the shape.\
+"""
+
 # ─── Session store (in-memory, per cloud instance) ────────────────────────────
 
 MAX_HISTORY_TURNS = 10
@@ -435,6 +479,90 @@ class TutorService:
             },
         },
         {
+            "name": "program_append_block",
+            "description": (
+                "Append one block to the kid's current program in the "
+                "Programming tab. Use whenever the kid says a rule like "
+                "'move forward 12 inches', 'turn left 90 degrees', or "
+                "'if ultrasonic reads less than 20 cm, stop'. Block kind is "
+                "one of: motor.set, motor.until, turn, drive, wait, if, "
+                "loop, stop. Speed is normalised 0–100. Distances carry "
+                "their unit. Always provide a fresh unique block id."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "block": {
+                        "type": "object",
+                        "description": "The ProgramBlock to append.",
+                        "properties": {
+                            "id":      {"type": "string"},
+                            "kind":    {"type": "string", "enum": ["motor.set","motor.until","turn","drive","wait","if","loop","stop"]},
+                            "side":    {"type": "string", "enum": ["left","right","both"]},
+                            "speed":   {"type": "number"},
+                            "seconds": {"type": "number"},
+                            "degrees": {"type": "number"},
+                            "distance": {
+                                "type": "object",
+                                "properties": {
+                                    "value": {"type": "number"},
+                                    "unit":  {"type": "string", "enum": ["cm","in","m"]},
+                                },
+                                "required": ["value","unit"],
+                            },
+                            "condition": {
+                                "type": "object",
+                                "properties": {
+                                    "kind":      {"type": "string", "enum": ["distance.lt","distance.gt","travelled","elapsed"]},
+                                    "sensor":    {"type": "string", "enum": ["ultrasonic"]},
+                                    "threshold": {
+                                        "type": "object",
+                                        "properties": {
+                                            "value": {"type": "number"},
+                                            "unit":  {"type": "string", "enum": ["cm","in","m"]},
+                                        },
+                                        "required": ["value","unit"],
+                                    },
+                                    "seconds": {"type": "number"},
+                                },
+                                "required": ["kind"],
+                            },
+                        },
+                        "required": ["id","kind"],
+                    },
+                },
+                "required": ["block"],
+            },
+        },
+        {
+            "name": "program_run",
+            "description": (
+                "Execute the current program against the active bot in the "
+                "simulator. Mutative — the renderer surfaces a Yes/No "
+                "confirmation. Use after the kid says 'run it' or 'try it', "
+                "not on every block append."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "reason": {"type": "string"},
+                },
+            },
+        },
+        {
+            "name": "program_clear",
+            "description": (
+                "Remove every block from the program — start over. Use when "
+                "the kid says 'reset' or 'start fresh'. Mutative."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "reason": {"type": "string"},
+                },
+            },
+        },
+        {
             "name": "add_demo_object",
             "description": (
                 "Drop a demonstration object onto the canvas to show the "
@@ -485,7 +613,10 @@ class TutorService:
         drawing_prompt: str = "",
         path_count: int = 0,
         context_text: str = "",
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[Any]:
+        # Yields text deltas (str) plus optional structured events (dict)
+        # like {"type": "tool_request", "tool": {...}} after the text
+        # stream completes. Router downcasts based on isinstance.
         if self._client is None:
             yield _offline_message(student_name, age_group, concept_id, trigger)
             return
@@ -514,6 +645,7 @@ class TutorService:
 
         system_blocks: list[dict] = [
             {"type": "text", "text": persona, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": _PROGRAMMING_CAPABILITY, "cache_control": {"type": "ephemeral"}},
             {
                 "type": "text",
                 "text": (
@@ -571,15 +703,44 @@ class TutorService:
             return
 
         accumulated = ""
+        # Pass the tool registry so chat turns can build programs from
+        # voice rules. Without this, "drive forward 12 inches" becomes a
+        # text-only response with no program_append_block call. The
+        # renderer's SSE handler dispatches tool_request events (yielded
+        # below as dicts after the text stream completes) into the same
+        # SparkToolDispatcher that the observation path uses.
         async with self._client.messages.stream(
             model="claude-sonnet-4-6",
-            max_tokens=512,
+            max_tokens=1024,
             system=system_blocks,  # type: ignore[arg-type]
             messages=messages,
+            tools=type(self)._OBSERVE_TOOLS,  # type: ignore[arg-type]
         ) as stream:
             async for text in stream.text_stream:
                 accumulated += text
                 yield text
+            # After text streaming completes, harvest any tool_use blocks
+            # the model emitted alongside the reply. Each one becomes a
+            # tool_request event the renderer dispatches via
+            # SparkToolDispatcher (annotative tools run immediately;
+            # mutative ones surface a confirmation).
+            try:
+                final = await stream.get_final_message()
+                for block in (final.content or []):
+                    btype = getattr(block, "type", None)
+                    if btype != "tool_use":
+                        continue
+                    yield {
+                        "type": "tool_request",
+                        "tool": {
+                            "id": getattr(block, "name", ""),
+                            "input": getattr(block, "input", {}) or {},
+                        },
+                    }
+            except Exception:
+                # Tool harvest is best-effort — text reply already streamed
+                # so any failure here shouldn't surface to the kid.
+                pass
 
         with _stream_lock:
             _lru_put(_stream_lru, cache_key, accumulated, _CACHE_MAX)
@@ -771,6 +932,7 @@ class TutorService:
 
         system_blocks: list[dict] = [
             {"type": "text", "text": persona, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": _PROGRAMMING_CAPABILITY, "cache_control": {"type": "ephemeral"}},
             {"type": "text", "text": f"CONCEPT CONTEXT:\n{concept_ctx}", "cache_control": {"type": "ephemeral"}},
             {
                 "type": "text",

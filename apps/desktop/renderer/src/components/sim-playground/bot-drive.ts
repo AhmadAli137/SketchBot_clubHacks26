@@ -23,6 +23,24 @@ export type BotPose = {
   worldY: number;
   /** Heading in radians, CCW around +Y. 0 = local +X = world +X. */
   heading: number;
+  /** Chassis pitch in radians, applied as rotation around the bot's
+   *  local Z axis so the chassis tilts forward/backward to match
+   *  whatever slope it's on. + = nose up (climbing); − = nose down. */
+  pitch: number;
+  /** Chassis roll in radians, applied as rotation around the bot's
+   *  local X axis so the chassis tips side-to-side when one wheel is
+   *  off the support surface (e.g., half-off the ramp edge). */
+  roll: number;
+  /** Vertical velocity (m/s). Accumulates under gravity when the
+   *  chassis is in the air so falls accelerate like real gravity
+   *  instead of dropping at a constant rate. Zeroed on landing. */
+  worldVY: number;
+  /** Slip velocity in BOT-LOCAL frame (m/s). Accumulates from gravity
+   *  projected onto the bot's tilted base plane and decays via rolling
+   *  friction, so a bot on a slope rolls faster and faster (with
+   *  terminal velocity) rather than instantly hitting drift speed. */
+  driftLocalVX: number;
+  driftLocalVZ: number;
   /** Cumulative wheel rotation (radians) — applied to wheel meshes. */
   leftWheelRot: number;
   rightWheelRot: number;
@@ -91,10 +109,11 @@ export function clearPose(id: string): void {
   livePoses.delete(id);
 }
 
-/** Time constant (s) for motor LPF — bigger = laggier (more momentum).
- *  60 ms gives a tiny bit of inertia so the chassis doesn't snap on/off,
- *  but the bot reacts to button inputs with no perceptible lag. */
-const MOTOR_TAU = 0.06;
+/** Asymmetric motor LPF — short attack so a button press feels instant,
+ *  long release so the chassis coasts after the user lets go (real bots
+ *  carry their forward momentum until rolling friction bleeds it off). */
+const MOTOR_TAU_ATTACK  = 0.06;
+const MOTOR_TAU_RELEASE = 0.45;
 /** Bounce factor when colliding with a wall — fraction of the radial velocity
  *  reversed back at the bot. 0 = stick, 1 = perfect bounce. */
 const BOUNCE = 0.55;
@@ -120,12 +139,15 @@ export function integrateBotPose(
   walls?: WallAABB[],
   botRadius?: number,
 ): void {
-  // Motor LPF — current chases target with a time constant. Without this
-  // a button release drops to 0 instantly, which feels like e-braking
-  // rather than a real differential-drive chassis coasting to a stop.
-  const k = 1 - Math.exp(-dt / MOTOR_TAU);
-  pose.motorLeft  += (pose.motorTargetLeft  - pose.motorLeft)  * k;
-  pose.motorRight += (pose.motorTargetRight - pose.motorRight) * k;
+  // Motor LPF — current chases target with a time constant. Asymmetric
+  // so press feels instant but release leaves the chassis coasting
+  // (real wheeled bots don't e-brake when you let go). Tau is picked
+  // per-side based on whether the target's magnitude grew (attack) or
+  // shrank (release).
+  const tauL = Math.abs(pose.motorTargetLeft)  > Math.abs(pose.motorLeft)  ? MOTOR_TAU_ATTACK : MOTOR_TAU_RELEASE;
+  const tauR = Math.abs(pose.motorTargetRight) > Math.abs(pose.motorRight) ? MOTOR_TAU_ATTACK : MOTOR_TAU_RELEASE;
+  pose.motorLeft  += (pose.motorTargetLeft  - pose.motorLeft)  * (1 - Math.exp(-dt / tauL));
+  pose.motorRight += (pose.motorTargetRight - pose.motorRight) * (1 - Math.exp(-dt / tauR));
 
   const v     = (pose.motorLeft + pose.motorRight) * 0.5;
   const omega = (pose.motorRight - pose.motorLeft) / wheelBase;

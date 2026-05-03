@@ -22,9 +22,15 @@
 export type SparkToolKind = 'annotative' | 'mutative';
 
 export interface SparkToolSchemaProperty {
-  type: 'string' | 'number' | 'boolean';
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   description: string;
   enum?: string[];
+  /** For type: 'object' — nested property definitions. */
+  properties?: Record<string, SparkToolSchemaProperty>;
+  /** For type: 'object' — required nested keys. */
+  required?: string[];
+  /** For type: 'array' — element schema. */
+  items?: SparkToolSchemaProperty;
 }
 
 export interface SparkToolSchema {
@@ -97,6 +103,100 @@ export const SPARK_TOOLS: SparkToolSchema[] = [
         reason: { type: 'string', description: 'One-sentence reason shown to the student.' },
       },
       required: ['amount', 'reason'],
+    },
+  },
+  {
+    id: 'program_append_block',
+    kind: 'annotative',
+    label: 'Add a step to the program',
+    description:
+      "Append one block to the kid's current program in the Programming tab. " +
+      "Use whenever the kid says a rule like 'move forward 12 inches' or 'turn left 90 degrees' " +
+      "or 'if the ultrasonic reads less than 20 cm, stop'. The block must follow the program-schema " +
+      "shape — kind is one of: motor.set, motor.until, turn, drive, wait, if, loop, stop. " +
+      "Speed is normalised 0–100. Distances carry their unit (cm | in | m). Always provide a fresh, " +
+      "unique block id. Annotative — the block appears immediately so the kid sees their words " +
+      "land as a visual step.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        block: {
+          type: 'object',
+          description: "The ProgramBlock to append. Shape mirrors lib/program-schema.ts.",
+          properties: {
+            id:        { type: 'string', description: "Unique stable id for the block." },
+            kind:      { type: 'string', enum: ['motor.set','motor.until','turn','drive','wait','if','loop','stop'], description: "Block kind." },
+            side:      { type: 'string', enum: ['left','right','both'], description: "For motor.set / motor.until — which motor side." },
+            speed:     { type: 'number', description: "Normalised −100..100 motor speed." },
+            seconds:   { type: 'number', description: "Duration in seconds for motor.set / wait." },
+            degrees:   { type: 'number', description: "For turn — degrees CCW (negative = CW)." },
+            distance:  {
+              type: 'object',
+              description: "For drive / travelled — { value, unit }. Unit is cm | in | m.",
+              properties: {
+                value: { type: 'number', description: "Numeric value." },
+                unit:  { type: 'string', enum: ['cm','in','m'], description: "Length unit." },
+              },
+              required: ['value','unit'],
+            },
+            condition: {
+              type: 'object',
+              description: "For motor.until / if / loop.until — sensor or time condition.",
+              properties: {
+                kind:      { type: 'string', enum: ['distance.lt','distance.gt','travelled','elapsed'], description: "Condition kind." },
+                sensor:    { type: 'string', enum: ['ultrasonic'], description: "For distance conditions." },
+                threshold: {
+                  type: 'object',
+                  description: "Length threshold for distance conditions.",
+                  properties: {
+                    value: { type: 'number', description: "Numeric value." },
+                    unit:  { type: 'string', enum: ['cm','in','m'], description: "Length unit." },
+                  },
+                  required: ['value','unit'],
+                },
+                seconds: { type: 'number', description: "For elapsed condition — seconds." },
+              },
+              required: ['kind'],
+            },
+            // Recursive bodies omitted from JSON schema here — Claude generates
+            // them as nested arrays and our assertProgramBlock validator catches
+            // any malformed shapes before they hit the executor.
+          },
+          required: ['id','kind'],
+        },
+      },
+      required: ['block'],
+    },
+  },
+  {
+    id: 'program_run',
+    kind: 'mutative',
+    label: 'Run the program',
+    description:
+      "Execute the current program against the active bot in the simulator. " +
+      "Mutative — the kid sees a confirmation prompt first because the bot will " +
+      "actually move. Use after the kid says 'run it' or 'try it now', not on " +
+      "every block append.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: "What you're about to run, in one sentence." },
+      },
+    },
+  },
+  {
+    id: 'program_clear',
+    kind: 'mutative',
+    label: 'Clear the program',
+    description:
+      "Remove every block from the program — start over. Use when the kid says " +
+      "'reset' or 'start fresh'. Mutative — confirm before running so the kid " +
+      "doesn't lose work to a misheard word.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: "Why you're clearing." },
+      },
     },
   },
   {

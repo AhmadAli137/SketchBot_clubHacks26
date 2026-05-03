@@ -32,11 +32,12 @@ export function PromptComposer({
   const isExplorer = difficultyLevel === 'explorer';
   const isEngineer = difficultyLevel === 'engineer';
 
-  // Clamp effectiveMode to what's valid at this difficulty level
+  // Clamp effectiveMode to what's valid at this difficulty level.
   const effectiveMode = (() => {
     if (isExplorer) return 'rules';
     if (interactionMode === 'rules') return isEngineer ? 'arduino' : 'blocks';
     if (interactionMode === 'arduino' && !isEngineer) return 'blocks';
+    if (interactionMode === 'intuition') return isEngineer ? 'code' : 'blocks';
     return interactionMode;
   })();
 

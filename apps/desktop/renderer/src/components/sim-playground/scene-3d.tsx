@@ -15,6 +15,7 @@ import { RobotGantry } from './robot-gantry';
 import { CanvasSurface } from './canvas-surface';
 import { ChallengeSim, getSimMode } from './challenge-sim';
 import { SceneObjectsRenderer, BuilderCursor } from './scene-objects';
+import { ProgramOverlay3D } from './program-overlay-3d';
 import { GRID_SIZE, worldToGridFloat, clampToArena, rotationStepsForType, type SceneObject, type ToolDef } from '@/lib/scene-builder';
 import type { SimPoint } from '@/lib/sim-path-utils';
 import { CANVAS_W, CANVAS_H } from '@/lib/sim-path-utils';
@@ -613,6 +614,13 @@ function SceneContent({
           builderEnabled={builderEnabled}
         />
       )}
+
+      {/* Program preview — numbered arrows / arcs / pause pucks chained
+          from the active bot's pose. Anchors to the first bot in the
+          scene; auto-disappears when the program is empty. */}
+      <ProgramOverlay3D
+        activeBotId={sceneObjects.find((o) => o.type === 'bot')?.id ?? null}
+      />
 
       {/* Ghost cursor preview while a tool is active.
           When hovering another object with a tool active, position the ghost

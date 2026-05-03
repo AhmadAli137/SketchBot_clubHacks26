@@ -1250,10 +1250,22 @@ export function TutorPanel({
   const speech = useVoiceInput(
     (transcript) => {
       const base = baseInputOnRecordRef.current;
-      setStudentInput(base ? `${base} ${transcript}` : transcript);
+      const composed = base ? `${base} ${transcript}` : transcript;
+      setStudentInput(composed);
       baseInputOnRecordRef.current = '';
       setPartialTranscript('');
-      setTimeout(() => inputRef.current?.focus(), 50);
+      // Voice-first auto-submit: a finalised transcript becomes a tutor
+      // turn straight away — the kid never has to pivot to the keyboard
+      // to hit send. Manual typing still flows through handleSend so
+      // typed input keeps its current behavior. Tiny delay so the input
+      // box visibly fills before the message commits, giving the kid
+      // a moment to see their words land.
+      const trimmed = composed.trim();
+      if (trimmed) {
+        window.setTimeout(() => { void submitText(trimmed); }, 250);
+      } else {
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
     },
     apiBase,
     {
@@ -1617,7 +1629,7 @@ export function TutorPanel({
             if (!raw) continue;
 
             try {
-              const msg = JSON.parse(raw) as { type: string; text?: string; message?: string };
+              const msg = JSON.parse(raw) as { type: string; text?: string; message?: string; tool?: { id: string; input: Record<string, unknown>; reason?: string } };
               if (msg.type === 'token' && msg.text) {
                 accumulated += msg.text;
                 setMessages((prev) =>
@@ -1628,6 +1640,16 @@ export function TutorPanel({
                   ),
                 );
                 tts.streamFeed(accumulated, ageGroup);
+              } else if (msg.type === 'tool_request' && msg.tool && msg.tool.id) {
+                // Dispatch through SparkToolDispatcher — annotative tools
+                // (program_append_block) run immediately so the kid sees
+                // their voice rule land as a block; mutative tools
+                // (program_run, program_clear) get a confirmation modal.
+                emitToolRequest({
+                  id: msg.tool.id,
+                  input: msg.tool.input || {},
+                  reason: msg.tool.reason,
+                });
               } else if (msg.type === 'done') {
                 // Stream finished — mark complete
                 setMessages((prev) =>
@@ -1697,8 +1719,8 @@ export function TutorPanel({
     }
   };
 
-  const handleSend = async () => {
-    const text = studentInput.trim();
+  const submitText = async (raw: string) => {
+    const text = raw.trim();
     if (!text || tutorStreaming) return;
 
     setStudentInput('');
@@ -1719,6 +1741,10 @@ export function TutorPanel({
       layer: activeLayer,
       student_message: text,
     });
+  };
+
+  const handleSend = async () => {
+    await submitText(studentInput);
   };
 
   // 3 s client-side cooldown that mirrors the agent's BELL_COOLDOWN_SEC

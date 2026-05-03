@@ -85,8 +85,14 @@ async def tutor_message(body: TutorMessageRequest, user: AuthUser):
                 path_count=body.path_count,
                 context_text=body.context_text,
             ):
-                tokens_sent += 1
-                yield f"data: {json.dumps({'type': 'token', 'text': chunk})}\n\n"
+                # stream_message yields strings for text deltas and dicts
+                # for structured events (tool_request). Forward each as
+                # the matching SSE type so the renderer can handle both.
+                if isinstance(chunk, str):
+                    tokens_sent += 1
+                    yield f"data: {json.dumps({'type': 'token', 'text': chunk})}\n\n"
+                elif isinstance(chunk, dict):
+                    yield f"data: {json.dumps(chunk)}\n\n"
             # Deduct 1 credit per successful tutor interaction
             deduct_credits(user_id, 1)
             yield f"data: {json.dumps({'type': 'done', 'credits_remaining': max(0, remaining - 1)})}\n\n"

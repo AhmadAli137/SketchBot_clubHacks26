@@ -246,7 +246,7 @@ function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: 
  *  lands. Local +X = HIGH end (top of the ramp), -X = LOW end (where
  *  a bot at rotY=0 enters and climbs from). */
 const RAMP_LENGTH = GRID_SIZE * 2;
-const RAMP_WIDTH  = GRID_SIZE * 0.85;
+const RAMP_WIDTH  = GRID_SIZE * 1.275;
 const RAMP_HEIGHT = WALL_HEIGHT;
 
 let _rampGeometry: THREE.BufferGeometry | null = null;
@@ -659,11 +659,13 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
   // whenever the placed position/heading change so external moves (Move tool,
   // session restore) snap the live pose to match instead of drifting.
   const groupRef      = useRef<THREE.Group>(null);
+  const pitchRef      = useRef<THREE.Group>(null);
   const leftWheelRef  = useRef<THREE.Group>(null);
   const rightWheelRef = useRef<THREE.Group>(null);
   useEffect(() => {
     const pose = ensurePose(id, () => ({
-      worldX: x, worldZ: z, worldY: 0, heading: rotY,
+      worldX: x, worldZ: z, worldY: 0, heading: rotY, pitch: 0, roll: 0,
+      worldVY: 0, driftLocalVX: 0, driftLocalVZ: 0,
       leftWheelRot: 0, rightWheelRot: 0,
       motorTargetLeft: 0, motorTargetRight: 0,
       motorLeft: 0, motorRight: 0,
@@ -689,6 +691,13 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
       groupRef.current.position.z = pose.worldZ;
       groupRef.current.rotation.y = pose.heading;
     }
+    // Pitch is applied to an INNER group so it composes with heading
+    // properly: tilts around the bot's local Z (perpendicular to its
+    // forward direction), not around the world axis.
+    if (pitchRef.current) {
+      pitchRef.current.rotation.z = pose.pitch;
+      pitchRef.current.rotation.x = pose.roll;
+    }
     // Wheel axles run along the bot's local Z (the cylinder mesh is laid
     // flat with rotation [π/2, 0, 0]). Forward rolling = negative rotation
     // around Z (the bottom of the wheel sweeps from -Y to -X).
@@ -698,6 +707,7 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
 
   return (
     <group ref={groupRef} position={[x, y, z]} rotation={[0, rotY, 0]}>
+    <group ref={pitchRef}>
       {/* ── Chassis plate (round-cornered acrylic look via stretched cylinder) ── */}
       <mesh position={[0, plateY, 0]} scale={[plateRX / 0.090, 1, plateRZ / 0.090]} castShadow receiveShadow>
         <cylinderGeometry args={[0.090, 0.090, plateT, 36]} />
@@ -843,6 +853,7 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
         </mesh>
       </group>
     </group>
+    </group>
   );
 }
 
@@ -870,11 +881,13 @@ function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: n
   // Live-drive integration — Sumo is a 4WD bot, so all four wheels track
   // motorLeft/motorRight in sync with whichever side they're on.
   const groupRef       = useRef<THREE.Group>(null);
+  const pitchRef       = useRef<THREE.Group>(null);
   const leftWheelRefs  = [useRef<THREE.Group>(null), useRef<THREE.Group>(null)];
   const rightWheelRefs = [useRef<THREE.Group>(null), useRef<THREE.Group>(null)];
   useEffect(() => {
     const pose = ensurePose(id, () => ({
-      worldX: x, worldZ: z, worldY: 0, heading: rotY,
+      worldX: x, worldZ: z, worldY: 0, heading: rotY, pitch: 0, roll: 0,
+      worldVY: 0, driftLocalVX: 0, driftLocalVZ: 0,
       leftWheelRot: 0, rightWheelRot: 0,
       motorTargetLeft: 0, motorTargetRight: 0,
       motorLeft: 0, motorRight: 0,
@@ -897,12 +910,17 @@ function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: n
       groupRef.current.position.z = pose.worldZ;
       groupRef.current.rotation.y = pose.heading;
     }
+    if (pitchRef.current) {
+      pitchRef.current.rotation.z = pose.pitch;
+      pitchRef.current.rotation.x = pose.roll;
+    }
     leftWheelRefs.forEach((r)  => { if (r.current) r.current.rotation.z  = -pose.leftWheelRot; });
     rightWheelRefs.forEach((r) => { if (r.current) r.current.rotation.z = -pose.rightWheelRot; });
   });
 
   return (
     <group ref={groupRef} position={[x, y, z]} rotation={[0, rotY, 0]}>
+      <group ref={pitchRef}>
       {/* ── Lower armor plate (the heavy base) ── */}
       <mesh position={[0, plateY, 0]} castShadow receiveShadow>
         <boxGeometry args={[plateRX * 2, plateT, plateRZ * 2]} />
@@ -1049,6 +1067,7 @@ function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: n
           <meshStandardMaterial color="#1a1a1f" roughness={0.85} metalness={0.4} />
         </mesh>
       ))}
+      </group>
     </group>
   );
 }

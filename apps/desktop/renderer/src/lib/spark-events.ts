@@ -38,7 +38,13 @@ export type SparkEventKind =
   // so the visual layer can show a "looking at your work" pose during the
   // network call instead of cycling arbitrary ambient scenes.
   | 'spark.observe.start'
-  | 'spark.observe.end';
+  | 'spark.observe.end'
+  // programming-tab activity (emitted BY tool dispatcher, listened to by
+  // the visual program-state UI for highlights and run/done indicators).
+  | 'tutor.program.appended'
+  | 'tutor.program.cleared'
+  | 'tutor.program.run'
+  | 'tutor.program.event';
 
 export interface SparkEventDetail {
   kind: SparkEventKind;

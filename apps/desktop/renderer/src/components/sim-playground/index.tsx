@@ -13,6 +13,7 @@ import { Grid3X3, Pause, Play, RotateCcw, View, BookOpen, ChevronRight, ChevronL
 import { TopView } from './top-view';
 import { BuilderRail } from './builder-rail';
 import { BotController } from './bot-controller';
+import { ProgramView } from '@/components/program-view';
 import { useSimAnimation } from '@/lib/use-sim-animation';
 import { getEnvironment, getTutorialSteps } from '@/lib/concept-environments';
 import { playBGM, stopBGM, playSfx } from '@/lib/game-audio';
@@ -594,6 +595,14 @@ export function SimPlayground({
                   : null
               }
             />
+
+            {/* Voice-built program strip — floats top-right of the 3D
+                pane so the kid keeps their eyes on the bot while the
+                tutor builds steps from spoken rules. ProgramView's own
+                empty-state handles "tell Spark what to do" prompting. */}
+            <div className="program-strip-floating">
+              <ProgramView compact />
+            </div>
 
             {/* Builder rail overlay (sandbox only) */}
             {builderEnabled && (
