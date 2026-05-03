@@ -531,38 +531,46 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
         </group>
       ))}
 
-      {/* ── Drive wheels (left + right) ──
-          Each wheel sits inside an inner group whose rotation.x is driven
-          by the bot-drive store every frame. The cylinder geometry is laid
-          flat (its axis along Z) so spinning around X makes it roll. */}
+      {/* ── Drive wheels — same structural recipe as Sumo's: tire + tread
+          band + hub disc + small hex lug nut + a single radial spoke. The
+          earlier "ring + big hex cap" combo was reading as a perpendicular
+          floating disc next to each wheel; matching Sumo's structure makes
+          both bots feel like the same family of robots. ── */}
       {[
         { zPos:  wheelZouter, ref: leftWheelRef  },
         { zPos: -wheelZouter, ref: rightWheelRef },
       ].map(({ zPos, ref }, i) => (
         <group key={i} position={[wheelX, axleY, zPos]}>
           <group ref={ref}>
-            {/* Tire — laid flat so cylinder axis runs along Z; wheel forward
-                rolling = rotation around X. */}
+            {/* Tire — cylinder laid flat (axle along Z). */}
             <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <cylinderGeometry args={[wheelR, wheelR, wheelT, 32]} />
+              <cylinderGeometry args={[wheelR, wheelR, wheelT, 28]} />
               <meshStandardMaterial color="#161620" roughness={0.94} metalness={0.04} />
             </mesh>
-            {/* Inner sidewall ring */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? -1 : 1) * (wheelT / 2 - 0.0005)]}>
-              <ringGeometry args={[wheelR * 0.55, wheelR - 0.003, 28]} />
-              <meshStandardMaterial color="#2a2a30" roughness={0.85} side={THREE.DoubleSide} />
+            {/* Tread band — slightly larger radius, half-thickness, gives
+                the tire a visible rubber edge instead of a clean black disc. */}
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[wheelR + 0.001, wheelR + 0.001, wheelT * 0.5, 28]} />
+              <meshStandardMaterial color="#1a1a22" roughness={0.95} />
             </mesh>
-            {/* Hub disc on the outer face */}
+            {/* Hub disc on the outer face — flat circular face. */}
             <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
-              <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 20]} />
+              <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 18]} />
               <meshStandardMaterial color="#d2d4dc" roughness={0.4} metalness={0.6} />
             </mesh>
-            {/* Hub centre cap — chunky 6-sided hex. The hexagonal silhouette
-                visibly rotates with the wheel; no extra spokes needed (those
-                read as separate small wheels at right angles). */}
+            {/* Hex lug nut — small 6-sided centre piece (matches sumo's
+                lug). The hex silhouette is the primary "is the wheel
+                spinning?" cue. */}
             <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
-              <cylinderGeometry args={[wheelR * 0.30, wheelR * 0.30, 0.006, 6]} />
-              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.55} />
+              <cylinderGeometry args={[wheelR * 0.16, wheelR * 0.16, 0.005, 6]} />
+              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.6} />
+            </mesh>
+            {/* Single radial spoke — same as sumo. The bar shows rotation
+                direction; one bar reads as "spoke", three read as "extra
+                perpendicular wheels". */}
+            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
+              <boxGeometry args={[wheelR * 1.05, 0.005, 0.005]} />
+              <meshStandardMaterial color="#3a3f4e" roughness={0.7} metalness={0.4} />
             </mesh>
           </group>
         </group>

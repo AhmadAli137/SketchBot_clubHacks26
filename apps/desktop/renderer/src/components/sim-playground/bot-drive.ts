@@ -88,9 +88,9 @@ export function clearPose(id: string): void {
 }
 
 /** Time constant (s) for motor LPF — bigger = laggier (more momentum).
- *  80 ms feels like a real DC motor: noticeable wind-up and coast, but
- *  not so much lag that the bot feels slow to respond. */
-const MOTOR_TAU = 0.08;
+ *  60 ms gives a tiny bit of inertia so the chassis doesn't snap on/off,
+ *  but the bot reacts to button inputs with no perceptible lag. */
+const MOTOR_TAU = 0.06;
 /** Bounce factor when colliding with a wall — fraction of the radial velocity
  *  reversed back at the bot. 0 = stick, 1 = perfect bounce. */
 const BOUNCE = 0.55;

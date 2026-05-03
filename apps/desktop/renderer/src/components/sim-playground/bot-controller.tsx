@@ -31,7 +31,7 @@ type BotControllerProps = {
 /** Linear speed of one motor at full throttle (m/s). High enough that the
  *  wheels visibly blur into a fast spin, low enough that the bot doesn't
  *  rocket out of camera. */
-const MAX_MOTOR_SPEED = 0.70;
+const MAX_MOTOR_SPEED = 1.30;
 /** Distance between wheels (m) — used for ω = (R−L)/wheelBase integration. */
 const WHEEL_BASE = 0.20;
 /** Wheel radius (m) — used for visual wheel-rotation rate. */
