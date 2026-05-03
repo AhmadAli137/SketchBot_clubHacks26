@@ -1456,6 +1456,10 @@ export default function HomePage() {
           const showAvatar = userRole !== 'guest' && profileAvatar;
           const cls = `app-profile-btn${userRole === 'guest' ? ' is-guest' : ''}`;
           return (
+            // Plain motion.button with only hover/tap scaling — no entrance
+            // spring — so the PFP behaves identically to its sound/theme
+            // siblings in the same flex row. Anything that animates differently
+            // can shift the flex baseline mid-mount.
             <motion.button
               type="button"
               className={cls}
@@ -1463,12 +1467,9 @@ export default function HomePage() {
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
               title={userRole === 'guest' ? 'Sign in' : 'Account'}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             >
               {showAvatar
-                ? <StudentProfileAvatar kind={profileAvatar.kind} emoji={profileAvatar.emoji} robotPresetId={profileAvatar.robotPreset} accent={profileAvatar.color} size={22} />
+                ? <StudentProfileAvatar kind={profileAvatar.kind} emoji={profileAvatar.emoji} robotPresetId={profileAvatar.robotPreset} accent={profileAvatar.color} size={20} />
                 : <UserRound size={16} />
               }
             </motion.button>
