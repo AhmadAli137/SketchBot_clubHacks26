@@ -191,15 +191,27 @@ async function execBlock(block: ProgramBlock, botId: string, opts: ExecutorOptio
       case 'turn': {
         // Pivot in place: opposite-direction motors. Positive degrees =
         // CCW (left turn). Time to pivot = |angleRad| / pivotRate where
-        // pivotRate = 2 * mps / wheelBase.
+        // pivotRate = 2 * mps / wheelBase. Tracks heading instead of
+        // wall-clock so the brake-early prediction works the same way
+        // as drive: stop spinning when remaining-rotation equals the
+        // angular coast distance the LPF will carry through.
         const mps = speedToMetersPerSec(block.speed, PROGRAM_MAX_SPEED);
         const dir = Math.sign(block.degrees) || 1;
         const apply = () => setMotors(botId, -dir * mps, dir * mps);
         apply();
         const angleRad = Math.abs(block.degrees) * Math.PI / 180;
-        const pivotRate = (2 * Math.abs(mps)) / PROGRAM_WHEEL_BASE;  // rad/s
-        const seconds = pivotRate > 0 ? angleRad / pivotRate : 0;
-        await delay(seconds * 1000, abortSignal, undefined, botId, apply);
+        const startHeading = pose.heading;
+        const COAST_TAU = 0.45;
+        await delay(
+          60_000, abortSignal,
+          () => {
+            const turned = Math.abs(pose.heading - startHeading);
+            // ω = (R − L) / wheelBase, with motors at ±mps so |ω| ≈ 2|mps|/wheelBase.
+            const omega = Math.abs((pose.motorRight - pose.motorLeft) / PROGRAM_WHEEL_BASE);
+            return turned + omega * COAST_TAU >= angleRad;
+          },
+          botId, apply,
+        );
         setMotors(botId, 0, 0);
         break;
       }
@@ -209,9 +221,20 @@ async function execBlock(block: ProgramBlock, botId: string, opts: ExecutorOptio
         const ox = pose.worldX, oz = pose.worldZ;
         const apply = () => setMotors(botId, mps, mps);
         apply();
+        // Brake early by exactly the coast distance the asymmetric motor
+        // LPF will carry the bot through after release, so the bot lands
+        // at target instead of sailing past it. Coast = v · τ_release
+        // (integral of an exponential decay), so we cut motors when
+        // travelled + coast >= target. Tau matches MOTOR_TAU_RELEASE in
+        // bot-drive.ts; if that ever moves, this constant tracks it.
+        const COAST_TAU = 0.45;
         await delay(
           60_000, abortSignal,
-          () => distanceFromOrigin(pose, ox, oz) >= Math.abs(targetMeters),
+          () => {
+            const traveled = distanceFromOrigin(pose, ox, oz);
+            const v = (pose.motorLeft + pose.motorRight) * 0.5;
+            return traveled + Math.abs(v) * COAST_TAU >= Math.abs(targetMeters);
+          },
           botId, apply,
         );
         setMotors(botId, 0, 0);
