@@ -90,12 +90,12 @@ export function defaultKinematic(type: SceneObjectType): {
   restitution: number;
 } {
   switch (type) {
-    case 'cone':     return { radius: 0.09, pushFactor: 0.85, damping: 4.5, restitution: 0.45 };
-    case 'sphere':   return { radius: 0.10, pushFactor: 0.92, damping: 0.55, restitution: 0.85 };  // bouncy ball
-    case 'block':    return { radius: 0.13, pushFactor: 0.55, damping: 6.0, restitution: 0.20 };  // heavy
-    case 'cylinder': return { radius: 0.10, pushFactor: 0.65, damping: 4.0, restitution: 0.35 };
-    case 'waypoint': return { radius: 0.07, pushFactor: 0.95, damping: 5.0, restitution: 0.50 };
-    default:         return { radius: 0.10, pushFactor: 0.70, damping: 4.0, restitution: 0.40 };
+    case 'cone':     return { radius: 0.09, pushFactor: 0.92, damping: 4.5, restitution: 0.45 };
+    case 'sphere':   return { radius: 0.10, pushFactor: 0.97, damping: 0.55, restitution: 0.85 };  // bouncy ball, almost-zero bot recoil
+    case 'block':    return { radius: 0.13, pushFactor: 0.65, damping: 6.0, restitution: 0.20 };  // heavy
+    case 'cylinder': return { radius: 0.10, pushFactor: 0.78, damping: 4.0, restitution: 0.35 };
+    case 'waypoint': return { radius: 0.07, pushFactor: 0.97, damping: 5.0, restitution: 0.50 };
+    default:         return { radius: 0.10, pushFactor: 0.85, damping: 4.0, restitution: 0.40 };
   }
 }
 
@@ -152,18 +152,21 @@ export function resolveBotPushable(
   obj.worldZ += nz * overlap * obj.pushFactor;
   bot.worldX -= nx * overlap * (1 - obj.pushFactor);
   bot.worldZ -= nz * overlap * (1 - obj.pushFactor);
-  // Velocity impulse — elastic collision against an effectively
-  // infinite-mass bot. Closing speed (vBotN − vObjN) drives the impulse;
-  // (1 + restitution) is the bounce factor, pushFactor stands in for the
-  // mass ratio so light objects (ball) get launched at ~2× the closing
-  // speed while heavy objects (block) barely budge. This is what makes a
-  // gentle nudge produce a small roll and a head-on charge launch the
-  // ball across the arena.
+  // Velocity impulse — closing-speed-driven, with the elastic bonus
+  // smoothly blended in. At low closing speeds (sustained push) the
+  // object just tracks the bot's velocity along the contact normal —
+  // no bonus, no oscillation. At high closing speeds (deliberate ram)
+  // the full (1 + restitution) elastic factor kicks in, launching a
+  // light ball faster than the bot was moving.
   const vBotN = botVelX * nx + botVelZ * nz;
   const vObjN = obj.vx * nx + obj.vz * nz;
   if (vBotN > vObjN) {
     const closing = vBotN - vObjN;
-    const impulse = closing * (1 + obj.restitution) * obj.pushFactor;
+    const HARD_HIT = 0.5;  // m/s — closing speed at which full elastic launch kicks in
+    const elasticBlend = Math.min(1, closing / HARD_HIT);
+    // factor goes from 1.0 (slow, just match) → 1+restitution (full bounce).
+    const factor = 1 + obj.restitution * elasticBlend;
+    const impulse = closing * factor * obj.pushFactor;
     obj.vx += nx * impulse;
     obj.vz += nz * impulse;
   }

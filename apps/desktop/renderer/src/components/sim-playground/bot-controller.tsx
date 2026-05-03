@@ -212,10 +212,31 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
             if (!isPushable(o)) continue;
             const k = getKinematic(o.id);
             if (!k) continue;
+            // Capture the bot's pre-resolution position so we can constrain
+            // its displacement to the forward axis afterwards. A real
+            // wheeled bot can't slide laterally — its tires resist sideways
+            // motion. Without this, an oblique contact deflects the bot
+            // off the ball; with it, the bot plows straight through and
+            // the ball deflects to the side.
+            const preBotX = pose.worldX;
+            const preBotZ = pose.worldZ;
             if (resolveBotPushable(pose, radius, botVelX, botVelZ, k)) {
+              const fwdX =  Math.cos(pose.heading);
+              const fwdZ = -Math.sin(pose.heading);
+              const dispX = pose.worldX - preBotX;
+              const dispZ = pose.worldZ - preBotZ;
+              const fwdComp = dispX * fwdX + dispZ * fwdZ;
+              // Restore bot to its forward-axis-only displacement.
+              pose.worldX = preBotX + fwdComp * fwdX;
+              pose.worldZ = preBotZ + fwdComp * fwdZ;
+              // Transfer the discarded lateral component to the ball
+              // (object eats what the bot couldn't slide into) so total
+              // separation is preserved and the ball deflects realistically.
+              k.worldX += dispX - fwdComp * fwdX;
+              k.worldZ += dispZ - fwdComp * fwdZ;
               resolveCircleVsAABBs(k, walls);
-              pose.motorLeft  *= 0.88;
-              pose.motorRight *= 0.88;
+              pose.motorLeft  *= 0.92;
+              pose.motorRight *= 0.92;
             }
           }
 
