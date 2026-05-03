@@ -21,6 +21,10 @@ type PlanPickerProps = {
   apiBase: string;
   savedSession?: SavedSession;
   onPicked: (result: AuthResult, sessionCode?: string) => void;
+  /** Sandbox entry — bypasses auth flow entirely. Available to anyone
+   *  (signed in or not); the parent decides whether to upgrade a guest
+   *  to a "Player" handle and whether to clear any lesson/concept state. */
+  onJustPlay: () => void;
   onTeacherAuth: () => void;
   onPersonalTutor: () => void;
   onClearSavedSession?: () => void;
@@ -44,7 +48,7 @@ const TUTOR_LINES = [
   "Four robots to start, more coming. Waypoint racing, sumo, drawing, maze solving. I'll adapt the curriculum to your exact brain.",
 ];
 
-export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onPersonalTutor, onClearSavedSession }: PlanPickerProps) {
+export function PlanPicker({ apiBase, savedSession, onPicked, onJustPlay, onTeacherAuth, onPersonalTutor, onClearSavedSession }: PlanPickerProps) {
   const [plan, setPlan] = useState<Plan>('pick');
   const [joinCode, setJoinCode] = useState('');
   const [studentName, setStudentName] = useState('');
@@ -99,19 +103,11 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onTeacherAuth, onP
 
   const handleJustPlay = () => {
     playSfx('whoosh');
-    // If the user is already signed in, keep their session — they're just
-    // entering sandbox mode, not signing out. Only fall back to guest when
-    // there's no existing session.
-    if (effectiveSession) {
-      onPicked({
-        role: effectiveSession.role,
-        name: effectiveSession.name,
-        email: effectiveSession.email,
-        authSource: 'account',
-      });
-    } else {
-      onPicked({ role: 'guest', name: 'Player', authSource: 'classroom_device' });
-    }
+    // Sandbox is for everyone — signed in or not. Hand off to the parent's
+    // dedicated sandbox-entry handler so it can decide on session preservation
+    // and force the sandbox mode without going through the auth/onboarding
+    // branches that handleAuthenticated triggers.
+    onJustPlay();
   };
 
   const handleJoinSubmit = async (e: React.FormEvent) => {

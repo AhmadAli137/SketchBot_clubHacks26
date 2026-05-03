@@ -1261,6 +1261,22 @@ export default function HomePage() {
                 setSavedSession(null);
                 handleAuthenticated(result);
               }}
+              onJustPlay={() => {
+                // Sandbox is open to everyone. Preserve any existing session
+                // (signed-in users keep their PFP + cloud auth — the AI tutor
+                // chat still works). For never-signed-in users, give them a
+                // disposable "Player" handle so the dashboard renders. Force
+                // sandbox mode by clearing any concept / lesson selection so
+                // we don't accidentally land on a tutor or classroom view.
+                if (userRole === 'guest' && !userName.trim()) {
+                  setUserName('Player');
+                }
+                setSelectedConceptId(null);
+                setSelectedConceptTitle('Free Draw');
+                setLessonPlanActive(false);
+                setActiveChallengeId(null);
+                setView('session');
+              }}
               onTeacherAuth={() => { setAuthMode('teacher'); setView('auth'); }}
               onPersonalTutor={() => { setAuthMode('personal'); setView('auth'); }}
               onClearSavedSession={() => handleSignOut()}
