@@ -54,7 +54,7 @@ export function BuilderRail({
   onTogglePlacementGrid,
   objectCount,
 }: BuilderRailProps) {
-  const [activeCategory, setActiveCategory] = useState<ToolCategory>('walls');
+  const [activeCategory, setActiveCategory] = useState<ToolCategory>('structures');
   const visibleTools = TOOLS.filter((t) => t.category === activeCategory);
 
   return (

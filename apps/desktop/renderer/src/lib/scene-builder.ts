@@ -15,6 +15,7 @@ export const ARENA_HALF = 100.0;
 
 export type SceneObjectType =
   | 'wall'
+  | 'ramp'
   | 'cone'
   | 'block'
   | 'sphere'
@@ -49,7 +50,7 @@ export type SceneObject = {
   botVariant?: BotVariant;
 };
 
-export type ToolCategory = 'surfaces' | 'walls' | 'obstacles' | 'markers' | 'bots' | 'lights';
+export type ToolCategory = 'surfaces' | 'structures' | 'obstacles' | 'markers' | 'bots' | 'lights';
 
 export type ToolDef = {
   /** Stable id used by the rail. May differ from `type` for bot variants. */
@@ -64,9 +65,10 @@ export type ToolDef = {
 };
 
 export const TOOLS: ToolDef[] = [
-  { id: 'mat',          type: 'mat',      label: 'Playmat',  emoji: '🟣', category: 'surfaces',  description: 'Glowing stage mat — defines a play area', defaultColor: '#a855f7' },
-  { id: 'wall',         type: 'wall',     label: 'Wall',     emoji: '🧱', category: 'walls',     description: 'Maze segment, 1 cell long' },
-  { id: 'block',        type: 'block',    label: 'Block',    emoji: '🟦', category: 'obstacles', description: 'Stackable cube' },
+  { id: 'mat',          type: 'mat',      label: 'Playmat',  emoji: '🟣', category: 'surfaces',   description: 'Glowing stage mat — defines a play area', defaultColor: '#a855f7' },
+  { id: 'wall',         type: 'wall',     label: 'Wall',     emoji: '🧱', category: 'structures', description: 'Maze segment, 1 cell long' },
+  { id: 'ramp',         type: 'ramp',     label: 'Ramp',     emoji: '🛹', category: 'structures', description: 'Sloped ramp — solid like a wall' },
+  { id: 'block',        type: 'block',    label: 'Block',    emoji: '🟦', category: 'obstacles',  description: 'Stackable cube' },
   { id: 'cone',         type: 'cone',     label: 'Cone',     emoji: '🚧', category: 'obstacles', description: 'Traffic cone obstacle' },
   { id: 'sphere',       type: 'sphere',   label: 'Sphere',   emoji: '⚪', category: 'obstacles', description: 'Round obstacle' },
   { id: 'cylinder',     type: 'cylinder', label: 'Cylinder', emoji: '🥫', category: 'obstacles', description: 'Pillar obstacle' },
@@ -83,12 +85,12 @@ export const TOOLS_BY_ID: Record<string, ToolDef> = TOOLS.reduce(
 );
 
 export const CATEGORIES: { id: ToolCategory; label: string; emoji: string }[] = [
-  { id: 'surfaces',  label: 'Surfaces',  emoji: '🟣' },
-  { id: 'walls',     label: 'Walls',     emoji: '🧱' },
-  { id: 'obstacles', label: 'Obstacles', emoji: '🚧' },
-  { id: 'markers',   label: 'Markers',   emoji: '📍' },
-  { id: 'bots',      label: 'Bots',      emoji: '🤖' },
-  { id: 'lights',    label: 'Lights',    emoji: '💡' },
+  { id: 'surfaces',   label: 'Surfaces',   emoji: '🟣' },
+  { id: 'structures', label: 'Structures', emoji: '🧱' },
+  { id: 'obstacles',  label: 'Obstacles',  emoji: '🚧' },
+  { id: 'markers',    label: 'Markers',    emoji: '📍' },
+  { id: 'bots',       label: 'Bots',       emoji: '🤖' },
+  { id: 'lights',     label: 'Lights',     emoji: '💡' },
 ];
 
 // ─── Grid helpers ─────────────────────────────────────────────────────────────
@@ -111,7 +113,7 @@ export function worldToGridFloat(x: number, z: number): { gx: number; gz: number
 
 /** Object types that must snap to the grid (for clean maze geometry).
  *  Everything else free-places at float coords. */
-export const GRID_SNAP_TYPES: ReadonlySet<SceneObjectType> = new Set(['wall']);
+export const GRID_SNAP_TYPES: ReadonlySet<SceneObjectType> = new Set(['wall', 'ramp']);
 
 /** Snap (gx, gz) to integer cells iff the type requires grid alignment.
  *  Walls snap, everything else passes through unchanged. */
@@ -138,6 +140,7 @@ export function rotationStepsForType(type: SceneObjectType): 1 | 2 | 4 {
   switch (type) {
     case 'bot':
     case 'apriltag':
+    case 'ramp':         // ramps need full 4-way orientation (low end can face any cardinal direction)
       return 4;
     case 'wall':
       return 2;
@@ -306,6 +309,7 @@ const THUMB_H = 110;
 
 const TYPE_COLORS: Record<SceneObjectType, string> = {
   wall:           '#22c55e',
+  ramp:           '#3a4060',
   block:          '#5dadff',
   cone:           '#ff8c00',
   sphere:         '#a855f7',

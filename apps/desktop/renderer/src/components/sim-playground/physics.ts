@@ -100,12 +100,15 @@ export function defaultKinematic(type: SceneObjectType): {
 }
 
 export function isPushable(o: SceneObject): boolean {
+  // Waypoints + apriltags are markers — placed deliberately as references,
+  // they should never get knocked around. Walls + ramps are static
+  // structures handled by the AABB collision pass. Studio lights, mats,
+  // and bot variants are excluded by default.
   switch (o.type) {
     case 'cone':
     case 'sphere':
     case 'block':
     case 'cylinder':
-    case 'waypoint':
       return true;
     default:
       return false;

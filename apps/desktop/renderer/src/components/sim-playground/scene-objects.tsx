@@ -81,6 +81,7 @@ function SelectionToolbar({
   const topY = (() => {
     switch (obj.type) {
       case 'wall':
+      case 'ramp':
       case 'block':         return y + 0.16;
       case 'cone':          return y + 0.26;
       case 'sphere':        return y + 0.20;
@@ -158,6 +159,7 @@ function StackTargetHighlight({
   const topY = (() => {
     switch (type) {
       case 'wall':
+      case 'ramp':
       case 'block':         return y + 0.16;
       case 'cone':          return y + 0.26;
       case 'sphere':        return y + 0.20;
@@ -232,6 +234,46 @@ function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: 
     <mesh position={[x + offX, y + WALL_HEIGHT / 2, z + offZ]} rotation={[0, rotY, 0]} castShadow receiveShadow>
       <boxGeometry args={[WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS]} />
       <meshStandardMaterial color="#0a2a10" emissive="#002200" emissiveIntensity={0.3} roughness={0.8} />
+    </mesh>
+  );
+}
+
+/** Sloped ramp — triangular prism. One cell long along its forward axis,
+ *  one cell wide on the perpendicular, rises to WALL_HEIGHT at the high
+ *  end. Treated as a solid AABB by the bot-collision system for now (no
+ *  drive-up); the slanted top is purely visual until the drive-over code
+ *  lands. Local +X = base of the ramp (low end, where the bot would drive
+ *  in); high end is at -X. */
+const RAMP_LENGTH = GRID_SIZE;
+const RAMP_WIDTH  = GRID_SIZE * 0.85;
+const RAMP_HEIGHT = WALL_HEIGHT;
+function RampObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
+  const geom = useMemo(() => {
+    // 2D triangle profile in XY: tip at the low end, hypotenuse rising.
+    //   (0,0) ── (L,0)
+    //    │
+    //    │
+    //   (0,H)
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.lineTo(RAMP_LENGTH, 0);
+    shape.lineTo(0, RAMP_HEIGHT);
+    shape.lineTo(0, 0);
+    const g = new THREE.ExtrudeGeometry(shape, { depth: RAMP_WIDTH, bevelEnabled: false });
+    // ExtrudeGeometry extrudes along +Z. Centre the prism so its base sits
+    // at y=0 and its centre-of-base is at the cell centre.
+    g.translate(-RAMP_LENGTH / 2, 0, -RAMP_WIDTH / 2);
+    return g;
+  }, []);
+  return (
+    <mesh
+      position={[x, y, z]}
+      rotation={[0, rotY, 0]}
+      geometry={geom}
+      castShadow
+      receiveShadow
+    >
+      <meshStandardMaterial color="#3a4060" roughness={0.55} metalness={0.30} />
     </mesh>
   );
 }
@@ -376,8 +418,9 @@ function CylinderObject({ id, x, y, z, color = '#cccccc' }: { id: string; x: num
   );
 }
 
-function WaypointObject({ id, x, y, z, color = '#4dffb8' }: { id: string; x: number; y: number; z: number; color?: string }) {
-  const groupRef = useLivePushable(id, 'waypoint', x, z);
+function WaypointObject({ x, y, z, color = '#4dffb8' }: { x: number; y: number; z: number; color?: string }) {
+  // Waypoints are reference markers — placed deliberately, never displaced
+  // by the bot. No live kinematic / no useLivePushable here.
   const sphereRef = useRef<THREE.Mesh>(null);
   const off = useRef(Math.random() * Math.PI * 2);
   useFrame(({ clock }) => {
@@ -387,7 +430,7 @@ function WaypointObject({ id, x, y, z, color = '#4dffb8' }: { id: string; x: num
     sphereRef.current.position.y = 0.32 + Math.sin(clock.elapsedTime * 1.8 + off.current) * 0.025;
   });
   return (
-    <group ref={groupRef} position={[x, y, z]}>
+    <group position={[x, y, z]}>
       <mesh position={[0, 0.15, 0]}>
         <cylinderGeometry args={[0.012, 0.012, 0.30, 8]} />
         <meshStandardMaterial color="#303040" roughness={0.6} metalness={0.5} />
@@ -401,27 +444,62 @@ function WaypointObject({ id, x, y, z, color = '#4dffb8' }: { id: string; x: num
   );
 }
 
+/** Pre-baked tag36h11-style 6×6 inner pattern. Procedural enough to read
+ *  as a real AprilTag from above. The 1-cell black border is added by the
+ *  texture generator; this string only describes the data area. */
+const APRIL_PATTERN = [
+  '##.#.#',
+  '#..##.',
+  '.#####',
+  '##.#..',
+  '.#..##',
+  '#####.',
+];
+let _aprilTexture: THREE.CanvasTexture | null = null;
+function getAprilTagTexture(): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
+  if (_aprilTexture) return _aprilTexture;
+  // 8×8 cells × 16 px = 128 px texture. Fully black border + 6×6 data.
+  const SIZE = 128;
+  const CELL = SIZE / 8;
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  // Inner 6×6 data: row r, col c at pixel (CELL*(c+1), CELL*(r+1)).
+  for (let r = 0; r < 6; r++) {
+    for (let c = 0; c < 6; c++) {
+      ctx.fillStyle = APRIL_PATTERN[r][c] === '#' ? '#0a0a0a' : '#f3eee0';
+      ctx.fillRect(CELL * (c + 1), CELL * (r + 1), CELL + 0.5, CELL + 0.5);
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.magFilter = THREE.NearestFilter;       // sharp pixel edges, no blur
+  tex.minFilter = THREE.NearestFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  _aprilTexture = tex;
+  return tex;
+}
+
 function AprilTagObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
+  // Markers are decals on the floor — bot rides over them, never displaces
+  // them. Single textured plane keeps the mesh count low and lets the
+  // canvas-painted pattern do the visual heavy lifting. lay flat, sit
+  // 0.5 mm above the ground to avoid Z-fighting with the floor mesh.
+  const tex = useMemo(() => getAprilTagTexture(), []);
   return (
-    <group position={[x, y + 0.001, z]} rotation={[0, rotY, 0]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.18, 0.18]} />
-        <meshStandardMaterial color="#0a0a0a" roughness={0.85} />
+    <group position={[x, y + 0.0005, z]} rotation={[0, rotY, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[0.20, 0.20]} />
+        <meshStandardMaterial
+          map={tex ?? undefined}
+          color={tex ? '#ffffff' : '#0a0a0a'}
+          roughness={0.85}
+        />
       </mesh>
-      <mesh position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.13, 0.13]} />
-        <meshStandardMaterial color="#f3eee0" roughness={0.85} />
-      </mesh>
-      {[
-        [-0.035, -0.035], [0, -0.035], [0.035, -0.035],
-        [-0.035, 0],                   [0.035, 0],
-        [-0.035, 0.035],  [0,  0.035], [0.035, 0.035],
-      ].map(([dx, dz], i) => (
-        <mesh key={i} position={[dx, 0.002, dz]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.024, 0.024]} />
-          <meshStandardMaterial color={(i + Math.floor(i / 3)) % 2 === 0 ? '#0a0a0a' : '#f3eee0'} roughness={0.85} />
-        </mesh>
-      ))}
     </group>
   );
 }
@@ -1009,6 +1087,17 @@ function GhostShape({
         </mesh>
       );
     }
+    case 'ramp': {
+      // Approximate the wedge silhouette with a tilted box for the ghost —
+      // matches the placed mesh's rough footprint without recomputing the
+      // ExtrudeGeometry on every cursor move.
+      return (
+        <mesh position={[0, RAMP_HEIGHT / 2, 0]} rotation={[0, rotY, 0]}>
+          <boxGeometry args={[RAMP_LENGTH, RAMP_HEIGHT, RAMP_WIDTH]} />
+          <GhostMaterial />
+        </mesh>
+      );
+    }
     case 'block':
       return (
         <mesh position={[0, 0.08, 0]} rotation={[0, rotY, 0]}>
@@ -1179,11 +1268,12 @@ function PlacedObjectMesh({ obj }: { obj: SceneObject }) {
 
   switch (obj.type) {
     case 'wall':     return <WallObject x={x} y={y} z={z} rotY={rotY} />;
+    case 'ramp':     return <RampObject x={x} y={y} z={z} rotY={rotY} />;
     case 'block':    return <BlockObject id={obj.id} x={x} y={y} z={z} rotY={rotY} color={obj.color} />;
     case 'cone':     return <ConeObject id={obj.id} x={x} y={y} z={z} />;
     case 'sphere':   return <SphereObject id={obj.id} x={x} y={y} z={z} color={obj.color} />;
     case 'cylinder': return <CylinderObject id={obj.id} x={x} y={y} z={z} color={obj.color} />;
-    case 'waypoint': return <WaypointObject id={obj.id} x={x} y={y} z={z} color={obj.color} />;
+    case 'waypoint': return <WaypointObject x={x} y={y} z={z} color={obj.color} />;
     case 'apriltag': return <AprilTagObject x={x} y={y} z={z} rotY={rotY} />;
     case 'bot':      return <BotObject id={obj.id} x={x} y={y} z={z} rotY={obj.headingRad ?? rotY} variant={obj.botVariant} />;
     case 'mat':      return <MatObject x={x} y={y} z={z} rotY={rotY} color={obj.color} />;

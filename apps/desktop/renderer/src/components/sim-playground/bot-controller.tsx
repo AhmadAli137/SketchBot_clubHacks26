@@ -51,6 +51,12 @@ const BOT_RADIUS_SUMO     = 0.17;
  *  wall mesh in scene-objects.tsx. */
 const WALL_THICKNESS = GRID_SIZE * 0.18;
 const WALL_LENGTH    = GRID_SIZE;
+/** Ramp footprint — same length as a wall along its rotated forward axis,
+ *  ~85% of a cell wide on the perpendicular. Matches RAMP_LENGTH/WIDTH in
+ *  scene-objects.tsx. Ramps are treated as solid AABBs by the collision
+ *  pass for now (drive-up physics is future work). */
+const RAMP_LENGTH = GRID_SIZE;
+const RAMP_WIDTH  = GRID_SIZE * 0.85;
 
 function botLabel(o: SceneObject, idx: number): string {
   const base = o.botVariant === 'sumo' ? 'Sumo Bot' : 'Spark Mini';
@@ -122,15 +128,28 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
       // ever shows up in profiles.
       const walls: WallAABB[] = [];
       for (const o of list) {
-        if (o.type !== 'wall') continue;
         const { x: wx, z: wz } = gridToWorldRendered(o);
-        const isXAxis = ((o.rotY ?? 0) % 2) === 0;
-        const halfLen = WALL_LENGTH / 2;
-        const halfThk = WALL_THICKNESS / 2;
-        if (isXAxis) {
-          walls.push({ minX: wx - halfLen, maxX: wx + halfLen, minZ: wz - halfThk, maxZ: wz + halfThk });
-        } else {
-          walls.push({ minX: wx - halfThk, maxX: wx + halfThk, minZ: wz - halfLen, maxZ: wz + halfLen });
+        if (o.type === 'wall') {
+          const isXAxis = ((o.rotY ?? 0) % 2) === 0;
+          const halfLen = WALL_LENGTH / 2;
+          const halfThk = WALL_THICKNESS / 2;
+          if (isXAxis) {
+            walls.push({ minX: wx - halfLen, maxX: wx + halfLen, minZ: wz - halfThk, maxZ: wz + halfThk });
+          } else {
+            walls.push({ minX: wx - halfThk, maxX: wx + halfThk, minZ: wz - halfLen, maxZ: wz + halfLen });
+          }
+        } else if (o.type === 'ramp') {
+          // Ramps are 1 cell long along their forward axis, ~85% wide on
+          // the perpendicular. Same axis convention as walls (rotY 0/2 →
+          // long edge along X).
+          const isXAxis = ((o.rotY ?? 0) % 2) === 0;
+          const halfLen = RAMP_LENGTH / 2;
+          const halfWid = RAMP_WIDTH / 2;
+          if (isXAxis) {
+            walls.push({ minX: wx - halfLen, maxX: wx + halfLen, minZ: wz - halfWid, maxZ: wz + halfWid });
+          } else {
+            walls.push({ minX: wx - halfWid, maxX: wx + halfWid, minZ: wz - halfLen, maxZ: wz + halfLen });
+          }
         }
       }
 
