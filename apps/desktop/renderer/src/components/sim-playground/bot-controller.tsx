@@ -22,6 +22,7 @@ import { ensurePose, getPose, integrateBotPose, setMotors, stopAllMotors, type W
 import {
   ensureKinematic, getKinematic, defaultKinematic, isPushable,
   resolveBotPushable, resolveBotBot, resolveCircleVsAABBs, kinematicMovedFrom,
+  integrateKinematic,
 } from './physics';
 
 type BotControllerProps = {
@@ -133,6 +134,26 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
         }
       }
 
+      // ─── Free-motion integration for passive props ───────────────
+      // Runs every frame regardless of active bot so a ball kicked
+      // before the user releases their finger keeps rolling until
+      // friction stops it. Bounces off walls via velocity reflection
+      // inside resolveCircleVsAABBs.
+      for (let i = 0; i < list.length; i++) {
+        const o = list[i];
+        if (!isPushable(o)) continue;
+        const k = getKinematic(o.id) ?? ensureKinematic(o.id, () => {
+          const d = defaultKinematic(o.type);
+          const { x: wx, z: wz } = gridToWorldRendered(o);
+          return {
+            worldX: wx, worldZ: wz, vx: 0, vz: 0,
+            radius: d.radius, pushFactor: d.pushFactor, damping: d.damping,
+          };
+        });
+        integrateKinematic(k, dt);
+        resolveCircleVsAABBs(k, walls);
+      }
+
       const id = activeIdRef.current;
       if (id) {
         const held = heldRef.current;
@@ -156,12 +177,12 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
           integrateBotPose(pose, dt, WHEEL_BASE, WHEEL_RADIUS, walls, radius);
 
           // ─── Push other objects out of the way ────────────────────
-          // Iterate every other scene object once. For pushable props
-          // (cones, blocks, balls, waypoints, cylinders) we resolve a
-          // bot-vs-circle overlap that displaces the prop along the
-          // contact normal and gives the bot a small reciprocal recoil.
-          // For other bots we shove their pose. Walls already handled
-          // inside integrateBotPose above.
+          // Active bot's instantaneous velocity, used as the impulse
+          // source for object pushes and for spinning shoved bots' wheels.
+          const vBot = (pose.motorLeft + pose.motorRight) * 0.5;
+          const botVelX = vBot * Math.cos(pose.heading);
+          const botVelZ = vBot * (-Math.sin(pose.heading));
+
           for (let i = 0; i < list.length; i++) {
             const o = list[i];
             if (o.id === id) continue;
@@ -169,27 +190,31 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
               const otherPose = getPose(o.id);
               if (!otherPose) continue;
               const otherRadius = o.botVariant === 'sumo' ? BOT_RADIUS_SUMO : BOT_RADIUS_STANDARD;
-              if (resolveBotBot(pose, radius, otherPose, otherRadius)) {
-                // Soft brake on the active bot's wheels — same vibe as wall hit.
+              const res = resolveBotBot(pose, radius, otherPose, otherRadius);
+              if (res) {
+                // Spin the SHOVED bot's wheels by the forward-projected
+                // displacement so it doesn't slide statically. Lateral
+                // shove (skidding) doesn't roll real wheels — and doesn't
+                // here either. Apply equally to both wheels (no diff).
+                const fX = Math.cos(otherPose.heading);
+                const fZ = -Math.sin(otherPose.heading);
+                const fwdDisp = res.bDx * fX + res.bDz * fZ;
+                const wheelDelta = fwdDisp / WHEEL_RADIUS;
+                otherPose.leftWheelRot  += wheelDelta;
+                otherPose.rightWheelRot += wheelDelta;
+                // Active bot brakes on impact.
                 pose.motorLeft  *= 0.7;
                 pose.motorRight *= 0.7;
               }
               continue;
             }
             if (!isPushable(o)) continue;
-            // Hydrate kinematic for newly-encountered props (e.g., the
-            // bot's first contact). Mounting useEffect normally handles
-            // this — defending here in case order-of-render lags.
-            const k = getKinematic(o.id) ?? ensureKinematic(o.id, () => {
-              const d = defaultKinematic(o.type);
-              const { x: wx, z: wz } = gridToWorldRendered(o);
-              return { worldX: wx, worldZ: wz, radius: d.radius, pushFactor: d.pushFactor };
-            });
-            if (resolveBotPushable(pose, radius, k)) {
-              // Object got pushed — make sure it didn't end up inside a wall.
+            const k = getKinematic(o.id);
+            if (!k) continue;
+            if (resolveBotPushable(pose, radius, botVelX, botVelZ, k)) {
               resolveCircleVsAABBs(k, walls);
-              pose.motorLeft  *= 0.85;
-              pose.motorRight *= 0.85;
+              pose.motorLeft  *= 0.88;
+              pose.motorRight *= 0.88;
             }
           }
 

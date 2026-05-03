@@ -258,7 +258,10 @@ function useLivePushable(id: string, type: 'cone' | 'block' | 'sphere' | 'cylind
   useEffect(() => {
     const k = ensureKinematic(id, () => {
       const d = defaultKinematic(type);
-      return { worldX: x, worldZ: z, radius: d.radius, pushFactor: d.pushFactor };
+      return {
+        worldX: x, worldZ: z, vx: 0, vz: 0,
+        radius: d.radius, pushFactor: d.pushFactor, damping: d.damping,
+      };
     });
     const dx = Math.abs(k.worldX - x);
     const dz = Math.abs(k.worldZ - z);
@@ -297,15 +300,36 @@ function ConeObject({ id, x, y, z }: { id: string; x: number; y: number; z: numb
 
 function SphereObject({ id, x, y, z, color = '#a855f7' }: { id: string; x: number; y: number; z: number; color?: string }) {
   const groupRef = useLivePushable(id, 'sphere', x, z);
+  const ballRef = useRef<THREE.Mesh>(null);
+  // Rolling visualisation — each frame compute angular velocity from the
+  // ball's linear velocity (ω axis = up × v normalised; magnitude = |v|/r)
+  // and rotate the mesh in world space so it actually rolls instead of
+  // sliding. rotateOnWorldAxis composes with the existing quaternion so
+  // direction changes don't snap.
+  const ballR = 0.1;
+  useFrame((_, dt) => {
+    const k = getKinematic(id);
+    if (!k || !ballRef.current) return;
+    const speed = Math.hypot(k.vx, k.vz);
+    if (speed < 0.001) return;
+    // up × v = (0,1,0) × (vx,0,vz) = (-vz, 0, vx) — but we want the ball
+    // to roll FORWARD (bottom going backwards relative to motion), which
+    // is rotation around the OPPOSITE axis. Sign-flipped accordingly.
+    const ax = k.vz / speed;
+    const az = -k.vx / speed;
+    ballRef.current.rotateOnWorldAxis(_AXIS.set(ax, 0, az), (speed / ballR) * dt);
+  });
   return (
     <group ref={groupRef} position={[x, y, z]}>
-      <mesh position={[0, 0.1, 0]} castShadow>
-        <sphereGeometry args={[0.1, 24, 24]} />
+      <mesh ref={ballRef} position={[0, ballR, 0]} castShadow>
+        <sphereGeometry args={[ballR, 24, 24]} />
         <meshStandardMaterial color={color} roughness={0.4} metalness={0.25} />
       </mesh>
     </group>
   );
 }
+/** Reused Vector3 for ball roll axis — avoids a per-frame allocation. */
+const _AXIS = new THREE.Vector3();
 
 function CylinderObject({ id, x, y, z, color = '#cccccc' }: { id: string; x: number; y: number; z: number; color?: string }) {
   const groupRef = useLivePushable(id, 'cylinder', x, z);
