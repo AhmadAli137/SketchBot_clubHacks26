@@ -701,14 +701,53 @@ function GhostShape({
         </mesh>
       );
     case 'bot': {
-      const isSumo = variant === 'sumo';
-      const radius = isSumo ? 0.13 : 0.10;
-      const height = isSumo ? 0.10 : 0.09;
+      if (variant === 'sumo') {
+        // Sumo — keeps the chunky cylinder silhouette to match its render.
+        const radius = 0.13;
+        const height = 0.10;
+        return (
+          <mesh position={[0, height / 2 + 0.01, 0]} rotation={[0, rotY, 0]}>
+            <cylinderGeometry args={[radius, radius * 0.95, height, 24]} />
+            <GhostMaterial color="#ff6060" />
+          </mesh>
+        );
+      }
+      // Spark Mini — simplified silhouette of the actual SparkMiniBot
+      // (chassis + side wheels + front caster + bow sensor + OLED) so the
+      // preview ghost reads as the same shape that ends up placed.
+      const W = 0.22, D = 0.18, H = 0.05;
+      const wheelR = 0.045, wheelT = 0.022, wheelX = -0.025;
+      const baseY = wheelR - H / 2 + 0.005;
       return (
-        <mesh position={[0, height / 2 + 0.01, 0]} rotation={[0, rotY, 0]}>
-          <cylinderGeometry args={[radius, radius * 0.95, height, 24]} />
-          <GhostMaterial color={isSumo ? '#ff6060' : '#5de4ff'} />
-        </mesh>
+        <group rotation={[0, rotY, 0]}>
+          {/* Chassis */}
+          <mesh position={[0, baseY, 0]}>
+            <boxGeometry args={[W, H, D]} />
+            <GhostMaterial />
+          </mesh>
+          {/* Drive wheels */}
+          {[D / 2 + wheelT / 2 + 0.002, -(D / 2 + wheelT / 2 + 0.002)].map((zPos, i) => (
+            <mesh key={i} position={[wheelX, wheelR, zPos]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[wheelR, wheelR, wheelT, 20]} />
+              <GhostMaterial />
+            </mesh>
+          ))}
+          {/* Caster ball */}
+          <mesh position={[W / 2 - 0.025, 0.018, 0]}>
+            <sphereGeometry args={[0.018, 14, 10]} />
+            <GhostMaterial />
+          </mesh>
+          {/* Ultrasonic sensor block */}
+          <mesh position={[W / 2 - 0.005, baseY + H / 2 + 0.022, 0]}>
+            <boxGeometry args={[0.022, 0.04, 0.10]} />
+            <GhostMaterial />
+          </mesh>
+          {/* OLED panel — flat box on top */}
+          <mesh position={[-0.005, baseY + H / 2 + 0.012, 0]} rotation={[-Math.PI / 9, 0, 0]}>
+            <boxGeometry args={[0.075, 0.005, 0.13]} />
+            <GhostMaterial />
+          </mesh>
+        </group>
       );
     }
     case 'studio-light':
