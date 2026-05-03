@@ -573,53 +573,11 @@ function SceneContent({
           inside builder mode in the sandbox so kids have alignment cues
           while placing walls / objects. The denser placement-grid overlay
           (cyan/purple, cellSize 0.25) is still available as a separate
-          opt-in toggle for fine snapping.
-          In sandbox we beef up the section lines so the grid reads as an
-          engineered surface (lab bench / build platform) rather than a
-          soft visual aid. */}
+          opt-in toggle for fine snapping. */}
       {showGrid && (
-        <Grid
-          position={[0, 0.001, 0]}
-          args={[20, 20]}
-          cellSize={GRID_SIZE}
-          cellThickness={isSandboxEnv ? 0.5 : 0.35}
-          cellColor={env.gridColor}
-          sectionSize={1}
-          sectionThickness={isSandboxEnv ? 1.2 : 0.65}
-          sectionColor={env.sectionColor}
-          fadeDistance={20}
-          fadeStrength={1.65}
-          infiniteGrid
-          followCamera={false}
-        />
-      )}
-
-      {/* Origin reference marker — only in sandbox. A subtle CAD-style
-          crosshair at (0,0,0) sells the "this is a calibrated workspace"
-          feel without obstructing the play area. */}
-      {isSandboxEnv && (
-        <group position={[0, 0.004, 0]} rotation={[-Math.PI/2, 0, 0]}>
-          {/* Outer ring */}
-          <mesh>
-            <ringGeometry args={[0.18, 0.205, 48]} />
-            <meshBasicMaterial color="#5de4ff" transparent opacity={0.55} depthWrite={false} />
-          </mesh>
-          {/* +X tick */}
-          <mesh position={[0.30, 0, 0]}>
-            <planeGeometry args={[0.16, 0.012]} />
-            <meshBasicMaterial color="#ff7a7a" transparent opacity={0.7} depthWrite={false} />
-          </mesh>
-          {/* +Z tick (rendered as Y in plane space because of the rotation) */}
-          <mesh position={[0, 0.30, 0]}>
-            <planeGeometry args={[0.012, 0.16]} />
-            <meshBasicMaterial color="#7affae" transparent opacity={0.7} depthWrite={false} />
-          </mesh>
-          {/* Center dot */}
-          <mesh>
-            <circleGeometry args={[0.045, 24]} />
-            <meshBasicMaterial color="#fff4d6" transparent opacity={0.85} depthWrite={false} />
-          </mesh>
-        </group>
+        <Grid position={[0, 0.001, 0]} args={[20, 20]} cellSize={GRID_SIZE} cellThickness={0.35}
+          cellColor={env.gridColor} sectionSize={1} sectionThickness={0.65} sectionColor={env.sectionColor}
+          fadeDistance={20} fadeStrength={1.65} infiniteGrid followCamera={false} />
       )}
 
       {/* Paper canvas only for drawing mode (and not for raw sandbox env) */}
