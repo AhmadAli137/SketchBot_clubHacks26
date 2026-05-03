@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useRef } from 'react';
+// (useMemo is used for the procedural ball texture below)
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
@@ -301,69 +302,62 @@ function ConeObject({ id, x, y, z }: { id: string; x: number; y: number; z: numb
 
 function SphereObject({ id, x, y, z, color = '#a855f7' }: { id: string; x: number; y: number; z: number; color?: string }) {
   const groupRef = useLivePushable(id, 'sphere', x, z);
-  const ballRef = useRef<THREE.Group>(null);
+  const ballRef = useRef<THREE.Mesh>(null);
   const ballR = 0.1;
+
+  // Beach-ball style stripe texture, painted into a canvas once per
+  // colour and re-used. A smooth sphere alone has no orientation tell;
+  // the stripes give it one without any extra geometry.
+  const texture = useMemo(() => {
+    if (typeof document === 'undefined') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    // Six alternating wedges — vertical stripes on the canvas wrap
+    // around the sphere as classic beach-ball segments.
+    const N = 6;
+    for (let i = 0; i < N; i++) {
+      ctx.fillStyle = i % 2 === 0 ? color : '#fff4d6';
+      ctx.fillRect((i / N) * 512, 0, 512 / N + 1, 256);
+    }
+    // Polar caps so the top/bottom are a single solid band, not stripes.
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0,    'rgba(255,244,214,1)');
+    grad.addColorStop(0.07, 'rgba(255,244,214,0)');
+    grad.addColorStop(0.93, 'rgba(255,244,214,0)');
+    grad.addColorStop(1,    'rgba(255,244,214,1)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 256);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, [color]);
+  useEffect(() => () => { texture?.dispose(); }, [texture]);
+
   // Rolling visualisation — each frame compute angular velocity from the
-  // ball's linear velocity (ω axis = up × v normalised; magnitude = |v|/r)
-  // and rotate the mesh in world space so it actually rolls instead of
-  // sliding. rotateOnWorldAxis composes with the existing quaternion so
-  // direction changes don't snap.
+  // ball's linear velocity and rotate the mesh in world space so it
+  // actually rolls instead of sliding. rotateOnWorldAxis composes with
+  // the existing quaternion so direction changes don't snap.
   useFrame((_, dt) => {
     const k = getKinematic(id);
     if (!k || !ballRef.current) return;
     const speed = Math.hypot(k.vx, k.vz);
     if (speed < 0.001) return;
-    // up × v = (0,1,0) × (vx,0,vz) = (-vz, 0, vx) — but we want the ball
-    // to roll FORWARD (bottom going backwards relative to motion), which
-    // is rotation around the OPPOSITE axis. Sign-flipped accordingly.
+    // ω axis = up × v then sign-flipped so forward velocity rolls the
+    // ball forward (bottom of the ball sweeps backwards relative to motion).
     const ax = k.vz / speed;
     const az = -k.vx / speed;
     ballRef.current.rotateOnWorldAxis(_AXIS.set(ax, 0, az), (speed / ballR) * dt);
   });
-  // Lighten/darken helpers for the patch palette.
-  const accent = '#fff4d6';
+
   return (
     <group ref={groupRef} position={[x, y, z]}>
-      {/* Inner group is what we rotate via rotateOnWorldAxis so all the
-          patch decorations spin together with the ball body. */}
-      <group ref={ballRef} position={[0, ballR, 0]}>
-        {/* Ball body — icosahedron with flat shading so the facets catch
-            different amounts of light at every angle. That alone makes
-            rolling readable; the patch + stripe below add a strong
-            unique-orientation cue so direction is also obvious. */}
-        <mesh castShadow>
-          <icosahedronGeometry args={[ballR, 1]} />
-          <meshStandardMaterial color={color} roughness={0.55} metalness={0.15} flatShading />
-        </mesh>
-        {/* Three contrasting cap-patches at orthogonal axes — like a
-            beach-ball with a single colour band on each great circle.
-            Three separate caps means the ball never has a "nothing"
-            face: at any orientation at least one accent is visible. */}
-        {([
-          [0,  ballR, 0],
-          [ballR, 0, 0],
-          [0,  0,  ballR],
-        ] as const).map((p, i) => {
-          const lookTo = new THREE.Vector3(p[0] * 2, p[1] * 2, p[2] * 2);
-          return (
-            <mesh
-              key={i}
-              position={p}
-              onUpdate={(self) => self.lookAt(lookTo)}
-              castShadow
-            >
-              <circleGeometry args={[ballR * 0.55, 24]} />
-              <meshStandardMaterial color={accent} roughness={0.45} metalness={0.10} side={THREE.DoubleSide} />
-            </mesh>
-          );
-        })}
-        {/* Equator stripe — a thin band that sweeps as the ball rolls,
-            giving an unambiguous "I am rolling" tell at any angle. */}
-        <mesh rotation={[0, 0, 0]}>
-          <torusGeometry args={[ballR * 0.985, ballR * 0.07, 8, 32]} />
-          <meshStandardMaterial color="#1a1a26" roughness={0.7} metalness={0.2} />
-        </mesh>
-      </group>
+      <mesh ref={ballRef} position={[0, ballR, 0]} castShadow>
+        <sphereGeometry args={[ballR, 32, 32]} />
+        <meshStandardMaterial map={texture ?? undefined} color={texture ? '#ffffff' : color} roughness={0.45} metalness={0.15} />
+      </mesh>
     </group>
   );
 }
