@@ -12,6 +12,7 @@ import { Grid3X3, Pause, Play, RotateCcw, View, BookOpen, ChevronRight, ChevronL
 
 import { TopView } from './top-view';
 import { BuilderRail } from './builder-rail';
+import { BotController } from './bot-controller';
 import { useSimAnimation } from '@/lib/use-sim-animation';
 import { getEnvironment, getTutorialSteps } from '@/lib/concept-environments';
 import { playBGM, stopBGM, playSfx } from '@/lib/game-audio';
@@ -580,6 +581,17 @@ export function SimPlayground({
                     : '💡 Pick a tool · click an object to select')
                 : '💡 Drag to spin · scroll to zoom'}
             </div>
+            {/* Bot controller — appears whenever a bot is in the scene.
+                Hidden during active tool placement so it doesn't get in the
+                way of placing more objects, and during drag so the kid can
+                wrestle objects without accidentally driving them. */}
+            {!activeTool && !draggedObjectId && (
+              <BotController
+                sceneObjects={sceneObjects}
+                onUpdateObjects={updateObjects}
+              />
+            )}
+
             {/* Builder rail overlay (sandbox only) */}
             {builderEnabled && (
               <BuilderRail

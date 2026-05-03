@@ -8285,6 +8285,101 @@ select.block-param-input{width:auto;padding-right:20px}
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
+/* ── Bot controller floating panel ────────────────────────────────────────── */
+.bot-controller {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 12;
+  width: 168px;
+  border-radius: 14px;
+  background: rgba(8, 14, 30, 0.86);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(93, 228, 255, 0.22);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  font-family: inherit;
+  user-select: none;
+  overflow: hidden;
+}
+.bot-controller-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.12), rgba(168, 85, 247, 0.10));
+  border: none;
+  border-bottom: 1px solid rgba(93, 228, 255, 0.18);
+  color: #cfe7ff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  text-align: left;
+}
+.bot-controller-header:hover { background: linear-gradient(135deg, rgba(93, 228, 255, 0.18), rgba(168, 85, 247, 0.16)); }
+.bot-controller-title { flex: 1; }
+.bot-controller-collapse {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  font-weight: 700;
+}
+.bot-controller-body {
+  padding: 12px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bot-controller-select {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(93, 228, 255, 0.18);
+  color: #e2e8f0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* 3×3 grid — buttons in cardinal positions, stop in the centre, corners empty. */
+.bot-controller-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 38px);
+  grid-template-rows: repeat(3, 38px);
+  gap: 4px;
+  justify-content: center;
+}
+.bot-controller-btn {
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid rgba(93, 228, 255, 0.25);
+  background: rgba(93, 228, 255, 0.08);
+  color: #c9eaff;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.08s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bot-controller-btn:hover  { background: rgba(93, 228, 255, 0.16); border-color: rgba(93, 228, 255, 0.45); }
+.bot-controller-btn:active { background: rgba(93, 228, 255, 0.30); transform: scale(0.94); }
+.bot-controller-btn--up    { grid-column: 2; grid-row: 1; }
+.bot-controller-btn--left  { grid-column: 1; grid-row: 2; }
+.bot-controller-btn--stop  {
+  grid-column: 2; grid-row: 2;
+  background: rgba(255, 80, 80, 0.10);
+  border-color: rgba(255, 80, 80, 0.35);
+  color: #ff8a8a;
+}
+.bot-controller-btn--stop:hover  { background: rgba(255, 80, 80, 0.18); }
+.bot-controller-btn--right { grid-column: 3; grid-row: 2; }
+.bot-controller-btn--down  { grid-column: 2; grid-row: 3; }
+.bot-controller-hint {
+  font-size: 0.62rem;
+  text-align: center;
+  color: rgba(180, 210, 255, 0.52);
+  letter-spacing: 0.04em;
+}
+
 .sim-2d-pane {
   position: relative;
   overflow: hidden;
