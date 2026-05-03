@@ -261,6 +261,7 @@ function useLivePushable(id: string, type: 'cone' | 'block' | 'sphere' | 'cylind
       return {
         worldX: x, worldZ: z, vx: 0, vz: 0,
         radius: d.radius, pushFactor: d.pushFactor, damping: d.damping,
+        restitution: d.restitution,
       };
     });
     const dx = Math.abs(k.worldX - x);
@@ -300,13 +301,13 @@ function ConeObject({ id, x, y, z }: { id: string; x: number; y: number; z: numb
 
 function SphereObject({ id, x, y, z, color = '#a855f7' }: { id: string; x: number; y: number; z: number; color?: string }) {
   const groupRef = useLivePushable(id, 'sphere', x, z);
-  const ballRef = useRef<THREE.Mesh>(null);
+  const ballRef = useRef<THREE.Group>(null);
+  const ballR = 0.1;
   // Rolling visualisation — each frame compute angular velocity from the
   // ball's linear velocity (ω axis = up × v normalised; magnitude = |v|/r)
   // and rotate the mesh in world space so it actually rolls instead of
   // sliding. rotateOnWorldAxis composes with the existing quaternion so
   // direction changes don't snap.
-  const ballR = 0.1;
   useFrame((_, dt) => {
     const k = getKinematic(id);
     if (!k || !ballRef.current) return;
@@ -319,12 +320,50 @@ function SphereObject({ id, x, y, z, color = '#a855f7' }: { id: string; x: numbe
     const az = -k.vx / speed;
     ballRef.current.rotateOnWorldAxis(_AXIS.set(ax, 0, az), (speed / ballR) * dt);
   });
+  // Lighten/darken helpers for the patch palette.
+  const accent = '#fff4d6';
   return (
     <group ref={groupRef} position={[x, y, z]}>
-      <mesh ref={ballRef} position={[0, ballR, 0]} castShadow>
-        <sphereGeometry args={[ballR, 24, 24]} />
-        <meshStandardMaterial color={color} roughness={0.4} metalness={0.25} />
-      </mesh>
+      {/* Inner group is what we rotate via rotateOnWorldAxis so all the
+          patch decorations spin together with the ball body. */}
+      <group ref={ballRef} position={[0, ballR, 0]}>
+        {/* Ball body — icosahedron with flat shading so the facets catch
+            different amounts of light at every angle. That alone makes
+            rolling readable; the patch + stripe below add a strong
+            unique-orientation cue so direction is also obvious. */}
+        <mesh castShadow>
+          <icosahedronGeometry args={[ballR, 1]} />
+          <meshStandardMaterial color={color} roughness={0.55} metalness={0.15} flatShading />
+        </mesh>
+        {/* Three contrasting cap-patches at orthogonal axes — like a
+            beach-ball with a single colour band on each great circle.
+            Three separate caps means the ball never has a "nothing"
+            face: at any orientation at least one accent is visible. */}
+        {([
+          [0,  ballR, 0],
+          [ballR, 0, 0],
+          [0,  0,  ballR],
+        ] as const).map((p, i) => {
+          const lookTo = new THREE.Vector3(p[0] * 2, p[1] * 2, p[2] * 2);
+          return (
+            <mesh
+              key={i}
+              position={p}
+              onUpdate={(self) => self.lookAt(lookTo)}
+              castShadow
+            >
+              <circleGeometry args={[ballR * 0.55, 24]} />
+              <meshStandardMaterial color={accent} roughness={0.45} metalness={0.10} side={THREE.DoubleSide} />
+            </mesh>
+          );
+        })}
+        {/* Equator stripe — a thin band that sweeps as the ball rolls,
+            giving an unambiguous "I am rolling" tell at any angle. */}
+        <mesh rotation={[0, 0, 0]}>
+          <torusGeometry args={[ballR * 0.985, ballR * 0.07, 8, 32]} />
+          <meshStandardMaterial color="#1a1a26" roughness={0.7} metalness={0.2} />
+        </mesh>
+      </group>
     </group>
   );
 }

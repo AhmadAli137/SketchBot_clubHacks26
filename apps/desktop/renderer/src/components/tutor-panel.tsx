@@ -31,6 +31,7 @@ import { CLOUD_API_URL, cloudHeaders, useCloudAuthToken } from '@/lib/cloud-api'
 import { emitSparkEvent, onSparkEvent } from '@/lib/spark-events';
 import { playSfx } from '@/lib/game-audio';
 import { useSparkTick } from '@/lib/use-spark-tick';
+import { getAgenticSettings, onAgenticSettingsChange } from '@/lib/agentic-settings';
 import { sparkBehavior } from '@/lib/spark-behavior';
 import { appendSessionSummary } from '@/lib/spark-memory';
 import { useInterjectionTracker, trackInterjectionStart } from '@/lib/use-interjection-tracker';
@@ -1848,8 +1849,19 @@ export function TutorPanel({
   // the server's TutorAgent drives Spark's voice; the legacy /observe
   // poll below is disabled. If the WS drops or auth fails, the poll
   // resumes as a fallback so we never go silent.
+  //
+  // Parent toggle: same agenticTutorEnabled flag the legacy observe-tick
+  // checks. When off we don't open the WS at all, so the TutorAgent
+  // session doesn't even start and there's no proactive speak. Direct
+  // chat replies (handleSend) still work because they hit POST /api/tutor/message.
+  const [agenticTutorEnabled, setAgenticTutorEnabled] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? getAgenticSettings().agenticTutorEnabled : true,
+  );
+  useEffect(() => onAgenticSettingsChange((s) => setAgenticTutorEnabled(s.agenticTutorEnabled)), []);
+
   const tutorWs = useTutorWebSocket({
     enabled:
+      agenticTutorEnabled &&
       backendReachable &&
       !!CLOUD_API_URL &&
       !!sessionId &&

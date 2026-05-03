@@ -148,6 +148,7 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
           return {
             worldX: wx, worldZ: wz, vx: 0, vz: 0,
             radius: d.radius, pushFactor: d.pushFactor, damping: d.damping,
+            restitution: d.restitution,
           };
         });
         integrateKinematic(k, dt);
@@ -303,9 +304,9 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
   return (
     <motion.div
       className="bot-controller"
-      initial={{ opacity: 0, x: -16 }}
+      initial={{ opacity: 0, x: 16 }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -16 }}
+      exit={{ opacity: 0, x: 16 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
     >
       <button

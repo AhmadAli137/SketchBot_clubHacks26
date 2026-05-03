@@ -27,12 +27,18 @@ export type ObjectKinematic = {
   radius: number;
   /** Higher → more displacement per bot impact. Lighter objects (cones,
    *  balls) take a bigger fraction of the overlap; heavier ones (blocks,
-   *  bots) take less. Always paired with the bot's complementary share so
-   *  totals = 1. */
+   *  bots) take less. Doubles as the mass-ratio term in the elastic
+   *  collision formula — high pushFactor = light object that responds
+   *  strongly to impulse. */
   pushFactor: number;
   /** Linear damping coefficient (1/s). v(t) = v0 · exp(-damping · t). High
    *  for cones/blocks (sliding friction); low for balls (rolls a while). */
   damping: number;
+  /** Coefficient of restitution for bot impacts. 0 = perfectly inelastic
+   *  (object matches bot's speed exactly); 1 = perfectly elastic (billiard
+   *  ball bounce — light object launches at ~2× the bot's speed). Mid
+   *  values give the ball a satisfying "bounce off the bumper" feel. */
+  restitution: number;
 };
 
 const kinematics = new Map<string, ObjectKinematic>();
@@ -75,19 +81,21 @@ export function kinematicMovedFrom(id: string, worldX: number, worldZ: number, e
 
 /** Per-type defaults — bounding radius from the rendered prop's silhouette,
  *  pushFactor weighted by perceived mass so cones flick and blocks shove,
- *  damping tuned so balls roll for ~3 s and cones stop in ~0.4 s. */
+ *  damping tuned so balls roll for ~3 s and cones stop in ~0.4 s,
+ *  restitution tuned for "feel" — ball is bouncy, blocks soak impact. */
 export function defaultKinematic(type: SceneObjectType): {
   radius: number;
   pushFactor: number;
   damping: number;
+  restitution: number;
 } {
   switch (type) {
-    case 'cone':     return { radius: 0.09, pushFactor: 0.85, damping: 4.5 };
-    case 'sphere':   return { radius: 0.10, pushFactor: 0.92, damping: 0.6 };  // rolls
-    case 'block':    return { radius: 0.13, pushFactor: 0.55, damping: 6.0 };  // heavy
-    case 'cylinder': return { radius: 0.10, pushFactor: 0.65, damping: 4.0 };
-    case 'waypoint': return { radius: 0.07, pushFactor: 0.95, damping: 5.0 };
-    default:         return { radius: 0.10, pushFactor: 0.70, damping: 4.0 };
+    case 'cone':     return { radius: 0.09, pushFactor: 0.85, damping: 4.5, restitution: 0.45 };
+    case 'sphere':   return { radius: 0.10, pushFactor: 0.92, damping: 0.55, restitution: 0.85 };  // bouncy ball
+    case 'block':    return { radius: 0.13, pushFactor: 0.55, damping: 6.0, restitution: 0.20 };  // heavy
+    case 'cylinder': return { radius: 0.10, pushFactor: 0.65, damping: 4.0, restitution: 0.35 };
+    case 'waypoint': return { radius: 0.07, pushFactor: 0.95, damping: 5.0, restitution: 0.50 };
+    default:         return { radius: 0.10, pushFactor: 0.70, damping: 4.0, restitution: 0.40 };
   }
 }
 
@@ -144,16 +152,20 @@ export function resolveBotPushable(
   obj.worldZ += nz * overlap * obj.pushFactor;
   bot.worldX -= nx * overlap * (1 - obj.pushFactor);
   bot.worldZ -= nz * overlap * (1 - obj.pushFactor);
-  // Velocity impulse: if bot is moving INTO the object faster than the
-  // object is moving along the normal, raise the object's normal velocity
-  // to match the bot's, scaled by pushFactor. Lateral component is left
-  // alone — a sideswipe doesn't kill an existing roll.
+  // Velocity impulse — elastic collision against an effectively
+  // infinite-mass bot. Closing speed (vBotN − vObjN) drives the impulse;
+  // (1 + restitution) is the bounce factor, pushFactor stands in for the
+  // mass ratio so light objects (ball) get launched at ~2× the closing
+  // speed while heavy objects (block) barely budge. This is what makes a
+  // gentle nudge produce a small roll and a head-on charge launch the
+  // ball across the arena.
   const vBotN = botVelX * nx + botVelZ * nz;
   const vObjN = obj.vx * nx + obj.vz * nz;
-  if (vBotN > 0 && vBotN > vObjN) {
-    const dV = (vBotN - vObjN) * obj.pushFactor * 1.15;  // a touch of bonus for impact feel
-    obj.vx += nx * dV;
-    obj.vz += nz * dV;
+  if (vBotN > vObjN) {
+    const closing = vBotN - vObjN;
+    const impulse = closing * (1 + obj.restitution) * obj.pushFactor;
+    obj.vx += nx * impulse;
+    obj.vz += nz * impulse;
   }
   return true;
 }
