@@ -470,136 +470,153 @@ function BotObject({ x, y, z, rotY, variant = 'standard' }: { x: number; y: numb
 }
 
 /**
- * Spark Mini — the standard sandbox bot. Modeled as a basic Arduino-car
- * chassis: white plate body, two motorized drive wheels on the sides,
- * a passive caster ball at the front-center, an HC-SR04-style ultrasonic
- * sensor housed at the bow, and a small OLED panel on top that wears the
- * Spark face (cyan eyes, smile) and blinks periodically. Local +X is
- * "forward" — same convention as the other bots in this scene.
+ * Spark Mini — the standard sandbox bot. Models a basic Arduino-car kit:
+ * round acrylic chassis lifted high off the ground, yellow TT-style gear
+ * motors visible under the chassis sides, two rubber wheels with spokes,
+ * a front caster ball on a drop bracket, an HC-SR04 ultrasonic mounted
+ * on a small post at the bow, and an Arduino-shaped board sitting on top.
+ * No face — recognizable by silhouette alone. Local +X is "forward".
  */
 function SparkMiniBot({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: number }) {
-  const leftEyeRef  = useRef<THREE.Mesh>(null);
-  const rightEyeRef = useRef<THREE.Mesh>(null);
-
-  // Periodic blink — squash the eyes vertically every 3.4s for ~120ms.
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    const phase = t % 3.4;
-    const blinking = phase < 0.12;
-    const sy = blinking ? 0.12 : 1;
-    if (leftEyeRef.current)  leftEyeRef.current.scale.y  = sy;
-    if (rightEyeRef.current) rightEyeRef.current.scale.y = sy;
-  });
-
-  // Chassis dimensions
-  const W = 0.22;   // along X (forward depth)
-  const D = 0.18;   // along Z (side-to-side)
-  const H = 0.05;   // chassis thickness
-  const wheelR = 0.045;
-  const wheelT = 0.022;
-  // Wheel axle is slightly behind center so the caster carries the front
-  const wheelX = -0.025;
-  // Floor of chassis sits just above the wheel bottom so the wheels show
-  const baseY = wheelR - H / 2 + 0.005;
+  // Wheel + chassis geometry — generous ground clearance so the chassis
+  // floats above the wheels' axle line, exposing the motors and caster.
+  const wheelR     = 0.052;
+  const wheelT     = 0.024;
+  const axleY      = wheelR;            // axle = wheel center
+  const plateY     = wheelR + 0.030;    // chassis plate centre, well above axle
+  const plateT     = 0.008;             // thin acrylic plate
+  const plateRX    = 0.110;             // chassis half-extent (forward)
+  const plateRZ    = 0.090;             // chassis half-extent (side-to-side)
+  const wheelX     = -0.020;            // axle slightly behind centre
+  const wheelZouter = plateRZ + wheelT / 2 + 0.003;
 
   return (
     <group position={[x, y, z]} rotation={[0, rotY, 0]}>
-      {/* ── Chassis plate ── */}
-      <mesh position={[0, baseY, 0]} castShadow receiveShadow>
-        <boxGeometry args={[W, H, D]} />
-        <meshStandardMaterial color="#f5f6fa" roughness={0.38} metalness={0.1} />
-      </mesh>
-      {/* Side accent strips (Spark cyan), one per side */}
-      <mesh position={[0, baseY + H / 2 + 0.0005, D / 2 + 0.0001]}>
-        <boxGeometry args={[W * 0.86, 0.006, 0.001]} />
-        <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.9} />
-      </mesh>
-      <mesh position={[0, baseY + H / 2 + 0.0005, -D / 2 - 0.0001]}>
-        <boxGeometry args={[W * 0.86, 0.006, 0.001]} />
-        <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.9} />
+      {/* ── Chassis plate (round-cornered acrylic look via stretched cylinder) ── */}
+      <mesh position={[0, plateY, 0]} scale={[plateRX / 0.090, 1, plateRZ / 0.090]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.090, 0.090, plateT, 36]} />
+        <meshStandardMaterial color="#eef0f5" roughness={0.32} metalness={0.18} />
       </mesh>
 
-      {/* ── Drive wheels (left + right) ── */}
-      {[D / 2 + wheelT / 2 + 0.002, -(D / 2 + wheelT / 2 + 0.002)].map((zPos, i) => (
-        <group key={i} position={[wheelX, wheelR, zPos]}>
-          {/* Tire */}
-          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[wheelR, wheelR, wheelT, 28]} />
-            <meshStandardMaterial color="#15151b" roughness={0.92} metalness={0.05} />
+      {/* ── Yellow TT gear motors, one per side, slung under the chassis ── */}
+      {[wheelZouter - wheelT - 0.020, -(wheelZouter - wheelT - 0.020)].map((zPos, i) => (
+        <group key={i} position={[wheelX, axleY, zPos]}>
+          {/* Motor body */}
+          <mesh castShadow>
+            <boxGeometry args={[0.085, 0.034, 0.024]} />
+            <meshStandardMaterial color="#e8b827" roughness={0.55} metalness={0.25} />
           </mesh>
-          {/* Hub cap — cyan glow so the wheels read as "powered" */}
-          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
-            <cylinderGeometry args={[wheelR * 0.45, wheelR * 0.45, 0.004, 18]} />
-            <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.6} />
+          {/* Gearbox cap — darker plate at end nearest the wheel */}
+          <mesh position={[0.012, 0, (zPos > 0 ? 1 : -1) * 0.014]}>
+            <boxGeometry args={[0.058, 0.030, 0.005]} />
+            <meshStandardMaterial color="#3a2f12" roughness={0.7} />
+          </mesh>
+          {/* Output shaft sticking out toward the wheel */}
+          <mesh position={[0.012, 0, (zPos > 0 ? 1 : -1) * (0.014 + 0.012)]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.004, 0.004, 0.024, 12]} />
+            <meshStandardMaterial color="#c0c0c8" roughness={0.4} metalness={0.85} />
           </mesh>
         </group>
       ))}
 
-      {/* ── Front caster ball bearing ── */}
-      <mesh position={[W / 2 - 0.025, 0.018, 0]} castShadow>
-        <sphereGeometry args={[0.018, 18, 14]} />
-        <meshStandardMaterial color="#1f2330" roughness={0.25} metalness={0.85} />
+      {/* ── Drive wheels (left + right) ── */}
+      {[wheelZouter, -wheelZouter].map((zPos, i) => (
+        <group key={i} position={[wheelX, axleY, zPos]}>
+          {/* Tire */}
+          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[wheelR, wheelR, wheelT, 32]} />
+            <meshStandardMaterial color="#161620" roughness={0.94} metalness={0.04} />
+          </mesh>
+          {/* Inner sidewall — slightly lighter so the tire reads as rubber, not a black disc */}
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? -1 : 1) * (wheelT / 2 - 0.0005)]}>
+            <ringGeometry args={[wheelR * 0.55, wheelR - 0.003, 28]} />
+            <meshStandardMaterial color="#2a2a30" roughness={0.85} side={THREE.DoubleSide} />
+          </mesh>
+          {/* Hub disc on the outer face */}
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
+            <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 20]} />
+            <meshStandardMaterial color="#d2d4dc" roughness={0.4} metalness={0.6} />
+          </mesh>
+          {/* Hub centre cap */}
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
+            <cylinderGeometry args={[wheelR * 0.18, wheelR * 0.18, 0.004, 14]} />
+            <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.5} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* ── Front caster: bracket dropping from chassis to a ball on the ground ── */}
+      {/* Vertical bracket strut */}
+      <mesh position={[plateRX - 0.030, (plateY - plateT / 2) / 2 + 0.016, 0]} castShadow>
+        <boxGeometry args={[0.018, plateY - plateT / 2 - 0.032, 0.018]} />
+        <meshStandardMaterial color="#2a2f3e" roughness={0.55} metalness={0.55} />
       </mesh>
-      {/* Caster bracket plate so the ball doesn't look like it's floating */}
-      <mesh position={[W / 2 - 0.025, baseY - H / 2 - 0.005, 0]}>
-        <boxGeometry args={[0.04, 0.01, 0.04]} />
-        <meshStandardMaterial color="#2a2f3e" roughness={0.6} metalness={0.5} />
+      {/* Caster cup */}
+      <mesh position={[plateRX - 0.030, 0.030, 0]}>
+        <cylinderGeometry args={[0.014, 0.012, 0.012, 14]} />
+        <meshStandardMaterial color="#3a3f4e" roughness={0.5} metalness={0.6} />
+      </mesh>
+      {/* Caster ball */}
+      <mesh position={[plateRX - 0.030, 0.018, 0]} castShadow>
+        <sphereGeometry args={[0.018, 20, 16]} />
+        <meshStandardMaterial color="#1f2330" roughness={0.22} metalness={0.9} />
       </mesh>
 
-      {/* ── HC-SR04 ultrasonic sensor at the bow ── */}
-      <group position={[W / 2 - 0.005, baseY + H / 2 + 0.022, 0]}>
-        {/* Sensor PCB */}
+      {/* ── HC-SR04 ultrasonic on a forward post ── */}
+      {/* Mounting post */}
+      <mesh position={[plateRX - 0.012, plateY + plateT / 2 + 0.018, 0]} castShadow>
+        <cylinderGeometry args={[0.005, 0.005, 0.036, 10]} />
+        <meshStandardMaterial color="#3a3f4e" roughness={0.45} metalness={0.6} />
+      </mesh>
+      <group position={[plateRX - 0.012, plateY + plateT / 2 + 0.040, 0]}>
+        {/* PCB — green, oriented so the long edge faces forward */}
         <mesh castShadow>
-          <boxGeometry args={[0.022, 0.04, 0.10]} />
-          <meshStandardMaterial color="#1f3a25" roughness={0.65} metalness={0.25} />
+          <boxGeometry args={[0.018, 0.024, 0.075]} />
+          <meshStandardMaterial color="#1f4a2a" roughness={0.6} metalness={0.2} />
         </mesh>
-        {/* Two transducer "eyes" — silver cylinders facing forward */}
-        {[0.024, -0.024].map((zPos, i) => (
-          <mesh key={i} position={[0.014, 0, zPos]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.013, 0.013, 0.008, 18]} />
-            <meshStandardMaterial color="#c8c8cf" roughness={0.35} metalness={0.85} />
+        {/* Twin transducers */}
+        {[0.020, -0.020].map((zPos, i) => (
+          <mesh key={i} position={[0.012, 0, zPos]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.008, 20]} />
+            <meshStandardMaterial color="#b8b8c0" roughness={0.32} metalness={0.88} />
           </mesh>
         ))}
-        {/* Tiny PCB crystal between the transducers — adds detail */}
-        <mesh position={[0.012, 0, 0]}>
-          <boxGeometry args={[0.005, 0.006, 0.014]} />
-          <meshStandardMaterial color="#888888" roughness={0.4} metalness={0.7} />
+        {/* Mesh grille indication on transducer faces */}
+        {[0.020, -0.020].map((zPos, i) => (
+          <mesh key={`g${i}`} position={[0.020, 0, zPos]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.0095, 0.0095, 0.0005, 20]} />
+            <meshStandardMaterial color="#42434a" roughness={0.85} />
+          </mesh>
+        ))}
+        {/* Crystal can between the transducers */}
+        <mesh position={[0.008, 0, 0]}>
+          <boxGeometry args={[0.005, 0.006, 0.012]} />
+          <meshStandardMaterial color="#9a9aa2" roughness={0.4} metalness={0.7} />
         </mesh>
       </group>
 
-      {/* ── OLED face panel — top of chassis, slightly tilted for visibility ── */}
-      <group position={[-0.005, baseY + H / 2 + 0.012, 0]} rotation={[-Math.PI / 9, 0, 0]}>
-        {/* Bezel */}
+      {/* ── Arduino-style board sitting on top of the chassis ── */}
+      <group position={[-0.015, plateY + plateT / 2 + 0.006, 0]}>
+        {/* PCB */}
         <mesh castShadow>
-          <boxGeometry args={[0.075, 0.005, 0.13]} />
-          <meshStandardMaterial color="#0a0c14" roughness={0.7} metalness={0.4} />
+          <boxGeometry args={[0.090, 0.005, 0.062]} />
+          <meshStandardMaterial color="#1d6a93" roughness={0.45} metalness={0.25} />
         </mesh>
-        {/* Active screen — emissive black so the painted face glows */}
-        <mesh position={[0, 0.0028, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.115, 0.062]} />
-          <meshStandardMaterial color="#03060c" emissive="#0a1530" emissiveIntensity={0.3} roughness={0.5} />
+        {/* Two header strips along the long edges */}
+        <mesh position={[0, 0.004, 0.024]}>
+          <boxGeometry args={[0.075, 0.004, 0.006]} />
+          <meshStandardMaterial color="#1a1a1f" roughness={0.85} />
         </mesh>
-        {/* Eyes — cyan, scaled vertically by useFrame for blinks */}
-        <mesh ref={leftEyeRef}  position={[-0.018, 0.0030, -0.024]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.011, 18]} />
-          <meshStandardMaterial color="#a3f3ff" emissive="#5de4ff" emissiveIntensity={2.4} />
+        <mesh position={[0, 0.004, -0.024]}>
+          <boxGeometry args={[0.075, 0.004, 0.006]} />
+          <meshStandardMaterial color="#1a1a1f" roughness={0.85} />
         </mesh>
-        <mesh ref={rightEyeRef} position={[-0.018, 0.0030, 0.024]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.011, 18]} />
-          <meshStandardMaterial color="#a3f3ff" emissive="#5de4ff" emissiveIntensity={2.4} />
-        </mesh>
-        {/* Smile — thin curved arc made from a flat ring segment */}
-        <mesh position={[0.020, 0.0030, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-          <ringGeometry args={[0.018, 0.022, 22, 1, Math.PI * 0.18, Math.PI * 0.64]} />
-          <meshStandardMaterial color="#a3f3ff" emissive="#5de4ff" emissiveIntensity={2.0} side={THREE.DoubleSide} />
+        {/* Status LED — small green glow */}
+        <mesh position={[0.025, 0.0055, 0]}>
+          <sphereGeometry args={[0.0035, 8, 6]} />
+          <meshStandardMaterial color="#7affae" emissive="#7affae" emissiveIntensity={2.2} />
         </mesh>
       </group>
-
-      {/* ── Tiny "power" LED on the back, for cuteness ── */}
-      <mesh position={[-W / 2 + 0.012, baseY + H / 2 + 0.001, 0]}>
-        <sphereGeometry args={[0.005, 10, 8]} />
-        <meshStandardMaterial color="#7affae" emissive="#7affae" emissiveIntensity={2.2} />
-      </mesh>
     </group>
   );
 }
@@ -712,39 +729,44 @@ function GhostShape({
           </mesh>
         );
       }
-      // Spark Mini — simplified silhouette of the actual SparkMiniBot
-      // (chassis + side wheels + front caster + bow sensor + OLED) so the
-      // preview ghost reads as the same shape that ends up placed.
-      const W = 0.22, D = 0.18, H = 0.05;
-      const wheelR = 0.045, wheelT = 0.022, wheelX = -0.025;
-      const baseY = wheelR - H / 2 + 0.005;
+      // Spark Mini — simplified silhouette of the actual SparkMiniBot:
+      // raised round chassis + wheels + caster bracket + sensor on a post.
+      const wheelR = 0.052, wheelT = 0.024;
+      const axleY = wheelR;
+      const plateY = wheelR + 0.030;
+      const plateRX = 0.110, plateRZ = 0.090;
+      const wheelX = -0.020;
+      const wheelZouter = plateRZ + wheelT / 2 + 0.003;
       return (
         <group rotation={[0, rotY, 0]}>
-          {/* Chassis */}
-          <mesh position={[0, baseY, 0]}>
-            <boxGeometry args={[W, H, D]} />
+          {/* Chassis plate — stretched cylinder for the round-cornered look */}
+          <mesh position={[0, plateY, 0]} scale={[plateRX / 0.090, 1, plateRZ / 0.090]}>
+            <cylinderGeometry args={[0.090, 0.090, 0.008, 24]} />
             <GhostMaterial />
           </mesh>
           {/* Drive wheels */}
-          {[D / 2 + wheelT / 2 + 0.002, -(D / 2 + wheelT / 2 + 0.002)].map((zPos, i) => (
-            <mesh key={i} position={[wheelX, wheelR, zPos]} rotation={[Math.PI / 2, 0, 0]}>
+          {[wheelZouter, -wheelZouter].map((zPos, i) => (
+            <mesh key={i} position={[wheelX, axleY, zPos]} rotation={[Math.PI / 2, 0, 0]}>
               <cylinderGeometry args={[wheelR, wheelR, wheelT, 20]} />
               <GhostMaterial />
             </mesh>
           ))}
-          {/* Caster ball */}
-          <mesh position={[W / 2 - 0.025, 0.018, 0]}>
+          {/* Caster bracket + ball */}
+          <mesh position={[plateRX - 0.030, (plateY - 0.004) / 2 + 0.016, 0]}>
+            <boxGeometry args={[0.018, plateY - 0.036, 0.018]} />
+            <GhostMaterial />
+          </mesh>
+          <mesh position={[plateRX - 0.030, 0.018, 0]}>
             <sphereGeometry args={[0.018, 14, 10]} />
             <GhostMaterial />
           </mesh>
-          {/* Ultrasonic sensor block */}
-          <mesh position={[W / 2 - 0.005, baseY + H / 2 + 0.022, 0]}>
-            <boxGeometry args={[0.022, 0.04, 0.10]} />
+          {/* Sensor post + PCB */}
+          <mesh position={[plateRX - 0.012, plateY + 0.022, 0]}>
+            <cylinderGeometry args={[0.005, 0.005, 0.036, 10]} />
             <GhostMaterial />
           </mesh>
-          {/* OLED panel — flat box on top */}
-          <mesh position={[-0.005, baseY + H / 2 + 0.012, 0]} rotation={[-Math.PI / 9, 0, 0]}>
-            <boxGeometry args={[0.075, 0.005, 0.13]} />
+          <mesh position={[plateRX - 0.012, plateY + 0.044, 0]}>
+            <boxGeometry args={[0.018, 0.024, 0.075]} />
             <GhostMaterial />
           </mesh>
         </group>
