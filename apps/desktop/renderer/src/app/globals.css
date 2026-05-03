@@ -16295,6 +16295,70 @@ select.block-param-input{width:auto;padding-right:20px}
   box-shadow: 0 0 0 2px rgba(93, 228, 255, 0.85), 0 0 12px rgba(93, 228, 255, 0.65);
 }
 
+/* Sim transport controls — bottom-center pill anchored to the simulator
+   pane. Reads as a video-player control: Play/Pause toggle (primary),
+   Stop, Reset. Auto-hides when no program exists. */
+.sim-controls {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(8, 14, 30, 0.86);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(93, 228, 255, 0.22);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50);
+  user-select: none;
+}
+.sim-controls-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(180, 210, 255, 0.20);
+  color: rgba(220, 240, 255, 0.92);
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+.sim-controls-btn:hover:not(:disabled) {
+  background: rgba(93, 228, 255, 0.16);
+  border-color: rgba(93, 228, 255, 0.45);
+}
+.sim-controls-btn:active:not(:disabled) { transform: scale(0.94); }
+.sim-controls-btn:disabled {
+  opacity: 0.40;
+  cursor: not-allowed;
+}
+.sim-controls-btn-primary {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.40), rgba(34, 197, 94, 0.28));
+  border-color: rgba(34, 197, 94, 0.60);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.30);
+}
+.sim-controls-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.55), rgba(34, 197, 94, 0.40));
+  border-color: rgba(34, 197, 94, 0.80);
+}
+.sim-controls-btn-primary.is-pause {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.45), rgba(245, 158, 11, 0.30));
+  border-color: rgba(245, 158, 11, 0.65);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.30);
+}
+.sim-controls-btn-primary.is-pause:hover {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.60), rgba(245, 158, 11, 0.45));
+  border-color: rgba(245, 158, 11, 0.85);
+}
+
 /* Floating program strip — anchored to the top-right of the simulator
    pane (opposite the BotController at bottom-right) so the kid sees the
    sequence the tutor is building while keeping eyes on the 3D bot. */

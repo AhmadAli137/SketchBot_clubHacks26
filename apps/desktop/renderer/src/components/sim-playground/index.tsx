@@ -13,6 +13,7 @@ import { Grid3X3, Pause, Play, RotateCcw, View, BookOpen, ChevronRight, ChevronL
 import { TopView } from './top-view';
 import { BuilderRail } from './builder-rail';
 import { BotController } from './bot-controller';
+import { SimControls } from './sim-controls';
 import { ProgramView } from '@/components/program-view';
 import { useSimAnimation } from '@/lib/use-sim-animation';
 import { getEnvironment, getTutorialSteps } from '@/lib/concept-environments';
@@ -608,6 +609,13 @@ export function SimPlayground({
             <div className="program-strip-floating">
               <ProgramView compact />
             </div>
+
+            {/* Transport controls — bottom-center, video-player style.
+                Auto-hides when there's no program to operate on. */}
+            <SimControls
+              getActiveBotId={() => sceneObjects.find((o) => o.type === 'bot')?.id ?? null}
+              sceneObjects={sceneObjects}
+            />
 
             {/* Builder rail overlay (sandbox only) */}
             {builderEnabled && (

@@ -136,37 +136,42 @@ export function ProgramView({ compact = false }: Props) {
           )}
         </div>
         <div className="program-view-actions">
-          {/* When the program is running and not paused → show Pause.
-              When paused → show Resume (Play). When idle → show Run. */}
-          {isRunning && !paused ? (
+          {/* In compact (floating-strip) mode, transport controls live
+              in the dedicated SimControls bar — keep only the Clear
+              affordance here so the strip header stays uncluttered. */}
+          {!compact && (
+            isRunning && !paused ? (
+              <button
+                type="button"
+                className="program-view-btn program-view-btn-pause"
+                onClick={handlePause}
+                title="Pause"
+              >
+                <Pause size={12} /> Pause
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="program-view-btn"
+                onClick={handleRun}
+                disabled={isEmpty}
+                title={isEmpty ? 'Tell Spark what to do first' : isRunning ? 'Resume' : 'Run the program'}
+              >
+                <Play size={12} /> {isRunning ? 'Resume' : 'Run'}
+              </button>
+            )
+          )}
+          {!compact && (
             <button
               type="button"
-              className="program-view-btn program-view-btn-pause"
-              onClick={handlePause}
-              title="Pause"
+              className="program-view-btn program-view-btn-stop"
+              onClick={handleStop}
+              disabled={!isRunning}
+              title="Stop"
             >
-              <Pause size={12} /> Pause
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="program-view-btn"
-              onClick={handleRun}
-              disabled={isEmpty}
-              title={isEmpty ? 'Tell Spark what to do first' : isRunning ? 'Resume' : 'Run the program'}
-            >
-              <Play size={12} /> {isRunning ? 'Resume' : 'Run'}
+              <Square size={11} /> Stop
             </button>
           )}
-          <button
-            type="button"
-            className="program-view-btn program-view-btn-stop"
-            onClick={handleStop}
-            disabled={!isRunning}
-            title="Stop"
-          >
-            <Square size={11} /> Stop
-          </button>
           <button
             type="button"
             className="program-view-btn program-view-btn-ghost"
