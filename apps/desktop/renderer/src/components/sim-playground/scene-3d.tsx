@@ -141,12 +141,16 @@ function SumoRing({ radius }: { radius: number }) {
 /** Four studio light stands, one in each corner. headY is the top of the
  *  pole / center of the softbox. Each beam aims at the workspace centre
  *  (the world origin) so the eye lands on the build, not the corners.
- *  All four are white — colored beams tinted the build distractingly. */
+ *  All four are white — colored beams tinted the build distractingly.
+ *  Height + spotlight params kept in lockstep with the placeable
+ *  studio-light prop (scene-objects.tsx → StudioLightObject) so the
+ *  fixed corner lights and the user-placed ones look identical. */
+const STUDIO_LIGHT_HEAD_Y = 1.6;
 const SANDBOX_ORBS = [
-  { x: -2.8, z: -2.8, headY: 2.2 }, // back-left
-  { x:  2.8, z: -2.6, headY: 2.4 }, // back-right
-  { x: -2.6, z:  2.8, headY: 2.2 }, // front-left
-  { x:  2.8, z:  2.8, headY: 2.1 }, // front-right
+  { x: -2.8, z: -2.8, headY: STUDIO_LIGHT_HEAD_Y }, // back-left
+  { x:  2.8, z: -2.6, headY: STUDIO_LIGHT_HEAD_Y }, // back-right
+  { x: -2.6, z:  2.8, headY: STUDIO_LIGHT_HEAD_Y }, // front-left
+  { x:  2.8, z:  2.8, headY: STUDIO_LIGHT_HEAD_Y }, // front-right
 ];
 
 /** Half-angle of the spotlight cone (in radians). Wider = more spill,
@@ -249,17 +253,17 @@ function StudioLight({
       {/* Real spot illuminating the workspace. Target is the helper
           object3D below at (0, 0.1, 0) — slightly above the floor so
           the beam lands on objects rather than disappearing into the
-          grid. Linear decay + high intensity so the cones read as the
-          dominant light source rather than fading into the fill. */}
+          grid. Params match StudioLightObject so corner + placed
+          lights cast identical pools. */}
       <spotLight
         ref={lightRef}
         position={[x, headY, z]}
-        intensity={14}
+        intensity={5}
         color="#ffffff"
-        distance={14}
+        distance={12}
         angle={SPOT_ANGLE}
-        penumbra={0.55}
-        decay={1.2}
+        penumbra={0.92}
+        decay={1.7}
       />
       <object3D ref={targetRef} position={[0, 0.1, 0]} />
     </>
