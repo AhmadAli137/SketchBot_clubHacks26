@@ -416,8 +416,11 @@ export function HomeScreen({
         </Button>
       )}
 
-      {/* Top-right toolbar — leave 52px gap on right for the persistent profile button */}
-      <div style={{ position: 'fixed', top: 14, right: 58, display: 'flex', gap: 8, zIndex: 10, alignItems: 'center' }}>
+      {/* Top-right toolbar — sits to the LEFT of the global widget cluster
+          (.app-global-br-controls = 3 widgets + 2 gaps = 124px, anchored
+          right:22, so its left edge is at right:146). We anchor at right:158
+          to leave a small 12px gap before the cluster starts. */}
+      <div style={{ position: 'fixed', top: 14, right: 158, display: 'flex', gap: 8, zIndex: 10, alignItems: 'center' }}>
         {role === 'teacher' && (
           <>
             <Button
