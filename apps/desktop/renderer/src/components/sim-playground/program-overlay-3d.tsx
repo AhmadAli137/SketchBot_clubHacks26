@@ -63,6 +63,12 @@ export function ProgramOverlay3D({ activeBotId, startObject }: Props) {
   // frame. Stored as raw nums so the comparator below is allocation-free.
   const lastAnchor = useRef({ x: NaN, z: NaN, h: NaN });
   const [anchorTick, setAnchorTick] = useState(0);
+  // Frozen launch pose during execution. Captured the moment a run
+  // starts so the arrow chain stays anchored at where the bot WAS, and
+  // visually "depletes" as the bot drives along the path. Without this,
+  // the arrows re-anchor to the bot's current pose every frame and look
+  // like they're being dragged along instead of being consumed.
+  const runAnchor = useRef<{ x: number; z: number; h: number } | null>(null);
 
   useEffect(() => subscribeProgram(setProgram), []);
 
@@ -72,20 +78,32 @@ export function ProgramOverlay3D({ activeBotId, startObject }: Props) {
       const ev = d.payload as Record<string, unknown> | undefined;
       if (!ev) return;
       if (ev.kind === 'block.enter' && typeof ev.blockId === 'string') {
+        // First block.enter of a run = "execution just started". Capture
+        // the bot's current pose as the anchor so the trajectory preview
+        // stays put while the bot drives.
+        if (!runAnchor.current && activeBotId) {
+          const pose = getPose(activeBotId);
+          if (pose) runAnchor.current = { x: pose.worldX, z: pose.worldZ, h: pose.heading };
+        }
         setActiveBlockId(ev.blockId);
       } else if (ev.kind === 'block.exit' && typeof ev.blockId === 'string') {
         setActiveBlockId((cur) => (cur === ev.blockId ? null : cur));
       } else if (ev.kind === 'program.done' || ev.kind === 'program.aborted') {
+        runAnchor.current = null;
         setActiveBlockId(null);
+        // Force one more re-mux so the trajectory recomputes from the
+        // bot's settled-final pose now that the run is over.
+        setAnchorTick((t) => (t + 1) & 0xffff);
       }
     });
-  }, []);
+  }, [activeBotId]);
 
   // Watch the bot's pose so the preview chain re-anchors as it moves —
-  // only relevant when there's no Start marker. With a Start, the
-  // trajectory anchor is fixed to the marker's grid position.
+  // only relevant when no Start marker is placed AND no program is
+  // currently running. While running, the anchor is frozen at runAnchor.
   useFrame(() => {
-    if (startObject) return;          // start marker takes precedence; no need to poll bot
+    if (startObject) return;          // start marker takes precedence
+    if (runAnchor.current) return;    // execution-frozen anchor
     if (!activeBotId) return;
     const pose = getPose(activeBotId);
     if (!pose) return;
@@ -100,11 +118,19 @@ export function ProgramOverlay3D({ activeBotId, startObject }: Props) {
 
   const segments = useMemo<TrajectorySegment[]>(() => {
     if (program.blocks.length === 0) return [];
-    // Anchor preference: placed Start marker → bot pose → nothing.
+    // Anchor priority during execution: Start marker → frozen run anchor.
+    // Idle: Start marker → live bot pose. Frozen-run-anchor takes
+    // precedence over the live pose so the path doesn't follow the bot
+    // while it drives.
     if (startObject) {
       const { x, z } = gridToWorldRendered(startObject);
       const heading = startObject.headingRad ?? ((startObject.rotY ?? 0) * Math.PI) / 2;
       return simulateTrajectory(program, { x, z, heading });
+    }
+    if (runAnchor.current) {
+      return simulateTrajectory(program, {
+        x: runAnchor.current.x, z: runAnchor.current.z, heading: runAnchor.current.h,
+      });
     }
     if (!activeBotId) return [];
     const pose = getPose(activeBotId);
