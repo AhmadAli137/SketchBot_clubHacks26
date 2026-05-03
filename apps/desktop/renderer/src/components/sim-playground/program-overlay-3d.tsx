@@ -429,16 +429,21 @@ function TurnArc({
   color: string; opacity: number; isActive: boolean;
   stepNumber: number; label: string; labelColor: string;
 }) {
-  // Painted-on-floor arc: a tube laid on its side along the path, with
-  // a flat triangular arrowhead at the tip pointing tangent.
+  // Painted-on-floor arc: a tube laid flat tracing the bot's heading
+  // sweep, with a flat triangular arrowhead at the tip pointing tangent.
+  // Parameterisation matches the bot-pose forward convention:
+  //   forward(h) = (cos h, -sin h)   — bot-drive.ts integrator
+  // so the arc starts in the bot's initial-forward direction at radius r,
+  // and sweeps to the final-forward direction. A right turn (h decreasing)
+  // produces a clockwise sweep on screen; a left turn produces CCW.
   const radius = 0.22;
   const segments = 24;
   const points: THREE.Vector3[] = [];
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
     const h = h0 + (h1 - h0) * t;
-    const px = x + radius * Math.sin(h);
-    const pz = z + radius * Math.cos(h);
+    const px = x + radius * Math.cos(h);
+    const pz = z - radius * Math.sin(h);
     points.push(new THREE.Vector3(px, FLOOR_HEIGHT, pz));
   }
   const curve = new THREE.CatmullRomCurve3(points);
@@ -503,21 +508,14 @@ function TurnArc({
         rotationGlyph
       />
       {(() => {
-        const midIdx = Math.floor(points.length / 2);
-        const mid = points[midIdx];
-        // Tangent yaw at midpoint — orient the label so it reads along
-        // the arc's direction of travel rather than at a random angle.
-        const before = points[Math.max(0, midIdx - 1)];
-        const after  = points[Math.min(points.length - 1, midIdx + 1)];
-        const tangentYaw = Math.atan2(-(after.z - before.z), after.x - before.x);
+        const mid = points[Math.floor(points.length / 2)];
+        // Camera-facing card matches the drive distance labels — the
+        // kid reads "1m" and "90°" the same way, both as crisp HTML
+        // chips floating above the path.
         return (
-          <FloorLabel
-            text={label}
-            x={mid.x}
-            z={mid.z}
-            yaw={tangentYaw}
-            color={labelColor}
-          />
+          <Html position={[mid.x, FLOOR_HEIGHT + 0.10, mid.z]} center distanceFactor={3}>
+            <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
+          </Html>
         );
       })()}
     </group>
@@ -593,59 +591,6 @@ function StepLabel({
         </div>
       </Html>
     </group>
-  );
-}
-
-// ─── Floor label — text painted FLAT on the floor ────────────────────────
-// Used for the angle measurement on a turn arc (and any future "this is
-// part of the painted path" labels). Renders as a CanvasTexture on a
-// horizontal plane so the text reads as if drawn on the ground, not as
-// a camera-facing UI sticker. Yaw orients the text along the arc tangent
-// so it reads in the direction of travel.
-
-function FloorLabel({
-  text, x, z, yaw, color, size = 0.07,
-}: {
-  text: string; x: number; z: number; yaw: number; color: string; size?: number;
-}) {
-  const texture = useMemo(() => {
-    // 4× pixel density vs the previous version — keeps the text sharp
-    // when the camera zooms in and stops the foreshortening at oblique
-    // angles from blurring the glyph edges.
-    const canvas = document.createElement('canvas');
-    const W = 512, H = 256;
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d')!;
-    ctx.clearRect(0, 0, W, H);
-    ctx.font = '900 176px "JetBrains Mono", "Fira Code", monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    // Heavy outline so the value reads over the dark grid + colored
-    // ribbons regardless of camera angle.
-    ctx.lineWidth = 22;
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.92)';
-    ctx.strokeText(text, W / 2, H / 2);
-    ctx.fillStyle = color;
-    ctx.fillText(text, W / 2, H / 2);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    tex.anisotropy = 8;
-    return tex;
-  }, [text, color]);
-  // 2:1 aspect ratio; plane is size*2 wide × size tall so the text fits
-  // without wasted padding around it.
-  return (
-    <mesh
-      position={[x, FLOOR_HEIGHT + 0.0012, z]}
-      rotation={[-Math.PI / 2, 0, -yaw]}
-    >
-      <planeGeometry args={[size * 2, size]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
-    </mesh>
   );
 }
 
