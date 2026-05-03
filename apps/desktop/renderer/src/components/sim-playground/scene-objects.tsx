@@ -663,7 +663,7 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
   const rightWheelRef = useRef<THREE.Group>(null);
   useEffect(() => {
     const pose = ensurePose(id, () => ({
-      worldX: x, worldZ: z, heading: rotY,
+      worldX: x, worldZ: z, worldY: 0, heading: rotY,
       leftWheelRot: 0, rightWheelRot: 0,
       motorTargetLeft: 0, motorTargetRight: 0,
       motorLeft: 0, motorRight: 0,
@@ -685,6 +685,7 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
     if (!pose) return;
     if (groupRef.current) {
       groupRef.current.position.x = pose.worldX;
+      groupRef.current.position.y = y + pose.worldY;
       groupRef.current.position.z = pose.worldZ;
       groupRef.current.rotation.y = pose.heading;
     }
@@ -873,7 +874,7 @@ function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: n
   const rightWheelRefs = [useRef<THREE.Group>(null), useRef<THREE.Group>(null)];
   useEffect(() => {
     const pose = ensurePose(id, () => ({
-      worldX: x, worldZ: z, heading: rotY,
+      worldX: x, worldZ: z, worldY: 0, heading: rotY,
       leftWheelRot: 0, rightWheelRot: 0,
       motorTargetLeft: 0, motorTargetRight: 0,
       motorLeft: 0, motorRight: 0,
@@ -892,6 +893,7 @@ function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: n
     if (!pose) return;
     if (groupRef.current) {
       groupRef.current.position.x = pose.worldX;
+      groupRef.current.position.y = y + pose.worldY;
       groupRef.current.position.z = pose.worldZ;
       groupRef.current.rotation.y = pose.heading;
     }

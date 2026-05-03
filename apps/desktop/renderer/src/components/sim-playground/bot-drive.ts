@@ -17,6 +17,10 @@ export type BotPose = {
   /** World coords (metres). */
   worldX: number;
   worldZ: number;
+  /** Vertical position (metres above ground). 0 on the floor; tracks
+   *  ramp height while driving up; falls back to 0 with gravity when
+   *  the bot leaves an elevated surface. */
+  worldY: number;
   /** Heading in radians, CCW around +Y. 0 = local +X = world +X. */
   heading: number;
   /** Cumulative wheel rotation (radians) — applied to wheel meshes. */

@@ -53,11 +53,20 @@ const WALL_THICKNESS = GRID_SIZE * 0.18;
 const WALL_LENGTH    = GRID_SIZE;
 /** Ramp footprint — TWO cells long along its forward axis (gentle ~18°
  *  slope so a bot can ascend), ~85% of a cell wide on the perpendicular.
- *  Matches RAMP_LENGTH/WIDTH in scene-objects.tsx. Ramps are treated as
- *  solid AABBs by the collision pass for now; drive-up physics (Y
- *  interpolation) is future work. */
+ *  Matches RAMP_LENGTH/WIDTH in scene-objects.tsx. Ramps are NOT in the
+ *  wall AABB list — bots drive over them, with worldY tracking the
+ *  slope position. */
 const RAMP_LENGTH = GRID_SIZE * 2;
 const RAMP_WIDTH  = GRID_SIZE * 0.85;
+const RAMP_HEIGHT = 0.16;
+/** Toy gravity (m/s²). Not real 9.8; tuned so the fall-off-platform
+ *  drop reads as a deliberate dismount rather than a teleport. */
+const GRAVITY = 4.0;
+/** Constant drift back down the slope when the bot is on a ramp.
+ *  Adds to position each frame regardless of motor — a stationary
+ *  bot will gradually roll back; an actively-driving-uphill bot
+ *  still climbs because motor speed (1.3 m/s) >> drift (0.30 m/s). */
+const RAMP_DRIFT = 0.30;
 
 function botLabel(o: SceneObject, idx: number): string {
   const base = o.botVariant === 'sumo' ? 'Sumo Bot' : 'Spark Mini';
@@ -129,28 +138,15 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
       // ever shows up in profiles.
       const walls: WallAABB[] = [];
       for (const o of list) {
+        if (o.type !== 'wall') continue;
         const { x: wx, z: wz } = gridToWorldRendered(o);
-        if (o.type === 'wall') {
-          const isXAxis = ((o.rotY ?? 0) % 2) === 0;
-          const halfLen = WALL_LENGTH / 2;
-          const halfThk = WALL_THICKNESS / 2;
-          if (isXAxis) {
-            walls.push({ minX: wx - halfLen, maxX: wx + halfLen, minZ: wz - halfThk, maxZ: wz + halfThk });
-          } else {
-            walls.push({ minX: wx - halfThk, maxX: wx + halfThk, minZ: wz - halfLen, maxZ: wz + halfLen });
-          }
-        } else if (o.type === 'ramp') {
-          // Ramps are 1 cell long along their forward axis, ~85% wide on
-          // the perpendicular. Same axis convention as walls (rotY 0/2 →
-          // long edge along X).
-          const isXAxis = ((o.rotY ?? 0) % 2) === 0;
-          const halfLen = RAMP_LENGTH / 2;
-          const halfWid = RAMP_WIDTH / 2;
-          if (isXAxis) {
-            walls.push({ minX: wx - halfLen, maxX: wx + halfLen, minZ: wz - halfWid, maxZ: wz + halfWid });
-          } else {
-            walls.push({ minX: wx - halfWid, maxX: wx + halfWid, minZ: wz - halfLen, maxZ: wz + halfLen });
-          }
+        const isXAxis = ((o.rotY ?? 0) % 2) === 0;
+        const halfLen = WALL_LENGTH / 2;
+        const halfThk = WALL_THICKNESS / 2;
+        if (isXAxis) {
+          walls.push({ minX: wx - halfLen, maxX: wx + halfLen, minZ: wz - halfThk, maxZ: wz + halfThk });
+        } else {
+          walls.push({ minX: wx - halfThk, maxX: wx + halfThk, minZ: wz - halfLen, maxZ: wz + halfLen });
         }
       }
 
@@ -258,6 +254,55 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
               pose.motorLeft  *= 0.92;
               pose.motorRight *= 0.92;
             }
+          }
+
+          // ─── Ramp Y + downhill drift ──────────────────────────────
+          // Find the highest ramp the bot is over and pin worldY to that
+          // ramp's slope-interpolated height. Ramps not under the bot
+          // → targetY = 0 (ground). Then apply gravity if bot is above
+          // its target Y (just walked off a platform), and a constant
+          // drift toward the low end if standing on a slope.
+          let targetY = 0;
+          let onRampDirX = 0;
+          let onRampDirZ = 0;
+          let onRamp = false;
+          for (const o of list) {
+            if (o.type !== 'ramp') continue;
+            const { x: rx, z: rz } = gridToWorldRendered(o);
+            const rampHeading = (o.rotY ?? 0) * (Math.PI / 2);
+            const cosR = Math.cos(rampHeading);
+            const sinR = Math.sin(rampHeading);
+            const dxr = pose.worldX - rx;
+            const dzr = pose.worldZ - rz;
+            // World → ramp-local rotation by -rampHeading.
+            const localX = dxr * cosR - dzr * sinR;
+            const localZ = dxr * sinR + dzr * cosR;
+            if (Math.abs(localX) < RAMP_LENGTH / 2 && Math.abs(localZ) < RAMP_WIDTH / 2) {
+              const yOnRamp = ((localX + RAMP_LENGTH / 2) / RAMP_LENGTH) * RAMP_HEIGHT;
+              if (yOnRamp > targetY) {
+                targetY = yOnRamp;
+                // Down-slope direction in world = local (-1, 0) rotated
+                // by rampHeading: (-cos θ, sin θ).
+                onRampDirX = -cosR;
+                onRampDirZ =  sinR;
+                onRamp = true;
+              }
+            }
+          }
+          // Y tracking — instant snap up while ascending the ramp,
+          // gravity-controlled fall when descending past target.
+          if (pose.worldY > targetY) {
+            pose.worldY = Math.max(targetY, pose.worldY - GRAVITY * dt);
+          } else {
+            pose.worldY = targetY;
+          }
+          // Constant downhill drift while on a ramp — the bot "slips"
+          // backward when motors are weak. Bot's forward speed (~1.3 m/s)
+          // easily overcomes this 0.30 m/s drift, so an actively-driving
+          // bot still climbs cleanly.
+          if (onRamp) {
+            pose.worldX += onRampDirX * RAMP_DRIFT * dt;
+            pose.worldZ += onRampDirZ * RAMP_DRIFT * dt;
           }
 
           // Commit ONLY on motor release. While driving, pose lives in the
