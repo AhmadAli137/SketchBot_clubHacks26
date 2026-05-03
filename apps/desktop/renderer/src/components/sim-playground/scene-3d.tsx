@@ -258,12 +258,12 @@ function StudioLight({
       <spotLight
         ref={lightRef}
         position={[x, headY, z]}
-        intensity={5}
+        intensity={9}
         color="#ffffff"
-        distance={12}
+        distance={14}
         angle={SPOT_ANGLE}
-        penumbra={0.92}
-        decay={1.7}
+        penumbra={0.85}
+        decay={1.4}
       />
       <object3D ref={targetRef} position={[0, 0.1, 0]} />
     </>
