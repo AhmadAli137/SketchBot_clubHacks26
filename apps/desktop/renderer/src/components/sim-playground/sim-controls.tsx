@@ -15,12 +15,13 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Play, Pause, Square, RotateCcw } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, SkipForward } from 'lucide-react';
 
 import { gridToWorldRendered, type SceneObject } from '@/lib/scene-builder';
 import { subscribeProgram, clearProgram } from '@/lib/program-store';
 import {
   isProgramPaused, pauseProgram, resumeProgram, onPauseChange,
+  setStepMode, advanceStep,
 } from '@/lib/program-executor';
 import { onSparkEvent } from '@/lib/spark-events';
 import { syncPoseToPlacement, stopAllMotors } from './bot-drive';
@@ -36,6 +37,11 @@ export function SimControls({ getActiveBotId, sceneObjects }: Props) {
   const [hasBlocks, setHasBlocks] = useState(false);
   const [paused, setPaused] = useState(isProgramPaused());
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  // True when the executor is paused BETWEEN blocks waiting for Step
+  // to advance. Distinct from `paused` (which is mid-block freeze) —
+  // the UI shows them differently because step-paused means "tap Step
+  // for the next block" while paused means "tap Pause/Play to resume".
+  const [stepPaused, setStepPaused] = useState(false);
 
   useEffect(() => subscribeProgram((p) => setHasBlocks(p.blocks.length > 0)), []);
   useEffect(() => onPauseChange(setPaused), []);
@@ -46,25 +52,60 @@ export function SimControls({ getActiveBotId, sceneObjects }: Props) {
       if (!ev) return;
       if (ev.kind === 'block.enter' && typeof ev.blockId === 'string') {
         setActiveBlockId(ev.blockId);
+        setStepPaused(false);
       } else if (ev.kind === 'block.exit' && typeof ev.blockId === 'string') {
         setActiveBlockId((cur) => (cur === ev.blockId ? null : cur));
+      } else if (ev.kind === 'step.paused') {
+        setStepPaused(true);
+      } else if (ev.kind === 'step.resumed') {
+        setStepPaused(false);
       } else if (ev.kind === 'program.done' || ev.kind === 'program.aborted') {
         setActiveBlockId(null);
+        setStepPaused(false);
       }
     });
   }, []);
 
   if (!hasBlocks) return null;
 
-  const isRunning = activeBlockId !== null;
+  // "Running" includes the step-pause state — the program isn't truly
+  // idle, it's just waiting for the kid to step forward.
+  const isRunning = activeBlockId !== null || stepPaused;
 
   const handlePlayPause = () => {
-    if (isRunning && !paused) { pauseProgram(); return; }
-    if (isRunning && paused)  { resumeProgram(); return; }
+    // Step-paused → "Play" means "stop stepping, run continuously". Drop
+    // step mode and release the between-blocks barrier so the executor
+    // motors through the rest without further nudges.
+    if (stepPaused) {
+      setStepMode(false);
+      advanceStep();
+      return;
+    }
+    if (activeBlockId && !paused) { pauseProgram(); return; }
+    if (activeBlockId && paused)  { resumeProgram(); return; }
     // Idle → run directly. SparkToolDispatcher listens for this event
     // and skips the mutative-confirmation modal because the kid has
     // explicitly hit Play, which is the consent itself.
+    setStepMode(false);
     window.dispatchEvent(new CustomEvent('sketchbot:run-program-now'));
+  };
+
+  const handleStep = () => {
+    // Step mode: advance ONE block, then pause. If currently step-paused
+    // between blocks, advance to the next. If currently mid-block running,
+    // turn step mode on so the run pauses after the current block. If idle,
+    // start a fresh run with step mode pre-armed so block #1 runs and
+    // then we pause before #2.
+    setStepMode(true);
+    if (stepPaused) {
+      advanceStep();
+      return;
+    }
+    if (!activeBlockId) {
+      window.dispatchEvent(new CustomEvent('sketchbot:run-program-now'));
+    }
+    // mid-block running: stepMode is now armed, executor will pause
+    // after the current block.exit fires.
   };
 
   const handleStop = () => {
@@ -96,15 +137,35 @@ export function SimControls({ getActiveBotId, sceneObjects }: Props) {
     window.dispatchEvent(new CustomEvent('sketchbot:program-reset'));
   };
 
+  // Primary button label depends on state:
+  //   idle → Play
+  //   running mid-block, not paused → Pause
+  //   running mid-block, paused → Play (resume)
+  //   step-paused between blocks → Play (resume continuously)
+  const showPause = activeBlockId && !paused && !stepPaused;
+  const playTitle = stepPaused
+    ? 'Play continuously (skip stepping)'
+    : activeBlockId
+      ? (paused ? 'Resume' : 'Pause')
+      : 'Play';
+
   return (
     <div className="sim-controls" role="toolbar" aria-label="Program transport">
       <button
         type="button"
-        className={`sim-controls-btn sim-controls-btn-primary${isRunning && !paused ? ' is-pause' : ''}`}
+        className={`sim-controls-btn sim-controls-btn-primary${showPause ? ' is-pause' : ''}`}
         onClick={handlePlayPause}
-        title={isRunning ? (paused ? 'Resume' : 'Pause') : 'Play'}
+        title={playTitle}
       >
-        {isRunning && !paused ? <Pause size={18} /> : <Play size={18} />}
+        {showPause ? <Pause size={18} /> : <Play size={18} />}
+      </button>
+      <button
+        type="button"
+        className={`sim-controls-btn${stepPaused ? ' is-step-ready' : ''}`}
+        onClick={handleStep}
+        title={stepPaused ? 'Next step' : 'Step through one block at a time'}
+      >
+        <SkipForward size={15} />
       </button>
       <button
         type="button"

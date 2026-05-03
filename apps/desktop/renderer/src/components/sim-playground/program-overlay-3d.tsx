@@ -358,10 +358,9 @@ function ArrowSegment({
       {dashed && (
         <DashTicks x0={startX} z0={startZ} dx={ux} dz={uz} length={ribbonLen} color={color} opacity={opacity} />
       )}
-      {/* Step number puck flat at the END of this segment, oriented
-          along the arrow direction so the digit reads "along the path"
-          rather than at a random world angle. */}
-      <StepLabel x={headTipX} z={headTipZ} number={stepNumber} color={color} isActive={isActive} yaw={yaw} />
+      {/* Step number stick at the END of this segment — that's where
+          the action lands. */}
+      <StepLabel x={headTipX} z={headTipZ} number={stepNumber} color={color} isActive={isActive} />
       {/* Distance label hovering above the ribbon midpoint. */}
       <Html position={[ribbonMidX, FLOOR_HEIGHT + 0.12, ribbonMidZ]} center distanceFactor={3}>
         <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
@@ -496,7 +495,7 @@ function TurnArc({
       {/* Step number flat at the END of the arc — oriented along the
           tangent at the arc terminus so the digit reads "you finished
           rotating, now facing this way". */}
-      <StepLabel x={last.x} z={last.z} number={stepNumber} color={color} isActive={isActive} yaw={tipYaw} />
+      <StepLabel x={last.x} z={last.z} number={stepNumber} color={color} isActive={isActive} yOffset={0.04} />
       {(() => {
         const midIdx = Math.floor(points.length / 2);
         const mid = points[midIdx];
@@ -554,71 +553,36 @@ function PausePuck({
 // ─── Step number puck — small floating disc with the step number ─────────
 
 function StepLabel({
-  x, z, number, color, isActive, yaw = 0,
+  x, z, number, color, isActive, yOffset = 0.0,
 }: {
-  x: number; z: number; number: number; color: string; isActive: boolean;
-  /** Yaw (radians) to orient the puck along the segment's direction so
-   *  the number reads "along" the path of travel. Defaults to 0 (puck's
-   *  local +X aligned with world +X). */
-  yaw?: number;
-  /** Legacy prop kept for compatibility with PausePuck callsite. */
-  yOffset?: number;
+  x: number; z: number; number: number; color: string; isActive: boolean; yOffset?: number;
 }) {
-  // Painted-on-floor step puck: colored ring + white fill + canvas-
-  // textured number on top, all lying flat. No stem, no Html — reads as
-  // a waypoint marker on the path rather than a UI sticker hovering
-  // above. The number is canvas-painted (no 3D font) so it never
-  // suspends the canvas.
-  const numberTexture = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    const S = 128;
-    canvas.width = S;
-    canvas.height = S;
-    const ctx = canvas.getContext('2d')!;
-    ctx.clearRect(0, 0, S, S);
-    ctx.font = '900 96px Inter, system-ui, "Segoe UI", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineWidth = 4;
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
-    ctx.strokeText(String(number), S / 2, S / 2);
-    ctx.fillStyle = '#0a0d18';
-    ctx.fillText(String(number), S / 2, S / 2);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    return tex;
-  }, [number]);
-
-  const radius = 0.07;
+  // Vertical stick + camera-facing white disc with the step number.
+  // Reads as a waypoint flag planted in the floor — the kid's eye
+  // tracks the numbers easily even when the path crosses other scene
+  // objects. (Earlier flat-on-floor version got buried by props and
+  // foreshortened at oblique camera angles.)
+  const HEIGHT = 0.20 + yOffset;
   return (
-    <group position={[x, FLOOR_HEIGHT + 0.0015, z]} rotation={[-Math.PI / 2, 0, yaw]}>
-      {/* Colored emissive ring — matches the segment's stripe color. */}
-      <mesh>
-        <ringGeometry args={[radius * 0.78, radius, 28]} />
+    <group position={[x, HEIGHT, z]}>
+      <mesh position={[0, -HEIGHT / 2 + FLOOR_HEIGHT, 0]}>
+        <cylinderGeometry args={[0.003, 0.003, HEIGHT - FLOOR_HEIGHT, 6]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} transparent opacity={0.7} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.045, 24]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={isActive ? 1.4 : 0.95}
+          emissiveIntensity={isActive ? 1.2 : 0.75}
           transparent
-          opacity={0.98}
+          opacity={0.95}
           side={THREE.DoubleSide}
-          depthWrite={false}
         />
       </mesh>
-      {/* White inner fill — the canvas the number sits on. */}
-      <mesh position={[0, 0, 0.0006]}>
-        <circleGeometry args={[radius * 0.78, 28]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.97} side={THREE.DoubleSide} depthWrite={false} />
-      </mesh>
-      {/* Number — slightly smaller plane than the inner circle so the
-          glyph has breathing room against the ring. */}
-      <mesh position={[0, 0, 0.0012]}>
-        <planeGeometry args={[radius * 1.55, radius * 1.55]} />
-        <meshBasicMaterial map={numberTexture} transparent depthWrite={false} side={THREE.DoubleSide} />
-      </mesh>
+      <Html position={[0, 0.002, 0]} center distanceFactor={3}>
+        <div className={`program-overlay-step${isActive ? ' is-active' : ''}`}>{number}</div>
+      </Html>
     </group>
   );
 }
@@ -631,23 +595,26 @@ function StepLabel({
 // so it reads in the direction of travel.
 
 function FloorLabel({
-  text, x, z, yaw, color, size = 0.16,
+  text, x, z, yaw, color, size = 0.07,
 }: {
   text: string; x: number; z: number; yaw: number; color: string; size?: number;
 }) {
   const texture = useMemo(() => {
+    // 4× pixel density vs the previous version — keeps the text sharp
+    // when the camera zooms in and stops the foreshortening at oblique
+    // angles from blurring the glyph edges.
     const canvas = document.createElement('canvas');
-    const W = 256, H = 128;
+    const W = 512, H = 256;
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, W, H);
-    ctx.font = '900 88px "JetBrains Mono", "Fira Code", monospace';
+    ctx.font = '900 176px "JetBrains Mono", "Fira Code", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // Heavy black outline so the value stays legible over the grid floor
-    // and the painted ribbons regardless of camera angle.
-    ctx.lineWidth = 12;
+    // Heavy outline so the value reads over the dark grid + colored
+    // ribbons regardless of camera angle.
+    ctx.lineWidth = 22;
     ctx.lineJoin = 'round';
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.92)';
     ctx.strokeText(text, W / 2, H / 2);
@@ -657,9 +624,11 @@ function FloorLabel({
     tex.needsUpdate = true;
     tex.minFilter = THREE.LinearFilter;
     tex.magFilter = THREE.LinearFilter;
+    tex.anisotropy = 8;
     return tex;
   }, [text, color]);
-  // 256/128 = 2 aspect ratio; plane width=size*2, height=size.
+  // 2:1 aspect ratio; plane is size*2 wide × size tall so the text fits
+  // without wasted padding around it.
   return (
     <mesh
       position={[x, FLOOR_HEIGHT + 0.0012, z]}

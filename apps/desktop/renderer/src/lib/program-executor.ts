@@ -37,6 +37,8 @@ export type SensorPort = {
 export type ExecutorEvent =
   | { kind: 'block.enter'; blockId: string }
   | { kind: 'block.exit';  blockId: string }
+  | { kind: 'step.paused' }     // step mode: between blocks, awaiting advance
+  | { kind: 'step.resumed' }    // step mode: advance fired, next block starting
   | { kind: 'program.done' }
   | { kind: 'program.aborted'; reason: string };
 
@@ -66,6 +68,24 @@ export function resumeProgram(): void { if (_paused) { _paused = false; pauseLis
 export function onPauseChange(fn: (p: boolean) => void): () => void {
   pauseListeners.add(fn);
   return () => pauseListeners.delete(fn);
+}
+
+// ─── Step mode — module-level coordination for "advance one block at a
+// time". When stepMode is true, runProgram pauses BETWEEN blocks (not
+// during them) until advanceStep is called. Lets the kid trace through
+// their program one rule at a time and see exactly what each step does.
+let _stepMode = false;
+let _pendingStepResolve: (() => void) | null = null;
+export function isStepMode(): boolean { return _stepMode; }
+export function setStepMode(enabled: boolean): void {
+  _stepMode = enabled;
+  // Disabling while paused-between releases the run so it continues.
+  if (!enabled) advanceStep();
+}
+export function advanceStep(): void {
+  const r = _pendingStepResolve;
+  _pendingStepResolve = null;
+  r?.();
 }
 
 class AbortError extends Error {
@@ -191,46 +211,38 @@ async function execBlock(block: ProgramBlock, botId: string, opts: ExecutorOptio
       }
       case 'turn': {
         // Pivot in place: opposite-direction motors. Positive degrees =
-        // CCW (left turn). Hard-stop at the end so the next block starts
-        // from rest — without it the previous block's motor speeds leak
-        // in and the chassis spirals instead of pivoting cleanly.
+        // CCW (left turn). The hardStopBot at the end zeros motor
+        // currents — that kills the LPF coast — so we don't brake-early.
+        // Just spin until the heading reaches the target, then hardStop.
+        // The bot lands at the exact target angle with no momentum bleed
+        // into the next block.
         const mps = speedToMetersPerSec(block.speed, PROGRAM_MAX_SPEED);
         const dir = Math.sign(block.degrees) || 1;
         const apply = () => setMotors(botId, -dir * mps, dir * mps);
         apply();
         const angleRad = Math.abs(block.degrees) * Math.PI / 180;
         const startHeading = pose.heading;
-        const COAST_TAU = 0.45;
         await delay(
           60_000, abortSignal,
-          () => {
-            const turned = Math.abs(pose.heading - startHeading);
-            // ω = (R − L) / wheelBase, with motors at ±mps so |ω| ≈ 2|mps|/wheelBase.
-            const omega = Math.abs((pose.motorRight - pose.motorLeft) / PROGRAM_WHEEL_BASE);
-            return turned + omega * COAST_TAU >= angleRad;
-          },
+          () => Math.abs(pose.heading - startHeading) >= angleRad,
           botId, apply,
         );
         hardStopBot(botId);
         break;
       }
       case 'drive': {
+        // Same logic as turn — drive until target distance reached, then
+        // hard-stop. Coast prediction was correct in theory but the
+        // hardStopBot that follows ZEROES motor currents, so the LPF
+        // never gets to do its release decay. End result was undershoot.
         const targetMeters = lengthToMeters(block.distance);
         const mps = speedToMetersPerSec(block.speed, PROGRAM_MAX_SPEED) * Math.sign(targetMeters || 1);
         const ox = pose.worldX, oz = pose.worldZ;
         const apply = () => setMotors(botId, mps, mps);
         apply();
-        // Brake early by the coast distance the LPF release would carry,
-        // then hard-stop so the bot lands cleanly at target with no
-        // leftover momentum bleeding into the next block.
-        const COAST_TAU = 0.45;
         await delay(
           60_000, abortSignal,
-          () => {
-            const traveled = distanceFromOrigin(pose, ox, oz);
-            const v = (pose.motorLeft + pose.motorRight) * 0.5;
-            return traveled + Math.abs(v) * COAST_TAU >= Math.abs(targetMeters);
-          },
+          () => distanceFromOrigin(pose, ox, oz) >= Math.abs(targetMeters),
           botId, apply,
         );
         hardStopBot(botId);
@@ -297,7 +309,29 @@ export async function runProgram(
   // program would freeze the new run on its first wait.
   resumeProgram();
   try {
+    let firstBlock = true;
     for (const block of program.blocks) {
+      // Step-mode gate: pause BEFORE every block except the first one
+      // (the run-trigger itself is the "advance" for block #1). The
+      // first Step click runs block 1; the next click advances past
+      // this barrier and runs block 2; and so on.
+      if (_stepMode && !firstBlock) {
+        opts.onEvent?.({ kind: 'step.paused' });
+        await new Promise<void>((resolve, reject) => {
+          if (opts.abortSignal?.aborted) { reject(new AbortError('aborted')); return; }
+          const onAbort = () => {
+            opts.abortSignal?.removeEventListener('abort', onAbort);
+            reject(new AbortError('aborted'));
+          };
+          opts.abortSignal?.addEventListener('abort', onAbort);
+          _pendingStepResolve = () => {
+            opts.abortSignal?.removeEventListener('abort', onAbort);
+            resolve();
+          };
+        });
+        opts.onEvent?.({ kind: 'step.resumed' });
+      }
+      firstBlock = false;
       await execBlock(block, botId, opts);
     }
     opts.onEvent?.({ kind: 'program.done' });
@@ -310,6 +344,8 @@ export async function runProgram(
   } finally {
     setMotors(botId, 0, 0);
     activeProgramBots.delete(botId);
+    _pendingStepResolve = null;
+    _stepMode = false;        // step mode is per-run; clear on exit
   }
 }
 
