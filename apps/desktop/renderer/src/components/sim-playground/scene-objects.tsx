@@ -29,6 +29,10 @@ import {
   type ToolDef,
 } from '@/lib/scene-builder';
 import { ensurePose, getPose, syncPoseToPlacement } from './bot-drive';
+import {
+  ensureKinematic, getKinematic, syncKinematicToPlacement,
+  defaultKinematic,
+} from './physics';
 
 const GHOST_COLOR    = '#5de4ff';
 const STACK_COLOR    = '#a855f7';
@@ -231,18 +235,50 @@ function WallObject({ x, y, z, rotY }: { x: number; y: number; z: number; rotY: 
   );
 }
 
-function BlockObject({ x, y, z, rotY, color = '#3a4d8a' }: { x: number; y: number; z: number; rotY: number; color?: string }) {
+function BlockObject({ id, x, y, z, rotY, color = '#3a4d8a' }: { id: string; x: number; y: number; z: number; rotY: number; color?: string }) {
+  const groupRef = useLivePushable(id, 'block', x, z);
   return (
-    <mesh position={[x, y + 0.08, z]} rotation={[0, rotY, 0]} castShadow receiveShadow>
-      <boxGeometry args={[GRID_SIZE * 0.85, 0.16, GRID_SIZE * 0.85]} />
-      <meshStandardMaterial color={color} roughness={0.7} metalness={0.15} />
-    </mesh>
+    <group ref={groupRef} position={[x, y, z]} rotation={[0, rotY, 0]}>
+      <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
+        <boxGeometry args={[GRID_SIZE * 0.85, 0.16, GRID_SIZE * 0.85]} />
+        <meshStandardMaterial color={color} roughness={0.7} metalness={0.15} />
+      </mesh>
+    </group>
   );
 }
 
-function ConeObject({ x, y, z }: { x: number; y: number; z: number }) {
+/** Live-position pattern for pushable scene objects. Shared by cones,
+ *  blocks, spheres, cylinders, and waypoints. The kinematic store carries
+ *  the current world coords; useFrame writes them to the group ref every
+ *  frame so the bot's physics push is visible in real time. The mesh's
+ *  static prop position remains the placement so the first frame doesn't
+ *  flash at origin and so external moves still resync properly. */
+function useLivePushable(id: string, type: 'cone' | 'block' | 'sphere' | 'cylinder' | 'waypoint', x: number, z: number) {
+  const groupRef = useRef<THREE.Group>(null);
+  useEffect(() => {
+    const k = ensureKinematic(id, () => {
+      const d = defaultKinematic(type);
+      return { worldX: x, worldZ: z, radius: d.radius, pushFactor: d.pushFactor };
+    });
+    const dx = Math.abs(k.worldX - x);
+    const dz = Math.abs(k.worldZ - z);
+    if (dx > 0.01 || dz > 0.01) {
+      syncKinematicToPlacement(id, x, z);
+    }
+  }, [id, type, x, z]);
+  useFrame(() => {
+    const k = getKinematic(id);
+    if (!k || !groupRef.current) return;
+    groupRef.current.position.x = k.worldX;
+    groupRef.current.position.z = k.worldZ;
+  });
+  return groupRef;
+}
+
+function ConeObject({ id, x, y, z }: { id: string; x: number; y: number; z: number }) {
+  const groupRef = useLivePushable(id, 'cone', x, z);
   return (
-    <group position={[x, y, z]}>
+    <group ref={groupRef} position={[x, y, z]}>
       <mesh position={[0, 0.012, 0]}>
         <cylinderGeometry args={[0.09, 0.09, 0.016, 16]} />
         <meshStandardMaterial color="#111" roughness={0.9} />
@@ -259,25 +295,32 @@ function ConeObject({ x, y, z }: { x: number; y: number; z: number }) {
   );
 }
 
-function SphereObject({ x, y, z, color = '#a855f7' }: { x: number; y: number; z: number; color?: string }) {
+function SphereObject({ id, x, y, z, color = '#a855f7' }: { id: string; x: number; y: number; z: number; color?: string }) {
+  const groupRef = useLivePushable(id, 'sphere', x, z);
   return (
-    <mesh position={[x, y + 0.1, z]} castShadow>
-      <sphereGeometry args={[0.1, 24, 24]} />
-      <meshStandardMaterial color={color} roughness={0.4} metalness={0.25} />
-    </mesh>
+    <group ref={groupRef} position={[x, y, z]}>
+      <mesh position={[0, 0.1, 0]} castShadow>
+        <sphereGeometry args={[0.1, 24, 24]} />
+        <meshStandardMaterial color={color} roughness={0.4} metalness={0.25} />
+      </mesh>
+    </group>
   );
 }
 
-function CylinderObject({ x, y, z, color = '#cccccc' }: { x: number; y: number; z: number; color?: string }) {
+function CylinderObject({ id, x, y, z, color = '#cccccc' }: { id: string; x: number; y: number; z: number; color?: string }) {
+  const groupRef = useLivePushable(id, 'cylinder', x, z);
   return (
-    <mesh position={[x, y + 0.12, z]} castShadow>
-      <cylinderGeometry args={[0.07, 0.07, 0.24, 16]} />
-      <meshStandardMaterial color={color} roughness={0.55} metalness={0.2} />
-    </mesh>
+    <group ref={groupRef} position={[x, y, z]}>
+      <mesh position={[0, 0.12, 0]} castShadow>
+        <cylinderGeometry args={[0.07, 0.07, 0.24, 16]} />
+        <meshStandardMaterial color={color} roughness={0.55} metalness={0.2} />
+      </mesh>
+    </group>
   );
 }
 
-function WaypointObject({ x, y, z, color = '#4dffb8' }: { x: number; y: number; z: number; color?: string }) {
+function WaypointObject({ id, x, y, z, color = '#4dffb8' }: { id: string; x: number; y: number; z: number; color?: string }) {
+  const groupRef = useLivePushable(id, 'waypoint', x, z);
   const sphereRef = useRef<THREE.Mesh>(null);
   const off = useRef(Math.random() * Math.PI * 2);
   useFrame(({ clock }) => {
@@ -287,7 +330,7 @@ function WaypointObject({ x, y, z, color = '#4dffb8' }: { x: number; y: number; 
     sphereRef.current.position.y = 0.32 + Math.sin(clock.elapsedTime * 1.8 + off.current) * 0.025;
   });
   return (
-    <group position={[x, y, z]}>
+    <group ref={groupRef} position={[x, y, z]}>
       <mesh position={[0, 0.15, 0]}>
         <cylinderGeometry args={[0.012, 0.012, 0.30, 8]} />
         <meshStandardMaterial color="#303040" roughness={0.6} metalness={0.5} />
@@ -1079,11 +1122,11 @@ function PlacedObjectMesh({ obj }: { obj: SceneObject }) {
 
   switch (obj.type) {
     case 'wall':     return <WallObject x={x} y={y} z={z} rotY={rotY} />;
-    case 'block':    return <BlockObject x={x} y={y} z={z} rotY={rotY} color={obj.color} />;
-    case 'cone':     return <ConeObject x={x} y={y} z={z} />;
-    case 'sphere':   return <SphereObject x={x} y={y} z={z} color={obj.color} />;
-    case 'cylinder': return <CylinderObject x={x} y={y} z={z} color={obj.color} />;
-    case 'waypoint': return <WaypointObject x={x} y={y} z={z} color={obj.color} />;
+    case 'block':    return <BlockObject id={obj.id} x={x} y={y} z={z} rotY={rotY} color={obj.color} />;
+    case 'cone':     return <ConeObject id={obj.id} x={x} y={y} z={z} />;
+    case 'sphere':   return <SphereObject id={obj.id} x={x} y={y} z={z} color={obj.color} />;
+    case 'cylinder': return <CylinderObject id={obj.id} x={x} y={y} z={z} color={obj.color} />;
+    case 'waypoint': return <WaypointObject id={obj.id} x={x} y={y} z={z} color={obj.color} />;
     case 'apriltag': return <AprilTagObject x={x} y={y} z={z} rotY={rotY} />;
     case 'bot':      return <BotObject id={obj.id} x={x} y={y} z={z} rotY={obj.headingRad ?? rotY} variant={obj.botVariant} />;
     case 'mat':      return <MatObject x={x} y={y} z={z} rotY={rotY} color={obj.color} />;

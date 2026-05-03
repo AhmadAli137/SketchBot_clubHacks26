@@ -19,6 +19,10 @@ import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Square, Gamepad2 } f
 
 import { GRID_SIZE, gridToWorldRendered, type SceneObject } from '@/lib/scene-builder';
 import { ensurePose, getPose, integrateBotPose, setMotors, stopAllMotors, type WallAABB } from './bot-drive';
+import {
+  ensureKinematic, getKinematic, defaultKinematic, isPushable,
+  resolveBotPushable, resolveBotBot, resolveCircleVsAABBs, kinematicMovedFrom,
+} from './physics';
 
 type BotControllerProps = {
   sceneObjects: SceneObject[];
@@ -151,23 +155,85 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
           const radius = target?.botVariant === 'sumo' ? BOT_RADIUS_SUMO : BOT_RADIUS_STANDARD;
           integrateBotPose(pose, dt, WHEEL_BASE, WHEEL_RADIUS, walls, radius);
 
+          // ─── Push other objects out of the way ────────────────────
+          // Iterate every other scene object once. For pushable props
+          // (cones, blocks, balls, waypoints, cylinders) we resolve a
+          // bot-vs-circle overlap that displaces the prop along the
+          // contact normal and gives the bot a small reciprocal recoil.
+          // For other bots we shove their pose. Walls already handled
+          // inside integrateBotPose above.
+          for (let i = 0; i < list.length; i++) {
+            const o = list[i];
+            if (o.id === id) continue;
+            if (o.type === 'bot') {
+              const otherPose = getPose(o.id);
+              if (!otherPose) continue;
+              const otherRadius = o.botVariant === 'sumo' ? BOT_RADIUS_SUMO : BOT_RADIUS_STANDARD;
+              if (resolveBotBot(pose, radius, otherPose, otherRadius)) {
+                // Soft brake on the active bot's wheels — same vibe as wall hit.
+                pose.motorLeft  *= 0.7;
+                pose.motorRight *= 0.7;
+              }
+              continue;
+            }
+            if (!isPushable(o)) continue;
+            // Hydrate kinematic for newly-encountered props (e.g., the
+            // bot's first contact). Mounting useEffect normally handles
+            // this — defending here in case order-of-render lags.
+            const k = getKinematic(o.id) ?? ensureKinematic(o.id, () => {
+              const d = defaultKinematic(o.type);
+              const { x: wx, z: wz } = gridToWorldRendered(o);
+              return { worldX: wx, worldZ: wz, radius: d.radius, pushFactor: d.pushFactor };
+            });
+            if (resolveBotPushable(pose, radius, k)) {
+              // Object got pushed — make sure it didn't end up inside a wall.
+              resolveCircleVsAABBs(k, walls);
+              pose.motorLeft  *= 0.85;
+              pose.motorRight *= 0.85;
+            }
+          }
+
           // Commit ONLY on motor release. While driving, pose lives in the
           // module store and the meshes read it every frame; React state
           // stays still so the parent doesn't re-render the scene tree
-          // mid-drive.
+          // mid-drive. On release, batch the bot's new pose AND every
+          // pushable that got displaced into a single onUpdate.
           if (driving && !isDriving) {
+            const updates: Array<{ id: string; gx: number; gz: number; headingRad?: number }> = [];
             if (target) {
               const ngx = pose.worldX / GRID_SIZE;
               const ngz = pose.worldZ / GRID_SIZE;
               if (target.gx !== ngx || target.gz !== ngz || target.headingRad !== pose.heading) {
-                onUpdateRef.current(
-                  list.map((o) =>
-                    o.id === id
-                      ? { ...o, gx: ngx, gz: ngz, headingRad: pose.heading }
-                      : o,
-                  ),
-                );
+                updates.push({ id, gx: ngx, gz: ngz, headingRad: pose.heading });
               }
+            }
+            for (const o of list) {
+              if (o.id === id) continue;
+              if (o.type === 'bot') {
+                const op = getPose(o.id);
+                if (!op) continue;
+                const ngx = op.worldX / GRID_SIZE;
+                const ngz = op.worldZ / GRID_SIZE;
+                if (o.gx !== ngx || o.gz !== ngz) {
+                  updates.push({ id: o.id, gx: ngx, gz: ngz });
+                }
+              } else if (isPushable(o)) {
+                const k = getKinematic(o.id);
+                if (!k) continue;
+                const { x: ox, z: oz } = gridToWorldRendered(o);
+                if (kinematicMovedFrom(o.id, ox, oz)) {
+                  updates.push({ id: o.id, gx: k.worldX / GRID_SIZE, gz: k.worldZ / GRID_SIZE });
+                }
+              }
+            }
+            if (updates.length > 0) {
+              const byId = new Map(updates.map((u) => [u.id, u]));
+              onUpdateRef.current(
+                list.map((o) => {
+                  const u = byId.get(o.id);
+                  return u ? { ...o, gx: u.gx, gz: u.gz, ...(u.headingRad !== undefined ? { headingRad: u.headingRad } : {}) } : o;
+                }),
+              );
             }
             driving = false;
           }
