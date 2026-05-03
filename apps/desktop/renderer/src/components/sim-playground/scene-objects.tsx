@@ -481,7 +481,9 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
   useEffect(() => {
     ensurePose(id, () => ({
       worldX: x, worldZ: z, heading: rotY,
-      leftWheelRot: 0, rightWheelRot: 0, motorLeft: 0, motorRight: 0,
+      leftWheelRot: 0, rightWheelRot: 0,
+      motorTargetLeft: 0, motorTargetRight: 0,
+      motorLeft: 0, motorRight: 0,
     }));
     syncPoseToPlacement(id, x, z, rotY);
   }, [id, x, z, rotY]);
@@ -555,16 +557,26 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
               <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 20]} />
               <meshStandardMaterial color="#d2d4dc" roughness={0.4} metalness={0.6} />
             </mesh>
-            {/* Hub centre cap — picks up rotation so the cyan dot orbits with the wheel */}
+            {/* Hub centre cap — 6-sided hex so the cap visibly spins with the
+                wheel. A round cap (high-poly) reads as a static disc even when
+                its parent rotates, leaving only the spoke as a moving tell. */}
             <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
-              <cylinderGeometry args={[wheelR * 0.18, wheelR * 0.18, 0.004, 14]} />
-              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.5} />
+              <cylinderGeometry args={[wheelR * 0.20, wheelR * 0.20, 0.005, 6]} />
+              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.6} />
             </mesh>
-            {/* Spoke — single visible radial bar so the wheel's rotation is readable */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
-              <boxGeometry args={[wheelR * 1.05, 0.005, 0.005]} />
-              <meshStandardMaterial color="#363a45" roughness={0.7} metalness={0.4} />
-            </mesh>
+            {/* Three spokes at 120° forming a tri-spoke pattern — clearly
+                rotates without the "single bar = extra perpendicular wheel"
+                visual artifact. */}
+            {[0, (Math.PI * 2) / 3, (Math.PI * 4) / 3].map((angle, j) => (
+              <mesh
+                key={j}
+                rotation={[Math.PI / 2, 0, angle]}
+                position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}
+              >
+                <boxGeometry args={[wheelR * 1.0, 0.006, 0.005]} />
+                <meshStandardMaterial color="#3a3f4e" roughness={0.65} metalness={0.4} />
+              </mesh>
+            ))}
           </group>
         </group>
       ))}
@@ -674,7 +686,9 @@ function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: n
   useEffect(() => {
     ensurePose(id, () => ({
       worldX: x, worldZ: z, heading: rotY,
-      leftWheelRot: 0, rightWheelRot: 0, motorLeft: 0, motorRight: 0,
+      leftWheelRot: 0, rightWheelRot: 0,
+      motorTargetLeft: 0, motorTargetRight: 0,
+      motorLeft: 0, motorRight: 0,
     }));
     syncPoseToPlacement(id, x, z, rotY);
   }, [id, x, z, rotY]);

@@ -17,8 +17,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Square, Gamepad2 } from 'lucide-react';
 
-import { GRID_SIZE, type SceneObject } from '@/lib/scene-builder';
-import { ensurePose, getPose, integrateBotPose, setMotors, stopAllMotors } from './bot-drive';
+import { GRID_SIZE, gridToWorldRendered, type SceneObject } from '@/lib/scene-builder';
+import { ensurePose, getPose, integrateBotPose, setMotors, stopAllMotors, type WallAABB } from './bot-drive';
 
 type BotControllerProps = {
   sceneObjects: SceneObject[];
@@ -38,6 +38,14 @@ const WHEEL_RADIUS = 0.052;
  *  at 60 Hz. The mesh reads pose every frame, so this is purely about
  *  persistence — the visible bot stays smooth between commits. */
 const COMMIT_INTERVAL_MS = 220;
+/** Bot bounding circle radii (m) used for wall collision. Approximate the
+ *  chassis footprint; sumo's wedge plow extends a little further. */
+const BOT_RADIUS_STANDARD = 0.13;
+const BOT_RADIUS_SUMO     = 0.17;
+/** Wall geometry constants — kept in sync with WALL_THICKNESS_FRAC and the
+ *  wall mesh in scene-objects.tsx. */
+const WALL_THICKNESS = GRID_SIZE * 0.18;
+const WALL_LENGTH    = GRID_SIZE;
 
 function botLabel(o: SceneObject, idx: number): string {
   const base = o.botVariant === 'sumo' ? 'Sumo Bot' : 'Spark Mini';
@@ -101,6 +109,25 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
       const dt = Math.min(0.05, (now - lastT) / 1000); // clamp big tabs/blurs to 50 ms
       lastT = now;
 
+      const list = objectsRef.current;
+      // Per-frame wall AABB cache. Cheap (no React state) and walls don't
+      // move during a session, so a recompute every frame is fine while
+      // we're driving. Could memoise on sceneObjects ref equality if it
+      // ever shows up in profiles.
+      const walls: WallAABB[] = [];
+      for (const o of list) {
+        if (o.type !== 'wall') continue;
+        const { x: wx, z: wz } = gridToWorldRendered(o);
+        const isXAxis = ((o.rotY ?? 0) % 2) === 0;
+        const halfLen = WALL_LENGTH / 2;
+        const halfThk = WALL_THICKNESS / 2;
+        if (isXAxis) {
+          walls.push({ minX: wx - halfLen, maxX: wx + halfLen, minZ: wz - halfThk, maxZ: wz + halfThk });
+        } else {
+          walls.push({ minX: wx - halfThk, maxX: wx + halfThk, minZ: wz - halfLen, maxZ: wz + halfLen });
+        }
+      }
+
       const id = activeIdRef.current;
       if (id) {
         const held = heldRef.current;
@@ -117,14 +144,14 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
 
         const pose = getPose(id);
         if (pose) {
-          integrateBotPose(pose, dt, WHEEL_BASE, WHEEL_RADIUS);
+          const target = list.find((o) => o.id === id);
+          const radius = target?.botVariant === 'sumo' ? BOT_RADIUS_SUMO : BOT_RADIUS_STANDARD;
+          integrateBotPose(pose, dt, WHEEL_BASE, WHEEL_RADIUS, walls, radius);
 
           // Periodic commit while driving so saves and React-side state
           // catch up — and one final commit on release.
           const commitDue = isDriving && (now - lastCommitT) > COMMIT_INTERVAL_MS;
           if (commitDue || (driving && !isDriving)) {
-            const list = objectsRef.current;
-            const target = list.find((o) => o.id === id);
             if (target) {
               const ngx = pose.worldX / GRID_SIZE;
               const ngz = pose.worldZ / GRID_SIZE;
