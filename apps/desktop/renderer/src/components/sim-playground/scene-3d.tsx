@@ -564,18 +564,28 @@ function SceneContent({
         <planeGeometry args={[40, 40]} />
         <meshStandardMaterial color={env.groundColor} roughness={0.92} metalness={0.05} />
       </mesh>
+      {/* Soft stage highlight — radial brightening over the floor so the
+          play area reads as a lit stage, not a continuation of the
+          background. Sandbox-only; concept envs already have their own
+          accent props (cones, paper canvas, etc.) doing the same job. */}
+      {isSandboxEnv && (
+        <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.003, 0]}>
+          <circleGeometry args={[5.5, 64]} />
+          <meshBasicMaterial color="#5060a0" transparent opacity={0.18} depthWrite={false} />
+        </mesh>
+      )}
       {/* Sits just above the floor (y=0) so the shadow plane isn't occluded
           by it. Was previously at -0.015 when the floor was sunk to -0.018; both
           moved together when we lifted the floor to make placed objects flush. */}
       <ContactShadows position={[0, 0.002, 0]} opacity={0.45} scale={24} blur={2.8} far={5} color="#000000" />
 
-      {/* Grid — kept for non-builder views (drawing, concept envs) where it
-          gives spatial reference. In builder mode (sandbox + maze building)
-          we hide it; the placed walls and the optional placement-grid
-          overlay carry enough alignment cues, and the dense GRID_SIZE
-          gridlines were just visual clutter behind the maze. */}
-      {showGrid && !builderEnabled && (
-        <Grid position={[0, -0.008, 0]} args={[20, 20]} cellSize={GRID_SIZE} cellThickness={0.35}
+      {/* Grid — gives spatial reference everywhere it's enabled, including
+          inside builder mode in the sandbox so kids have alignment cues
+          while placing walls / objects. The denser placement-grid overlay
+          (cyan/purple, cellSize 0.25) is still available as a separate
+          opt-in toggle for fine snapping. */}
+      {showGrid && (
+        <Grid position={[0, 0.001, 0]} args={[20, 20]} cellSize={GRID_SIZE} cellThickness={0.35}
           cellColor={env.gridColor} sectionSize={1} sectionThickness={0.65} sectionColor={env.sectionColor}
           fadeDistance={20} fadeStrength={1.65} infiniteGrid followCamera={false} />
       )}

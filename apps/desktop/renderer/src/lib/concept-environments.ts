@@ -90,15 +90,17 @@ export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
 
   // Clean blank canvas — no cones, walls, or waypoints. Used by Sandbox / blank sessions.
   // Tuned for "warm play space" — softer twilight backdrop, brighter floor, warmer
-  // ambient so kids don't feel like they've walked into a server room.
+  // ambient so kids don't feel like they've walked into a server room. The floor
+  // is intentionally lighter and slightly more violet than the background so it
+  // reads as a distinct stage instead of blending into the void.
   'sandbox': {
     label: 'Sandbox',
     arenaType: 'open',
-    background: '#1a1d3a',
-    fog: ['#1a1d3a', 16, 40],
-    groundColor: '#202648',
-    gridColor: '#3a4170',
-    sectionColor: '#5060a0',
+    background: '#14172e',
+    fog: ['#14172e', 16, 40],
+    groundColor: '#33356a',
+    gridColor: '#525a92',
+    sectionColor: '#7a83bf',
     ambientColor: '#d8d8ff',
     keyLightColor: '#fff8ee',
     fillLightColor: '#cfd8ff',
