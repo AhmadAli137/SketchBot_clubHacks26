@@ -479,13 +479,23 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
   const leftWheelRef  = useRef<THREE.Group>(null);
   const rightWheelRef = useRef<THREE.Group>(null);
   useEffect(() => {
-    ensurePose(id, () => ({
+    const pose = ensurePose(id, () => ({
       worldX: x, worldZ: z, heading: rotY,
       leftWheelRot: 0, rightWheelRot: 0,
       motorTargetLeft: 0, motorTargetRight: 0,
       motorLeft: 0, motorRight: 0,
     }));
-    syncPoseToPlacement(id, x, z, rotY);
+    // Only resync pose to props on SIGNIFICANT changes — e.g., the user
+    // moved the bot via the Move tool, or the session was just restored.
+    // Self-driven commits (where pose already matches gx/gz/headingRad
+    // because the controller just wrote them) should NOT resync, otherwise
+    // a frame's worth of motion gets snapped backwards every commit.
+    const dx = Math.abs(pose.worldX - x);
+    const dz = Math.abs(pose.worldZ - z);
+    const dh = Math.abs(pose.heading - rotY);
+    if (dx > 0.01 || dz > 0.01 || dh > 0.01) {
+      syncPoseToPlacement(id, x, z, rotY);
+    }
   }, [id, x, z, rotY]);
   useFrame(() => {
     const pose = getPose(id);
@@ -679,13 +689,20 @@ function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: n
   const leftWheelRefs  = [useRef<THREE.Group>(null), useRef<THREE.Group>(null)];
   const rightWheelRefs = [useRef<THREE.Group>(null), useRef<THREE.Group>(null)];
   useEffect(() => {
-    ensurePose(id, () => ({
+    const pose = ensurePose(id, () => ({
       worldX: x, worldZ: z, heading: rotY,
       leftWheelRot: 0, rightWheelRot: 0,
       motorTargetLeft: 0, motorTargetRight: 0,
       motorLeft: 0, motorRight: 0,
     }));
-    syncPoseToPlacement(id, x, z, rotY);
+    // Only resync on big prop changes (Move tool, session restore) — see
+    // SparkMiniBot's note for the self-driven-commit race this avoids.
+    const dx = Math.abs(pose.worldX - x);
+    const dz = Math.abs(pose.worldZ - z);
+    const dh = Math.abs(pose.heading - rotY);
+    if (dx > 0.01 || dz > 0.01 || dh > 0.01) {
+      syncPoseToPlacement(id, x, z, rotY);
+    }
   }, [id, x, z, rotY]);
   useFrame(() => {
     const pose = getPose(id);

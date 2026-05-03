@@ -28,18 +28,16 @@ type BotControllerProps = {
   selectedBotId?: string | null;
 };
 
-/** Linear speed of one motor at full throttle (m/s). High enough that the
- *  wheels visibly blur into a fast spin, low enough that the bot doesn't
- *  rocket out of camera. */
-const MAX_MOTOR_SPEED = 1.30;
+/** Top forward speed (m/s) — both motors run at this when fwd held. */
+const MAX_FORWARD_SPEED = 1.30;
+/** Differential-turn motor delta (m/s). Pivot ω = 2 × MAX_TURN_SPEED /
+ *  wheelBase, so 0.30 m/s + 0.20 m wheelbase gives ≈ 3 rad/s ≈ 0.5 rev/s
+ *  ≈ 170 deg/s — a controllable in-place spin. */
+const MAX_TURN_SPEED = 0.30;
 /** Distance between wheels (m) — used for ω = (R−L)/wheelBase integration. */
 const WHEEL_BASE = 0.20;
 /** Wheel radius (m) — used for visual wheel-rotation rate. */
 const WHEEL_RADIUS = 0.052;
-/** Throttle the React-side commit so we don't blow up sceneObjects updates
- *  at 60 Hz. The mesh reads pose every frame, so this is purely about
- *  persistence — the visible bot stays smooth between commits. */
-const COMMIT_INTERVAL_MS = 220;
 /** Bot bounding circle radii (m) used for wall collision. Approximate the
  *  chassis footprint; sumo's wedge plow extends a little further. */
 const BOT_RADIUS_STANDARD = 0.13;
@@ -95,15 +93,16 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
   useEffect(() => { activeIdRef.current = activeBotId; }, [activeBotId]);
 
   // ─── rAF physics loop ──────────────────────────────────────────────
-  // Runs continuously — cheap when idle (no held buttons → motors zero,
-  // pose doesn't drift, no commits). When inputs are held it sets motors
-  // on the active bot's pose, integrates its pose by dt, and commits the
-  // pose back to the SceneObject every COMMIT_INTERVAL_MS so saves stay
-  // in sync without re-rendering at frame rate.
+  // Runs continuously. Motor commands and pose live in the bot-drive store;
+  // the bot meshes consume pose every useFrame so motion stays smooth at
+  // monitor refresh rate. We only push pose back to React state ONCE per
+  // drive — when the user releases the buttons — to avoid the re-render
+  // storm that periodic commits caused (every 220 ms of driving was
+  // recreating the whole sceneObjects array, which manifested as a hitch
+  // about 5x/sec).
   useEffect(() => {
     let raf = 0;
     let lastT = performance.now();
-    let lastCommitT = lastT;
     let driving = false;       // were we driving on the last tick?
 
     const tick = () => {
@@ -135,10 +134,12 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
         const held = heldRef.current;
         const fwd = (held.forward ? 1 : 0) - (held.back ? 1 : 0);
         const turn = (held.right ? 1 : 0) - (held.left ? 1 : 0);
-        // Differential drive: forward both, turn flips one motor.
-        // Pivot turn (no forward) = motors equal & opposite.
-        const left  = (fwd - turn) * MAX_MOTOR_SPEED;
-        const right = (fwd + turn) * MAX_MOTOR_SPEED;
+        // Differential drive — forward sets both motors to ±MAX_FORWARD_SPEED;
+        // turn adds a smaller asymmetric delta. With separate forward/turn
+        // speeds the pivot rate is much more controllable than (fwd ± turn) ×
+        // MAX where pivot used full motor speed and felt like a tornado.
+        const left  = fwd * MAX_FORWARD_SPEED - turn * MAX_TURN_SPEED;
+        const right = fwd * MAX_FORWARD_SPEED + turn * MAX_TURN_SPEED;
         setMotors(id, left, right);
 
         const isDriving = fwd !== 0 || turn !== 0;
@@ -150,10 +151,11 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
           const radius = target?.botVariant === 'sumo' ? BOT_RADIUS_SUMO : BOT_RADIUS_STANDARD;
           integrateBotPose(pose, dt, WHEEL_BASE, WHEEL_RADIUS, walls, radius);
 
-          // Periodic commit while driving so saves and React-side state
-          // catch up — and one final commit on release.
-          const commitDue = isDriving && (now - lastCommitT) > COMMIT_INTERVAL_MS;
-          if (commitDue || (driving && !isDriving)) {
+          // Commit ONLY on motor release. While driving, pose lives in the
+          // module store and the meshes read it every frame; React state
+          // stays still so the parent doesn't re-render the scene tree
+          // mid-drive.
+          if (driving && !isDriving) {
             if (target) {
               const ngx = pose.worldX / GRID_SIZE;
               const ngz = pose.worldZ / GRID_SIZE;
@@ -167,8 +169,7 @@ export function BotController({ sceneObjects, onUpdateObjects, selectedBotId }: 
                 );
               }
             }
-            lastCommitT = now;
-            if (!isDriving) driving = false;
+            driving = false;
           }
         }
       }
