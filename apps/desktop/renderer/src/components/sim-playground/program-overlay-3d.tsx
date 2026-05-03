@@ -495,7 +495,7 @@ function TurnArc({
       {/* Step number flat at the END of the arc — oriented along the
           tangent at the arc terminus so the digit reads "you finished
           rotating, now facing this way". */}
-      <StepLabel x={last.x} z={last.z} number={stepNumber} color={color} isActive={isActive} yOffset={0.04} />
+      <FloorStepLabel x={last.x} z={last.z} number={stepNumber} color={color} isActive={isActive} yaw={tipYaw} />
       {(() => {
         const midIdx = Math.floor(points.length / 2);
         const mid = points[midIdx];
@@ -637,5 +637,69 @@ function FloorLabel({
       <planeGeometry args={[size * 2, size]} />
       <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
     </mesh>
+  );
+}
+
+// ─── Floor-style step puck — flat-on-floor variant of StepLabel used
+// for turn segments. Drive/pause keep the vertical-stick StepLabel; turns
+// get this one so the rotation step reads as part of the painted floor
+// language (ribbon + arc + angle label all flat).
+
+function FloorStepLabel({
+  x, z, number, color, isActive, yaw = 0,
+}: {
+  x: number; z: number; number: number; color: string; isActive: boolean; yaw?: number;
+}) {
+  const numberTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    const S = 256;
+    canvas.width = S;
+    canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, S, S);
+    ctx.font = '900 192px Inter, system-ui, "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 8;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.strokeText(String(number), S / 2, S / 2);
+    ctx.fillStyle = '#0a0d18';
+    ctx.fillText(String(number), S / 2, S / 2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.anisotropy = 8;
+    return tex;
+  }, [number]);
+
+  const radius = 0.06;
+  return (
+    <group position={[x, FLOOR_HEIGHT + 0.0015, z]} rotation={[-Math.PI / 2, 0, yaw]}>
+      {/* Colored emissive ring — matches the segment's stripe color. */}
+      <mesh>
+        <ringGeometry args={[radius * 0.78, radius, 28]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={isActive ? 1.4 : 0.95}
+          transparent
+          opacity={0.98}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* White inner fill — backdrop for the digit. */}
+      <mesh position={[0, 0, 0.0006]}>
+        <circleGeometry args={[radius * 0.78, 28]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.97} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      {/* Number painted via canvas texture so we don't load a 3D font. */}
+      <mesh position={[0, 0, 0.0012]}>
+        <planeGeometry args={[radius * 1.55, radius * 1.55]} />
+        <meshBasicMaterial map={numberTexture} transparent depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
   );
 }
