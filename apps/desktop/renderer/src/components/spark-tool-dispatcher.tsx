@@ -93,6 +93,18 @@ export function SparkToolDispatcher({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Direct-run channel — bypasses the mutative confirmation modal for
+  // user-initiated runs. The kid pressing the SimControls Play button
+  // has already consented, so demanding a Yes/No on top is friction.
+  // The AI's program_run path stays mutative because the AI hasn't
+  // necessarily confirmed with the kid first.
+  useEffect(() => {
+    const handler = () => { void runTool({ id: 'program_run', input: {}, reason: 'You hit Play' }); };
+    window.addEventListener('sketchbot:run-program-now', handler as EventListener);
+    return () => window.removeEventListener('sketchbot:run-program-now', handler as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ─── Tool execution ──────────────────────────────────────────────────────
 
   async function runTool(request: SparkToolRequest): Promise<SparkToolResult> {

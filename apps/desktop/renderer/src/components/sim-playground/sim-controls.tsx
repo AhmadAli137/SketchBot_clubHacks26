@@ -23,7 +23,6 @@ import {
   isProgramPaused, pauseProgram, resumeProgram, onPauseChange,
 } from '@/lib/program-executor';
 import { onSparkEvent } from '@/lib/spark-events';
-import { emitToolRequest } from '@/lib/spark-tools';
 import { syncPoseToPlacement, stopAllMotors } from './bot-drive';
 
 type Props = {
@@ -62,8 +61,10 @@ export function SimControls({ getActiveBotId, sceneObjects }: Props) {
   const handlePlayPause = () => {
     if (isRunning && !paused) { pauseProgram(); return; }
     if (isRunning && paused)  { resumeProgram(); return; }
-    // Idle → fire a fresh run via the tool-confirmation flow.
-    emitToolRequest({ id: 'program_run', input: {}, reason: 'You hit Play' });
+    // Idle → run directly. SparkToolDispatcher listens for this event
+    // and skips the mutative-confirmation modal because the kid has
+    // explicitly hit Play, which is the consent itself.
+    window.dispatchEvent(new CustomEvent('sketchbot:run-program-now'));
   };
 
   const handleStop = () => {
@@ -90,6 +91,9 @@ export function SimControls({ getActiveBotId, sceneObjects }: Props) {
     } else {
       syncPoseToPlacement(botId, 0, 0, 0);
     }
+    // Tell the 3D overlay to drop its post-run hide so the kid sees the
+    // path again from the bot's freshly-reset pose.
+    window.dispatchEvent(new CustomEvent('sketchbot:program-reset'));
   };
 
   return (

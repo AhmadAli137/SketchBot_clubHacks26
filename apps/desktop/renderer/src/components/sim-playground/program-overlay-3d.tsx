@@ -58,19 +58,44 @@ const COLOR_BY_KIND: Record<string, string> = {
 export function ProgramOverlay3D({ activeBotId, startObject }: Props) {
   const [program, setProgram] = useState<Program>({ id: 'p-default', blocks: [] });
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  // After a successful run, hide the path until the kid acts again
+  // (Play / Reset / Clear / new block). Without this, the same drive-1m
+  // arrow re-renders forward from the bot's new pose the moment
+  // program.done fires, which reads as "want to do that AGAIN?" instead
+  // of "you finished".
+  const [postRunHidden, setPostRunHidden] = useState(false);
   // Re-anchor when the bot pose drifts more than 1 cm or rotates more
   // than 1° — keeps the preview up-to-date without rebuilding every
   // frame. Stored as raw nums so the comparator below is allocation-free.
   const lastAnchor = useRef({ x: NaN, z: NaN, h: NaN });
   const [anchorTick, setAnchorTick] = useState(0);
   // Frozen launch pose during execution. Captured the moment a run
-  // starts so the arrow chain stays anchored at where the bot WAS, and
-  // visually "depletes" as the bot drives along the path. Without this,
-  // the arrows re-anchor to the bot's current pose every frame and look
-  // like they're being dragged along instead of being consumed.
+  // starts so the trajectory preview stays put as the bot drives.
   const runAnchor = useRef<{ x: number; z: number; h: number } | null>(null);
+  // Live bot pose tracking during execution — drives the active-segment
+  // shrink animation. Updated every ~3 cm / 0.05 rad of motion so a
+  // re-render isn't forced every frame.
+  const lastRunTrack = useRef({ x: NaN, z: NaN, h: NaN });
+  const [runTick, setRunTick] = useState(0);
 
-  useEffect(() => subscribeProgram(setProgram), []);
+  // Re-show the overlay whenever the program changes (new block, edit,
+  // clear). Keeps the post-run hide from sticking forever after a kid
+  // teaches the bot a new step.
+  useEffect(() => {
+    return subscribeProgram((p) => {
+      setProgram(p);
+      setPostRunHidden(false);
+    });
+  }, []);
+
+  // Reset (SimControls) explicitly un-hides the overlay so the kid sees
+  // the freshly-rewound path. Without this, hitting Reset after a run
+  // leaves the path invisible until they tap Play or modify the program.
+  useEffect(() => {
+    const onReset = () => setPostRunHidden(false);
+    window.addEventListener('sketchbot:program-reset', onReset as EventListener);
+    return () => window.removeEventListener('sketchbot:program-reset', onReset as EventListener);
+  }, []);
 
   useEffect(() => {
     return onSparkEvent((d) => {
@@ -84,6 +109,7 @@ export function ProgramOverlay3D({ activeBotId, startObject }: Props) {
         if (!runAnchor.current && activeBotId) {
           const pose = getPose(activeBotId);
           if (pose) runAnchor.current = { x: pose.worldX, z: pose.worldZ, h: pose.heading };
+          setPostRunHidden(false);  // a new run un-hides the overlay
         }
         setActiveBlockId(ev.blockId);
       } else if (ev.kind === 'block.exit' && typeof ev.blockId === 'string') {
@@ -91,22 +117,35 @@ export function ProgramOverlay3D({ activeBotId, startObject }: Props) {
       } else if (ev.kind === 'program.done' || ev.kind === 'program.aborted') {
         runAnchor.current = null;
         setActiveBlockId(null);
-        // Force one more re-mux so the trajectory recomputes from the
-        // bot's settled-final pose now that the run is over.
-        setAnchorTick((t) => (t + 1) & 0xffff);
+        // Hide the overlay until the next user action — keeps the
+        // completed path from re-popping at the bot's new resting pose.
+        setPostRunHidden(true);
       }
     });
   }, [activeBotId]);
 
   // Watch the bot's pose so the preview chain re-anchors as it moves —
-  // only relevant when no Start marker is placed AND no program is
-  // currently running. While running, the anchor is frozen at runAnchor.
+  // and during execution, force a re-render when the bot has moved
+  // enough to visibly shrink the active segment.
   useFrame(() => {
-    if (startObject) return;          // start marker takes precedence
-    if (runAnchor.current) return;    // execution-frozen anchor
     if (!activeBotId) return;
     const pose = getPose(activeBotId);
     if (!pose) return;
+
+    // While running: poll bot pose so the active segment shrinks.
+    if (runAnchor.current) {
+      const dx = Math.abs(pose.worldX - lastRunTrack.current.x);
+      const dz = Math.abs(pose.worldZ - lastRunTrack.current.z);
+      const dh = Math.abs(pose.heading - lastRunTrack.current.h);
+      if (Number.isNaN(lastRunTrack.current.x) || dx > 0.025 || dz > 0.025 || dh > 0.05) {
+        lastRunTrack.current = { x: pose.worldX, z: pose.worldZ, h: pose.heading };
+        setRunTick((t) => (t + 1) & 0xff);
+      }
+      return;
+    }
+
+    // Idle: only re-anchor when no Start marker is forcing a fixed origin.
+    if (startObject) return;
     const dx = Math.abs(pose.worldX - lastAnchor.current.x);
     const dz = Math.abs(pose.worldZ - lastAnchor.current.z);
     const dh = Math.abs(pose.heading - lastAnchor.current.h);
@@ -118,33 +157,61 @@ export function ProgramOverlay3D({ activeBotId, startObject }: Props) {
 
   const segments = useMemo<TrajectorySegment[]>(() => {
     if (program.blocks.length === 0) return [];
-    // Anchor priority during execution: Start marker → frozen run anchor.
-    // Idle: Start marker → live bot pose. Frozen-run-anchor takes
-    // precedence over the live pose so the path doesn't follow the bot
-    // while it drives.
+    // Compute the static segment chain from the right anchor.
+    let base: TrajectorySegment[];
     if (startObject) {
       const { x, z } = gridToWorldRendered(startObject);
       const heading = startObject.headingRad ?? ((startObject.rotY ?? 0) * Math.PI) / 2;
-      return simulateTrajectory(program, { x, z, heading });
-    }
-    if (runAnchor.current) {
-      return simulateTrajectory(program, {
+      base = simulateTrajectory(program, { x, z, heading });
+    } else if (runAnchor.current) {
+      base = simulateTrajectory(program, {
         x: runAnchor.current.x, z: runAnchor.current.z, heading: runAnchor.current.h,
       });
+    } else if (activeBotId) {
+      const pose = getPose(activeBotId);
+      if (!pose) return [];
+      base = simulateTrajectory(program, {
+        x: pose.worldX, z: pose.worldZ, heading: pose.heading,
+      });
+    } else {
+      return [];
     }
-    if (!activeBotId) return [];
-    const pose = getPose(activeBotId);
-    if (!pose) return [];
-    return simulateTrajectory(program, {
-      x: pose.worldX, z: pose.worldZ, heading: pose.heading,
-    });
-    // anchorTick re-runs the simulator when the bot moves enough. Keeping
-    // it in deps even though it isn't read inside — the dependency itself
-    // is the trigger.
+
+    // While the executor is running the bot through a segment, override
+    // that segment's start with the bot's CURRENT pose so the rendered
+    // arrow shrinks as the bot consumes it. Other segments stay fixed.
+    if (activeBlockId && activeBotId) {
+      const pose = getPose(activeBotId);
+      if (pose) {
+        return base.map((seg) => {
+          if (seg.blockId !== activeBlockId) return seg;
+          if (seg.kind === 'translate') {
+            // Project the bot's current position onto the segment so the
+            // shrink stays clean even if collisions nudge the bot off-axis.
+            return { ...seg, x0: pose.worldX, z0: pose.worldZ, heading0: pose.heading };
+          }
+          if (seg.kind === 'rotate') {
+            return { ...seg, x0: pose.worldX, z0: pose.worldZ, heading0: pose.heading };
+          }
+          return seg;
+        });
+      }
+    }
+
+    return base;
+    // anchorTick + runTick are explicit deps so the simulator re-runs
+    // when the bot's pose changes meaningfully, without doing it every
+    // frame. Both are bumped by the useFrame hook above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [program, activeBotId, anchorTick, startObject]);
+  }, [program, activeBotId, anchorTick, runTick, startObject, activeBlockId]);
 
   if (segments.length === 0) return null;
+  // After a successful run, hide the path until the kid acts again.
+  // Reset → bot snaps to Start, useFrame re-anchors → re-render shows
+  // the path. Hitting Play → block.enter clears the flag. Editing the
+  // program → subscribeProgram clears the flag. So this only blocks the
+  // immediate post-completion re-pop.
+  if (postRunHidden) return null;
 
   return (
     <group>
