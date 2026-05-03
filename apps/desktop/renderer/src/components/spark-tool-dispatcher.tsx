@@ -71,6 +71,13 @@ export function SparkToolDispatcher({
   // Live ref so the sim sensor (created once) always sees the latest scene.
   const sceneRef = useRef<SceneObject[]>(sceneObjects);
   useEffect(() => { sceneRef.current = sceneObjects; }, [sceneObjects]);
+  // Same pattern for getActiveBotId — the prop is recreated each render
+  // (it's an inline arrow in student-dashboard), so the window-event
+  // listener's first-render closure captures a stale version that can
+  // return null even after the kid placed a bot. Always read via the ref
+  // so program_run sees the current scene.
+  const getActiveBotIdRef = useRef(getActiveBotId);
+  useEffect(() => { getActiveBotIdRef.current = getActiveBotId; }, [getActiveBotId]);
   // Track the currently-running program so a second run request can stop
   // the first instead of stacking.
   const runningRef = useRef<{ abort: AbortController } | null>(null);
@@ -153,7 +160,7 @@ export function SparkToolDispatcher({
         return { ok: true };
       }
       case 'program_run': {
-        const botId = getActiveBotId?.() ?? null;
+        const botId = getActiveBotIdRef.current?.() ?? null;
         if (!botId) return { ok: false, message: 'no active bot to run the program' };
         const program = getProgram();
         if (program.blocks.length === 0) return { ok: false, message: 'program is empty' };
