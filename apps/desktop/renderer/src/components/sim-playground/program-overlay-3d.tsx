@@ -29,9 +29,15 @@ type Props = {
   activeBotId: string | null;
 };
 
-const HOVER_HEIGHT = 0.18;       // m above the floor where arrows float
-const ARROW_HEAD_SIZE = 0.06;
-const ARROW_SHAFT_RADIUS = 0.012;
+// Painted-on-floor aesthetic — arrows sit just above the ground so
+// they read as a path the bot will trace, not as floating gizmos that
+// embed in scene objects. Heights staggered by a fraction of a mm to
+// avoid Z-fighting between overlapping segment ribbons.
+const FLOOR_HEIGHT = 0.012;       // m above the floor where the ribbon paint lives
+const ARROW_HEAD_LEN = 0.10;      // length of the arrowhead triangle
+const ARROW_HEAD_HALF_W = 0.06;   // half-width of the arrowhead base
+const ARROW_RIBBON_HALF_W = 0.025; // half-width of the shaft ribbon
+const BOT_RADIUS_FOR_OFFSET = 0.13; // start arrow past the bot's chassis edge
 
 const COLOR_BY_KIND: Record<string, string> = {
   drive:        '#22c55e',
@@ -170,55 +176,101 @@ function ArrowSegment({
   const dz = z1 - z0;
   const length = Math.hypot(dx, dz);
   if (length < 0.001) return null;
+  // Direction unit vector along the path.
+  const ux = dx / length;
+  const uz = dz / length;
+  // Offset the start past the bot's chassis edge so the arrow visibly
+  // begins where the bot's nose is, not buried inside the mesh.
+  const startX = x0 + ux * BOT_RADIUS_FOR_OFFSET;
+  const startZ = z0 + uz * BOT_RADIUS_FOR_OFFSET;
+  const ribbonLen = Math.max(0.001, length - BOT_RADIUS_FOR_OFFSET - ARROW_HEAD_LEN);
+  const ribbonMidX = startX + ux * (ribbonLen / 2);
+  const ribbonMidZ = startZ + uz * (ribbonLen / 2);
+  const headTipX = x1;
+  const headTipZ = z1;
+  const headBaseX = x1 - ux * ARROW_HEAD_LEN;
+  const headBaseZ = z1 - uz * ARROW_HEAD_LEN;
+  // World XZ-plane angle of the path. plane is built in XY then we
+  // rotate −90° around X to lay it flat, then yaw around Y.
+  const yaw = Math.atan2(-dz, dx);
+  const flatRibbonRot: [number, number, number] = [-Math.PI / 2, 0, yaw];
 
-  // The shaft cylinder is built along +Y by default; rotate it to point
-  // along the direction (dx, dz) on the floor plane.
-  const shaftLen = Math.max(0.0001, length - ARROW_HEAD_SIZE);
-  const midX = x0 + (dx * shaftLen) / (2 * length);
-  const midZ = z0 + (dz * shaftLen) / (2 * length);
-  const tipX = x0 + (dx * (length - ARROW_HEAD_SIZE * 0.5)) / length;
-  const tipZ = z0 + (dz * (length - ARROW_HEAD_SIZE * 0.5)) / length;
-  // Cylinder default axis = +Y. We want it lying flat along (dx,dz) with
-  // length running in that direction. Rotate by Math.atan2 to align in
-  // the XZ plane, then tip the cylinder so its length axis is in-plane.
-  const yaw = Math.atan2(-dz, dx); // world XZ-plane angle
-  const shaftRot: [number, number, number] = [Math.PI / 2, 0, -yaw];
+  // Triangular arrowhead — generated each render via memoised geometry.
+  const headGeom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    // In local XY (will be rotated flat onto XZ): tip points +X, base
+    // straddles the X axis at x=0.
+    const verts = new Float32Array([
+      ARROW_HEAD_LEN, 0, 0,                     // tip
+      0,  ARROW_HEAD_HALF_W, 0,                 // base left
+      0, -ARROW_HEAD_HALF_W, 0,                 // base right
+    ]);
+    g.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+    g.setIndex([0, 1, 2]);
+    g.computeVertexNormals();
+    return g;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <group>
-      {/* Shaft */}
-      <mesh position={[midX, HOVER_HEIGHT, midZ]} rotation={shaftRot}>
-        <cylinderGeometry args={[ARROW_SHAFT_RADIUS, ARROW_SHAFT_RADIUS, shaftLen, 12]} />
+      {/* Ribbon shaft — a flat rectangle painted on the floor. */}
+      {ribbonLen > 0.001 && (
+        <mesh position={[ribbonMidX, FLOOR_HEIGHT, ribbonMidZ]} rotation={flatRibbonRot}>
+          <planeGeometry args={[ribbonLen, ARROW_RIBBON_HALF_W * 2]} />
+          <meshStandardMaterial
+            color={color}
+            emissive={color}
+            emissiveIntensity={isActive ? 1.2 : 0.75}
+            transparent
+            opacity={dashed ? opacity * 0.70 : opacity}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
+      {/* Triangular arrowhead — flat on the floor, pointed at (x1,z1). */}
+      <mesh
+        position={[headBaseX, FLOOR_HEIGHT + 0.0005, headBaseZ]}
+        rotation={flatRibbonRot}
+        geometry={headGeom}
+      >
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={isActive ? 0.85 : 0.45}
-          transparent
-          opacity={dashed ? opacity * 0.65 : opacity}
-        />
-      </mesh>
-      {/* Head — cone pointing along the path direction */}
-      <mesh position={[tipX, HOVER_HEIGHT, tipZ]} rotation={shaftRot}>
-        <coneGeometry args={[ARROW_HEAD_SIZE * 0.7, ARROW_HEAD_SIZE, 14]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={isActive ? 0.95 : 0.55}
+          emissiveIntensity={isActive ? 1.4 : 0.85}
           transparent
           opacity={opacity}
+          side={THREE.DoubleSide}
+          depthWrite={false}
         />
       </mesh>
-      {/* Dash tick marks for indicator (motor.until) — shows the path
+      {/* Dash tick marks for indicator (motor.until) — show the path
           continues conditionally past the visible arrow. */}
-      {dashed && <DashTicks x0={x0} z0={z0} dx={dx / length} dz={dz / length} length={length} color={color} opacity={opacity} />}
-      {/* Step number puck floating just above the start, billboarded */}
-      <StepLabel x={x0} z={z0} number={stepNumber} color={color} isActive={isActive} />
-      {/* Sub-label ("12 in") near the midpoint, rendered as an HTML
-          overlay so we don't need to load a 3D font (which can suspend
-          the whole canvas). */}
-      <Html position={[midX, HOVER_HEIGHT + 0.10, midZ]} center distanceFactor={3}>
+      {dashed && (
+        <DashTicks x0={startX} z0={startZ} dx={ux} dz={uz} length={ribbonLen} color={color} opacity={opacity} />
+      )}
+      {/* Step number puck floating above the START of this segment. */}
+      <StepLabel x={startX} z={startZ} number={stepNumber} color={color} isActive={isActive} />
+      {/* Distance label hovering above the ribbon midpoint. */}
+      <Html position={[ribbonMidX, FLOOR_HEIGHT + 0.12, ribbonMidZ]} center distanceFactor={3}>
         <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
       </Html>
+      {/* Subtle landing dot at the arrow tip so the kid can see exactly
+          where the bot is heading — useful when the arrow runs through
+          other scene objects that visually obscure the tip. */}
+      <mesh position={[headTipX, FLOOR_HEIGHT + 0.0008, headTipZ]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.04, 0.06, 24]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={isActive ? 1.1 : 0.65}
+          transparent
+          opacity={opacity * 0.85}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   );
 }
@@ -228,28 +280,33 @@ function DashTicks({
 }: {
   x0: number; z0: number; dx: number; dz: number; length: number; color: string; opacity: number;
 }) {
-  // Three small perpendicular bars across the shaft to read as "dashed".
+  // Three small perpendicular bars across the ribbon to read as "dashed".
+  // Drawn as thin flat planes lying on the floor, just above the ribbon.
+  const yaw = Math.atan2(-dz, dx);
   const bars = [0.25, 0.55, 0.85].map((t) => ({
     x: x0 + dx * length * t,
     z: z0 + dz * length * t,
   }));
-  // Perpendicular direction in the XZ plane.
-  const px = -dz, pz = dx;
   return (
     <group>
-      {bars.map((b, i) => {
-        const half = 0.025;
-        return (
-          <mesh
-            key={i}
-            position={[b.x, HOVER_HEIGHT + 0.001, b.z]}
-            rotation={[Math.PI / 2, 0, -Math.atan2(pz, px)]}
-          >
-            <cylinderGeometry args={[0.005, 0.005, half * 2, 8]} />
-            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} transparent opacity={opacity} />
-          </mesh>
-        );
-      })}
+      {bars.map((b, i) => (
+        <mesh
+          key={i}
+          position={[b.x, FLOOR_HEIGHT + 0.0006, b.z]}
+          rotation={[-Math.PI / 2, 0, yaw]}
+        >
+          <planeGeometry args={[0.012, ARROW_RIBBON_HALF_W * 2.4]} />
+          <meshStandardMaterial
+            color={color}
+            emissive={color}
+            emissiveIntensity={0.9}
+            transparent
+            opacity={opacity}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -263,46 +320,71 @@ function TurnArc({
   color: string; opacity: number; isActive: boolean;
   stepNumber: number; label: string; labelColor: string;
 }) {
-  // Build a thin tube along an arc of radius ~0.18 m centred on the bot.
-  // Radius small enough to read as "pivot in place" rather than "drive
-  // around a circle".
-  const radius = 0.18;
-  const segments = 32;
+  // Painted-on-floor arc: a tube laid on its side along the path, with
+  // a flat triangular arrowhead at the tip pointing tangent.
+  const radius = 0.22;
+  const segments = 24;
   const points: THREE.Vector3[] = [];
-  // We want the arc to start at a direction perpendicular to the bot's
-  // forward axis, so it visually sits beside the bot. Use bot's forward
-  // as the chord direction reference.
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
     const h = h0 + (h1 - h0) * t;
-    // Place arc points to the LEFT of the heading (positive Z in local).
     const px = x + radius * Math.sin(h);
     const pz = z + radius * Math.cos(h);
-    points.push(new THREE.Vector3(px, HOVER_HEIGHT, pz));
+    points.push(new THREE.Vector3(px, FLOOR_HEIGHT, pz));
   }
   const curve = new THREE.CatmullRomCurve3(points);
-  const tubeRadius = isActive ? 0.014 : 0.011;
+  const tubeRadius = isActive ? 0.020 : 0.016;
 
-  // Arrowhead at the end of the arc — points along the tangent of the
-  // ending direction.
   const last = points[points.length - 1];
   const prev = points[points.length - 2];
   const tDx = last.x - prev.x;
   const tDz = last.z - prev.z;
   const tipYaw = Math.atan2(-tDz, tDx);
 
+  // Flat triangular tip — same shape as the ArrowSegment head.
+  const headGeom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const verts = new Float32Array([
+      ARROW_HEAD_LEN * 0.7, 0, 0,
+      0,  ARROW_HEAD_HALF_W * 0.85, 0,
+      0, -ARROW_HEAD_HALF_W * 0.85, 0,
+    ]);
+    g.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+    g.setIndex([0, 1, 2]);
+    g.computeVertexNormals();
+    return g;
+  }, []);
+
   return (
     <group>
       <mesh>
         <tubeGeometry args={[curve, segments, tubeRadius, 10, false]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={isActive ? 0.85 : 0.5} transparent opacity={opacity} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={isActive ? 1.2 : 0.75}
+          transparent
+          opacity={opacity}
+          depthWrite={false}
+        />
       </mesh>
-      <mesh position={[last.x, last.y, last.z]} rotation={[Math.PI / 2, 0, -tipYaw]}>
-        <coneGeometry args={[ARROW_HEAD_SIZE * 0.65, ARROW_HEAD_SIZE * 0.85, 14]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={isActive ? 0.95 : 0.55} transparent opacity={opacity} />
+      <mesh
+        position={[last.x, FLOOR_HEIGHT + 0.0008, last.z]}
+        rotation={[-Math.PI / 2, 0, tipYaw]}
+        geometry={headGeom}
+      >
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={isActive ? 1.4 : 0.85}
+          transparent
+          opacity={opacity}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
       </mesh>
       <StepLabel x={x} z={z} number={stepNumber} color={color} isActive={isActive} yOffset={0.04} />
-      <Html position={[(x + last.x) / 2, HOVER_HEIGHT + 0.12, (z + last.z) / 2]} center distanceFactor={3}>
+      <Html position={[(x + last.x) / 2, FLOOR_HEIGHT + 0.14, (z + last.z) / 2]} center distanceFactor={3}>
         <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
       </Html>
     </group>
@@ -319,12 +401,20 @@ function PausePuck({
 }) {
   return (
     <group>
-      <mesh position={[x, HOVER_HEIGHT, z]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.05, 0.075, 24]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={isActive ? 0.9 : 0.5} transparent opacity={opacity} side={THREE.DoubleSide} />
+      <mesh position={[x, FLOOR_HEIGHT, z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.07, 0.10, 28]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={isActive ? 1.2 : 0.7}
+          transparent
+          opacity={opacity}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
       </mesh>
       <StepLabel x={x} z={z} number={stepNumber} color={color} isActive={isActive} />
-      <Html position={[x, HOVER_HEIGHT + 0.13, z]} center distanceFactor={3}>
+      <Html position={[x, FLOOR_HEIGHT + 0.13, z]} center distanceFactor={3}>
         <div className="program-overlay-label" style={{ color: labelColor }}>{label}</div>
       </Html>
     </group>
@@ -339,16 +429,23 @@ function StepLabel({
   x: number; z: number; number: number; color: string; isActive: boolean; yOffset?: number;
 }) {
   // Number rendered as an HTML overlay so we don't pull in a 3D font.
-  // The colored disc is still a real 3D mesh so it sits in-scene with
-  // proper depth + lighting.
+  // The disc floats above the segment start, attached by a short stem,
+  // so the kid can quickly count steps without the disc getting buried
+  // under other floor objects.
+  const HEIGHT = 0.20 + yOffset;
   return (
-    <group position={[x, HOVER_HEIGHT + 0.18 + yOffset, z]}>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.04, 24]} />
+    <group position={[x, HEIGHT, z]}>
+      {/* Stem from the floor up to the disc — a thin vertical line. */}
+      <mesh position={[0, -HEIGHT / 2 + FLOOR_HEIGHT, 0]}>
+        <cylinderGeometry args={[0.003, 0.003, HEIGHT - FLOOR_HEIGHT, 6]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} transparent opacity={0.7} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.045, 24]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={isActive ? 1.0 : 0.6}
+          emissiveIntensity={isActive ? 1.2 : 0.75}
           transparent
           opacity={0.95}
           side={THREE.DoubleSide}
