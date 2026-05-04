@@ -53,7 +53,7 @@ We never store or transmit passwords ourselves.
                       │  HTTPS
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  SaySpark Cloud Backend  (sketchbot-backend.onrender.com)       │
+│  SaySpark Cloud Backend  (api.sayspark.ca)                      │
 │                                                                 │
 │  3. require_auth() calls supabase.auth.get_user(jwt)            │
 │     → 401 if invalid, expired, or from a suspended account      │
@@ -78,7 +78,7 @@ The client never sees the AI provider URL, key, or raw response format — only 
 
 **Getting the token:** `useCloudAuthToken()` (`lib/cloud-api.ts`) subscribes to `supabase.auth.onAuthStateChange`. Any component that needs to make an AI call reads from this hook — the token is always fresh.
 
-**AI calls:** `tutor-panel.tsx` and `use-lesson-audio.ts` call `https://sketchbot-backend.onrender.com/api/tutor/*` with `Authorization: Bearer <token>`. The local Python runtime at `localhost:8787` handles only hardware: robot serial commands, camera, and local Whisper transcription.
+**AI calls:** `tutor-panel.tsx` and `use-lesson-audio.ts` call `https://api.sayspark.ca/api/tutor/*` with `Authorization: Bearer <token>`. The local Python runtime at `localhost:8787` handles only hardware: robot serial commands, camera, and local Whisper transcription.
 
 **Local runtime security:** The local runtime has no AI provider keys. It cannot make Anthropic or ElevenLabs calls. If someone inspects the installed app files, they find no secrets — only the Supabase URL and anon key, both of which are public by design (Supabase Row Level Security governs what each user can read).
 
@@ -141,7 +141,7 @@ Any new client (web, mobile, TV, embedded dashboard) follows the same pattern:
 
 1. Integrate the Supabase client for that platform
 2. Retrieve the JWT access token after sign-in
-3. Attach it as `Authorization: Bearer <token>` on every request to `sketchbot-backend.onrender.com`
+3. Attach it as `Authorization: Bearer <token>` on every request to `api.sayspark.ca`
 4. Never ask for or store any AI provider credential on the client
 
 The cloud backend already accepts any valid Supabase JWT — no backend changes needed for a new client.

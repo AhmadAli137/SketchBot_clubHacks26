@@ -82,7 +82,7 @@ Create 3 products in **Product catalog**, each with 2 recurring prices.
 
 | Field | Value |
 |-------|-------|
-| Endpoint URL | `https://sketchbot-backend.onrender.com/api/subscriptions/webhook` |
+| Endpoint URL | `https://api.sayspark.ca/api/subscriptions/webhook` |
 | Events | `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` |
 
 After creating the webhook, click **Reveal** next to **Signing secret** to get the `whsec_...` value.

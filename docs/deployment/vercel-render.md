@@ -10,7 +10,7 @@ The repository deploys as two hosted products plus local apps:
 
 ## Hosted admin site on Vercel
 
-The Vercel project at `sketch-bot-club-hacks26.vercel.app` was previously wired to the old `webapp/` folder (a browser-only operator UI that has since been replaced by `apps/desktop`). The folder has been removed from the repo. To repurpose the same Vercel project for the new admin site, do the following **once** in the Vercel dashboard.
+The Vercel project at `sayspark.ca` (previously deployed at `sketch-bot-club-hacks26.vercel.app`) was originally wired to the old `webapp/` folder (a browser-only operator UI that has since been replaced by `apps/desktop`). The folder has been removed from the repo. To repurpose the same Vercel project for the new admin site, do the following **once** in the Vercel dashboard.
 
 ### 1. Repoint the existing Vercel project
 
@@ -29,8 +29,8 @@ In **Settings → Environment Variables**, add the following for the `Production
 
 | Variable                             | Value                                                             |
 | ------------------------------------ | ----------------------------------------------------------------- |
-| `NEXT_PUBLIC_CLOUD_BACKEND_URL`      | `https://sketchbot-backend.onrender.com` (or your Render URL)     |
-| `NEXT_PUBLIC_SITE_URL`               | `https://sketch-bot-club-hacks26.vercel.app` (or your final domain) |
+| `NEXT_PUBLIC_CLOUD_BACKEND_URL`      | `https://api.sayspark.ca` (or your Render URL)     |
+| `NEXT_PUBLIC_SITE_URL`               | `https://sayspark.ca`                                              |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Clerk publishable key                                             |
 | `CLERK_SECRET_KEY`                   | Clerk secret key                                                  |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL`      | `/sign-in`                                                        |
@@ -57,7 +57,7 @@ Once the Vercel project is serving the new site, attach a production domain in *
 
 ## Hosted cloud backend on Render
 
-The Render service at `sketchbot-backend.onrender.com` was previously running the legacy browser-era backend (its root endpoint still returns the old `version: "0.1.0"` with a `robot_connected` field). It needs to be repointed at the new `services/cloud-backend` so the hosted admin site can fetch site, summary, release, and support data.
+The Render service at `api.sayspark.ca` was previously running the legacy browser-era backend (its root endpoint still returns the old `version: "0.1.0"` with a `robot_connected` field). It needs to be repointed at the new `services/cloud-backend` so the hosted admin site can fetch site, summary, release, and support data.
 
 ### 1. Repoint the existing Render service
 
@@ -76,7 +76,7 @@ The [`render.yaml`](../../render.yaml) blueprint is now aligned with the existin
    | Key                        | Value                                                    |
    | -------------------------- | -------------------------------------------------------- |
    | `CLOUD_CORS_ORIGIN_REGEX`  | `^https://.*\.vercel\.app$`                              |
-   | `CLOUD_CORS_ORIGINS`       | `https://sketch-bot-club-hacks26.vercel.app` (or custom) |
+   | `CLOUD_CORS_ORIGINS`       | `https://sayspark.ca,https://www.sayspark.ca`            |
    | `SKETCHBOT_CLOUD_DATA_FILE`| *blank* — defaults to the bundled `data/platform.json`   |
 
 4. **Manual Deploy → Deploy latest commit**, selecting **Clear build cache & deploy**. The first successful deploy replaces the old backend with v0.2.0.
@@ -87,11 +87,11 @@ The [`render.yaml`](../../render.yaml) blueprint is now aligned with the existin
 
 After the deploy turns green, hit these URLs (they replace what the old backend exposed):
 
-- `https://sketchbot-backend.onrender.com/` — should return `{"name":"SketchBot Cloud Backend","version":"0.2.0","mode":"administrative", ...}` (if you still see `"version":"0.1.0"` with `robot_connected`, the old service is still live — redeploy).
-- `https://sketchbot-backend.onrender.com/health` — `{"status":"ok", ...}`.
-- `https://sketchbot-backend.onrender.com/api/admin/summary`.
-- `https://sketchbot-backend.onrender.com/api/admin/releases`.
-- `https://sketchbot-backend.onrender.com/api/admin/support`.
+- `https://api.sayspark.ca/` — should return `{"name":"SketchBot Cloud Backend","version":"0.2.0","mode":"administrative", ...}` (if you still see `"version":"0.1.0"` with `robot_connected`, the old service is still live — redeploy).
+- `https://api.sayspark.ca/health` — `{"status":"ok", ...}`.
+- `https://api.sayspark.ca/api/admin/summary`.
+- `https://api.sayspark.ca/api/admin/releases`.
+- `https://api.sayspark.ca/api/admin/support`.
 
 ### 3. CORS
 

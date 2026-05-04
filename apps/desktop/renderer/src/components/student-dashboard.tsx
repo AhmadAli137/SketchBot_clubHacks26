@@ -748,7 +748,7 @@ export function StudentDashboard({
               <strong>{daysLeft === 0 ? 'Trial ends today' : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left in your trial`}</strong>
               {' — '}your {entitlements.tier} plan features are active until trial ends.
             </span>
-            <a href="https://sketch-bot-club-hacks26.vercel.app/pricing" target="_blank" rel="noreferrer" className="trial-banner-link">
+            <a href="https://sayspark.ca/pricing" target="_blank" rel="noreferrer" className="trial-banner-link">
               Manage plan →
             </a>
           </div>

@@ -8,7 +8,7 @@ import { getSupabaseBrowserClient } from './supabase-browser';
  * All AI endpoints (tutor chat, TTS, evaluate) go here; hardware stays at the local runtime.
  */
 export const CLOUD_API_URL =
-  process.env.NEXT_PUBLIC_CLOUD_API_URL ?? 'https://sketchbot-backend.onrender.com';
+  process.env.NEXT_PUBLIC_CLOUD_API_URL ?? 'https://api.sayspark.ca';
 
 /**
  * Returns the current Supabase access token (auto-refreshed).
