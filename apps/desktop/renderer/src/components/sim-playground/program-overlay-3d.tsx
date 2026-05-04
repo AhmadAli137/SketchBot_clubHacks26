@@ -280,6 +280,24 @@ function ArrowSegment({
   color: string; opacity: number; dashed: boolean; isActive: boolean;
   stepNumber: number; label: string; labelColor: string;
 }) {
+  // Triangular arrowhead geometry — memoised so we don't rebuild the
+  // BufferGeometry every render. Computed BEFORE any early-return so the
+  // hook order stays stable (react-hooks/rules-of-hooks).
+  const headGeom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    // In local XY (will be rotated flat onto XZ): tip points +X, base
+    // straddles the X axis at x=0.
+    const verts = new Float32Array([
+      ARROW_HEAD_LEN, 0, 0,                     // tip
+      0,  ARROW_HEAD_HALF_W, 0,                 // base left
+      0, -ARROW_HEAD_HALF_W, 0,                 // base right
+    ]);
+    g.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+    g.setIndex([0, 1, 2]);
+    g.computeVertexNormals();
+    return g;
+  }, []);
+
   const dx = x1 - x0;
   const dz = z1 - z0;
   const length = Math.hypot(dx, dz);
@@ -302,23 +320,6 @@ function ArrowSegment({
   // rotate −90° around X to lay it flat, then yaw around Y.
   const yaw = Math.atan2(-dz, dx);
   const flatRibbonRot: [number, number, number] = [-Math.PI / 2, 0, yaw];
-
-  // Triangular arrowhead — generated each render via memoised geometry.
-  const headGeom = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    // In local XY (will be rotated flat onto XZ): tip points +X, base
-    // straddles the X axis at x=0.
-    const verts = new Float32Array([
-      ARROW_HEAD_LEN, 0, 0,                     // tip
-      0,  ARROW_HEAD_HALF_W, 0,                 // base left
-      0, -ARROW_HEAD_HALF_W, 0,                 // base right
-    ]);
-    g.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-    g.setIndex([0, 1, 2]);
-    g.computeVertexNormals();
-    return g;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <group>
