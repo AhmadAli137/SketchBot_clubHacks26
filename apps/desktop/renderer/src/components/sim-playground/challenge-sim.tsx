@@ -394,7 +394,7 @@ export function ConeRingRun() {
 
   useEffect(() => {
     botBody.current = new PhysicsBody(ROBOT_PATH[0][0], ROBOT_PATH[0][1], {
-      mass: 1.8, radius: ROBOT_RADIUS, restitution: 0.22, linDamp: 1.5, angDamp: 2.8,
+      mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.22, linDamp: 1.4, angDamp: 4.5,
     });
     coneBodies.current = CONE_GAUNTLET_DEFS.map(
       ({ x, z }) => new PhysicsBody(x, z, {
@@ -433,16 +433,15 @@ export function ConeRingRun() {
         pathIdxRef.current = next;
       }
     } else {
-      // Spring toward path point + heading alignment
+      // Tighter steering + always-on thrust → bot weaves through cones
+      // confidently instead of stuttering between waypoints.
       const desiredHeading = Math.atan2(dx, dz);
       const angErr  = angDiff(desiredHeading, bot.angle);
-      const angTgt  = Math.max(-3.5, Math.min(3.5, angErr * 5.0));
+      const angTgt  = Math.max(-4.0, Math.min(4.0, angErr * 6.5));
       bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
-      const aligned = Math.abs(angErr) < 0.5;
-      if (aligned) {
-        const fd = bot.forwardDir();
-        bot.applyForce(fd.x * 3.5, fd.z * 3.5, dt);
-      }
+      const fd = bot.forwardDir();
+      const speed = 5.5 * Math.max(0.4, 1 - Math.abs(angErr) * 0.5);
+      bot.applyForce(fd.x * speed, fd.z * speed, dt);
     }
 
     bot.integrate(dt);
@@ -503,17 +502,17 @@ export function ConeRingRun() {
 
 // ─── MAZE RUN ─────────────────────────────────────────────────────────────────
 
-// Waypoints from S=(-1.25,-1.25) to E=(+1.25,+1.25) along corridors that
-// the bot can actually traverse without clipping into walls. The maze in
-// concept-environments has dense inner walls — the bot would pinball off
-// them on a direct route — so this path hugs the navigable left and top
-// corridors. Visited forward then in reverse (ping-pong) so the bot
-// continually solves the maze without needing a teleport between cycles.
+// Z-maze solve: S(-1.25,-1.25) → bottom corridor → wrap right around
+// wall1's east end → middle corridor → wrap left around wall2's west end →
+// top corridor → E(+1.25,+1.25). Visited forward then reverse (ping-pong)
+// so the bot continually solves the maze in alternating directions.
 const MAZE_WAYPOINTS: [number, number][] = [
   [-1.27, -1.27],   // near S
-  [-1.27,  0.70],   // climb the left corridor (clear of walls at x=-0.75 and x=-0.90)
-  [-1.27,  1.27],   // top-left corner (above the z=1.00 wall)
-  [ 1.27,  1.27],   // cross right along the top corridor → near E
+  [ 1.27, -1.27],   // bottom-right (under wall1)
+  [ 1.27,  0.00],   // middle-right (between walls, around wall1's east end)
+  [-1.27,  0.00],   // middle-left (across the middle corridor)
+  [-1.27,  1.27],   // top-left (above wall2's west end)
+  [ 1.27,  1.27],   // near E (top-right)
 ];
 
 export function MazeRun() {
@@ -539,8 +538,11 @@ export function MazeRun() {
   }, []);
 
   useEffect(() => {
+    // Lower damping + lighter mass → snappier acceleration. The maze
+    // solver should look like it knows where it's going, not like it's
+    // wading through molasses.
     botBody.current = new PhysicsBody(MAZE_WAYPOINTS[0][0], MAZE_WAYPOINTS[0][1], {
-      mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.18, linDamp: 2.2, angDamp: 3.8,
+      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.18, linDamp: 1.5, angDamp: 4.5,
     });
     segRef.current = 0;
     dirRef.current = 1;
@@ -569,13 +571,16 @@ export function MazeRun() {
     } else {
       const desiredHeading = Math.atan2(dx, dz);
       const angErr = angDiff(desiredHeading, bot.angle);
-      const angTgt = Math.max(-3.8, Math.min(3.8, angErr * 5.5));
+      // High steering gain → snaps to the next corridor heading without
+      // hesitating at intersections.
+      const angTgt = Math.max(-4.5, Math.min(4.5, angErr * 7.0));
       bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
-      if (Math.abs(angErr) < 0.45) {
-        const fd = bot.forwardDir();
-        const speed = 2.4 * Math.max(0, 1 - Math.abs(angErr));
-        bot.applyForce(fd.x * speed, fd.z * speed, dt);
-      }
+      // Always apply forward thrust — taper with heading error so the bot
+      // slows (but never stops) on tight turns. Force is high enough to
+      // overcome linDamp and clip along corridors at ~3 m/s.
+      const fd = bot.forwardDir();
+      const speed = 6.0 * Math.max(0.3, 1 - Math.abs(angErr) * 0.7);
+      bot.applyForce(fd.x * speed, fd.z * speed, dt);
     }
 
     // ── Physics integration ──
@@ -634,7 +639,7 @@ export function WaypointChase() {
 
   useEffect(() => {
     botBody.current = new PhysicsBody(WAYPOINTS[0][0], WAYPOINTS[0][1], {
-      mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 2.0, angDamp: 3.5,
+      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 1.4, angDamp: 4.2,
     });
     sRef.current = 0;
     return () => { botBody.current = null; };
@@ -691,15 +696,15 @@ export function WaypointChase() {
     const dz = tz - bot.pos.z;
     const desiredHeading = Math.atan2(dx, dz);
     const angErr = angDiff(desiredHeading, bot.angle);
-    // Steering gain stays gentle so the bot tracks the line instead of
-    // overshooting it. Damping comes from PhysicsBody.angDamp.
-    const angTgt = Math.max(-3.0, Math.min(3.0, angErr * 4.5));
+    // Steering gain is tuned so the bot tracks the line confidently
+    // without overshooting. angDamp on the body provides damping.
+    const angTgt = Math.max(-3.5, Math.min(3.5, angErr * 6.0));
     bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
     // Always drive forward — slow down (don't stop) when the heading is
-    // off, so the bot keeps moving while it corrects. This eliminates the
-    // jerky stop-spin-go cadence the old waypoint chaser had.
+    // off, so the bot keeps moving while it corrects. Higher base force
+    // gives the line follower a confident pace through the loop.
     const fd = bot.forwardDir();
-    const speed = 3.0 * Math.max(0.35, 1 - Math.abs(angErr) * 0.7);
+    const speed = 5.5 * Math.max(0.45, 1 - Math.abs(angErr) * 0.55);
     bot.applyForce(fd.x * speed, fd.z * speed, dt);
 
     bot.integrate(dt);

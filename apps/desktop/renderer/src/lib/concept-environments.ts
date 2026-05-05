@@ -331,15 +331,14 @@ export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
       { x:  0.00, z:  1.55, width: 3.10, depth: 0.10 },
       { x: -1.55, z:  0.00, width: 0.10, depth: 3.10 },
       { x:  1.55, z:  0.00, width: 0.10, depth: 3.10 },
-      // Denser inner maze
-      { x: -0.75, z: -0.80, width: 0.10, depth: 1.30 },
-      { x:  0.10, z: -0.50, width: 1.50, depth: 0.10 },
-      { x:  0.90, z:  0.30, width: 0.10, depth: 1.10 },
-      { x:  0.10, z:  1.00, width: 1.30, depth: 0.10 },
-      { x: -0.90, z:  0.25, width: 0.10, depth: 0.70 },
-      { x: -0.30, z: -1.10, width: 0.90, depth: 0.10 },
-      { x:  0.50, z: -0.90, width: 0.10, depth: 0.50 },
-      { x:  0.30, z:  0.50, width: 0.70, depth: 0.10 },
+      // Two-bar Z-maze: wall1 blocks the lower half except a gap on the
+      // right; wall2 blocks the upper half except a gap on the left. The
+      // bot must thread the bottom corridor → cross right around wall1's
+      // east end → middle corridor → wrap left around wall2's west end →
+      // top corridor → exit. Wide enough corridors (≥ 0.95m clearance)
+      // for the 0.20m-radius bot to drive smoothly.
+      { x: -0.50, z: -0.50, width: 2.10, depth: 0.10 },
+      { x:  0.50, z:  0.50, width: 2.10, depth: 0.10 },
     ],
     waypoints: [
       { x: -1.25, z: -1.25, color: '#00ff44', label: 'S' },

@@ -86,24 +86,16 @@ export function SparkMiniBotMesh({ wheelRefs }: { wheelRefs?: MiniBotWheelRefs }
               <meshStandardMaterial color="#1a1a22" roughness={0.95} />
             </mesh>
             <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
-              <cylinderGeometry args={[wheelR * 0.62, wheelR * 0.62, 0.004, 18]} />
+              <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 18]} />
               <meshStandardMaterial color="#d2d4dc" roughness={0.4} metalness={0.6} />
             </mesh>
             <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
-              <cylinderGeometry args={[wheelR * 0.20, wheelR * 0.20, 0.006, 6]} />
-              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={1.4} />
+              <cylinderGeometry args={[wheelR * 0.16, wheelR * 0.16, 0.005, 6]} />
+              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.6} />
             </mesh>
-            {/* Two cross-spokes — bright cyan against the black tire so the
-                wheel reads as obviously rotating instead of a featureless
-                disc. Two perpendicular bars give "is the wheel spinning?"
-                signal at any viewing angle. */}
             <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
-              <boxGeometry args={[wheelR * 1.85, 0.012, 0.010]} />
-              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.55} roughness={0.4} />
-            </mesh>
-            <mesh rotation={[Math.PI / 2, 0, Math.PI / 2]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
-              <boxGeometry args={[wheelR * 1.85, 0.012, 0.010]} />
-              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.55} roughness={0.4} />
+              <boxGeometry args={[wheelR * 1.05, 0.005, 0.005]} />
+              <meshStandardMaterial color="#3a3f4e" roughness={0.7} metalness={0.4} />
             </mesh>
           </group>
         </group>
@@ -292,22 +284,16 @@ export function SumoBotMesh({ wheelRefs }: { wheelRefs?: SumoBotWheelRefs }) {
                 <meshStandardMaterial color="#1a1a22" roughness={0.95} />
               </mesh>
               <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
-                <cylinderGeometry args={[wheelR * 0.62, wheelR * 0.62, 0.004, 18]} />
+                <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 18]} />
                 <meshStandardMaterial color="#bd1a1a" roughness={0.5} metalness={0.45} />
               </mesh>
               <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
-                <cylinderGeometry args={[wheelR * 0.20, wheelR * 0.20, 0.006, 6]} />
-                <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={1.2} />
+                <cylinderGeometry args={[wheelR * 0.16, wheelR * 0.16, 0.005, 6]} />
+                <meshStandardMaterial color="#9a9aa2" roughness={0.45} metalness={0.85} />
               </mesh>
-              {/* Two perpendicular hazard-yellow spokes — high contrast
-                  against the black tire so the wheel obviously spins. */}
               <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
-                <boxGeometry args={[wheelR * 1.85, 0.012, 0.010]} />
-                <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={0.55} roughness={0.4} />
-              </mesh>
-              <mesh rotation={[Math.PI / 2, 0, Math.PI / 2]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
-                <boxGeometry args={[wheelR * 1.85, 0.012, 0.010]} />
-                <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={0.55} roughness={0.4} />
+                <boxGeometry args={[wheelR * 1.05, 0.005, 0.005]} />
+                <meshStandardMaterial color="#3a1010" roughness={0.7} metalness={0.4} />
               </mesh>
             </group>
           </group>
