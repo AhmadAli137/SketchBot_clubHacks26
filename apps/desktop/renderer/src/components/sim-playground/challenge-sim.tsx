@@ -66,18 +66,16 @@ const SUMO_WHEEL_R = 0.045;
 // axis along that direction). Wheels roll based on per-frame travel.
 
 type PathBotProps = {
+  /** Polyline the bot traces, treated as a closed loop. For closed-loop
+   *  routes (waypoint chase, circle dance) include the start point as
+   *  the last element so the wrap is seamless. For "ping-pong" routes
+   *  (maze, cone slalom, PID approach) supply a palindrome path —
+   *  S → … → E → … → S — and the bot animates the whole thing as a loop. */
   path: [number, number][];
   /** m/s along the polyline. Real classroom mini-bots cruise around 0.5
    *  m/s; the sims look right at 0.8–1.2 for visibility. */
   speed?: number;
-  /** When true, the bot reverses direction at each endpoint and traces
-   *  the polyline back to the start. When false, the polyline is treated
-   *  as a closed loop (last point connects to first). */
-  pingPong?: boolean;
   variant?: 'mini' | 'sumo';
-  /** Initial heading (radians). Snaps to the first segment's tangent on
-   *  the next frame; this just avoids a one-frame visible reorient. */
-  initialHeading?: number;
   glowColor?: string;
   /** Multiplier on the under-chassis pointlight intensity. */
   glowIntensity?: number;
@@ -86,16 +84,12 @@ type PathBotProps = {
 function PathBot({
   path,
   speed = 1.0,
-  pingPong = false,
   variant = 'mini',
-  initialHeading = 0,
   glowColor,
   glowIntensity = 0.4,
 }: PathBotProps) {
   const groupRef = useRef<THREE.Group>(null);
 
-  // Mini: 2 wheel refs. Sumo: 4 (2WD logic — both wheels on a side spin
-  // in lockstep, but they're each their own group so they spin in place).
   const lWheel = useRef<THREE.Group>(null);
   const rWheel = useRef<THREE.Group>(null);
   const lFront = useRef<THREE.Group>(null);
@@ -105,57 +99,60 @@ function PathBot({
 
   const wheelR = variant === 'sumo' ? SUMO_WHEEL_R : MINI_WHEEL_R;
 
-  // Catmull-Rom curve through the waypoints. This is what makes corners
-  // smooth: the curve passes through every waypoint but bends gently into
-  // and out of each one instead of forming a sharp angle. Tension 0.5 is
-  // the default centripetal tension — gives organic-looking arcs without
-  // overshooting outside the waypoint polygon.
-  const curve = useMemo(() => {
-    const pts = path.map(([x, z]) => new THREE.Vector3(x, 0, z));
-    return new THREE.CatmullRomCurve3(pts, /* closed */ !pingPong, 'catmullrom', 0.5);
-  }, [path, pingPong]);
-  const totalLength = useMemo(() => curve.getLength(), [curve]);
+  const tRef    = useRef(0);
+  const lastPos = useRef<[number, number]>([path[0]![0], path[0]![1]]);
 
-  const tRef       = useRef(0);          // 0..1 along the curve
-  const dirRef     = useRef(1);          // +1 forward, -1 reverse (ping-pong only)
-  const headingRef = useRef(initialHeading);
-  const lastPos    = useRef<[number, number]>([path[0]![0], path[0]![1]]);
+  // Cumulative arc-length parameterisation so the bot moves at constant
+  // metres-per-second along the polyline (rather than constant fraction
+  // per segment, which would speed up on short legs and slow down on long
+  // ones — looks wrong). Same approach the webapp's MovingMiniBot uses.
+  const segMetrics = useMemo(() => {
+    const segLens: number[] = [];
+    let total = 0;
+    for (let i = 0; i < path.length - 1; i++) {
+      const len = Math.hypot(path[i + 1]![0] - path[i]![0], path[i + 1]![1] - path[i]![1]);
+      segLens.push(len);
+      total += len;
+    }
+    return { segLens, total };
+  }, [path]);
 
   useFrame((_, delta) => {
-    if (!groupRef.current || totalLength < 0.001) return;
+    if (!groupRef.current || segMetrics.total < 0.001) return;
 
-    const ds = (speed * delta * dirRef.current) / totalLength;
-    tRef.current += ds;
-    if (pingPong) {
-      if (tRef.current >= 1) { tRef.current = 1; dirRef.current = -1; }
-      else if (tRef.current <= 0) { tRef.current = 0; dirRef.current = 1; }
-    } else {
-      tRef.current = ((tRef.current % 1) + 1) % 1;
+    // t wraps 0..1 over the WHOLE polyline. For closed loops the path
+    // includes the start as its last point so wrap is seamless. For
+    // ping-pong feel, callers pass a palindrome path — the bot still
+    // animates as a continuous loop, just with the segments arranged
+    // S → … → E → … → S.
+    const ds = (speed * delta) / segMetrics.total;
+    tRef.current = (tRef.current + ds + 1) % 1;
+
+    const targetDist = tRef.current * segMetrics.total;
+    let walked = 0;
+    let segIdx = 0;
+    for (; segIdx < segMetrics.segLens.length; segIdx++) {
+      if (walked + segMetrics.segLens[segIdx]! >= targetDist) break;
+      walked += segMetrics.segLens[segIdx]!;
     }
+    segIdx = Math.min(segIdx, segMetrics.segLens.length - 1);
+    const segLen = segMetrics.segLens[segIdx]!;
+    const f = segLen > 0.0001 ? (targetDist - walked) / segLen : 0;
+    const a = path[segIdx]!;
+    const b = path[segIdx + 1]!;
+    const nx = a[0] + (b[0] - a[0]) * f;
+    const nz = a[1] + (b[1] - a[1]) * f;
 
-    // getPointAt / getTangentAt use ARC-LENGTH parameterisation so the
-    // bot's speed along the curve is constant regardless of segment
-    // tension. getPoint / getTangent would give parameter-uniform speed,
-    // which slows down on tight bends and speeds up on straight runs —
-    // looks unnatural.
-    const u = tRef.current;
-    const p = curve.getPointAt(u);
-    const tan = curve.getTangentAt(u);
-
-    // Reverse the tangent on ping-pong return legs so the bot's heading
-    // tracks its motion direction (which is now -tangent).
-    const sign = dirRef.current;
-    const tx = tan.x * sign;
-    const tz = tan.z * sign;
+    // Heading = segment tangent. atan2(dx, dz) - π/2 puts the mesh's
+    // local +X (forward) along the motion direction.
+    const tx = b[0] - a[0];
+    const tz = b[1] - a[1];
     if (Math.abs(tx) + Math.abs(tz) > 0.001) {
-      headingRef.current = Math.atan2(tx, tz) - Math.PI / 2;
+      groupRef.current.rotation.y = Math.atan2(tx, tz) - Math.PI / 2;
     }
+    groupRef.current.position.set(nx, 0, nz);
 
-    groupRef.current.position.set(p.x, 0, p.z);
-    groupRef.current.rotation.y = headingRef.current;
-
-    // Wheel roll = actual travel / wheel radius.
-    const travel = Math.hypot(p.x - lastPos.current[0], p.z - lastPos.current[1]);
+    const travel = Math.hypot(nx - lastPos.current[0], nz - lastPos.current[1]);
     const rollDelta = travel / wheelR;
     if (variant === 'sumo') {
       for (const r of [lFront, lRear, rFront, rRear]) {
@@ -165,7 +162,7 @@ function PathBot({
       if (lWheel.current) lWheel.current.rotation.z -= rollDelta;
       if (rWheel.current) rWheel.current.rotation.z -= rollDelta;
     }
-    lastPos.current = [p.x, p.z];
+    lastPos.current = [nx, nz];
   });
 
   return (
@@ -187,32 +184,6 @@ function PathBot({
       )}
     </group>
   );
-}
-
-/** Sample a Catmull-Rom curve through the given path so we can render a
- *  dashed line that matches the trajectory the bot actually follows. */
-function curvePolyline(
-  path: [number, number][],
-  closed: boolean,
-  samples: number,
-  yLift = 0.005,
-): [number, number, number][] {
-  if (path.length < 2) return [];
-  const curve = new THREE.CatmullRomCurve3(
-    path.map(([x, z]) => new THREE.Vector3(x, 0, z)),
-    closed,
-    'catmullrom',
-    0.5,
-  );
-  const pts: [number, number, number][] = [];
-  const n = closed ? samples : samples + 1;
-  for (let i = 0; i < n; i++) {
-    const u = (i / samples) % 1;
-    const v = curve.getPointAt(closed ? u : Math.min(u, 1));
-    pts.push([v.x, yLift, v.z]);
-  }
-  if (closed) pts.push(pts[0]!);
-  return pts;
 }
 
 // ─── SUMO ─────────────────────────────────────────────────────────────────────
@@ -247,55 +218,95 @@ function wrapPi(a: number): number {
   return x;
 }
 
-/** Decide motor commands for one sumo bot given its own pose, the
- *  opponent's pose, and a "strength" (default-bot uses 1.0, opp 0.92 so
- *  matches resolve in finite time). The AI is intentionally simple:
- *  - If we're too close to the ring edge, pivot to face centre and drive.
- *  - Otherwise, pivot to face the opponent and drive forward.
- *  - While in contact, freeze the heading update so the wedge stays
- *    engaged instead of yawing off-axis. */
+/** Sumo combat phases. Drives the back-and-forth + circling rhythm: bots
+ *  charge, lock and grind, recoil briefly, charge again — and after a few
+ *  exchanges they back off and circle each other before re-engaging. */
+type SumoPhase = 'engage' | 'lock' | 'recoil' | 'circle';
+
+/** Decide motor commands for one sumo bot. Behaviour depends on the
+ *  shared phase (so both bots move in sync); strength scales motor
+ *  speeds asymmetrically so matches still resolve to a winner. */
 function sumoAi(
   me: ReturnType<typeof mkSumoPose>,
   opp: ReturnType<typeof mkSumoPose>,
   strength: number,
+  /** +1 (counter-clockwise) or -1 (clockwise) sweep direction in CIRCLE. */
+  circleSign: 1 | -1,
   ringRadius: number,
-  inContact: boolean,
+  phase: SumoPhase,
 ): void {
   const dx = opp.worldX - me.worldX;
   const dz = opp.worldZ - me.worldZ;
   const r  = Math.hypot(me.worldX, me.worldZ);
   const edgeWarn = ringRadius * 0.78;
 
-  // Target heading: bot-drive convention is heading=0 = motion +X, with
-  // dx = v·cos(h), dz = -v·sin(h), so to drive toward (tx, tz) the
-  // heading is atan2(-dz, dx).
-  const target = r > edgeWarn
-    ? Math.atan2(-(-me.worldZ), -me.worldX)   // face centre
-    : Math.atan2(-dz, dx);                    // face opponent
-  const err = wrapPi(target - me.heading);
-
-  // While the wedge is engaged with the opponent, freeze the heading
-  // adjustment — otherwise the AI happily yaws the bot toward the opp's
-  // current position every frame and torques it sideways out of contact.
-  if (inContact) {
-    const drive = 0.55 * strength;
-    me.motorTargetLeft  = drive;
-    me.motorTargetRight = drive;
+  // Edge override: if we're hanging off the line, forget the phase plan
+  // and pivot toward centre. Better to break formation than fall out.
+  if (r > edgeWarn) {
+    const target = Math.atan2(me.worldZ, -me.worldX);
+    pivotOrDrive(me, target, 0.45, 0.6 * strength);
     return;
   }
 
-  // Out of contact: drive forward when sufficiently aligned, pivot in
-  // place otherwise. The pivot-vs-drive threshold is generous so the bot
-  // doesn't waste a long time aiming.
+  // Target heading: face the opponent (bot-drive heading convention is
+  // heading=0 = motion +X, dx = v·cos h, dz = -v·sin h, so heading-to-
+  // opp = atan2(-dz, dx)).
+  const toOpp = Math.atan2(-dz, dx);
+
+  switch (phase) {
+    case 'engage': {
+      // Drive at the opponent. Pivot to face them when off-heading,
+      // otherwise barrel forward at full speed.
+      pivotOrDrive(me, toOpp, 0.5, 0.75 * strength);
+      return;
+    }
+    case 'lock': {
+      // Wedges are touching — stop yawing and just push. Heading freezes
+      // here, contact stays loaded, the stronger bot's COM creeps forward.
+      const drive = 0.78 * strength;
+      me.motorTargetLeft  = drive;
+      me.motorTargetRight = drive;
+      return;
+    }
+    case 'recoil': {
+      // Disengage briefly. Drive backward (motors negative) while still
+      // facing the opponent so the next charge starts cleanly.
+      const back = -0.55 * strength;
+      me.motorTargetLeft  = back;
+      me.motorTargetRight = back;
+      return;
+    }
+    case 'circle': {
+      // Sweep around the centre at a small radius. Both bots use opposite
+      // motor differentials AND opposite sign multipliers so they trace
+      // the same world-frame circle (rather than spiralling apart). The
+      // wheel imbalance gives the visible "rotating around each other"
+      // motion the user asked for.
+      const drive = 0.5 * strength;
+      const turnBias = 0.20 * strength * circleSign;
+      me.motorTargetLeft  = drive - turnBias;
+      me.motorTargetRight = drive + turnBias;
+      return;
+    }
+  }
+}
+
+/** Helper used by the engage and edge-recovery cases: pivot in place if
+ *  the heading is off, drive forward otherwise. Threshold 0.30 rad ≈ 17°. */
+function pivotOrDrive(
+  me: ReturnType<typeof mkSumoPose>,
+  target: number,
+  pivotMag: number,
+  driveMag: number,
+): void {
+  const err = wrapPi(target - me.heading);
   if (Math.abs(err) > 0.30) {
     const sign = Math.sign(err);
-    const pivot = 0.45 * strength;
-    me.motorTargetLeft  = -sign * pivot;
-    me.motorTargetRight =  sign * pivot;
+    me.motorTargetLeft  = -sign * pivotMag;
+    me.motorTargetRight =  sign * pivotMag;
   } else {
-    const drive = 0.7 * strength;
-    me.motorTargetLeft  = drive;
-    me.motorTargetRight = drive;
+    me.motorTargetLeft  = driveMag;
+    me.motorTargetRight = driveMag;
   }
 }
 
@@ -354,12 +365,20 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
   const bRF = useRef<THREE.Group>(null);
   const bRR = useRef<THREE.Group>(null);
 
+  // Shared phase state — both bots stay synced so the back-and-forth
+  // rhythm reads as a fight rather than two independent AIs drifting.
+  const phaseRef     = useRef<SumoPhase>('engage');
+  const phaseTimer   = useRef(0);
+  const clashCount   = useRef(0);
+  // Sweep direction for CIRCLE phase — flipped between cycles so the
+  // bots circle clockwise then counter-clockwise.
+  const circleSign   = useRef<1 | -1>(1);
+
   useEffect(() => {
     const ringStart = ringRadius * 0.55;
-    // Bot A starts north of centre facing south. Heading π means motion
-    // direction = (cos π, -sin π) = (-1, 0) — wait, that's -X not -Z.
-    // The bot-drive heading convention is +X-forward at heading 0; to face
-    // -Z we need heading = π/2 (since cos(π/2)=0, -sin(π/2)=-1 gives -Z).
+    // bot-drive heading convention is +X-forward at heading 0; to face
+    // -Z (toward opponent on the south side) we need heading = π/2,
+    // since cos(π/2) = 0 and -sin(π/2) = -1.
     ensurePose(SUMO_BOT_A, () => mkSumoPose( 0,  ringStart, Math.PI / 2));
     ensurePose(SUMO_BOT_B, () => mkSumoPose( 0, -ringStart, -Math.PI / 2));
     return () => {
@@ -373,16 +392,55 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
     const b = getPose(SUMO_BOT_B);
     if (!a || !b) return;
 
-    // Detect contact BEFORE this frame's AI / integrate so the AI can
-    // freeze heading while the wedges are engaged.
     const dx = b.worldX - a.worldX;
     const dz = b.worldZ - a.worldZ;
     const dist = Math.hypot(dx, dz);
     const inContact = dist < (SUMO_BOT_R * 2 + 0.04);
 
-    // AI (bot A is the "default" stronger bot, B is the red-armoured opp)
-    sumoAi(a, b, 1.0,  ringRadius, inContact);
-    sumoAi(b, a, 0.92, ringRadius, inContact);
+    // ── Phase machine — bots clash a few times then break to circle each
+    // other before re-engaging. Tunable timings:
+    //   engage: drive toward opp until contact (no max time)
+    //   lock:   grind together; flips to recoil after 1.0s in contact
+    //   recoil: brief 0.4s backward push so the next charge has runway
+    //   circle: 1.6s of orbiting around centre after every 3 clashes
+    phaseTimer.current += dt;
+    switch (phaseRef.current) {
+      case 'engage':
+        if (inContact) { phaseRef.current = 'lock'; phaseTimer.current = 0; }
+        break;
+      case 'lock':
+        if (phaseTimer.current > 1.0 || !inContact) {
+          phaseRef.current = 'recoil';
+          phaseTimer.current = 0;
+          clashCount.current += 1;
+        }
+        break;
+      case 'recoil':
+        if (phaseTimer.current > 0.4) {
+          if (clashCount.current >= 3) {
+            phaseRef.current = 'circle';
+            clashCount.current = 0;
+            // Alternate sweep direction each cycle for visual variety.
+            circleSign.current = (circleSign.current === 1 ? -1 : 1);
+          } else {
+            phaseRef.current = 'engage';
+          }
+          phaseTimer.current = 0;
+        }
+        break;
+      case 'circle':
+        if (phaseTimer.current > 1.6) {
+          phaseRef.current = 'engage';
+          phaseTimer.current = 0;
+        }
+        break;
+    }
+
+    // Bot A is "default" (stronger), B is the red-armoured opponent.
+    // Opposite circleSign per bot so they sweep the same direction in
+    // world space rather than spiralling apart.
+    sumoAi(a, b, 1.00,  circleSign.current,            ringRadius, phaseRef.current);
+    sumoAi(b, a, 0.94, -circleSign.current as 1 | -1, ringRadius, phaseRef.current);
 
     // Real bot-drive physics — same integrator the sandbox uses when the
     // kid drives a bot.
@@ -403,12 +461,7 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
       bGroup.current.position.set(b.worldX, 0, b.worldZ);
       bGroup.current.rotation.y = b.heading;
     }
-    for (const r of [aLF, aLR, aRF, aRR]) {
-      if (r.current) r.current.rotation.z = -a.leftWheelRot;
-    }
-    // Right side uses rightWheelRot — but applying same value to all 4
-    // wheels would double-roll when bot turns. Instead split: front/rear
-    // pair on each side both track that side's wheel rotation.
+    // Wheels: front + rear on each SIDE share that side's wheel rotation.
     if (aLF.current) aLF.current.rotation.z = -a.leftWheelRot;
     if (aLR.current) aLR.current.rotation.z = -a.leftWheelRot;
     if (aRF.current) aRF.current.rotation.z = -a.rightWheelRot;
@@ -465,7 +518,9 @@ const CONE_DEFS: { x: number; z: number }[] = [
   { x:  1.20, z: 0 },
 ];
 
-const CONE_PATH: [number, number][] = [
+// Palindrome — bot weaves entry → exit, then exit → entry, then loops.
+// PathBot treats it as a single closed-loop polyline.
+const CONE_HALF: [number, number][] = [
   [-1.65,  0.00],   // entry
   [-1.20,  0.45],   // north of cone 1
   [-0.60, -0.45],   // south of cone 2
@@ -473,6 +528,10 @@ const CONE_PATH: [number, number][] = [
   [ 0.60, -0.45],   // south of cone 4
   [ 1.20,  0.45],   // north of cone 5
   [ 1.65,  0.00],   // exit
+];
+const CONE_PATH: [number, number][] = [
+  ...CONE_HALF,
+  ...[...CONE_HALF].reverse().slice(1),
 ];
 
 function StaticCone({ x, z }: { x: number; z: number }) {
@@ -509,7 +568,6 @@ export function ConeRingRun() {
       <PathBot
         path={CONE_PATH}
         speed={1.0}
-        pingPong
         glowColor="#ff8040"
         glowIntensity={0.5}
       />
@@ -523,13 +581,21 @@ export function ConeRingRun() {
 // Walls themselves are rendered by the env in the parent (spark-scene-3d's
 // ArenaProps).
 
+// Z-shape solve forward then back. Polyline → sharp corners but the bot
+// stays in the corridor (waypoints at ±1.20 leave 0.30m of clearance to
+// the outer-wall AABB at ±1.50, which is plenty even with the 0.11m
+// chassis half-width).
+const MAZE_HALF: [number, number][] = [
+  [-1.20, -1.20],
+  [ 1.20, -1.20],
+  [ 1.20,  0.00],
+  [-1.20,  0.00],
+  [-1.20,  1.20],
+  [ 1.20,  1.20],
+];
 const MAZE_PATH: [number, number][] = [
-  [-1.27, -1.27],
-  [ 1.27, -1.27],
-  [ 1.27,  0.00],
-  [-1.27,  0.00],
-  [-1.27,  1.27],
-  [ 1.27,  1.27],
+  ...MAZE_HALF,
+  ...[...MAZE_HALF].reverse().slice(1),
 ];
 
 export function MazeRun() {
@@ -537,7 +603,6 @@ export function MazeRun() {
     <PathBot
       path={MAZE_PATH}
       speed={1.1}
-      pingPong
       glowColor="#00cc44"
       glowIntensity={0.5}
     />
@@ -545,32 +610,37 @@ export function MazeRun() {
 }
 
 // ─── WAYPOINT CHASE ───────────────────────────────────────────────────────────
-// Closed loop through five colour-coded waypoints (rendered by env).
+// Five waypoints, straight-segment polyline, dashed cyan trajectory line —
+// matches the marketing site's WaypointsScene which the user explicitly
+// likes. The bot drives a pentagon-shaped tour with sharp heading changes
+// at each corner; the dashed line is the same straight segments the bot
+// follows so the line and the trajectory always agree.
 
-const WAYPOINT_PATH: [number, number][] = [
-  [-1.0, -0.8],
-  [ 0.2, -1.0],
-  [ 1.0, -0.2],
-  [ 0.6,  0.8],
-  [-0.5,  0.9],
+const WAYPOINT_NODES: [number, number][] = [
+  [-1.20, -1.00],
+  [ 0.20, -1.50],
+  [ 1.40, -0.20],
+  [ 0.80,  1.20],
+  [-0.60,  1.00],
 ];
+const WAYPOINT_PATH: [number, number][] = [
+  ...WAYPOINT_NODES,
+  WAYPOINT_NODES[0]!,   // close the loop
+];
+const WAYPOINT_LINE: [number, number, number][] = WAYPOINT_PATH.map(
+  ([x, z]) => [x, 0.005, z],
+);
 
 export function WaypointChase() {
-  // Sample the same Catmull-Rom curve the bot follows so the dashed glow
-  // line traces the actual path through the waypoints rather than just
-  // straight segments. The bot's body sits right on top of the line.
-  const linePoints = useMemo(() => curvePolyline(WAYPOINT_PATH, true, 96), []);
   return (
     <group>
       <Line
-        points={linePoints}
+        points={WAYPOINT_LINE}
         color="#5de4ff"
-        lineWidth={2.5}
+        lineWidth={2}
         dashed
-        dashSize={0.07}
-        gapSize={0.045}
-        transparent
-        opacity={0.85}
+        dashSize={0.06}
+        gapSize={0.04}
       />
       <PathBot
         path={WAYPOINT_PATH}
@@ -689,7 +759,6 @@ export function PIDApproach() {
       <PathBot
         path={PID_PATH}
         speed={0.9}
-        pingPong
         glowColor="#ff6020"
         glowIntensity={0.5}
       />
