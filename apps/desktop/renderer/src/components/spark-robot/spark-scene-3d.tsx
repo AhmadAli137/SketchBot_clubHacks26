@@ -265,10 +265,15 @@ function DrawingRobotProp() {
 
 // ─── Arena props (mirrors ConceptArenaProps from scene-3d) ───────────────────
 
-function ArenaProps({ env }: { env: ConceptEnvironment }) {
+function ArenaProps({ env, simMode }: { env: ConceptEnvironment; simMode: ReturnType<typeof getSimMode> }) {
+  // The cone-ring sim spawns its own physics-driven cones. Skip the
+  // env.cones renders here so we don't get a duplicate (static) cone
+  // sitting on top of every dynamic one — that's why the gauntlet
+  // looked like floating orbs after the bot pushed the physics cones.
+  const showCones = simMode !== 'cone-ring';
   return (
     <group>
-      {env.cones?.map((c, i)     => <TrafficConeProp  key={i} {...c} />)}
+      {showCones && env.cones?.map((c, i) => <TrafficConeProp key={i} {...c} />)}
       {env.walls?.map((w, i)     => <MazeWallProp     key={i} {...w} />)}
       {env.waypoints?.map((wp, i) => <WaypointPropMini key={i} x={wp.x} z={wp.z} color={wp.color} />)}
       {env.arenaType === 'sumo' && env.sumoRingRadius && (
@@ -339,7 +344,7 @@ function SceneContent({ scene, isDark }: { scene: number; isDark: boolean }) {
       />
 
       {/* ── Arena geometry ── */}
-      <ArenaProps env={env} />
+      <ArenaProps env={env} simMode={simMode} />
 
       {/* ── Autonomous robot sim — the real thing ── */}
       <ChallengeSim mode={simMode} sumoRingRadius={env.sumoRingRadius} />

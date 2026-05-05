@@ -28,6 +28,10 @@ export class PhysicsBody {
   angDamp: number;  // angular damping coefficient
   isDynamic: boolean;
   sleeping: boolean;
+  /** When true, circle-circle collisions impart a random angular impulse —
+   *  used for cones and other knock-around props. Bots leave this off so
+   *  contact doesn't spin them off-heading. */
+  bouncySpin: boolean;
 
   constructor(
     x: number,
@@ -40,6 +44,7 @@ export class PhysicsBody {
       linDamp: number;
       angDamp: number;
       isDynamic: boolean;
+      bouncySpin: boolean;
     }> = {},
   ) {
     this.pos = { x, z };
@@ -53,6 +58,7 @@ export class PhysicsBody {
     this.angDamp = opts.angDamp ?? 3.5;
     this.isDynamic = opts.isDynamic ?? true;
     this.sleeping = false;
+    this.bouncySpin = opts.bouncySpin ?? false;
   }
 
   integrate(dt: number): void {
@@ -157,8 +163,12 @@ export function resolveCircleCircle(a: PhysicsBody, b: PhysicsBody): boolean {
     b.vel.x += j * invB * nx;
     b.vel.z += j * invB * nz;
     b.sleeping = false;
-    // Random angular impulse — makes knocked objects spin realistically
-    b.angVel += (j / b.mass) * 3.5 * (Math.random() - 0.5);
+    // Knock-spin only on objects that opt in (e.g. cones). Bots stay
+    // pointed at their target instead of getting flung off-heading by
+    // contact randomness.
+    if (b.bouncySpin) {
+      b.angVel += (j / b.mass) * 3.5 * (Math.random() - 0.5);
+    }
   }
   return true;
 }

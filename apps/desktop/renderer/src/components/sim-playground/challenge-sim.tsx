@@ -245,11 +245,14 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
   const oppTimer  = useRef(0);
 
   useEffect(() => {
+    // restitution: 0.05 = sticky contact so a wedge that lands on the
+    // opponent stays engaged instead of bouncing back. The previous 0.35
+    // made bots ping-pong off each other every frame.
     botBody.current = new PhysicsBody(0, ringRadius * 0.6, {
-      mass: 2.5, radius: SUMO_RADIUS, restitution: 0.35, linDamp: 1.8, angDamp: 3.0,
+      mass: 2.5, radius: SUMO_RADIUS, restitution: 0.05, linDamp: 2.4, angDamp: 4.5,
     });
     oppBody.current = new PhysicsBody(0, -ringRadius * 0.6, {
-      angle: Math.PI, mass: 2.5, radius: SUMO_RADIUS, restitution: 0.35, linDamp: 1.8, angDamp: 3.0,
+      angle: Math.PI, mass: 2.5, radius: SUMO_RADIUS, restitution: 0.05, linDamp: 2.4, angDamp: 4.5,
     });
     botState.current = 0; oppState.current = 0;
     botTimer.current = 0; oppTimer.current = 0;
@@ -262,64 +265,54 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
     if (!bot || !opp) return;
     const t = clock.elapsedTime;
 
-    const MAX_ANG = 3.2;
-    const FMAX    = 6.0;
-    const FMAX_SUMO = 9.0;
-    const EDGE_WARN = ringRadius * 0.82;
+    // Aggressive sumo AI: always face the opponent and drive forward. When
+    // close to the ring edge, pivot to face the centre of the ring (which
+    // happens to also be where the opponent usually is) and push hard. No
+    // "seek" idle phase — the bots stay engaged the whole match. botState /
+    // oppState (0=seek, 1=charge, 2=push, 3=escape) are still updated so
+    // the under-chassis glow can pulse during charges, but they no longer
+    // gate force output.
+    const MAX_ANG    = 3.4;
+    const FORCE_BASE = 9.5;        // baseline drive force
+    const FORCE_PUSH = 14.0;       // contact push force — overcomes opp's drive
+    const PUSH_DIST  = SUMO_RADIUS * 2 + 0.04;
+    const EDGE_WARN  = ringRadius * 0.82;
+
+    const toOppDist   = Math.hypot(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z);
+    const inContact   = toOppDist < PUSH_DIST;
+    const botEdgeDist = Math.hypot(bot.pos.x, bot.pos.z);
+    const oppEdgeDist = Math.hypot(opp.pos.x, opp.pos.z);
+
+    // Visual state for glow only (no longer gates force).
+    botState.current = botEdgeDist > EDGE_WARN ? 3 : inContact ? 2 : 1;
+    oppState.current = oppEdgeDist > EDGE_WARN ? 3 : inContact ? 2 : 1;
 
     // ── Bot AI ──
-    botTimer.current += dt;
-    const toBotDist  = Math.hypot(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z);
-    const botEdgeDist = Math.hypot(bot.pos.x, bot.pos.z);
-    if (botEdgeDist > EDGE_WARN) {
-      botState.current = 3; botTimer.current = 0; // force escape when near edge
-    }
-    if (botState.current === 0 && botTimer.current > 1.5) {
-      botState.current = 1; botTimer.current = 0;
-    } else if (botState.current === 1 && toBotDist < (SUMO_RADIUS * 2 + 0.05)) {
-      botState.current = 2; botTimer.current = 0;
-    } else if (botState.current === 2 && botTimer.current > 0.7) {
-      botState.current = 0; botTimer.current = 0;
-    } else if (botState.current === 3 && botTimer.current > 0.55) {
-      botState.current = 0; botTimer.current = 0;
-    }
-
-    const botDesiredHeading = botState.current === 3
-      ? Math.atan2(-bot.pos.x, -bot.pos.z) // face center to escape
-      : Math.atan2(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z);
-
+    const botDesiredHeading = botEdgeDist > EDGE_WARN
+      ? Math.atan2(-bot.pos.x, -bot.pos.z)              // face centre when near edge
+      : Math.atan2(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z); // face opponent
     const botAngErr  = angDiff(botDesiredHeading, bot.angle);
-    const botAngTgt  = Math.max(-MAX_ANG, Math.min(MAX_ANG, botAngErr * 4.5));
-    bot.applyTorque((botAngTgt - bot.angVel) * bot.mass * 0.9, dt);
-
-    const botAligned = Math.abs(botAngErr) < 0.55;
-    if (botState.current === 3) {
-      const bfd = bot.forwardDir();
-      bot.applyForce(-bfd.x * FMAX, -bfd.z * FMAX, dt); // reverse out
-    } else if (botAligned) {
-      const fmag = botState.current === 1 ? FMAX_SUMO : (botState.current === 2 ? FMAX_SUMO * 1.1 : FMAX * 0.4);
-      const bfd = bot.forwardDir();
-      bot.applyForce(bfd.x * fmag, bfd.z * fmag, dt);
+    const botAngTgt  = Math.max(-MAX_ANG, Math.min(MAX_ANG, botAngErr * 5.0));
+    bot.applyTorque((botAngTgt - bot.angVel) * bot.mass, dt);
+    if (Math.abs(botAngErr) < 0.50) {
+      const fd = bot.forwardDir();
+      const fmag = inContact ? FORCE_PUSH : FORCE_BASE;
+      bot.applyForce(fd.x * fmag, fd.z * fmag, dt);
     }
 
-    // ── Opponent AI (simpler: always seek) ──
-    oppTimer.current += dt;
-    const oppEdgeDist = Math.hypot(opp.pos.x, opp.pos.z);
-    if (oppEdgeDist > EDGE_WARN) {
-      oppState.current = 1; oppTimer.current = 0;
+    // ── Opponent AI (slightly weaker so the "default" bot tends to win) ──
+    const oppDesiredHeading = oppEdgeDist > EDGE_WARN
+      ? Math.atan2(-opp.pos.x, -opp.pos.z)
+      : Math.atan2(bot.pos.x - opp.pos.x, bot.pos.z - opp.pos.z);
+    const oppAngErr  = angDiff(oppDesiredHeading, opp.angle);
+    const oppAngTgt  = Math.max(-MAX_ANG, Math.min(MAX_ANG, oppAngErr * 4.5));
+    opp.applyTorque((oppAngTgt - opp.angVel) * opp.mass, dt);
+    if (Math.abs(oppAngErr) < 0.55) {
+      const fd = opp.forwardDir();
+      const fmag = inContact ? FORCE_PUSH * 0.92 : FORCE_BASE * 0.92;
+      opp.applyForce(fd.x * fmag, fd.z * fmag, dt);
     }
-    const oppTarget = oppState.current === 1
-      ? { x: -opp.pos.x * 0.5, z: -opp.pos.z * 0.5 }
-      : { x: bot.pos.x, z: bot.pos.z };
-    const oppHeading  = Math.atan2(oppTarget.x - opp.pos.x, oppTarget.z - opp.pos.z);
-    const oppAngErr   = angDiff(oppHeading, opp.angle);
-    const oppAngTgt   = Math.max(-MAX_ANG, Math.min(MAX_ANG, oppAngErr * 3.8));
-    opp.applyTorque((oppAngTgt - opp.angVel) * opp.mass * 0.85, dt);
-    if (Math.abs(oppAngErr) < 0.65) {
-      const ofd = opp.forwardDir();
-      opp.applyForce(ofd.x * FMAX * 0.85, ofd.z * FMAX * 0.85, dt);
-    }
-    if (oppTimer.current > 2.2) { oppState.current = 0; oppTimer.current = 0; }
+    botTimer.current += dt; oppTimer.current += dt; // kept for debug/future use
 
     // ── Physics step ──
     bot.integrate(dt);
@@ -359,41 +352,32 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
   );
 }
 
-// ─── CONE RING RUN ────────────────────────────────────────────────────────────
+// ─── CONE SLALOM ──────────────────────────────────────────────────────────────
+//
+// Linear cone gauntlet: 5 uniform-size cones in a row, the bot weaves
+// north / south / north / south through them, end to end. After each pass
+// the bot ping-pongs back the other way. Replaces the old concentric-ring
+// layout (which had no clear "start" or "end" and made the bot loop).
 
-// Matches the ringCones() calls in concept-environments.ts for cone-ring-gauntlet
-function buildConeRing() {
-  // Uniform full-size cones — every ring is the same scale so the gauntlet
-  // looks like real traffic cones, not a graduated set. Inner radii are
-  // chosen so even at scale 1.0 the cones don't clip into each other.
-  const rings: { count: number; radius: number; scale: number }[] = [
-    { count: 14, radius: 1.55, scale: 1.0 },
-    { count: 10, radius: 1.05, scale: 1.0 },
-    { count:  6, radius: 0.55, scale: 1.0 },
-    { count:  3, radius: 0.22, scale: 1.0 },
-  ];
-  return rings.flatMap(({ count, radius, scale }) =>
-    Array.from({ length: count }, (_, i) => {
-      const angle = (i / count) * Math.PI * 2;
-      return { x: Math.cos(angle) * radius, z: Math.sin(angle) * radius, scale };
-    }),
-  );
-}
+const CONE_GAUNTLET_DEFS: { x: number; z: number; scale: number }[] = [
+  { x: -1.20, z: 0, scale: 1 },
+  { x: -0.60, z: 0, scale: 1 },
+  { x:  0.00, z: 0, scale: 1 },
+  { x:  0.60, z: 0, scale: 1 },
+  { x:  1.20, z: 0, scale: 1 },
+];
 
-const CONE_RING_DEFS = buildConeRing(); // 33 cones, generated once at module level
-
-// Spline path the robot follows — weaves inward then outward
-function buildRobotPath(): [number, number][] {
-  const pts: [number, number][] = [];
-  for (let i = 0; i <= 360; i += 4) {
-    const angle = (i / 360) * Math.PI * 2;
-    const wave = Math.sin(angle * 5) * 0.28;
-    const r = 0.85 + wave;
-    pts.push([Math.cos(angle) * r, Math.sin(angle) * r]);
-  }
-  return pts;
-}
-const ROBOT_PATH = buildRobotPath();
+// Slalom waypoints — north of cone 1, south of cone 2, north of 3, etc.
+// Endpoints sit clear of the cone line so the bot enters and exits cleanly.
+const ROBOT_PATH: [number, number][] = [
+  [-1.65,  0.00],   // entry (west of cones)
+  [-1.20,  0.45],   // north of cone @ x=-1.20
+  [-0.60, -0.45],   // south of cone @ x=-0.60
+  [ 0.00,  0.45],   // north of cone @ x= 0.00
+  [ 0.60, -0.45],   // south of cone @ x= 0.60
+  [ 1.20,  0.45],   // north of cone @ x= 1.20
+  [ 1.65,  0.00],   // exit (east of cones)
+];
 
 export function ConeRingRun() {
   const botGrp  = useRef<THREE.Group>(null);
@@ -412,10 +396,10 @@ export function ConeRingRun() {
     botBody.current = new PhysicsBody(ROBOT_PATH[0][0], ROBOT_PATH[0][1], {
       mass: 1.8, radius: ROBOT_RADIUS, restitution: 0.22, linDamp: 1.5, angDamp: 2.8,
     });
-    coneBodies.current = CONE_RING_DEFS.map(
+    coneBodies.current = CONE_GAUNTLET_DEFS.map(
       ({ x, z }) => new PhysicsBody(x, z, {
         mass: 0.18, radius: CONE_RADIUS, restitution: 0.42, linDamp: 3.5, angDamp: 4.2,
-        isDynamic: true,
+        isDynamic: true, bouncySpin: true,
       }),
     );
     return () => {
@@ -425,19 +409,29 @@ export function ConeRingRun() {
   }, []);
 
   const pathIdxRef = useRef(0);
+  /** +1 east-bound (entry → exit), -1 west-bound (exit → entry). Ping-pong
+   *  at each end so the bot continuously slaloms back and forth instead of
+   *  teleporting to the start. */
+  const dirRef = useRef(1);
 
   useFrame((_, dt) => {
     const bot = botBody.current;
     if (!bot) return;
 
-    // ── Path-following spring force ──
-    const target = ROBOT_PATH[pathIdxRef.current % ROBOT_PATH.length];
+    // ── Path-following with ping-pong ──
+    const target = ROBOT_PATH[pathIdxRef.current];
     const dx = target[0] - bot.pos.x;
     const dz = target[1] - bot.pos.z;
     const dist = Math.hypot(dx, dz);
 
-    if (dist < 0.08) {
-      pathIdxRef.current = (pathIdxRef.current + 1) % ROBOT_PATH.length;
+    if (dist < 0.10) {
+      const next = pathIdxRef.current + dirRef.current;
+      if (next < 0 || next >= ROBOT_PATH.length) {
+        dirRef.current *= -1;
+        pathIdxRef.current += dirRef.current;
+      } else {
+        pathIdxRef.current = next;
+      }
     } else {
       // Spring toward path point + heading alignment
       const desiredHeading = Math.atan2(dx, dz);
@@ -492,7 +486,7 @@ export function ConeRingRun() {
   return (
     <>
       {/* Physics cones */}
-      {CONE_RING_DEFS.map((def, i) => (
+      {CONE_GAUNTLET_DEFS.map((def, i) => (
         <PhysicsCone
           key={i}
           scale={def.scale}
@@ -509,19 +503,17 @@ export function ConeRingRun() {
 
 // ─── MAZE RUN ─────────────────────────────────────────────────────────────────
 
-// Waypoints the robot follows — match the maze graph structure in concept-environments
+// Waypoints from S=(-1.25,-1.25) to E=(+1.25,+1.25) along corridors that
+// the bot can actually traverse without clipping into walls. The maze in
+// concept-environments has dense inner walls — the bot would pinball off
+// them on a direct route — so this path hugs the navigable left and top
+// corridors. Visited forward then in reverse (ping-pong) so the bot
+// continually solves the maze without needing a teleport between cycles.
 const MAZE_WAYPOINTS: [number, number][] = [
-  [-1.1, -1.1],
-  [-1.1, -0.3],
-  [-0.3, -0.3],
-  [-0.3,  0.3],
-  [ 0.3,  0.3],
-  [ 0.3, -0.6],
-  [ 0.8, -0.6],
-  [ 0.8,  0.9],
-  [ 0.0,  0.9],
-  [ 0.0,  1.1],
-  [ 1.1,  1.1],
+  [-1.27, -1.27],   // near S
+  [-1.27,  0.70],   // climb the left corridor (clear of walls at x=-0.75 and x=-0.90)
+  [-1.27,  1.27],   // top-left corner (above the z=1.00 wall)
+  [ 1.27,  1.27],   // cross right along the top corridor → near E
 ];
 
 export function MazeRun() {
@@ -533,6 +525,10 @@ export function MazeRun() {
 
   const botBody   = useRef<PhysicsBody | null>(null);
   const segRef    = useRef(0);
+  /** +1 forward (S → E), -1 reverse (E → S). Ping-pongs at each endpoint
+   *  so the bot keeps solving the maze in alternating directions instead
+   *  of teleporting from E back to S between cycles. */
+  const dirRef    = useRef(1);
 
   // Build wall rects once from the environment data (exact same walls as the visual renderer)
   const walls = useMemo<WallRect[]>(() => {
@@ -547,6 +543,7 @@ export function MazeRun() {
       mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.18, linDamp: 2.2, angDamp: 3.8,
     });
     segRef.current = 0;
+    dirRef.current = 1;
     return () => { botBody.current = null; };
   }, []);
 
@@ -555,14 +552,20 @@ export function MazeRun() {
     if (!bot) return;
     const t = clock.elapsedTime;
 
-    // ── Path-following ──
+    // ── Path-following with ping-pong ──
     const target = MAZE_WAYPOINTS[segRef.current];
     const dx = target[0] - bot.pos.x;
     const dz = target[1] - bot.pos.z;
     const dist = Math.hypot(dx, dz);
 
     if (dist < 0.07) {
-      segRef.current = (segRef.current + 1) % MAZE_WAYPOINTS.length;
+      const next = segRef.current + dirRef.current;
+      if (next < 0 || next >= MAZE_WAYPOINTS.length) {
+        dirRef.current *= -1;
+        segRef.current += dirRef.current;
+      } else {
+        segRef.current = next;
+      }
     } else {
       const desiredHeading = Math.atan2(dx, dz);
       const angErr = angDiff(desiredHeading, bot.angle);
@@ -604,11 +607,17 @@ export function MazeRun() {
   );
 }
 
-// ─── WAYPOINT CHASE ───────────────────────────────────────────────────────────
+// ─── WAYPOINT CHASE (line follower) ───────────────────────────────────────────
 
 const WAYPOINTS: [number, number][] = [
   [-1.0, -0.8], [0.2, -1.0], [1.0, -0.2], [0.6, 0.8], [-0.5, 0.9],
 ];
+
+/** Look-ahead distance for the pursuit target — bigger = smoother corners
+ *  but more cut on the inside of the turn. 0.55 is tuned to ride the
+ *  segments between waypoints rather than aiming at each waypoint
+ *  individually. */
+const PURSUIT_LOOKAHEAD = 0.55;
 
 export function WaypointChase() {
   const botGrp    = useRef<THREE.Group>(null);
@@ -617,48 +626,81 @@ export function WaypointChase() {
   const rRoll     = useRef<THREE.Group>(null);
 
   const botBody   = useRef<PhysicsBody | null>(null);
-  const targetIdx = useRef(0);
-  const pauseRef  = useRef(0);
+  /** Continuous track parameter — integer part is the segment index, the
+   *  fractional part is how far along that segment the pursuit target sits.
+   *  Advancing this monotonically (rather than jumping waypoint-to-waypoint)
+   *  is what makes the line-follower glide instead of stop-and-spin. */
+  const sRef      = useRef(0);
 
   useEffect(() => {
     botBody.current = new PhysicsBody(WAYPOINTS[0][0], WAYPOINTS[0][1], {
       mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 2.0, angDamp: 3.5,
     });
-    targetIdx.current = 0; pauseRef.current = 0;
+    sRef.current = 0;
     return () => { botBody.current = null; };
   }, []);
 
-  useFrame(({ clock }, dt) => {
+  useFrame((_, dt) => {
     const bot = botBody.current;
     if (!bot) return;
 
-    if (pauseRef.current > 0) {
-      pauseRef.current -= dt;
-      if (botGrp.current) botGrp.current.rotation.y += dt * 4;
-      if (glowRef.current) glowRef.current.intensity = 1.2 + Math.sin(clock.elapsedTime * 10) * 0.5;
-      bot.vel.x = 0; bot.vel.z = 0; bot.angVel = 0;
-      return;
+    // Pure-pursuit on a closed polyline: pick a target a fixed distance
+    // ahead of the bot's current track position. As the bot advances, the
+    // target slides smoothly along the path with it — no waypoint stops,
+    // no spin-in-place. The bot eases through corners instead of pivoting.
+    const segCount = WAYPOINTS.length;
+
+    // Advance s based on actual progress along the segment.
+    const segIdx   = Math.floor(sRef.current) % segCount;
+    const segNext  = (segIdx + 1) % segCount;
+    const a = WAYPOINTS[segIdx]!;
+    const b = WAYPOINTS[segNext]!;
+    const segLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    // Project the bot onto the current segment to find how far along it sits.
+    const px = bot.pos.x - a[0];
+    const pz = bot.pos.z - a[1];
+    const segDx = (b[0] - a[0]) / segLen;
+    const segDz = (b[1] - a[1]) / segLen;
+    const proj = Math.max(0, Math.min(segLen, px * segDx + pz * segDz));
+    sRef.current = segIdx + proj / segLen;
+
+    // Compute look-ahead target by walking PURSUIT_LOOKAHEAD metres along
+    // the polyline from the bot's projected position.
+    let remain = PURSUIT_LOOKAHEAD;
+    let walkSeg = segIdx;
+    let walkPos = proj;
+    let tx = bot.pos.x;
+    let tz = bot.pos.z;
+    for (let i = 0; i < segCount + 1; i++) {
+      const wa = WAYPOINTS[walkSeg % segCount]!;
+      const wb = WAYPOINTS[(walkSeg + 1) % segCount]!;
+      const wLen = Math.hypot(wb[0] - wa[0], wb[1] - wa[1]);
+      const left = wLen - walkPos;
+      if (remain <= left) {
+        const f = (walkPos + remain) / wLen;
+        tx = wa[0] + (wb[0] - wa[0]) * f;
+        tz = wa[1] + (wb[1] - wa[1]) * f;
+        break;
+      }
+      remain -= left;
+      walkSeg++;
+      walkPos = 0;
     }
 
-    const target = WAYPOINTS[targetIdx.current];
-    const dx = target[0] - bot.pos.x;
-    const dz = target[1] - bot.pos.z;
-    const dist = Math.hypot(dx, dz);
-
-    if (dist < 0.07) {
-      pauseRef.current = 0.75;
-      targetIdx.current = (targetIdx.current + 1) % WAYPOINTS.length;
-      return;
-    }
-
+    const dx = tx - bot.pos.x;
+    const dz = tz - bot.pos.z;
     const desiredHeading = Math.atan2(dx, dz);
     const angErr = angDiff(desiredHeading, bot.angle);
-    const angTgt = Math.max(-3.5, Math.min(3.5, angErr * 5));
+    // Steering gain stays gentle so the bot tracks the line instead of
+    // overshooting it. Damping comes from PhysicsBody.angDamp.
+    const angTgt = Math.max(-3.0, Math.min(3.0, angErr * 4.5));
     bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
-    if (Math.abs(angErr) < 0.5) {
-      const fd = bot.forwardDir();
-      bot.applyForce(fd.x * 3.0, fd.z * 3.0, dt);
-    }
+    // Always drive forward — slow down (don't stop) when the heading is
+    // off, so the bot keeps moving while it corrects. This eliminates the
+    // jerky stop-spin-go cadence the old waypoint chaser had.
+    const fd = bot.forwardDir();
+    const speed = 3.0 * Math.max(0.35, 1 - Math.abs(angErr) * 0.7);
+    bot.applyForce(fd.x * speed, fd.z * speed, dt);
 
     bot.integrate(dt);
 
@@ -667,7 +709,7 @@ export function WaypointChase() {
       botGrp.current.rotation.y = bot.angle;
     }
     applyWheelRoll(lRoll, rRoll, bot, dt);
-    if (glowRef.current) glowRef.current.intensity = 0.4;
+    if (glowRef.current) glowRef.current.intensity = 0.4 + bot.forwardSpeed() * 0.25;
   });
 
   return (

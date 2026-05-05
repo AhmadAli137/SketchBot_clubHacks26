@@ -226,11 +226,16 @@ export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
     keyLightColor: '#fff0c0',
     fillLightColor: '#ff9040',
     accentColor: '#ff6600',
+    // Linear slalom — five uniform cones in a row, the bot weaves
+    // north / south through them end-to-end. Replaces the old concentric
+    // ring layout (which had no clear start or finish line and made the
+    // gauntlet feel like a loop instead of a navigation challenge).
     cones: [
-      ...ringCones(14, 1.55, 1.0),   // outer gate ring
-      ...ringCones(10, 1.05, 0.80),  // mid ring
-      ...ringCones(6,  0.55, 0.60),  // inner challenge ring
-      ...ringCones(3,  0.22, 0.40),  // tight inner core
+      { x: -1.20, z: 0, scale: 1 },
+      { x: -0.60, z: 0, scale: 1 },
+      { x:  0.00, z: 0, scale: 1 },
+      { x:  0.60, z: 0, scale: 1 },
+      { x:  1.20, z: 0, scale: 1 },
     ],
     tutorials: {
       intuitive: [
