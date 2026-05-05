@@ -364,14 +364,18 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
 
   // Shared phase state — both bots stay synced so the back-and-forth
   // rhythm reads as a fight rather than two independent AIs drifting.
-  const phaseRef     = useRef<SumoPhase>('engage');
+  // Cycle is: circle (size each other up) → engage (charge) → lock
+  // (grind) → recoil (brief disengage) → circle again. Bots start in
+  // CIRCLE so the very first frame shows them sweeping around centre
+  // before the first clash.
+  const phaseRef     = useRef<SumoPhase>('circle');
   const phaseTimer   = useRef(0);
-  const clashCount   = useRef(0);
   // Which bot is the stronger pusher in the next lock phase. Alternates
   // every clash so the COM drift swings back and forth across the ring
   // rather than always favouring the same bot.
   const aIsStronger  = useRef(true);
-  // Sweep direction for CIRCLE — flipped each cycle for visual variety.
+  // Sweep direction for CIRCLE — flipped each cycle so the bots circle
+  // clockwise then counter-clockwise.
   const circleSign   = useRef<1 | -1>(1);
 
   useEffect(() => {
@@ -397,14 +401,20 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
     const dist = Math.hypot(dx, dz);
     const inContact = dist < (SUMO_BOT_R * 2 + 0.04);
 
-    // ── Phase machine — bots clash a few times then break to circle each
-    // other before re-engaging. Tunable timings:
+    // ── Phase machine — bots size each other up by circling, then charge,
+    // grind together, recoil, and start the cycle again. Tunable timings:
+    //   circle: 1.4s of orbiting around centre BEFORE the clash
     //   engage: drive toward opp until contact (no max time)
     //   lock:   grind together; flips to recoil after 1.0s in contact
-    //   recoil: brief 0.4s backward push so the next charge has runway
-    //   circle: 1.6s of orbiting around centre after every 3 clashes
+    //   recoil: brief 0.4s backward push to break contact
     phaseTimer.current += dt;
     switch (phaseRef.current) {
+      case 'circle':
+        if (phaseTimer.current > 1.4) {
+          phaseRef.current = 'engage';
+          phaseTimer.current = 0;
+        }
+        break;
       case 'engage':
         if (inContact) { phaseRef.current = 'lock'; phaseTimer.current = 0; }
         break;
@@ -412,29 +422,17 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
         if (phaseTimer.current > 1.0 || !inContact) {
           phaseRef.current = 'recoil';
           phaseTimer.current = 0;
-          clashCount.current += 1;
-          // Flip the lock-strength advantage so the next clash pushes
-          // the OTHER bot back. This produces visible back-and-forth.
+          // Flip the lock-strength advantage so the NEXT clash pushes
+          // the OTHER bot back — produces visible back-and-forth.
           aIsStronger.current = !aIsStronger.current;
         }
         break;
       case 'recoil':
         if (phaseTimer.current > 0.4) {
-          if (clashCount.current >= 3) {
-            phaseRef.current = 'circle';
-            clashCount.current = 0;
-            // Alternate sweep direction each cycle for visual variety.
-            circleSign.current = (circleSign.current === 1 ? -1 : 1);
-          } else {
-            phaseRef.current = 'engage';
-          }
+          phaseRef.current = 'circle';
           phaseTimer.current = 0;
-        }
-        break;
-      case 'circle':
-        if (phaseTimer.current > 1.6) {
-          phaseRef.current = 'engage';
-          phaseTimer.current = 0;
+          // Alternate sweep direction each cycle for visual variety.
+          circleSign.current = (circleSign.current === 1 ? -1 : 1);
         }
         break;
     }
