@@ -206,6 +206,29 @@ function PhysicsCone({ groupRef, scale = 1 }: {
 
 // ─── Wheel roll helper ────────────────────────────────────────────────────────
 
+/**
+ * Set the bot's angular velocity directly so it snaps to a target heading
+ * without fighting the proportional-torque + angular-damping system.
+ *
+ * The torque controller bots used previously could only achieve ~17% of
+ * commanded angVel after damping ate the rest, which meant a 180° turn
+ * took 5+ seconds. With direct control the bot reaches its commanded rate
+ * the same frame and turns at MAX_RATE rad/s until almost on heading,
+ * then eases in proportionally. Bots that need this should also set
+ * `angDamp: 0` in their PhysicsBody opts so integrate doesn't subsequently
+ * decay the angVel we just wrote.
+ */
+function steerToHeading(
+  body: PhysicsBody,
+  desiredHeading: number,
+  maxRate: number,
+): number {
+  const err = angDiff(desiredHeading, body.angle);
+  const ramp = Math.min(Math.abs(err) * 5, maxRate);
+  body.angVel = Math.sign(err) * ramp;
+  return err;
+}
+
 function applyWheelRoll(
   lRef: React.RefObject<THREE.Group | null>,
   rRef: React.RefObject<THREE.Group | null>,
@@ -245,14 +268,15 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
   const oppTimer  = useRef(0);
 
   useEffect(() => {
-    // restitution: 0.05 = sticky contact so a wedge that lands on the
-    // opponent stays engaged instead of bouncing back. The previous 0.35
-    // made bots ping-pong off each other every frame.
+    // restitution 0.05 = sticky contact so a wedge that lands on the
+    // opponent stays engaged. angDamp 0 = direct angVel control isn't
+    // chewed up by integrate damping — bots reorient on the same frame
+    // their AI commands the turn.
     botBody.current = new PhysicsBody(0, ringRadius * 0.6, {
-      mass: 2.5, radius: SUMO_RADIUS, restitution: 0.05, linDamp: 2.4, angDamp: 4.5,
+      mass: 2.5, radius: SUMO_RADIUS, restitution: 0.05, linDamp: 2.0, angDamp: 0,
     });
     oppBody.current = new PhysicsBody(0, -ringRadius * 0.6, {
-      angle: Math.PI, mass: 2.5, radius: SUMO_RADIUS, restitution: 0.05, linDamp: 2.4, angDamp: 4.5,
+      angle: Math.PI, mass: 2.5, radius: SUMO_RADIUS, restitution: 0.05, linDamp: 2.0, angDamp: 0,
     });
     botState.current = 0; oppState.current = 0;
     botTimer.current = 0; oppTimer.current = 0;
@@ -265,36 +289,28 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
     if (!bot || !opp) return;
     const t = clock.elapsedTime;
 
-    // Aggressive sumo AI: always face the opponent and drive forward. When
-    // close to the ring edge, pivot to face the centre of the ring (which
-    // happens to also be where the opponent usually is) and push hard. No
-    // "seek" idle phase — the bots stay engaged the whole match. botState /
-    // oppState (0=seek, 1=charge, 2=push, 3=escape) are still updated so
-    // the under-chassis glow can pulse during charges, but they no longer
-    // gate force output.
-    const MAX_ANG    = 3.4;
-    const FORCE_BASE = 9.5;        // baseline drive force
-    const FORCE_PUSH = 14.0;       // contact push force — overcomes opp's drive
+    const MAX_ANG    = 5.0;
+    const FORCE_BASE = 11.0;
+    const FORCE_PUSH = 22.0;
     const PUSH_DIST  = SUMO_RADIUS * 2 + 0.04;
-    const EDGE_WARN  = ringRadius * 0.82;
+    const EDGE_WARN  = ringRadius * 0.85;
 
     const toOppDist   = Math.hypot(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z);
     const inContact   = toOppDist < PUSH_DIST;
     const botEdgeDist = Math.hypot(bot.pos.x, bot.pos.z);
     const oppEdgeDist = Math.hypot(opp.pos.x, opp.pos.z);
 
-    // Visual state for glow only (no longer gates force).
     botState.current = botEdgeDist > EDGE_WARN ? 3 : inContact ? 2 : 1;
     oppState.current = oppEdgeDist > EDGE_WARN ? 3 : inContact ? 2 : 1;
 
-    // ── Bot AI ──
+    // ── Bot AI ── snap heading toward opponent (or centre when near edge),
+    // then drive forward. Forward thrust is gated by alignment so the bot
+    // doesn't drift sideways while it's still rotating to face its target.
     const botDesiredHeading = botEdgeDist > EDGE_WARN
-      ? Math.atan2(-bot.pos.x, -bot.pos.z)              // face centre when near edge
-      : Math.atan2(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z); // face opponent
-    const botAngErr  = angDiff(botDesiredHeading, bot.angle);
-    const botAngTgt  = Math.max(-MAX_ANG, Math.min(MAX_ANG, botAngErr * 5.0));
-    bot.applyTorque((botAngTgt - bot.angVel) * bot.mass, dt);
-    if (Math.abs(botAngErr) < 0.50) {
+      ? Math.atan2(-bot.pos.x, -bot.pos.z)
+      : Math.atan2(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z);
+    const botAngErr = steerToHeading(bot, botDesiredHeading, MAX_ANG);
+    if (Math.abs(botAngErr) < 0.65) {
       const fd = bot.forwardDir();
       const fmag = inContact ? FORCE_PUSH : FORCE_BASE;
       bot.applyForce(fd.x * fmag, fd.z * fmag, dt);
@@ -304,15 +320,13 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
     const oppDesiredHeading = oppEdgeDist > EDGE_WARN
       ? Math.atan2(-opp.pos.x, -opp.pos.z)
       : Math.atan2(bot.pos.x - opp.pos.x, bot.pos.z - opp.pos.z);
-    const oppAngErr  = angDiff(oppDesiredHeading, opp.angle);
-    const oppAngTgt  = Math.max(-MAX_ANG, Math.min(MAX_ANG, oppAngErr * 4.5));
-    opp.applyTorque((oppAngTgt - opp.angVel) * opp.mass, dt);
-    if (Math.abs(oppAngErr) < 0.55) {
+    const oppAngErr = steerToHeading(opp, oppDesiredHeading, MAX_ANG);
+    if (Math.abs(oppAngErr) < 0.65) {
       const fd = opp.forwardDir();
-      const fmag = inContact ? FORCE_PUSH * 0.92 : FORCE_BASE * 0.92;
+      const fmag = inContact ? FORCE_PUSH * 0.85 : FORCE_BASE * 0.85;
       opp.applyForce(fd.x * fmag, fd.z * fmag, dt);
     }
-    botTimer.current += dt; oppTimer.current += dt; // kept for debug/future use
+    botTimer.current += dt; oppTimer.current += dt;
 
     // ── Physics step ──
     bot.integrate(dt);
@@ -393,8 +407,11 @@ export function ConeRingRun() {
   const coneBodies = useRef<PhysicsBody[]>([]);
 
   useEffect(() => {
+    // Smaller collision radius (0.13 not 0.20) so the bot fits between
+    // cones spaced 0.6m apart without clipping. The body still pushes a
+    // cone if it brushes one, but it can also weave through the slalom.
     botBody.current = new PhysicsBody(ROBOT_PATH[0][0], ROBOT_PATH[0][1], {
-      mass: 1.2, radius: ROBOT_RADIUS, restitution: 0.22, linDamp: 1.4, angDamp: 4.5,
+      mass: 1.0, radius: 0.13, restitution: 0.22, linDamp: 1.6, angDamp: 0,
     });
     coneBodies.current = CONE_GAUNTLET_DEFS.map(
       ({ x, z }) => new PhysicsBody(x, z, {
@@ -418,13 +435,16 @@ export function ConeRingRun() {
     const bot = botBody.current;
     if (!bot) return;
 
-    // ── Path-following with ping-pong ──
-    const target = ROBOT_PATH[pathIdxRef.current];
+    // Hit each waypoint precisely (0.18 threshold) so the bot actually
+    // weaves through the cones instead of sweeping a wide arc that goes
+    // around them. Direct angVel steering means turns are immediate, so
+    // tight thresholds work without stalling.
+    const target = ROBOT_PATH[pathIdxRef.current]!;
     const dx = target[0] - bot.pos.x;
     const dz = target[1] - bot.pos.z;
     const dist = Math.hypot(dx, dz);
 
-    if (dist < 0.10) {
+    if (dist < 0.18) {
       const next = pathIdxRef.current + dirRef.current;
       if (next < 0 || next >= ROBOT_PATH.length) {
         dirRef.current *= -1;
@@ -433,14 +453,10 @@ export function ConeRingRun() {
         pathIdxRef.current = next;
       }
     } else {
-      // Tighter steering + always-on thrust → bot weaves through cones
-      // confidently instead of stuttering between waypoints.
       const desiredHeading = Math.atan2(dx, dz);
-      const angErr  = angDiff(desiredHeading, bot.angle);
-      const angTgt  = Math.max(-4.0, Math.min(4.0, angErr * 6.5));
-      bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
+      const angErr = steerToHeading(bot, desiredHeading, 5.0);
       const fd = bot.forwardDir();
-      const speed = 5.5 * Math.max(0.4, 1 - Math.abs(angErr) * 0.5);
+      const speed = 4.5 * Math.max(0.45, 1 - Math.abs(angErr) * 0.55);
       bot.applyForce(fd.x * speed, fd.z * speed, dt);
     }
 
@@ -538,11 +554,9 @@ export function MazeRun() {
   }, []);
 
   useEffect(() => {
-    // Lower damping + lighter mass → snappier acceleration. The maze
-    // solver should look like it knows where it's going, not like it's
-    // wading through molasses.
+    // angDamp 0 → steerToHeading isn't chewed up by integrate damping.
     botBody.current = new PhysicsBody(MAZE_WAYPOINTS[0][0], MAZE_WAYPOINTS[0][1], {
-      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.18, linDamp: 1.5, angDamp: 4.5,
+      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.18, linDamp: 1.6, angDamp: 0,
     });
     segRef.current = 0;
     dirRef.current = 1;
@@ -554,13 +568,15 @@ export function MazeRun() {
     if (!bot) return;
     const t = clock.elapsedTime;
 
-    // ── Path-following with ping-pong ──
-    const target = MAZE_WAYPOINTS[segRef.current];
+    // Advance to next waypoint EARLY — start turning before reaching the
+    // corner so the bot rounds it cleanly instead of slamming the wall
+    // ahead and then trying to recover.
+    const target = MAZE_WAYPOINTS[segRef.current]!;
     const dx = target[0] - bot.pos.x;
     const dz = target[1] - bot.pos.z;
     const dist = Math.hypot(dx, dz);
 
-    if (dist < 0.07) {
+    if (dist < 0.45) {
       const next = segRef.current + dirRef.current;
       if (next < 0 || next >= MAZE_WAYPOINTS.length) {
         dirRef.current *= -1;
@@ -570,16 +586,12 @@ export function MazeRun() {
       }
     } else {
       const desiredHeading = Math.atan2(dx, dz);
-      const angErr = angDiff(desiredHeading, bot.angle);
-      // High steering gain → snaps to the next corridor heading without
-      // hesitating at intersections.
-      const angTgt = Math.max(-4.5, Math.min(4.5, angErr * 7.0));
-      bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
-      // Always apply forward thrust — taper with heading error so the bot
-      // slows (but never stops) on tight turns. Force is high enough to
-      // overcome linDamp and clip along corridors at ~3 m/s.
+      const angErr = steerToHeading(bot, desiredHeading, 4.5);
+      // Forward thrust is moderate so the bot tracks the corridor centre
+      // rather than rocketing into walls. Tapers with heading error so
+      // turns are tighter, but never zero so the bot never stalls.
       const fd = bot.forwardDir();
-      const speed = 6.0 * Math.max(0.3, 1 - Math.abs(angErr) * 0.7);
+      const speed = 4.0 * Math.max(0.4, 1 - Math.abs(angErr) * 0.6);
       bot.applyForce(fd.x * speed, fd.z * speed, dt);
     }
 
@@ -639,7 +651,7 @@ export function WaypointChase() {
 
   useEffect(() => {
     botBody.current = new PhysicsBody(WAYPOINTS[0][0], WAYPOINTS[0][1], {
-      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 1.4, angDamp: 4.2,
+      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 1.6, angDamp: 0,
     });
     sRef.current = 0;
     return () => { botBody.current = null; };
@@ -695,16 +707,13 @@ export function WaypointChase() {
     const dx = tx - bot.pos.x;
     const dz = tz - bot.pos.z;
     const desiredHeading = Math.atan2(dx, dz);
-    const angErr = angDiff(desiredHeading, bot.angle);
-    // Steering gain is tuned so the bot tracks the line confidently
-    // without overshooting. angDamp on the body provides damping.
-    const angTgt = Math.max(-3.5, Math.min(3.5, angErr * 6.0));
-    bot.applyTorque((angTgt - bot.angVel) * bot.mass, dt);
-    // Always drive forward — slow down (don't stop) when the heading is
-    // off, so the bot keeps moving while it corrects. Higher base force
-    // gives the line follower a confident pace through the loop.
+    // Direct angVel control — pure-pursuit needs immediate heading
+    // response so the bot tracks the look-ahead point smoothly.
+    const angErr = steerToHeading(bot, desiredHeading, 4.5);
+    // Always drive forward; speed tapers with heading error so the bot
+    // eases through corners rather than yanking through them.
     const fd = bot.forwardDir();
-    const speed = 5.5 * Math.max(0.45, 1 - Math.abs(angErr) * 0.55);
+    const speed = 4.5 * Math.max(0.5, 1 - Math.abs(angErr) * 0.45);
     bot.applyForce(fd.x * speed, fd.z * speed, dt);
 
     bot.integrate(dt);
