@@ -40,6 +40,7 @@ pnpm-debug.log*
 .DS_Store
 .vscode/
 .idea/
+.claude/
 
 # Firmware / ESP-IDF generated
 firmware/build/
