@@ -30,6 +30,7 @@ import {
   type ToolDef,
 } from '@/lib/scene-builder';
 import { ensurePose, getPose, syncPoseToPlacement } from './bot-drive';
+import { SparkMiniBotMesh, SumoBotMesh } from './bot-meshes';
 import {
   ensureKinematic, getKinematic, syncKinematicToPlacement,
   defaultKinematic,
@@ -725,18 +726,6 @@ function BotObject({ id, x, y, z, rotY, variant = 'standard' }: { id: string; x:
  * No face — recognizable by silhouette alone. Local +X is "forward".
  */
 function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: number; rotY: number }) {
-  // Wheel + chassis geometry — generous ground clearance so the chassis
-  // floats above the wheels' axle line, exposing the motors and caster.
-  const wheelR     = 0.052;
-  const wheelT     = 0.024;
-  const axleY      = wheelR;            // axle = wheel center
-  const plateY     = wheelR + 0.030;    // chassis plate centre, well above axle
-  const plateT     = 0.008;             // thin acrylic plate
-  const plateRX    = 0.110;             // chassis half-extent (forward)
-  const plateRZ    = 0.090;             // chassis half-extent (side-to-side)
-  const wheelX     = -0.020;            // axle slightly behind centre
-  const wheelZouter = plateRZ + wheelT / 2 + 0.003;
-
   // Differential-drive live state — pose drives the visible transform every
   // frame. ensurePose hydrates from props on first render; useEffect resyncs
   // whenever the placed position/heading change so external moves (Move tool,
@@ -790,152 +779,9 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
 
   return (
     <group ref={groupRef} position={[x, y, z]} rotation={[0, rotY, 0]}>
-    <group ref={pitchRef}>
-      {/* ── Chassis plate (round-cornered acrylic look via stretched cylinder) ── */}
-      <mesh position={[0, plateY, 0]} scale={[plateRX / 0.090, 1, plateRZ / 0.090]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.090, 0.090, plateT, 36]} />
-        <meshStandardMaterial color="#eef0f5" roughness={0.32} metalness={0.18} />
-      </mesh>
-
-      {/* ── Yellow TT gear motors, one per side, slung under the chassis ── */}
-      {[wheelZouter - wheelT - 0.020, -(wheelZouter - wheelT - 0.020)].map((zPos, i) => (
-        <group key={i} position={[wheelX, axleY, zPos]}>
-          {/* Motor body */}
-          <mesh castShadow>
-            <boxGeometry args={[0.085, 0.034, 0.024]} />
-            <meshStandardMaterial color="#e8b827" roughness={0.55} metalness={0.25} />
-          </mesh>
-          {/* Gearbox cap — darker plate at end nearest the wheel */}
-          <mesh position={[0.012, 0, (zPos > 0 ? 1 : -1) * 0.014]}>
-            <boxGeometry args={[0.058, 0.030, 0.005]} />
-            <meshStandardMaterial color="#3a2f12" roughness={0.7} />
-          </mesh>
-          {/* Output shaft sticking out toward the wheel */}
-          <mesh position={[0.012, 0, (zPos > 0 ? 1 : -1) * (0.014 + 0.012)]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.004, 0.004, 0.024, 12]} />
-            <meshStandardMaterial color="#c0c0c8" roughness={0.4} metalness={0.85} />
-          </mesh>
-        </group>
-      ))}
-
-      {/* ── Drive wheels — same structural recipe as Sumo's: tire + tread
-          band + hub disc + small hex lug nut + a single radial spoke. The
-          earlier "ring + big hex cap" combo was reading as a perpendicular
-          floating disc next to each wheel; matching Sumo's structure makes
-          both bots feel like the same family of robots. ── */}
-      {[
-        { zPos:  wheelZouter, ref: leftWheelRef  },
-        { zPos: -wheelZouter, ref: rightWheelRef },
-      ].map(({ zPos, ref }, i) => (
-        <group key={i} position={[wheelX, axleY, zPos]}>
-          <group ref={ref}>
-            {/* Tire — cylinder laid flat (axle along Z). */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <cylinderGeometry args={[wheelR, wheelR, wheelT, 28]} />
-              <meshStandardMaterial color="#161620" roughness={0.94} metalness={0.04} />
-            </mesh>
-            {/* Tread band — slightly larger radius, half-thickness, gives
-                the tire a visible rubber edge instead of a clean black disc. */}
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[wheelR + 0.001, wheelR + 0.001, wheelT * 0.5, 28]} />
-              <meshStandardMaterial color="#1a1a22" roughness={0.95} />
-            </mesh>
-            {/* Hub disc on the outer face — flat circular face. */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
-              <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 18]} />
-              <meshStandardMaterial color="#d2d4dc" roughness={0.4} metalness={0.6} />
-            </mesh>
-            {/* Hex lug nut — small 6-sided centre piece (matches sumo's
-                lug). The hex silhouette is the primary "is the wheel
-                spinning?" cue. */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
-              <cylinderGeometry args={[wheelR * 0.16, wheelR * 0.16, 0.005, 6]} />
-              <meshStandardMaterial color="#5de4ff" emissive="#5de4ff" emissiveIntensity={0.6} />
-            </mesh>
-            {/* Single radial spoke — same as sumo. The bar shows rotation
-                direction; one bar reads as "spoke", three read as "extra
-                perpendicular wheels". */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (zPos > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
-              <boxGeometry args={[wheelR * 1.05, 0.005, 0.005]} />
-              <meshStandardMaterial color="#3a3f4e" roughness={0.7} metalness={0.4} />
-            </mesh>
-          </group>
-        </group>
-      ))}
-
-      {/* ── Front caster: bracket dropping from chassis to a ball on the ground ── */}
-      {/* Vertical bracket strut */}
-      <mesh position={[plateRX - 0.030, (plateY - plateT / 2) / 2 + 0.016, 0]} castShadow>
-        <boxGeometry args={[0.018, plateY - plateT / 2 - 0.032, 0.018]} />
-        <meshStandardMaterial color="#2a2f3e" roughness={0.55} metalness={0.55} />
-      </mesh>
-      {/* Caster cup */}
-      <mesh position={[plateRX - 0.030, 0.030, 0]}>
-        <cylinderGeometry args={[0.014, 0.012, 0.012, 14]} />
-        <meshStandardMaterial color="#3a3f4e" roughness={0.5} metalness={0.6} />
-      </mesh>
-      {/* Caster ball */}
-      <mesh position={[plateRX - 0.030, 0.018, 0]} castShadow>
-        <sphereGeometry args={[0.018, 20, 16]} />
-        <meshStandardMaterial color="#1f2330" roughness={0.22} metalness={0.9} />
-      </mesh>
-
-      {/* ── HC-SR04 ultrasonic on a forward post ── */}
-      {/* Mounting post */}
-      <mesh position={[plateRX - 0.012, plateY + plateT / 2 + 0.018, 0]} castShadow>
-        <cylinderGeometry args={[0.005, 0.005, 0.036, 10]} />
-        <meshStandardMaterial color="#3a3f4e" roughness={0.45} metalness={0.6} />
-      </mesh>
-      <group position={[plateRX - 0.012, plateY + plateT / 2 + 0.040, 0]}>
-        {/* PCB — green, oriented so the long edge faces forward */}
-        <mesh castShadow>
-          <boxGeometry args={[0.018, 0.024, 0.075]} />
-          <meshStandardMaterial color="#1f4a2a" roughness={0.6} metalness={0.2} />
-        </mesh>
-        {/* Twin transducers */}
-        {[0.020, -0.020].map((zPos, i) => (
-          <mesh key={i} position={[0.012, 0, zPos]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.012, 0.012, 0.008, 20]} />
-            <meshStandardMaterial color="#b8b8c0" roughness={0.32} metalness={0.88} />
-          </mesh>
-        ))}
-        {/* Mesh grille indication on transducer faces */}
-        {[0.020, -0.020].map((zPos, i) => (
-          <mesh key={`g${i}`} position={[0.020, 0, zPos]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.0095, 0.0095, 0.0005, 20]} />
-            <meshStandardMaterial color="#42434a" roughness={0.85} />
-          </mesh>
-        ))}
-        {/* Crystal can between the transducers */}
-        <mesh position={[0.008, 0, 0]}>
-          <boxGeometry args={[0.005, 0.006, 0.012]} />
-          <meshStandardMaterial color="#9a9aa2" roughness={0.4} metalness={0.7} />
-        </mesh>
+      <group ref={pitchRef}>
+        <SparkMiniBotMesh wheelRefs={{ left: leftWheelRef, right: rightWheelRef }} />
       </group>
-
-      {/* ── Arduino-style board sitting on top of the chassis ── */}
-      <group position={[-0.015, plateY + plateT / 2 + 0.006, 0]}>
-        {/* PCB */}
-        <mesh castShadow>
-          <boxGeometry args={[0.090, 0.005, 0.062]} />
-          <meshStandardMaterial color="#1d6a93" roughness={0.45} metalness={0.25} />
-        </mesh>
-        {/* Two header strips along the long edges */}
-        <mesh position={[0, 0.004, 0.024]}>
-          <boxGeometry args={[0.075, 0.004, 0.006]} />
-          <meshStandardMaterial color="#1a1a1f" roughness={0.85} />
-        </mesh>
-        <mesh position={[0, 0.004, -0.024]}>
-          <boxGeometry args={[0.075, 0.004, 0.006]} />
-          <meshStandardMaterial color="#1a1a1f" roughness={0.85} />
-        </mesh>
-        {/* Status LED — small green glow */}
-        <mesh position={[0.025, 0.0055, 0]}>
-          <sphereGeometry args={[0.0035, 8, 6]} />
-          <meshStandardMaterial color="#7affae" emissive="#7affae" emissiveIntensity={2.2} />
-        </mesh>
-      </group>
-    </group>
     </group>
   );
 }
@@ -948,19 +794,6 @@ function SparkMiniBot({ id, x, y, z, rotY }: { id: string; x: number; y: number;
  * under an opponent and lift them off the ring. Local +X is "forward".
  */
 function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: number; rotY: number }) {
-  // Geometry — wider, longer, lower than Spark Mini
-  const wheelR = 0.045;
-  const wheelT = 0.028;
-  const axleY  = wheelR;
-  const plateY = wheelR + 0.018;          // chassis just above axle (heavier, lower)
-  const plateT = 0.012;
-  const plateRX = 0.130;                  // half-length forward
-  const plateRZ = 0.105;                  // half-width side-to-side
-  const wheelZouter = plateRZ + wheelT / 2 + 0.003;
-  // Two wheel pairs (front + rear)
-  const wheelXFront = 0.075;
-  const wheelXRear  = -0.075;
-
   // Live-drive integration — Sumo is a 4WD bot, so all four wheels track
   // motorLeft/motorRight in sync with whichever side they're on.
   const groupRef       = useRef<THREE.Group>(null);
@@ -1004,152 +837,12 @@ function SumoBot({ id, x, y, z, rotY }: { id: string; x: number; y: number; z: n
   return (
     <group ref={groupRef} position={[x, y, z]} rotation={[0, rotY, 0]}>
       <group ref={pitchRef}>
-      {/* ── Lower armor plate (the heavy base) ── */}
-      <mesh position={[0, plateY, 0]} castShadow receiveShadow>
-        <boxGeometry args={[plateRX * 2, plateT, plateRZ * 2]} />
-        <meshStandardMaterial color="#2a2a30" roughness={0.65} metalness={0.55} />
-      </mesh>
-
-      {/* ── Top body shell — red combat armor in two stepped tiers ── */}
-      {/* Tier 1 — main body */}
-      <mesh position={[-0.005, plateY + plateT / 2 + 0.020, 0]} castShadow>
-        <boxGeometry args={[0.190, 0.040, 0.180]} />
-        <meshStandardMaterial color="#bd1a1a" roughness={0.42} metalness={0.30} />
-      </mesh>
-      {/* Tier 2 — raised dome cap with ventilation slats */}
-      <mesh position={[-0.025, plateY + plateT / 2 + 0.050, 0]} castShadow>
-        <boxGeometry args={[0.110, 0.022, 0.130]} />
-        <meshStandardMaterial color="#9a1414" roughness={0.45} metalness={0.30} />
-      </mesh>
-      {/* Vent slats on the dome */}
-      {[-0.018, -0.006, 0.006, 0.018].map((zPos, i) => (
-        <mesh key={i} position={[-0.025, plateY + plateT / 2 + 0.062, zPos]}>
-          <boxGeometry args={[0.060, 0.004, 0.004]} />
-          <meshStandardMaterial color="#1a0a0a" roughness={0.85} />
-        </mesh>
-      ))}
-      {/* Hazard stripes on top — diagonal yellow + black */}
-      {[-0.030, 0.010, 0.050].map((xPos, i) => (
-        <mesh key={`stripe${i}`} position={[xPos, plateY + plateT / 2 + 0.041, 0]}>
-          <boxGeometry args={[0.012, 0.001, 0.140]} />
-          <meshStandardMaterial color={i % 2 === 0 ? '#ffaa00' : '#1a1a1a'} emissive={i % 2 === 0 ? '#ffaa00' : '#000000'} emissiveIntensity={i % 2 === 0 ? 0.4 : 0} roughness={0.7} />
-        </mesh>
-      ))}
-      {/* Status LED on top */}
-      <mesh position={[0.060, plateY + plateT / 2 + 0.061, 0]}>
-        <sphereGeometry args={[0.005, 10, 8]} />
-        <meshStandardMaterial color="#ff3030" emissive="#ff3030" emissiveIntensity={3} />
-      </mesh>
-
-      {/* ── Side bumper rails — fat steel pipes that wrap around ── */}
-      {[plateRZ + 0.006, -(plateRZ + 0.006)].map((zPos, i) => (
-        <mesh key={`rail${i}`} position={[0, plateY + plateT / 2 + 0.012, zPos]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.010, 0.010, plateRX * 1.85, 12]} />
-          <meshStandardMaterial color="#3a3f4e" roughness={0.4} metalness={0.85} />
-        </mesh>
-      ))}
-
-      {/* ── Front wedge plow — the signature combat attachment.
-            Made from a thin tilted box so the leading edge kisses the floor
-            and the rear edge meets the chassis at axle height. ── */}
-      {(() => {
-        const wedgeLen   = 0.080;          // along X
-        const wedgeWidth = plateRZ * 2 + 0.010;
-        const wedgeThk   = 0.005;
-        // The wedge tilts up: front low, back high
-        const tilt = Math.atan2(plateY + plateT / 2, wedgeLen);
-        // Rear of the wedge attaches at the chassis front edge, top of plate
-        const rearX = plateRX;
-        const rearY = plateY + plateT / 2;
-        // Centre of the wedge mesh is halfway along its length, lifted by half-height of front-to-back drop
-        const cx = rearX + (wedgeLen / 2) * Math.cos(tilt);
-        const cy = rearY - (wedgeLen / 2) * Math.sin(tilt);
-        return (
-          <group>
-            {/* Wedge plate */}
-            <mesh position={[cx, cy, 0]} rotation={[0, 0, -tilt]} castShadow>
-              <boxGeometry args={[wedgeLen, wedgeThk, wedgeWidth]} />
-              <meshStandardMaterial color="#454850" roughness={0.35} metalness={0.92} />
-            </mesh>
-            {/* Sharpened leading-edge bevel — slightly darker thinner strip */}
-            <mesh position={[cx + (wedgeLen / 2 - 0.002) * Math.cos(tilt), cy - (wedgeLen / 2 - 0.002) * Math.sin(tilt), 0]} rotation={[0, 0, -tilt]}>
-              <boxGeometry args={[0.008, wedgeThk + 0.0005, wedgeWidth + 0.001]} />
-              <meshStandardMaterial color="#1a1a1f" roughness={0.7} metalness={0.6} />
-            </mesh>
-            {/* Side gussets connecting wedge to chassis */}
-            {[wedgeWidth / 2 - 0.003, -(wedgeWidth / 2 - 0.003)].map((zPos, i) => (
-              <mesh key={`gusset${i}`} position={[rearX + 0.020, plateY + plateT / 2 + 0.002, zPos]}>
-                <boxGeometry args={[0.040, 0.012, 0.005]} />
-                <meshStandardMaterial color="#2a2a30" roughness={0.6} metalness={0.5} />
-              </mesh>
-            ))}
-          </group>
-        );
-      })()}
-
-      {/* ── Four wheels with TT motors slung beneath each corner.
-          left/right side (z>0 vs z<0) decides which wheel-rot ref the
-          inner spinner picks up. Front and rear wheels on the same side
-          share the same motor speed — 4WD differential drive. ── */}
-      {[
-        { wx: wheelXFront, wz:  wheelZouter, mz:  wheelZouter - wheelT - 0.020, sideIdx: 0 },
-        { wx: wheelXFront, wz: -wheelZouter, mz: -(wheelZouter - wheelT - 0.020), sideIdx: 0 },
-        { wx: wheelXRear,  wz:  wheelZouter, mz:  wheelZouter - wheelT - 0.020, sideIdx: 1 },
-        { wx: wheelXRear,  wz: -wheelZouter, mz: -(wheelZouter - wheelT - 0.020), sideIdx: 1 },
-      ].map(({ wx, wz, mz, sideIdx }, i) => {
-        const spinnerRef = wz > 0 ? leftWheelRefs[sideIdx] : rightWheelRefs[sideIdx];
-        return (
-          <group key={`drive${i}`}>
-            {/* TT gear motor — bolted to the chassis, doesn't spin. */}
-            <group position={[wx, axleY, mz]}>
-              <mesh castShadow>
-                <boxGeometry args={[0.075, 0.030, 0.022]} />
-                <meshStandardMaterial color="#d8a821" roughness={0.55} metalness={0.30} />
-              </mesh>
-              <mesh position={[0.010, 0, (mz > 0 ? 1 : -1) * 0.020]} rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[0.003, 0.003, 0.020, 10]} />
-                <meshStandardMaterial color="#c0c0c8" roughness={0.4} metalness={0.85} />
-              </mesh>
-            </group>
-            {/* Wheel — outer position-only group, inner spinner group rotated by useFrame. */}
-            <group position={[wx, axleY, wz]}>
-              <group ref={spinnerRef}>
-                {/* Tire */}
-                <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-                  <cylinderGeometry args={[wheelR, wheelR, wheelT, 28]} />
-                  <meshStandardMaterial color="#0e0e14" roughness={0.95} metalness={0.04} />
-                </mesh>
-                <mesh rotation={[Math.PI / 2, 0, 0]}>
-                  <cylinderGeometry args={[wheelR + 0.001, wheelR + 0.001, wheelT * 0.5, 28]} />
-                  <meshStandardMaterial color="#1a1a22" roughness={0.95} />
-                </mesh>
-                <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.001)]}>
-                  <cylinderGeometry args={[wheelR * 0.55, wheelR * 0.55, 0.004, 18]} />
-                  <meshStandardMaterial color="#bd1a1a" roughness={0.5} metalness={0.45} />
-                </mesh>
-                {/* Hex lug nut — six-sided so it visually rotates with the wheel. */}
-                <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.004)]}>
-                  <cylinderGeometry args={[wheelR * 0.16, wheelR * 0.16, 0.005, 6]} />
-                  <meshStandardMaterial color="#9a9aa2" roughness={0.45} metalness={0.85} />
-                </mesh>
-                {/* Visible spoke so spin is readable at small wheel sizes. */}
-                <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, (wz > 0 ? 1 : -1) * (wheelT / 2 + 0.003)]}>
-                  <boxGeometry args={[wheelR * 1.05, 0.005, 0.005]} />
-                  <meshStandardMaterial color="#3a1010" roughness={0.7} metalness={0.4} />
-                </mesh>
-              </group>
-            </group>
-          </group>
-        );
-      })}
-
-      {/* ── Rear "exhaust" — two short black tubes for character ── */}
-      {[0.024, -0.024].map((zPos, i) => (
-        <mesh key={`exh${i}`} position={[-plateRX - 0.006, plateY + plateT / 2 + 0.015, zPos]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.008, 0.008, 0.018, 12]} />
-          <meshStandardMaterial color="#1a1a1f" roughness={0.85} metalness={0.4} />
-        </mesh>
-      ))}
+        <SumoBotMesh wheelRefs={{
+          leftFront:  leftWheelRefs[0]!,
+          leftRear:   leftWheelRefs[1]!,
+          rightFront: rightWheelRefs[0]!,
+          rightRear:  rightWheelRefs[1]!,
+        }} />
       </group>
     </group>
   );

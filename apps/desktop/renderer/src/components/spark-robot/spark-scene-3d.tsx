@@ -12,6 +12,7 @@ import { ContactShadows, Grid, Line } from '@react-three/drei';
 import * as THREE from 'three';
 
 import { ChallengeSim, getSimMode } from '@/components/sim-playground/challenge-sim';
+import { SparkMiniBotMesh } from '@/components/sim-playground/bot-meshes';
 import { getEnvironment, type ConceptEnvironment } from '@/lib/concept-environments';
 
 // ─── Scene index → real challenge concept ─────────────────────────────────────
@@ -242,29 +243,20 @@ function DrawingRobotProp() {
       </mesh>
       {/* Drawn figure-8 path */}
       <Line points={FIGURE8} color="#9060ff" lineWidth={2} />
-      {/* SketchBot differential-drive body */}
+      {/* The actual SparkMiniBot mesh from the sandbox — same chassis, same
+          wheels, same sensor, same Arduino board. The robotRef sets
+          rotation.y = atan2(dx, dz), which means heading 0 = world +Z; the
+          mesh's local +X is forward, so a -π/2 Y rotation aligns +X → +Z. */}
       <group ref={robotRef}>
-        {/* Chassis */}
-        <mesh castShadow>
-          <boxGeometry args={[0.11, 0.052, 0.14]} />
-          <meshStandardMaterial color="#1a2540" roughness={0.35} metalness={0.45} />
-        </mesh>
-        {/* Left wheel */}
-        <mesh position={[-0.062, -0.016, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.024, 0.024, 0.018, 12]} />
-          <meshStandardMaterial color="#222" roughness={0.7} />
-        </mesh>
-        {/* Right wheel */}
-        <mesh position={[0.062, -0.016, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.024, 0.024, 0.018, 12]} />
-          <meshStandardMaterial color="#222" roughness={0.7} />
-        </mesh>
-        {/* Pen tip pointing down-front */}
-        <mesh position={[0, -0.036, 0.052]} rotation={[0.35, 0, 0]}>
-          <cylinderGeometry args={[0.005, 0.003, 0.088, 8]} />
-          <meshStandardMaterial color="#9060ff" emissive="#9060ff" emissiveIntensity={0.7} />
-        </mesh>
-        {/* Glow from pen */}
+        <group rotation={[0, -Math.PI / 2, 0]}>
+          <SparkMiniBotMesh />
+          {/* Pen tip — drops down from the front-underside of the chassis
+              (mesh local +X is forward). */}
+          <mesh position={[0.060, -0.010, 0]}>
+            <cylinderGeometry args={[0.0035, 0.0022, 0.040, 8]} />
+            <meshStandardMaterial color="#9060ff" emissive="#9060ff" emissiveIntensity={0.7} />
+          </mesh>
+        </group>
         <pointLight color="#9060ff" intensity={0.7} distance={0.9} />
       </group>
     </group>

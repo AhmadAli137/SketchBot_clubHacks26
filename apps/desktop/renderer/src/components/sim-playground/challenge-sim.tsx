@@ -21,6 +21,7 @@ import {
   type WallRect,
 } from './physics-2d';
 import { getEnvironment } from '@/lib/concept-environments';
+import { SparkMiniBotMesh, SumoBotMesh } from './bot-meshes';
 
 // ─── Sim mode selector ────────────────────────────────────────────────────────
 
@@ -61,16 +62,9 @@ function mkMat(color: string, emissive?: string, roughness = 0.65, metalness = 0
   return mat;
 }
 
-const CHASSIS_MAT      = mkMat('#1a1a22');
-const ACCENT_MAT       = mkMat('#1e3a48', '#2a6080', 0.45, 0.35);
-const WHEEL_RUBBER     = mkMat('#1c1c1c', undefined, 0.92, 0.05);
-const WHEEL_HUB_DEF    = mkMat('#f5c800', undefined, 0.55, 0.15);
-const WHEEL_HUB_RED    = mkMat('#ff2040', undefined, 0.55, 0.15);
-const WHEEL_HUB_BLUE   = mkMat('#2060ff', undefined, 0.55, 0.15);
-const CASTER_MAT       = mkMat('#c8d0dc', undefined, 0.12, 0.9);
-const MOTOR_MAT        = mkMat('#c8c8d0', undefined, 0.4,  0.7);
-const SUMO_RAM_MAT     = mkMat('#222230', '#3030a0', 0.5, 0.6);
-const SUMO_SCRAPE_MAT  = mkMat('#888898', undefined, 0.3, 0.8);
+// Sensor + cone materials — bot chassis materials live inside the shared
+// SparkMiniBotMesh / SumoBotMesh in ./bot-meshes.tsx so the sandbox bot and
+// the challenge-sim bot stay literally the same mesh.
 const SENSOR_ARM_MAT   = mkMat('#102818', '#005520', 0.6, 0.3);
 const SENSOR_TIP_MAT   = new THREE.MeshStandardMaterial({
   color: '#00ff66', emissive: new THREE.Color('#00ff66'), emissiveIntensity: 0.9, roughness: 0.2,
@@ -81,52 +75,22 @@ const CONE_BODY_MAT    = new THREE.MeshStandardMaterial({
 });
 const CONE_BAND_MAT    = mkMat('#ffffff', undefined, 0.5, 0.1);
 
-// ─── Wheel (with rolling animation) ──────────────────────────────────────────
-
-type WheelProps = {
-  side: 1 | -1;
-  hubMat?: THREE.Material;
-  rollGroupRef?: React.RefObject<THREE.Group | null>;
-};
-
-function Wheel({ side, hubMat = WHEEL_HUB_DEF, rollGroupRef }: WheelProps) {
-  // Fallback ref so the component always has a valid ref even if no parent
-  const localRef = useRef<THREE.Group>(null);
-  const activeRef = rollGroupRef ?? localRef;
-  return (
-    <group position={[side * 0.78 * S, 0.28 * S, 0.15 * S]}>
-      {/*
-        Outer group aligns the cylinder axis to X (Rz = PI/2).
-        Inner group (activeRef) is rotated around its local Y each frame —
-        since parent transformed Y to world-X, this gives correct rolling spin.
-      */}
-      <group rotation={[0, 0, Math.PI / 2]}>
-        <group ref={activeRef}>
-          <mesh material={WHEEL_RUBBER} castShadow>
-            <cylinderGeometry args={[0.28 * S, 0.28 * S, 0.10 * S, 20]} />
-          </mesh>
-          <mesh material={hubMat} castShadow>
-            <cylinderGeometry args={[0.14 * S, 0.14 * S, 0.06 * S, 14]} />
-          </mesh>
-        </group>
-      </group>
-      {/* Motor housing — static, does not spin */}
-      <mesh
-        position={[side * 0.09 * S, 0, 0]}
-        rotation={[0, 0, Math.PI / 2]}
-        material={MOTOR_MAT}
-      >
-        <cylinderGeometry args={[0.10 * S, 0.10 * S, 0.14 * S, 12]} />
-      </mesh>
-    </group>
-  );
-}
-
-// ─── DifferentialBot (with exposed wheel roll refs) ───────────────────────────
+// ─── DifferentialBot ──────────────────────────────────────────────────────────
+// Thin wrapper around the shared SparkMiniBotMesh / SumoBotMesh from
+// `bot-meshes.tsx` so the challenge sims show LITERALLY the same robot the
+// student sees in the sandbox.
+//
+// The shared meshes treat local +X as forward and roll their wheels via
+// `.rotation.z` on the spinner refs. Challenge-sim's existing physics
+// convention has forward = -Z and was using `.rotation.y`. We reconcile
+// with a single `<group rotation={[0, π/2, 0]}>` wrap that maps mesh +X →
+// world -Z, and update applyWheelRoll() below to drive `.rotation.z`.
 
 type BotVariant = 'standard' | 'sumo' | 'maze-scout';
 
 type DifferentialBotProps = {
+  /** Reserved for future per-bot tinting. The shared mesh ships its own
+   *  hub colour scheme (cyan lugs on Spark Mini, red hubs on Sumo). */
   color?: 'default' | 'red' | 'blue';
   variant?: BotVariant;
   glowRef?: React.RefObject<THREE.PointLight | null>;
@@ -141,77 +105,76 @@ function DifferentialBot({
   lRollRef,
   rRollRef,
 }: DifferentialBotProps) {
-  const hubMat = color === 'red' ? WHEEL_HUB_RED : color === 'blue' ? WHEEL_HUB_BLUE : WHEEL_HUB_DEF;
   const glowColor = color === 'red' ? '#ff4060' : color === 'blue' ? '#4080ff' : '#5de4ff';
-  const cW = variant === 'sumo' ? 1.8 * S : 1.5 * S;
-  const cH = variant === 'sumo' ? 0.26 * S : 0.22 * S;
-  const cD = variant === 'sumo' ? 1.5 * S : 1.2 * S;
+  const isSumo = variant === 'sumo';
+  // Scale the sandbox mesh up so its silhouette roughly matches the physics
+  // collision radii (ROBOT_RADIUS=0.20, SUMO_RADIUS=0.25). The mesh's
+  // native size is for the sandbox grid; the challenge sim uses the same
+  // S=0.25 conventions for everything else, so 1.4× lands the bot at the
+  // same visual footprint the old DifferentialBot had.
+  const SCALE = isSumo ? 1.5 : 1.4;
+
+  // Sumo is 4WD — its rear wheels need to spin in lockstep with the front.
+  // The applyWheelRoll() helper drives lRollRef/rRollRef (which are
+  // attached to the FRONT wheels via the mesh wheelRefs); a useFrame
+  // mirrors those rotations onto rear-wheel refs created here.
+  const lRearRef = useRef<THREE.Group>(null);
+  const rRearRef = useRef<THREE.Group>(null);
+  useFrame(() => {
+    if (!isSumo) return;
+    if (lRollRef?.current && lRearRef.current) {
+      lRearRef.current.rotation.z = lRollRef.current.rotation.z;
+    }
+    if (rRollRef?.current && rRearRef.current) {
+      rRearRef.current.rotation.z = rRollRef.current.rotation.z;
+    }
+  });
 
   return (
     <group>
-      {/* Chassis */}
-      <mesh
-        position={[0, 0.35 * S, 0]}
-        material={variant === 'sumo' ? SUMO_RAM_MAT : CHASSIS_MAT}
-        castShadow receiveShadow
-      >
-        <boxGeometry args={[cW, cH, cD]} />
-      </mesh>
+      <group rotation={[0, Math.PI / 2, 0]} scale={SCALE}>
+        {/* Mesh +X is forward; after the +π/2 Y rotation, mesh +X → world
+            -Z, matching challenge-sim's forward direction. The rotation
+            also swaps the mesh's "left" (mesh +Z) onto world +X (which is
+            challenge-sim's right side, hence the rRollRef there) and the
+            mesh's "right" (mesh -Z) onto world -X (lRollRef). */}
+        {isSumo ? (
+          <SumoBotMesh
+            wheelRefs={{
+              leftFront:  rRollRef,
+              leftRear:   rRearRef,
+              rightFront: lRollRef,
+              rightRear:  lRearRef,
+            }}
+          />
+        ) : (
+          <SparkMiniBotMesh
+            wheelRefs={{ left: rRollRef, right: lRollRef }}
+          />
+        )}
 
-      {/* Top accent stripe */}
-      <mesh position={[0, (0.35 + 0.11 + 0.006) * S, 0]} material={ACCENT_MAT} castShadow>
-        <boxGeometry args={[cW + 0.02 * S, 0.012 * S, cD + 0.02 * S]} />
-      </mesh>
-
-      {/* Sumo ram plate */}
-      {variant === 'sumo' && (
-        <>
-          <mesh position={[0, 0.18 * S, -0.85 * S]} material={SUMO_SCRAPE_MAT} castShadow>
-            <boxGeometry args={[1.7 * S, 0.08 * S, 0.22 * S]} />
-          </mesh>
-          <mesh position={[0, 0.09 * S, -0.72 * S]} rotation={[0.35, 0, 0]} material={SUMO_RAM_MAT}>
-            <boxGeometry args={[1.6 * S, 0.05 * S, 0.28 * S]} />
-          </mesh>
-        </>
-      )}
-
-      {/* Maze-scout sensor arms */}
-      {variant === 'maze-scout' && (
-        <>
-          {([[-1, -0.6], [1, 0.6]] as [number, number][]).map(([sx, ry]) => (
-            <group key={sx} position={[sx * 0.72 * S, 0.42 * S, -0.4 * S]} rotation={[0, ry, 0]}>
-              <mesh material={SENSOR_ARM_MAT}>
-                <boxGeometry args={[0.04 * S, 0.04 * S, 0.5 * S]} />
-              </mesh>
-              <mesh position={[0, 0, -0.28 * S]} material={SENSOR_TIP_MAT}>
-                <sphereGeometry args={[0.04 * S, 8, 6]} />
-              </mesh>
-              <pointLight position={[0, 0, -0.3 * S]} color="#00ff66" intensity={0.4} distance={0.3} />
-            </group>
-          ))}
-        </>
-      )}
-
-      {/* Bottom plate */}
-      <mesh position={[0, 0.15 * S, 0]} material={CHASSIS_MAT}>
-        <boxGeometry args={[1.4 * S, 0.04 * S, 1.1 * S]} />
-      </mesh>
-
-      {/* Wheels — left side=-1, right side=1 */}
-      <Wheel side={-1} hubMat={hubMat} rollGroupRef={lRollRef} />
-      <Wheel side={1}  hubMat={hubMat} rollGroupRef={rRollRef} />
-
-      {/* Front caster ball */}
-      <group position={[0, 0.10 * S, -0.50 * S]}>
-        <mesh material={CHASSIS_MAT}>
-          <boxGeometry args={[0.18 * S, 0.10 * S, 0.14 * S]} />
-        </mesh>
-        <mesh position={[0, -0.06 * S, 0]} material={CASTER_MAT}>
-          <sphereGeometry args={[0.08 * S, 14, 10]} />
-        </mesh>
+        {/* Maze-scout sensor arms — extend forward of the chassis (mesh +X).
+            Same dimensions as the original DifferentialBot, just placed in
+            mesh-local coordinates. */}
+        {variant === 'maze-scout' && (
+          <>
+            {([[1, -0.6], [-1, 0.6]] as [number, number][]).map(([sZ, ry], k) => (
+              <group key={k} position={[0.080, 0.110, sZ * 0.060]} rotation={[0, ry, 0]}>
+                <mesh material={SENSOR_ARM_MAT}>
+                  <boxGeometry args={[0.110, 0.010, 0.010]} />
+                </mesh>
+                <mesh position={[0.062, 0, 0]} material={SENSOR_TIP_MAT}>
+                  <sphereGeometry args={[0.012, 8, 6]} />
+                </mesh>
+                <pointLight position={[0.066, 0, 0]} color="#00ff66" intensity={0.4} distance={0.3} />
+              </group>
+            ))}
+          </>
+        )}
       </group>
 
-      {/* Under-chassis glow */}
+      {/* Under-chassis glow — outside the rotation/scale wrap so it sits at
+          the bot's world origin regardless of variant. */}
       <pointLight ref={glowRef} position={[0, 0.05, 0]} color={glowColor} intensity={0.4} distance={0.7} decay={2} />
     </group>
   );
@@ -247,9 +210,14 @@ function applyWheelRoll(
   body: PhysicsBody,
   dt: number,
 ): void {
+  // Roll axis: the shared SparkMiniBotMesh / SumoBotMesh in bot-meshes.tsx
+  // lays the wheel cylinder with axis along its local Z. Forward roll is
+  // achieved with NEGATIVE delta on .rotation.z (matches the sandbox's
+  // pose-driven rotation convention in scene-objects.tsx, e.g.
+  // `leftWheelRef.current.rotation.z = -pose.leftWheelRot`).
   const speeds = tankWheelSpeeds(body.forwardSpeed(), body.angVel, HALF_WB);
-  if (lRef.current) lRef.current.rotation.y += (speeds.left  / WHEEL_R) * dt;
-  if (rRef.current) rRef.current.rotation.y += (speeds.right / WHEEL_R) * dt;
+  if (lRef.current) lRef.current.rotation.z -= (speeds.left  / WHEEL_R) * dt;
+  if (rRef.current) rRef.current.rotation.z -= (speeds.right / WHEEL_R) * dt;
 }
 
 // ─── SUMO FIGHT ───────────────────────────────────────────────────────────────

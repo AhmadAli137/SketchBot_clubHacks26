@@ -58,6 +58,99 @@ const PUFF_CONFIG = [
 
 const PEBBLES_CX = [80, 190, 310, 430, 540, 640];
 
+/* ─── Object glyphs — mirror what's actually placeable in the sandbox ────────
+   Inline SVGs sized for the sandpit decoration. Each one represents a real
+   sandbox object so kids see the same shapes in both places. */
+
+function ConeGlyph() {
+  return (
+    <svg width="26" height="32" viewBox="0 0 26 32" fill="none">
+      {/* Base disc */}
+      <ellipse cx="13" cy="29" rx="11" ry="2.5" fill="#1a1a1a" />
+      {/* Cone body */}
+      <path d="M13 4 L22 28 L4 28 Z" fill="#ff6520" stroke="#c33d00" strokeWidth="0.6" strokeLinejoin="round" />
+      {/* Reflective stripe */}
+      <path d="M8 16 L18 16 L19.2 19 L7 19 Z" fill="#fff7e0" opacity="0.85" />
+    </svg>
+  );
+}
+
+function WallBlockGlyph() {
+  return (
+    <svg width="30" height="24" viewBox="0 0 30 24" fill="none">
+      {/* Block face */}
+      <rect x="2" y="4" width="26" height="18" rx="1.5" fill="#3654d0" stroke="#5b6cff" strokeWidth="0.6" />
+      {/* Top face — perspective */}
+      <path d="M2 4 L5 1 L31 1 L28 4 Z" fill="#5b6cff" />
+      {/* Side face */}
+      <path d="M28 4 L31 1 L31 19 L28 22 Z" fill="#28368a" />
+      {/* Highlight stripe — matches hex-lug cyan accent */}
+      <line x1="6" y1="13" x2="24" y2="13" stroke="#5de4ff" strokeWidth="0.7" opacity="0.6" />
+    </svg>
+  );
+}
+
+function RampGlyph() {
+  return (
+    <svg width="38" height="22" viewBox="0 0 38 22" fill="none">
+      {/* Ramp body — wedge */}
+      <path d="M2 20 L36 20 L36 6 Z" fill="#3548b0" stroke="#5b6cff" strokeWidth="0.6" strokeLinejoin="round" />
+      {/* Top deck highlight */}
+      <path d="M2 20 L36 6" stroke="#5de4ff" strokeWidth="0.8" opacity="0.85" />
+      {/* Glow stripe along leading edge */}
+      <line x1="2" y1="20" x2="6" y2="20" stroke="#5de4ff" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function WaypointOrbGlyph() {
+  return (
+    <svg width="20" height="36" viewBox="0 0 20 36" fill="none">
+      {/* Pole */}
+      <rect x="9" y="14" width="2" height="20" rx="1" fill="#303040" />
+      {/* Orb glow */}
+      <circle cx="10" cy="10" r="9" fill="#5de4ff" opacity="0.18" />
+      {/* Orb */}
+      <circle cx="10" cy="10" r="6" fill="#5de4ff" stroke="#a8efff" strokeWidth="0.6" />
+      {/* Inner highlight */}
+      <circle cx="8" cy="8" r="1.6" fill="#fff" opacity="0.7" />
+    </svg>
+  );
+}
+
+function SumoPlowGlyph() {
+  return (
+    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+      {/* Chassis body */}
+      <rect x="10" y="8" width="18" height="10" rx="1.5" fill="#1a1d24" stroke="#3a3f4e" strokeWidth="0.6" />
+      {/* Wheels */}
+      <circle cx="13" cy="18" r="3" fill="#0e0e14" />
+      <circle cx="25" cy="18" r="3" fill="#0e0e14" />
+      <circle cx="13" cy="18" r="1.2" fill="#bd1a1a" />
+      <circle cx="25" cy="18" r="1.2" fill="#bd1a1a" />
+      {/* Wedge plow up front — tilted */}
+      <path d="M2 17 L11 8 L11 14 Z" fill="#454850" stroke="#1a1a1f" strokeWidth="0.5" strokeLinejoin="round" />
+      {/* Sharpened leading edge */}
+      <line x1="2" y1="17" x2="11" y2="14" stroke="#1a1a1f" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function BezierPathGlyph() {
+  return (
+    <svg width="42" height="24" viewBox="0 0 42 24" fill="none">
+      <path
+        d="M2 19 C8 3, 14 22, 21 11 C28 -1, 36 17, 40 12"
+        stroke="#818cf8" strokeWidth="2.5" fill="none" strokeLinecap="round"
+      />
+      {/* Control point dots */}
+      <circle cx="2"  cy="19" r="1.6" fill="#a8b1ff" />
+      <circle cx="21" cy="11" r="1.6" fill="#a8b1ff" />
+      <circle cx="40" cy="12" r="1.6" fill="#a8b1ff" />
+    </svg>
+  );
+}
+
 export function SandboxHeroScene() {
   return (
     <div className="sandbox-hero" aria-hidden>
@@ -85,19 +178,19 @@ export function SandboxHeroScene() {
         />
       ))}
 
-      {/* ── Far-left: sad tilted bucket ── */}
+      {/* ── Far-left: ramp half-buried in the sand ── */}
       <motion.div
-        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 3px)', left: '5%', fontSize: 28, zIndex: 3, lineHeight: 1 }}
-        animate={{ rotate: [-10, 7, -10] }}
-        transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
+        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) - 2px)', left: '4%', zIndex: 3, lineHeight: 0 }}
+        animate={{ y: [0, -3, 0], rotate: [-2, 2, -2] }}
+        transition={{ duration: 3.6, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
       >
-        🪣
+        <RampGlyph />
       </motion.div>
 
       {/* ── Left: mini Spark — surprised, buried ── */}
       <motion.div
         className="sandbox-buried-wrap"
-        style={{ position: 'absolute', bottom: 'var(--sand-h)', left: '14%' }}
+        style={{ position: 'absolute', bottom: 'var(--sand-h)', left: '15%' }}
         animate={{ y: [0, -5, 0] }}
         transition={{ duration: 2.7, repeat: Infinity, ease: [0.4, 0, 0.6, 1], delay: 0.5 }}
       >
@@ -106,40 +199,36 @@ export function SandboxHeroScene() {
         </div>
       </motion.div>
 
-      {/* ── Traffic cone — Cone Ring Gauntlet ── */}
+      {/* ── Traffic cone ── */}
       <motion.div
-        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 5px)', left: '26%', fontSize: 24, zIndex: 3, lineHeight: 1 }}
-        animate={{ rotate: [-14, 12, -14], y: [0, -2, 0] }}
+        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 2px)', left: '25%', zIndex: 3, lineHeight: 0 }}
+        animate={{ rotate: [-10, 8, -10], y: [0, -2, 0] }}
         transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.9 }}
       >
-        🔺
+        <ConeGlyph />
       </motion.div>
 
-      {/* ── Glowing XP star ── */}
+      {/* ── Glowing waypoint orb ── */}
       <motion.div
-        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 13px)', left: '37%', fontSize: 18, filter: 'drop-shadow(0 0 8px #fbbf24)', zIndex: 3 }}
-        animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5], rotate: [0, 22, 0] }}
+        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 2px)', left: '34%', zIndex: 3, lineHeight: 0, filter: 'drop-shadow(0 0 8px rgba(93,228,255,0.7))' }}
+        animate={{ y: [0, -4, 0], opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', delay: 1.4 }}
       >
-        ⭐
+        <WaypointOrbGlyph />
       </motion.div>
 
       {/* ── Maze wall block ── */}
       <motion.div
-        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 2px)', left: '42%', fontSize: 24, zIndex: 3, lineHeight: 1 }}
-        animate={{ y: [0, -4, 0], rotate: [-4, 4, -4] }}
+        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 2px)', left: '42%', zIndex: 3, lineHeight: 0 }}
+        animate={{ y: [0, -4, 0], rotate: [-3, 3, -3] }}
         transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut', delay: 1.9 }}
       >
-        🧱
+        <WallBlockGlyph />
       </motion.div>
 
-      {/* ── MAIN SPARK — shoveling IN the sand ──
-           The outer div uses .sandbox-main-bot CSS (position:absolute, bottom:sand-h, z-index:3).
-           The inner div is position:relative so the shovel can be absolutely positioned to it. ── */}
+      {/* ── MAIN SPARK — shoveling IN the sand ── */}
       <div className="sandbox-main-bot">
         <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'flex-end' }}>
-
-          {/* Spark body: forward-leaning dig motion with organic ease */}
           <motion.div
             style={{ transformOrigin: 'bottom center', display: 'inline-block' }}
             animate={{ rotate: [-7, 4, -7], y: [0, 5, 0] }}
@@ -152,8 +241,6 @@ export function SandboxHeroScene() {
           >
             <SparkRobot mode="2d" pose="wave" size="md" />
           </motion.div>
-
-          {/* Shovel: reach back → plunge down → scoop → lift */}
           <motion.div
             style={{
               position: 'absolute',
@@ -179,37 +266,35 @@ export function SandboxHeroScene() {
 
       {/* ── Bezier wavy path — Path Planning ── */}
       <motion.div
-        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 14px)', right: '30%', zIndex: 3 }}
-        animate={{ scaleX: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
+        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 14px)', right: '30%', zIndex: 3, lineHeight: 0 }}
+        animate={{ scaleX: [1, 1.1, 1], opacity: [0.6, 1, 0.6] }}
         transition={{ duration: 2.7, repeat: Infinity, ease: 'easeInOut', delay: 0.7 }}
       >
-        <svg width="36" height="22" viewBox="0 0 36 22">
-          <path d="M2 17 C8 3, 14 20, 20 9 C26 -1, 32 15, 34 10" stroke="#818cf8" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        </svg>
+        <BezierPathGlyph />
       </motion.div>
 
-      {/* ── Geometry diamond — Geometry lesson ── */}
+      {/* ── Second waypoint orb on the right ── */}
       <motion.div
-        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 8px)', right: '23%', fontSize: 20, zIndex: 3, lineHeight: 1, filter: 'drop-shadow(0 0 6px #a855f7)' }}
-        animate={{ y: [0, -6, 0], opacity: [0.6, 1, 0.6], scale: [1, 1.2, 1] }}
-        transition={{ duration: 2.9, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 2px)', right: '23%', zIndex: 3, lineHeight: 0, filter: 'drop-shadow(0 0 8px rgba(168,85,247,0.7))' }}
+        animate={{ y: [0, -4, 0], opacity: [0.7, 1, 0.7] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
       >
-        💎
+        <WaypointOrbGlyph />
       </motion.div>
 
-      {/* ── Sumo wrestling — Sumo Arena ── */}
+      {/* ── Sumo bot wedge plow ── */}
       <motion.div
-        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 4px)', right: '16%', fontSize: 22, zIndex: 3 }}
-        animate={{ rotate: [6, -6, 6], y: [0, -3, 0] }}
+        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 2px)', right: '14%', zIndex: 3, lineHeight: 0 }}
+        animate={{ rotate: [4, -4, 4], y: [0, -3, 0] }}
         transition={{ duration: 2.3, repeat: Infinity, ease: 'easeInOut', delay: 1.0 }}
       >
-        🤼
+        <SumoPlowGlyph />
       </motion.div>
 
       {/* ── Right-buried mini Spark — thinking ── */}
       <motion.div
         className="sandbox-buried-wrap"
-        style={{ position: 'absolute', bottom: 'var(--sand-h)', right: '16%' }}
+        style={{ position: 'absolute', bottom: 'var(--sand-h)', right: '18%' }}
         animate={{ y: [0, -6, 0] }}
         transition={{ duration: 2.2, repeat: Infinity, ease: [0.4, 0, 0.6, 1], delay: 1.4 }}
       >
@@ -218,13 +303,13 @@ export function SandboxHeroScene() {
         </div>
       </motion.div>
 
-      {/* ── Far-right: sad bucket ── */}
+      {/* ── Far-right: another wall block ── */}
       <motion.div
-        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) + 2px)', right: '5%', fontSize: 26, zIndex: 3, lineHeight: 1 }}
-        animate={{ rotate: [8, -6, 8] }}
+        style={{ position: 'absolute', bottom: 'calc(var(--sand-h) - 1px)', right: '5%', zIndex: 3, lineHeight: 0 }}
+        animate={{ rotate: [3, -2, 3], y: [0, -2, 0] }}
         transition={{ duration: 2.9, repeat: Infinity, ease: 'easeInOut', delay: 1.3 }}
       >
-        🪣
+        <WallBlockGlyph />
       </motion.div>
 
       {/* ── Sandy ground: SVG with organic bumpy top + texture ── */}
@@ -245,17 +330,14 @@ export function SandboxHeroScene() {
           </radialGradient>
         </defs>
 
-        {/* Primary bumpy sand surface */}
         <path
           d="M0,22 C14,14 32,30 58,18 C80,8 102,24 130,14 C156,5 178,20 208,11 C234,3 258,18 286,8 C310,0 336,15 362,6 C386,-1 410,14 438,5 C464,-3 488,12 516,4 C542,-3 566,10 594,3 C620,-3 646,12 672,4 C696,-2 712,10 720,7 L720,90 L0,90 Z"
           fill="url(#sandGrad2)"
         />
-        {/* Shine layer */}
         <path
           d="M0,22 C14,14 32,30 58,18 C80,8 102,24 130,14 C156,5 178,20 208,11 C234,3 258,18 286,8 C310,0 336,15 362,6 C386,-1 410,14 438,5 C464,-3 488,12 516,4 C542,-3 566,10 594,3 C620,-3 646,12 672,4 C696,-2 712,10 720,7 L720,90 L0,90 Z"
           fill="url(#sandShine)"
         />
-        {/* Highlight rim */}
         <path
           d="M0,22 C14,14 32,30 58,18 C80,8 102,24 130,14 C156,5 178,20 208,11 C234,3 258,18 286,8 C310,0 336,15 362,6 C386,-1 410,14 438,5 C464,-3 488,12 516,4 C542,-3 566,10 594,3 C620,-3 646,12 672,4 C696,-2 712,10 720,7"
           fill="none"
@@ -263,7 +345,6 @@ export function SandboxHeroScene() {
           strokeWidth="2"
         />
 
-        {/* Organic sand piles at item spots */}
         <ellipse cx="52"  cy="18" rx="34" ry="14" fill="#e8aa30" opacity="0.55" />
         <ellipse cx="130" cy="12" rx="26" ry="11" fill="#e8aa30" opacity="0.48" />
         <ellipse cx="250" cy="10" rx="22" ry="10" fill="#e8aa30" opacity="0.52" />
@@ -272,7 +353,6 @@ export function SandboxHeroScene() {
         <ellipse cx="572" cy="8"  rx="22" ry="9"  fill="#e8aa30" opacity="0.48" />
         <ellipse cx="654" cy="6"  rx="30" ry="12" fill="#e8aa30" opacity="0.56" />
 
-        {/* Texture dots */}
         {Array.from({ length: 60 }, (_, i) => (
           <circle
             key={i}
@@ -283,7 +363,6 @@ export function SandboxHeroScene() {
           />
         ))}
 
-        {/* Embedded pebbles */}
         {PEBBLES_CX.map((cx, i) => (
           <ellipse key={i} cx={cx} cy={42 + (i % 3) * 8} rx={2.5 + (i % 2)} ry={1.5} fill="rgba(100,52,8,0.28)" />
         ))}
