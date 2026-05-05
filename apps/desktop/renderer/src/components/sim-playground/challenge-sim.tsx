@@ -132,24 +132,26 @@ function DifferentialBot({
 
   return (
     <group>
-      <group rotation={[0, Math.PI / 2, 0]} scale={SCALE}>
-        {/* Mesh +X is forward; after the +π/2 Y rotation, mesh +X → world
-            -Z, matching challenge-sim's forward direction. The rotation
-            also swaps the mesh's "left" (mesh +Z) onto world +X (which is
-            challenge-sim's right side, hence the rRollRef there) and the
-            mesh's "right" (mesh -Z) onto world -X (lRollRef). */}
+      <group rotation={[0, -Math.PI / 2, 0]} scale={SCALE}>
+        {/* Physics convention: PhysicsBody.forwardDir() = (sin(angle),
+            cos(angle)), so at angle=0 the bot's forward is world +Z. The
+            shared mesh has its forward along local +X. A Y rotation of
+            -π/2 maps mesh +X → world +Z, lining the visible chassis up
+            with the direction the bot actually moves. Mesh "left" (mesh
+            +Z) then lands at world -X — the bot's left side when facing
+            +Z — so lRollRef / rRollRef pass through unswapped. */}
         {isSumo ? (
           <SumoBotMesh
             wheelRefs={{
-              leftFront:  rRollRef,
-              leftRear:   rRearRef,
-              rightFront: lRollRef,
-              rightRear:  lRearRef,
+              leftFront:  lRollRef,
+              leftRear:   lRearRef,
+              rightFront: rRollRef,
+              rightRear:  rRearRef,
             }}
           />
         ) : (
           <SparkMiniBotMesh
-            wheelRefs={{ left: rRollRef, right: lRollRef }}
+            wheelRefs={{ left: lRollRef, right: rRollRef }}
           />
         )}
 
@@ -361,11 +363,14 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
 
 // Matches the ringCones() calls in concept-environments.ts for cone-ring-gauntlet
 function buildConeRing() {
+  // Uniform full-size cones — every ring is the same scale so the gauntlet
+  // looks like real traffic cones, not a graduated set. Inner radii are
+  // chosen so even at scale 1.0 the cones don't clip into each other.
   const rings: { count: number; radius: number; scale: number }[] = [
-    { count: 14, radius: 1.55, scale: 1.00 },
-    { count: 10, radius: 1.05, scale: 0.80 },
-    { count:  6, radius: 0.55, scale: 0.60 },
-    { count:  3, radius: 0.22, scale: 0.40 },
+    { count: 14, radius: 1.55, scale: 1.0 },
+    { count: 10, radius: 1.05, scale: 1.0 },
+    { count:  6, radius: 0.55, scale: 1.0 },
+    { count:  3, radius: 0.22, scale: 1.0 },
   ];
   return rings.flatMap(({ count, radius, scale }) =>
     Array.from({ length: count }, (_, i) => {
