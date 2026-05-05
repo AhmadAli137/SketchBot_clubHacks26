@@ -218,54 +218,71 @@ function wrapPi(a: number): number {
   return x;
 }
 
-/** Sumo combat phases. Drives the back-and-forth + circling rhythm: bots
- *  charge, lock and grind, recoil briefly, charge again — and after a few
- *  exchanges they back off and circle each other before re-engaging. */
-type SumoPhase = 'engage' | 'lock' | 'recoil' | 'circle';
+/** Sumo combat phases.
+ *  - search: each bot roams independently with its own motor pattern
+ *    (asymmetric — different curve direction, different speed, different
+ *    edge behaviour). The bots aren't aware of each other yet.
+ *  - engage: both bots have spotted each other and are charging. Drive
+ *    forward at full speed toward the opponent.
+ *  - lock: wedges are touching. Heading freezes, push hard.
+ *  - recoil: brief 0.4s backward shove to break contact, then back to
+ *    searching for the next encounter. */
+type SumoPhase = 'search' | 'engage' | 'lock' | 'recoil';
 
-/** Decide motor commands for one sumo bot. The two strengths decouple:
- *  - baseStrength: engage / recoil / circle (kept symmetric between bots
- *    so they move in unison and meet near centre).
+/** Decide motor commands for one sumo bot.
+ *  - baseStrength: drive / recoil speed when engaged (symmetric between
+ *    bots so they meet near centre during the charge).
  *  - lockStrength: drive speed during the wedge grind (asymmetric — caller
- *    flips which bot is stronger every clash so the COM drifts visibly
- *    back and forth across the ring, rather than both bots stalling at
- *    the contact line). */
+ *    flips which bot is stronger every clash so the COM drift swings
+ *    back and forth instead of always favouring the same side).
+ *  - searchSpeed / searchTurnBias: bot-specific roaming parameters. Each
+ *    bot uses different values so their search paths diverge instead of
+ *    mirroring — A might curve gently CCW at one radius while B sweeps
+ *    sharper CW at another. */
 function sumoAi(
   me: ReturnType<typeof mkSumoPose>,
   opp: ReturnType<typeof mkSumoPose>,
   baseStrength: number,
   lockStrength: number,
-  /** +1 (counter-clockwise) or -1 (clockwise) sweep direction in CIRCLE. */
-  circleSign: 1 | -1,
+  searchSpeed: number,
+  searchTurnBias: number,
   ringRadius: number,
   phase: SumoPhase,
 ): void {
   const dx = opp.worldX - me.worldX;
   const dz = opp.worldZ - me.worldZ;
   const r  = Math.hypot(me.worldX, me.worldZ);
-  const edgeWarn = ringRadius * 0.78;
+  const edgeWarn = ringRadius * 0.82;
 
-  // Edge override: if we're hanging off the line, forget the phase plan
-  // and pivot toward centre.
+  // Edge override (always priority): if we're hanging off the line,
+  // forget the phase plan and pivot toward centre.
   if (r > edgeWarn) {
     const target = Math.atan2(me.worldZ, -me.worldX);
-    pivotOrDrive(me, target, 0.45, 0.6 * baseStrength);
+    pivotOrDrive(me, target, 0.45, 0.55 * baseStrength);
     return;
   }
 
   const toOpp = Math.atan2(-dz, dx);
 
   switch (phase) {
+    case 'search': {
+      // Roam independently — drive forward with this bot's specific
+      // motor differential so the path naturally curves at a fixed
+      // radius without any awareness of the opponent. The bot's heading
+      // sweeps continuously around as it curves; eventually the opp
+      // ends up in front of it, which the SumoFight detector picks up.
+      me.motorTargetLeft  = searchSpeed - searchTurnBias;
+      me.motorTargetRight = searchSpeed + searchTurnBias;
+      return;
+    }
     case 'engage': {
-      pivotOrDrive(me, toOpp, 0.5, 0.75 * baseStrength);
+      // GO FOR THE KILL — they spotted each other. Pivot if needed,
+      // then drive forward at maximum speed straight at the opponent.
+      pivotOrDrive(me, toOpp, 0.6, 1.0 * baseStrength);
       return;
     }
     case 'lock': {
       // Wedges touching — stop yawing, just push at the lock speed.
-      // The OPPONENT's lockStrength is independently set; one of the two
-      // bots will be at ~0.95 m/s and the other at ~0.40 m/s, producing
-      // a ~0.55 m/s relative push that drifts the COM toward the weaker
-      // bot at ~0.27 m/s. In 1 s of lock the loser visibly moves ~0.3 m.
       me.motorTargetLeft  = lockStrength;
       me.motorTargetRight = lockStrength;
       return;
@@ -274,15 +291,6 @@ function sumoAi(
       const back = -0.55 * baseStrength;
       me.motorTargetLeft  = back;
       me.motorTargetRight = back;
-      return;
-    }
-    case 'circle': {
-      // Sweep around centre. Opposite circleSign per bot so they trace
-      // the same world-frame circle rather than spiralling apart.
-      const drive = 0.5 * baseStrength;
-      const turnBias = 0.20 * baseStrength * circleSign;
-      me.motorTargetLeft  = drive - turnBias;
-      me.motorTargetRight = drive + turnBias;
       return;
     }
   }
@@ -362,21 +370,14 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
   const bRF = useRef<THREE.Group>(null);
   const bRR = useRef<THREE.Group>(null);
 
-  // Shared phase state — both bots stay synced so the back-and-forth
-  // rhythm reads as a fight rather than two independent AIs drifting.
-  // Cycle is: circle (size each other up) → engage (charge) → lock
-  // (grind) → recoil (brief disengage) → circle again. Bots start in
-  // CIRCLE so the very first frame shows them sweeping around centre
-  // before the first clash.
-  const phaseRef     = useRef<SumoPhase>('circle');
-  const phaseTimer   = useRef(0);
+  // Shared phase state. Cycle is: search (each bot roams asymmetrically)
+  // → engage (both spotted each other, going for the kill) → lock (grind)
+  // → recoil → search again.
+  const phaseRef    = useRef<SumoPhase>('search');
+  const phaseTimer  = useRef(0);
   // Which bot is the stronger pusher in the next lock phase. Alternates
-  // every clash so the COM drift swings back and forth across the ring
-  // rather than always favouring the same bot.
-  const aIsStronger  = useRef(true);
-  // Sweep direction for CIRCLE — flipped each cycle so the bots circle
-  // clockwise then counter-clockwise.
-  const circleSign   = useRef<1 | -1>(1);
+  // every clash so the COM drift swings back and forth across the ring.
+  const aIsStronger = useRef(true);
 
   useEffect(() => {
     const ringStart = ringRadius * 0.55;
@@ -401,16 +402,33 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
     const dist = Math.hypot(dx, dz);
     const inContact = dist < (SUMO_BOT_R * 2 + 0.04);
 
-    // ── Phase machine — bots size each other up by circling, then charge,
-    // grind together, recoil, and start the cycle again. Tunable timings:
-    //   circle: 1.4s of orbiting around centre BEFORE the clash
-    //   engage: drive toward opp until contact (no max time)
-    //   lock:   grind together; flips to recoil after 1.0s in contact
-    //   recoil: brief 0.4s backward push to break contact
+    // Mutual line-of-sight detection. Each bot's "field of view" is the
+    // forward 100° cone (cos > 0.64 ≈ ±50° from heading). When BOTH bots
+    // simultaneously have the other in their FOV, they spot each other
+    // and break out of search to charge. Distance gate (< 1.6m) keeps
+    // detection feeling like a real "sight" event rather than a radar
+    // ping at any range.
+    const aFwdX = Math.cos(a.heading);
+    const aFwdZ = -Math.sin(a.heading);
+    const bFwdX = Math.cos(b.heading);
+    const bFwdZ = -Math.sin(b.heading);
+    const safeDist = Math.max(dist, 0.001);
+    const dotA = ( dx * aFwdX +  dz * aFwdZ) / safeDist;
+    const dotB = (-dx * bFwdX + -dz * bFwdZ) / safeDist;
+    const mutualSpot = dotA > 0.64 && dotB > 0.64 && dist < 1.6;
+
+    // ── Phase machine
+    //   search: each bot roams independently with its own motor pattern.
+    //           Transitions to ENGAGE when both bots have line of sight
+    //           on each other, OR after a 7s timeout so they can't hide
+    //           forever.
+    //   engage: GO FOR THE KILL — charge straight at opp until contact.
+    //   lock:   1.0s grind, then recoil.
+    //   recoil: 0.4s backward shove, then back to searching.
     phaseTimer.current += dt;
     switch (phaseRef.current) {
-      case 'circle':
-        if (phaseTimer.current > 1.4) {
+      case 'search':
+        if (mutualSpot || phaseTimer.current > 7.0) {
           phaseRef.current = 'engage';
           phaseTimer.current = 0;
         }
@@ -429,22 +447,25 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
         break;
       case 'recoil':
         if (phaseTimer.current > 0.4) {
-          phaseRef.current = 'circle';
+          phaseRef.current = 'search';
           phaseTimer.current = 0;
-          // Alternate sweep direction each cycle for visual variety.
-          circleSign.current = (circleSign.current === 1 ? -1 : 1);
         }
         break;
     }
 
-    // Both bots use the same baseStrength — they should engage / recoil /
-    // circle at matched speeds. Lock-phase asymmetry is what produces the
-    // visible push: stronger bot drives 0.95 m/s, weaker drives 0.40 m/s,
-    // for a ~0.55 m/s relative push and ~0.27 m/s COM drift.
+    // Lock-phase asymmetry — stronger bot drives 0.95 m/s, weaker 0.40
+    // m/s, producing ~0.27 m/s COM drift toward the loser. Alternates
+    // each clash so the COM swings back and forth across the ring.
     const aLock = aIsStronger.current ? 0.95 : 0.40;
     const bLock = aIsStronger.current ? 0.40 : 0.95;
-    sumoAi(a, b, 0.85, aLock,  circleSign.current,            ringRadius, phaseRef.current);
-    sumoAi(b, a, 0.85, bLock, -circleSign.current as 1 | -1, ringRadius, phaseRef.current);
+
+    // Asymmetric SEARCH parameters — different speed AND turn bias per
+    // bot, so they wander independently instead of mirroring. A traces
+    // a wider gentle CCW arc; B does a tighter CW one. Their headings
+    // sweep at different rates, so detection happens at unpredictable
+    // moments rather than on a fixed schedule.
+    sumoAi(a, b, 1.00, aLock, /* searchSpeed */ 0.45, /* turnBias */  0.10, ringRadius, phaseRef.current);
+    sumoAi(b, a, 1.00, bLock, /* searchSpeed */ 0.42, /* turnBias */ -0.16, ringRadius, phaseRef.current);
 
     // Real bot-drive physics — same integrator the sandbox uses when the
     // kid drives a bot.
