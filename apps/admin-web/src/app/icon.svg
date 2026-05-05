@@ -1,8 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
   <defs>
+    <radialGradient id="ss-bg" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#1a2040"/>
+      <stop offset="100%" stop-color="#0a0d18"/>
+    </radialGradient>
     <radialGradient id="ss-halo" cx="50%" cy="50%" r="55%">
-      <stop offset="0%" stop-color="#5de4ff" stop-opacity="0.45"/>
-      <stop offset="60%" stop-color="#a855f7" stop-opacity="0.20"/>
+      <stop offset="0%" stop-color="#5de4ff" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#a855f7" stop-opacity="0.30"/>
       <stop offset="100%" stop-color="#5de4ff" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="ss-spark" cx="50%" cy="50%" r="55%">
@@ -15,20 +19,21 @@
       <stop offset="100%" stop-color="#5de4ff" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <!-- Soft halo behind the spark — gives it presence on dark tab backgrounds -->
-  <circle cx="16" cy="16" r="15" fill="url(#ss-halo)"/>
+  <!-- Solid dark backdrop — keeps the spark visible on light AND dark browser
+       tabs. Without this, the translucent halo + cyan/violet spark washes out
+       on white. Circle inset 0.5px so anti-aliased edge doesn't get clipped. -->
+  <circle cx="16" cy="16" r="15.5" fill="url(#ss-bg)"/>
+  <!-- Halo behind the spark — adds depth on the dark backdrop -->
+  <circle cx="16" cy="16" r="14" fill="url(#ss-halo)"/>
   <!-- Eight-pointed spark mark — the SaySpark brand glyph -->
   <g transform="translate(16 16)">
-    <path d="M 0 -13 L 3 -3 L 13 0 L 3 3 L 0 13 L -3 3 L -13 0 L -3 -3 Z" fill="url(#ss-spark)"/>
-    <!-- Inner cross-spark, 45° rotated, soft white -->
-    <path d="M 0 -6 L 1.4 -1.4 L 6 0 L 1.4 1.4 L 0 6 L -1.4 1.4 L -6 0 L -1.4 -1.4 Z"
-          transform="rotate(45)" fill="#ffffff" fill-opacity="0.50"/>
-    <!-- Glowing core -->
-    <circle cx="0" cy="0" r="3.6" fill="url(#ss-core)" fill-opacity="0.65"/>
-    <circle cx="0" cy="0" r="2.0" fill="#ffffff" fill-opacity="0.96"/>
-    <!-- Tiny accent sparkles -->
-    <circle cx="6.5" cy="-5.5" r="0.7" fill="#ffffff" fill-opacity="0.80"/>
-    <circle cx="-7.0" cy="6.0" r="0.6" fill="#ffffff" fill-opacity="0.65"/>
-    <circle cx="-5.5" cy="-5.0" r="0.4" fill="#ffffff" fill-opacity="0.55"/>
+    <path d="M 0 -12 L 3 -3 L 12 0 L 3 3 L 0 12 L -3 3 L -12 0 L -3 -3 Z" fill="url(#ss-spark)"/>
+    <path d="M 0 -5.5 L 1.4 -1.4 L 5.5 0 L 1.4 1.4 L 0 5.5 L -1.4 1.4 L -5.5 0 L -1.4 -1.4 Z"
+          transform="rotate(45)" fill="#ffffff" fill-opacity="0.55"/>
+    <circle cx="0" cy="0" r="3.6" fill="url(#ss-core)" fill-opacity="0.70"/>
+    <circle cx="0" cy="0" r="2.0" fill="#ffffff" fill-opacity="0.98"/>
+    <circle cx="6.0" cy="-5.0" r="0.7" fill="#ffffff" fill-opacity="0.85"/>
+    <circle cx="-6.5" cy="5.5" r="0.6" fill="#ffffff" fill-opacity="0.70"/>
+    <circle cx="-5.0" cy="-4.5" r="0.4" fill="#ffffff" fill-opacity="0.60"/>
   </g>
 </svg>
