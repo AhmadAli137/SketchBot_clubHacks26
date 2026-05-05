@@ -207,16 +207,11 @@ function PhysicsCone({ groupRef, scale = 1 }: {
 // ─── Wheel roll helper ────────────────────────────────────────────────────────
 
 /**
- * Set the bot's angular velocity directly so it snaps to a target heading
- * without fighting the proportional-torque + angular-damping system.
- *
- * The torque controller bots used previously could only achieve ~17% of
- * commanded angVel after damping ate the rest, which meant a 180° turn
- * took 5+ seconds. With direct control the bot reaches its commanded rate
- * the same frame and turns at MAX_RATE rad/s until almost on heading,
- * then eases in proportionally. Bots that need this should also set
- * `angDamp: 0` in their PhysicsBody opts so integrate doesn't subsequently
- * decay the angVel we just wrote.
+ * Direct angular-velocity steering. PhysicsBody integrate-time damping
+ * was eating most of the proportional-torque controller's effort, leaving
+ * the bots unable to turn fast enough to track waypoints. Setting angVel
+ * directly each frame side-steps that. Bots using this should also set
+ * `angDamp: 0` so integrate doesn't decay what we just wrote.
  */
 function steerToHeading(
   body: PhysicsBody,
@@ -227,6 +222,66 @@ function steerToHeading(
   const ramp = Math.min(Math.abs(err) * 5, maxRate);
   body.angVel = Math.sign(err) * ramp;
   return err;
+}
+
+/**
+ * Segmented "execute one waypoint" state machine. Real classroom robots
+ * don't glide — they pivot in place, drive straight, stop, then pivot
+ * again. This helper produces that segmented motion: TURNING zeros the
+ * linear velocity and rotates toward the target heading; once aligned it
+ * flips to DRIVING which holds heading and drives straight. When the bot
+ * reaches the waypoint the caller advances the index and resets phase.
+ *
+ * Returns `true` the frame the bot reaches its target, `false` otherwise.
+ */
+type SegmentPhase = 'turning' | 'driving';
+type SegmentState = { phase: SegmentPhase };
+
+function executeSegment(
+  body: PhysicsBody,
+  state: SegmentState,
+  target: { x: number; z: number },
+  driveSpeed: number,
+  turnRate: number,
+  arrivalDist: number,
+): boolean {
+  const dx = target.x - body.pos.x;
+  const dz = target.z - body.pos.z;
+  const dist = Math.hypot(dx, dz);
+
+  if (dist < arrivalDist) {
+    body.vel.x = 0;
+    body.vel.z = 0;
+    body.angVel = 0;
+    return true;
+  }
+
+  const desiredHeading = Math.atan2(dx, dz);
+  const angErr = angDiff(desiredHeading, body.angle);
+
+  if (state.phase === 'turning') {
+    // Pivot in place — kill any residual drift while the bot rotates.
+    body.vel.x *= 0.55;
+    body.vel.z *= 0.55;
+    body.angVel = Math.sign(angErr) * Math.min(Math.abs(angErr) * 6, turnRate);
+    if (Math.abs(angErr) < 0.06) {
+      state.phase = 'driving';
+      body.angVel = 0;
+    }
+  } else {
+    // Drive in a straight line at the commanded speed. Heading is locked
+    // (angVel = 0); if the bot drifts off heading it transitions back to
+    // 'turning' rather than continuously correcting while drifting.
+    body.angVel = 0;
+    const fd = body.forwardDir();
+    body.vel.x = fd.x * driveSpeed;
+    body.vel.z = fd.z * driveSpeed;
+    if (Math.abs(angErr) > 0.30) {
+      state.phase = 'turning';
+    }
+  }
+
+  return false;
 }
 
 function applyWheelRoll(
@@ -289,13 +344,19 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
     if (!bot || !opp) return;
     const t = clock.elapsedTime;
 
-    const MAX_ANG    = 5.0;
+    const FREE_TURN  = 5.0;       // rad/s — open-air pivot rate
+    const PUSH_TURN  = 0.6;       // rad/s — bots can barely re-aim while
+                                  // pressed wedge-to-wedge. This is what
+                                  // makes a clash look like a clash and
+                                  // not a momentary touch then slide-off.
     const FORCE_BASE = 11.0;
-    const FORCE_PUSH = 22.0;
+    const FORCE_PUSH = 24.0;
     const PUSH_DIST  = SUMO_RADIUS * 2 + 0.04;
     const EDGE_WARN  = ringRadius * 0.85;
 
-    const toOppDist   = Math.hypot(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z);
+    const dxOpp = opp.pos.x - bot.pos.x;
+    const dzOpp = opp.pos.z - bot.pos.z;
+    const toOppDist   = Math.hypot(dxOpp, dzOpp);
     const inContact   = toOppDist < PUSH_DIST;
     const botEdgeDist = Math.hypot(bot.pos.x, bot.pos.z);
     const oppEdgeDist = Math.hypot(opp.pos.x, opp.pos.z);
@@ -303,28 +364,56 @@ export function SumoFight({ ringRadius = 1.2 }: { ringRadius?: number }) {
     botState.current = botEdgeDist > EDGE_WARN ? 3 : inContact ? 2 : 1;
     oppState.current = oppEdgeDist > EDGE_WARN ? 3 : inContact ? 2 : 1;
 
-    // ── Bot AI ── snap heading toward opponent (or centre when near edge),
-    // then drive forward. Forward thrust is gated by alignment so the bot
-    // doesn't drift sideways while it's still rotating to face its target.
+    // Heading rate drops dramatically when wedges are touching — a 22-N
+    // shove against another 20-N shove leaves no torque to spare for
+    // pivoting freely. Without this, the existing AI was happy to whip
+    // each bot toward the opponent's *current* position every frame,
+    // which (combined with the contact normal already pointing them
+    // apart) was sliding them past each other.
+    const turnRate = inContact ? PUSH_TURN : FREE_TURN;
+
     const botDesiredHeading = botEdgeDist > EDGE_WARN
       ? Math.atan2(-bot.pos.x, -bot.pos.z)
-      : Math.atan2(opp.pos.x - bot.pos.x, opp.pos.z - bot.pos.z);
-    const botAngErr = steerToHeading(bot, botDesiredHeading, MAX_ANG);
-    if (Math.abs(botAngErr) < 0.65) {
+      : Math.atan2(dxOpp, dzOpp);
+    const botAngErr = steerToHeading(bot, botDesiredHeading, turnRate);
+    if (Math.abs(botAngErr) < 0.85) {
       const fd = bot.forwardDir();
       const fmag = inContact ? FORCE_PUSH : FORCE_BASE;
       bot.applyForce(fd.x * fmag, fd.z * fmag, dt);
     }
 
-    // ── Opponent AI (slightly weaker so the "default" bot tends to win) ──
     const oppDesiredHeading = oppEdgeDist > EDGE_WARN
       ? Math.atan2(-opp.pos.x, -opp.pos.z)
-      : Math.atan2(bot.pos.x - opp.pos.x, bot.pos.z - opp.pos.z);
-    const oppAngErr = steerToHeading(opp, oppDesiredHeading, MAX_ANG);
-    if (Math.abs(oppAngErr) < 0.65) {
+      : Math.atan2(-dxOpp, -dzOpp);
+    const oppAngErr = steerToHeading(opp, oppDesiredHeading, turnRate);
+    if (Math.abs(oppAngErr) < 0.85) {
       const fd = opp.forwardDir();
-      const fmag = inContact ? FORCE_PUSH * 0.85 : FORCE_BASE * 0.85;
+      const fmag = inContact ? FORCE_PUSH * 0.86 : FORCE_BASE * 0.88;
       opp.applyForce(fd.x * fmag, fd.z * fmag, dt);
+    }
+
+    // Tangential friction while in contact: kill the velocity component
+    // that would slide the bots sideways past each other. Real sumo
+    // robots grind — wedge against wedge, no lateral squirt. The contact
+    // resolver only cancels velocity along the contact normal; without
+    // this, any tangential velocity persists frame after frame and the
+    // bots glide past each other instead of locking horns.
+    if (inContact && toOppDist > 0.001) {
+      const nx = dxOpp / toOppDist;
+      const nz = dzOpp / toOppDist;
+      // Tangent perpendicular to the contact normal (in the floor plane).
+      const tx = -nz, tz = nx;
+      const FRIC = 0.65; // 65% of tangential velocity removed each frame
+      const botT = bot.vel.x * tx + bot.vel.z * tz;
+      bot.vel.x -= botT * tx * FRIC;
+      bot.vel.z -= botT * tz * FRIC;
+      const oppT = opp.vel.x * tx + opp.vel.z * tz;
+      opp.vel.x -= oppT * tx * FRIC;
+      opp.vel.z -= oppT * tz * FRIC;
+      // Damp angular velocity too — bots can't easily yaw while locked
+      // in a wedge-to-wedge push.
+      bot.angVel *= 0.4;
+      opp.angVel *= 0.4;
     }
     botTimer.current += dt; oppTimer.current += dt;
 
@@ -407,11 +496,8 @@ export function ConeRingRun() {
   const coneBodies = useRef<PhysicsBody[]>([]);
 
   useEffect(() => {
-    // Smaller collision radius (0.13 not 0.20) so the bot fits between
-    // cones spaced 0.6m apart without clipping. The body still pushes a
-    // cone if it brushes one, but it can also weave through the slalom.
     botBody.current = new PhysicsBody(ROBOT_PATH[0][0], ROBOT_PATH[0][1], {
-      mass: 1.0, radius: 0.13, restitution: 0.22, linDamp: 1.6, angDamp: 0,
+      mass: 1.0, radius: 0.13, restitution: 0.22, linDamp: 0, angDamp: 0,
     });
     coneBodies.current = CONE_GAUNTLET_DEFS.map(
       ({ x, z }) => new PhysicsBody(x, z, {
@@ -426,25 +512,24 @@ export function ConeRingRun() {
   }, []);
 
   const pathIdxRef = useRef(0);
-  /** +1 east-bound (entry → exit), -1 west-bound (exit → entry). Ping-pong
-   *  at each end so the bot continuously slaloms back and forth instead of
-   *  teleporting to the start. */
-  const dirRef = useRef(1);
+  const dirRef     = useRef(1);
+  const segState   = useRef<SegmentState>({ phase: 'turning' });
 
   useFrame((_, dt) => {
     const bot = botBody.current;
     if (!bot) return;
 
-    // Hit each waypoint precisely (0.18 threshold) so the bot actually
-    // weaves through the cones instead of sweeping a wide arc that goes
-    // around them. Direct angVel steering means turns are immediate, so
-    // tight thresholds work without stalling.
     const target = ROBOT_PATH[pathIdxRef.current]!;
-    const dx = target[0] - bot.pos.x;
-    const dz = target[1] - bot.pos.z;
-    const dist = Math.hypot(dx, dz);
+    const arrived = executeSegment(
+      bot,
+      segState.current,
+      { x: target[0], z: target[1] },
+      1.3,    // m/s — calm slalom pace, makes the weave readable
+      5.0,    // rad/s
+      0.09,   // arrival threshold (tight so bot weaves precisely)
+    );
 
-    if (dist < 0.18) {
+    if (arrived) {
       const next = pathIdxRef.current + dirRef.current;
       if (next < 0 || next >= ROBOT_PATH.length) {
         dirRef.current *= -1;
@@ -452,12 +537,7 @@ export function ConeRingRun() {
       } else {
         pathIdxRef.current = next;
       }
-    } else {
-      const desiredHeading = Math.atan2(dx, dz);
-      const angErr = steerToHeading(bot, desiredHeading, 5.0);
-      const fd = bot.forwardDir();
-      const speed = 4.5 * Math.max(0.45, 1 - Math.abs(angErr) * 0.55);
-      bot.applyForce(fd.x * speed, fd.z * speed, dt);
+      segState.current.phase = 'turning';
     }
 
     bot.integrate(dt);
@@ -540,12 +620,12 @@ export function MazeRun() {
 
   const botBody   = useRef<PhysicsBody | null>(null);
   const segRef    = useRef(0);
-  /** +1 forward (S → E), -1 reverse (E → S). Ping-pongs at each endpoint
-   *  so the bot keeps solving the maze in alternating directions instead
-   *  of teleporting from E back to S between cycles. */
   const dirRef    = useRef(1);
+  /** TURN-then-DRIVE state. Each waypoint segment starts in 'turning'
+   *  (pivot in place to face the next corridor) and flips to 'driving'
+   *  once aligned. Reset to 'turning' whenever a new waypoint is picked. */
+  const segState  = useRef<SegmentState>({ phase: 'turning' });
 
-  // Build wall rects once from the environment data (exact same walls as the visual renderer)
   const walls = useMemo<WallRect[]>(() => {
     const envWalls = getEnvironment('maze-marathon').walls ?? [];
     return envWalls.map(w => ({
@@ -554,12 +634,14 @@ export function MazeRun() {
   }, []);
 
   useEffect(() => {
-    // angDamp 0 → steerToHeading isn't chewed up by integrate damping.
+    // linDamp 0 = velocity isn't damped by integrate; we set vel directly
+    // each frame via executeSegment so damping would just fight us.
     botBody.current = new PhysicsBody(MAZE_WAYPOINTS[0][0], MAZE_WAYPOINTS[0][1], {
-      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.18, linDamp: 1.6, angDamp: 0,
+      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.18, linDamp: 0, angDamp: 0,
     });
     segRef.current = 0;
     dirRef.current = 1;
+    segState.current.phase = 'turning';
     return () => { botBody.current = null; };
   }, []);
 
@@ -568,15 +650,17 @@ export function MazeRun() {
     if (!bot) return;
     const t = clock.elapsedTime;
 
-    // Advance to next waypoint EARLY — start turning before reaching the
-    // corner so the bot rounds it cleanly instead of slamming the wall
-    // ahead and then trying to recover.
     const target = MAZE_WAYPOINTS[segRef.current]!;
-    const dx = target[0] - bot.pos.x;
-    const dz = target[1] - bot.pos.z;
-    const dist = Math.hypot(dx, dz);
+    const arrived = executeSegment(
+      bot,
+      segState.current,
+      { x: target[0], z: target[1] },
+      1.4,    // m/s drive speed
+      4.0,    // rad/s turn rate
+      0.10,   // arrival threshold
+    );
 
-    if (dist < 0.45) {
+    if (arrived) {
       const next = segRef.current + dirRef.current;
       if (next < 0 || next >= MAZE_WAYPOINTS.length) {
         dirRef.current *= -1;
@@ -584,15 +668,7 @@ export function MazeRun() {
       } else {
         segRef.current = next;
       }
-    } else {
-      const desiredHeading = Math.atan2(dx, dz);
-      const angErr = steerToHeading(bot, desiredHeading, 4.5);
-      // Forward thrust is moderate so the bot tracks the corridor centre
-      // rather than rocketing into walls. Tapers with heading error so
-      // turns are tighter, but never zero so the bot never stalls.
-      const fd = bot.forwardDir();
-      const speed = 4.0 * Math.max(0.4, 1 - Math.abs(angErr) * 0.6);
-      bot.applyForce(fd.x * speed, fd.z * speed, dt);
+      segState.current.phase = 'turning';
     }
 
     // ── Physics integration ──
@@ -624,36 +700,31 @@ export function MazeRun() {
   );
 }
 
-// ─── WAYPOINT CHASE (line follower) ───────────────────────────────────────────
+// ─── WAYPOINT CHASE ───────────────────────────────────────────────────────────
+// Real classroom-bot waypoint navigation: pivot to face the next point,
+// drive in a straight line to it, stop, pivot, drive. Looks calculated
+// instead of drifting around a curve.
 
 const WAYPOINTS: [number, number][] = [
   [-1.0, -0.8], [0.2, -1.0], [1.0, -0.2], [0.6, 0.8], [-0.5, 0.9],
 ];
 
-/** Look-ahead distance for the pursuit target — bigger = smoother corners
- *  but more cut on the inside of the turn. 0.55 is tuned to ride the
- *  segments between waypoints rather than aiming at each waypoint
- *  individually. */
-const PURSUIT_LOOKAHEAD = 0.55;
-
 export function WaypointChase() {
-  const botGrp    = useRef<THREE.Group>(null);
-  const glowRef   = useRef<THREE.PointLight>(null);
-  const lRoll     = useRef<THREE.Group>(null);
-  const rRoll     = useRef<THREE.Group>(null);
+  const botGrp   = useRef<THREE.Group>(null);
+  const glowRef  = useRef<THREE.PointLight>(null);
+  const lRoll    = useRef<THREE.Group>(null);
+  const rRoll    = useRef<THREE.Group>(null);
 
-  const botBody   = useRef<PhysicsBody | null>(null);
-  /** Continuous track parameter — integer part is the segment index, the
-   *  fractional part is how far along that segment the pursuit target sits.
-   *  Advancing this monotonically (rather than jumping waypoint-to-waypoint)
-   *  is what makes the line-follower glide instead of stop-and-spin. */
-  const sRef      = useRef(0);
+  const botBody  = useRef<PhysicsBody | null>(null);
+  const idxRef   = useRef(0);
+  const segState = useRef<SegmentState>({ phase: 'turning' });
 
   useEffect(() => {
     botBody.current = new PhysicsBody(WAYPOINTS[0][0], WAYPOINTS[0][1], {
-      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 1.6, angDamp: 0,
+      mass: 1.0, radius: ROBOT_RADIUS, restitution: 0.2, linDamp: 0, angDamp: 0,
     });
-    sRef.current = 0;
+    idxRef.current = 0;
+    segState.current.phase = 'turning';
     return () => { botBody.current = null; };
   }, []);
 
@@ -661,60 +732,20 @@ export function WaypointChase() {
     const bot = botBody.current;
     if (!bot) return;
 
-    // Pure-pursuit on a closed polyline: pick a target a fixed distance
-    // ahead of the bot's current track position. As the bot advances, the
-    // target slides smoothly along the path with it — no waypoint stops,
-    // no spin-in-place. The bot eases through corners instead of pivoting.
-    const segCount = WAYPOINTS.length;
+    const target = WAYPOINTS[idxRef.current]!;
+    const arrived = executeSegment(
+      bot,
+      segState.current,
+      { x: target[0], z: target[1] },
+      1.4,    // m/s drive speed
+      4.0,    // rad/s turn rate
+      0.08,   // arrival threshold (tight — bot stops AT the waypoint)
+    );
 
-    // Advance s based on actual progress along the segment.
-    const segIdx   = Math.floor(sRef.current) % segCount;
-    const segNext  = (segIdx + 1) % segCount;
-    const a = WAYPOINTS[segIdx]!;
-    const b = WAYPOINTS[segNext]!;
-    const segLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    // Project the bot onto the current segment to find how far along it sits.
-    const px = bot.pos.x - a[0];
-    const pz = bot.pos.z - a[1];
-    const segDx = (b[0] - a[0]) / segLen;
-    const segDz = (b[1] - a[1]) / segLen;
-    const proj = Math.max(0, Math.min(segLen, px * segDx + pz * segDz));
-    sRef.current = segIdx + proj / segLen;
-
-    // Compute look-ahead target by walking PURSUIT_LOOKAHEAD metres along
-    // the polyline from the bot's projected position.
-    let remain = PURSUIT_LOOKAHEAD;
-    let walkSeg = segIdx;
-    let walkPos = proj;
-    let tx = bot.pos.x;
-    let tz = bot.pos.z;
-    for (let i = 0; i < segCount + 1; i++) {
-      const wa = WAYPOINTS[walkSeg % segCount]!;
-      const wb = WAYPOINTS[(walkSeg + 1) % segCount]!;
-      const wLen = Math.hypot(wb[0] - wa[0], wb[1] - wa[1]);
-      const left = wLen - walkPos;
-      if (remain <= left) {
-        const f = (walkPos + remain) / wLen;
-        tx = wa[0] + (wb[0] - wa[0]) * f;
-        tz = wa[1] + (wb[1] - wa[1]) * f;
-        break;
-      }
-      remain -= left;
-      walkSeg++;
-      walkPos = 0;
+    if (arrived) {
+      idxRef.current = (idxRef.current + 1) % WAYPOINTS.length;
+      segState.current.phase = 'turning';
     }
-
-    const dx = tx - bot.pos.x;
-    const dz = tz - bot.pos.z;
-    const desiredHeading = Math.atan2(dx, dz);
-    // Direct angVel control — pure-pursuit needs immediate heading
-    // response so the bot tracks the look-ahead point smoothly.
-    const angErr = steerToHeading(bot, desiredHeading, 4.5);
-    // Always drive forward; speed tapers with heading error so the bot
-    // eases through corners rather than yanking through them.
-    const fd = bot.forwardDir();
-    const speed = 4.5 * Math.max(0.5, 1 - Math.abs(angErr) * 0.45);
-    bot.applyForce(fd.x * speed, fd.z * speed, dt);
 
     bot.integrate(dt);
 
@@ -723,7 +754,10 @@ export function WaypointChase() {
       botGrp.current.rotation.y = bot.angle;
     }
     applyWheelRoll(lRoll, rRoll, bot, dt);
-    if (glowRef.current) glowRef.current.intensity = 0.4 + bot.forwardSpeed() * 0.25;
+    if (glowRef.current) {
+      glowRef.current.intensity =
+        segState.current.phase === 'driving' ? 0.7 : 0.35;
+    }
   });
 
   return (

@@ -221,37 +221,46 @@ const FIGURE8: [number, number, number][] = Array.from({ length: DRAW_STEPS + 1 
   return [Math.sin(t) * 0.72, 0.001, Math.sin(t / 2) * 0.38];
 });
 
+// Wheel rolling radius — matches the SparkMiniBotMesh tire (0.052m).
+const DRAWING_WHEEL_R = 0.052;
+
 function DrawingRobotProp() {
-  const robotRef = useRef<THREE.Group>(null);
+  const robotRef    = useRef<THREE.Group>(null);
+  const leftWheel   = useRef<THREE.Group>(null);
+  const rightWheel  = useRef<THREE.Group>(null);
+  const lastPos     = useRef<[number, number]>([FIGURE8[0]![0], FIGURE8[0]![2]]);
 
   useFrame(({ clock }) => {
     if (!robotRef.current) return;
-    const t = (clock.elapsedTime * 0.38) % (Math.PI * 4);
+    // Faster cycle (0.85 phase rate vs 0.38 → ~14s per loop instead of 33s).
+    // Real SketchBot draws at ~0.5 m/s; this matches that pace.
+    const t = (clock.elapsedTime * 0.85) % (Math.PI * 4);
     const idx = Math.floor((t / (Math.PI * 4)) * DRAW_STEPS);
     const [x, , z]   = FIGURE8[idx]!;
     const [nx, , nz] = FIGURE8[(idx + 1) % DRAW_STEPS]!;
     robotRef.current.position.set(x, 0.046, z);
     robotRef.current.rotation.y = Math.atan2(nx - x, nz - z);
+
+    // Spin the wheels in proportion to actual travel distance — without
+    // this the bot glided silently around the figure-8 with the wheels
+    // looking like static discs.
+    const travel = Math.hypot(x - lastPos.current[0], z - lastPos.current[1]);
+    const rollDelta = travel / DRAWING_WHEEL_R;
+    if (leftWheel.current)  leftWheel.current.rotation.z  -= rollDelta;
+    if (rightWheel.current) rightWheel.current.rotation.z -= rollDelta;
+    lastPos.current = [x, z];
   });
 
   return (
     <group>
-      {/* A4 paper on the ground */}
       <mesh position={[0, -0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[2.1, 1.55]} />
         <meshStandardMaterial color="#f0efe8" roughness={0.88} />
       </mesh>
-      {/* Drawn figure-8 path */}
       <Line points={FIGURE8} color="#9060ff" lineWidth={2} />
-      {/* The actual SparkMiniBot mesh from the sandbox — same chassis, same
-          wheels, same sensor, same Arduino board. The robotRef sets
-          rotation.y = atan2(dx, dz), which means heading 0 = world +Z; the
-          mesh's local +X is forward, so a -π/2 Y rotation aligns +X → +Z. */}
       <group ref={robotRef}>
         <group rotation={[0, -Math.PI / 2, 0]}>
-          <SparkMiniBotMesh />
-          {/* Pen tip — drops down from the front-underside of the chassis
-              (mesh local +X is forward). */}
+          <SparkMiniBotMesh wheelRefs={{ left: leftWheel, right: rightWheel }} />
           <mesh position={[0.060, -0.010, 0]}>
             <cylinderGeometry args={[0.0035, 0.0022, 0.040, 8]} />
             <meshStandardMaterial color="#9060ff" emissive="#9060ff" emissiveIntensity={0.7} />
