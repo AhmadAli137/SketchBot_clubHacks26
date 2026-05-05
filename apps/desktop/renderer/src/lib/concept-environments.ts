@@ -138,14 +138,17 @@ export const CONCEPT_ENVIRONMENTS: Record<string, ConceptEnvironment> = {
     keyLightColor: '#c0f0ff',
     fillLightColor: '#60c0ff',
     accentColor: '#00d4ff',
+    // Five colour-coded orbs the bot visits in order. Positions match
+    // the bot's path nodes in challenge-sim.tsx (WAYPOINT_NODES) and
+    // the marketing-site WaypointsScene exactly, so the orbs sit at the
+    // vertices of the dashed-line tour and the bot drives directly
+    // through each one.
     waypoints: [
-      { x: -1.20, z: -0.90, color: '#ff4060', label: '1' },
-      { x: -0.20, z: -1.20, color: '#ff8c00', label: '2' },
-      { x:  0.90, z: -0.65, color: '#ffd440', label: '3' },
-      { x:  1.20, z:  0.30, color: '#4dffb8', label: '4' },
-      { x:  0.45, z:  1.10, color: '#4080ff', label: '5' },
-      { x: -0.60, z:  1.00, color: '#a855f7', label: '6' },
-      { x: -1.10, z:  0.10, color: '#ff4fd8', label: '7' },
+      { x: -1.20, z: -1.00, color: '#ff4060', label: '1' },
+      { x:  0.20, z: -1.50, color: '#ffd440', label: '2' },
+      { x:  1.40, z: -0.20, color: '#4dffb8', label: '3' },
+      { x:  0.80, z:  1.20, color: '#4080ff', label: '4' },
+      { x: -0.60, z:  1.00, color: '#a855f7', label: '5' },
     ],
     tutorials: {
       intuitive: [
