@@ -198,6 +198,38 @@ bool RobotHal::stop() {
     return true;
 }
 
+// ─── Raw motor setpoint ───────────────────────────────────────────────────────
+// Translates a continuous (left, right) m/s setpoint to signed PWM duty per
+// motor and writes it. Non-blocking. The program executor on the desktop
+// calls this at ~30 Hz; in between calls the motors hold whatever was last
+// commanded. Either speed exactly zero kills that motor's drive lines (no
+// PWM hiss while idle); both zero is functionally the same as stop().
+
+bool RobotHal::setMotorsRaw(float left_mps, float right_mps) {
+    auto toSignedDuty = [](float mps) -> int {
+        const float mm_s = mps * 1000.0f;
+        // Below 5 mm/s the L298N can't really turn the wheel — treat as stop.
+        if (mm_s > -5.0f && mm_s < 5.0f) return 0;
+        const float mag = mm_s < 0.0f ? -mm_s : mm_s;
+        // SPEED_TO_DUTY is calibrated for 10..200 mm/s; clamp magnitude
+        // before mapping so very fast setpoints saturate at duty 255 and
+        // very slow ones still turn the wheel at the start of its useful
+        // band.
+        const float clamped = mag < 10.0f ? 10.0f : (mag > 200.0f ? 200.0f : mag);
+        const int duty = static_cast<int>(SPEED_TO_DUTY(clamped));
+        return mm_s < 0.0f ? -duty : duty;
+    };
+
+    const int leftDuty  = toSignedDuty(left_mps);
+    const int rightDuty = toSignedDuty(right_mps);
+    if (leftDuty == 0 && rightDuty == 0) {
+        motorStop();
+    } else {
+        motorDrive(leftDuty, rightDuty);
+    }
+    return true;
+}
+
 // ─── Home ─────────────────────────────────────────────────────────────────────
 // Stub: drive backward at low speed for 2 s to reach a physical stop, then zero pose.
 // Replace with AprilTag-based homing once the camera pipeline is integrated.

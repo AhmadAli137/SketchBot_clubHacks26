@@ -16551,6 +16551,27 @@ select.block-param-input{width:auto;padding-right:20px}
   background: rgba(148, 163, 184, 0.18);
   border-color: rgba(148, 163, 184, 0.40);
 }
+/* Robot deployment toggle. OFF state is muted slate (matches the other
+   secondary actions); ON glows cyan with a faint pulsing dot to remind
+   the kid that motor commands are leaving the desktop. */
+.program-view-btn-robot {
+  background: rgba(148, 163, 184, 0.10);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+.program-view-btn-robot:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.18);
+  border-color: rgba(148, 163, 184, 0.40);
+}
+.program-view-btn-robot.on {
+  background: rgba(93, 228, 255, 0.16);
+  border-color: rgba(93, 228, 255, 0.55);
+  color: #5de4ff;
+  box-shadow: 0 0 14px rgba(93, 228, 255, 0.18);
+}
+.program-view-btn-robot.on:hover {
+  background: rgba(93, 228, 255, 0.22);
+  border-color: rgba(93, 228, 255, 0.75);
+}
 
 .program-view-empty {
   display: flex;

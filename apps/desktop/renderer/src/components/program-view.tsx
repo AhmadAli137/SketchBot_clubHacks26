@@ -19,7 +19,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Pause, Square, Trash2, Mic, Activity } from 'lucide-react';
+import { Play, Pause, Square, Trash2, Mic, Activity, Cpu } from 'lucide-react';
 
 import {
   subscribeProgram,
@@ -36,6 +36,12 @@ import { emitToolRequest } from '@/lib/spark-tools';
 import {
   isProgramPaused, pauseProgram, resumeProgram, onPauseChange,
 } from '@/lib/program-executor';
+// Importing this module also registers a setMotors hook that mirrors
+// program-driven motor commands to the physical robot when "Robot" is on.
+import {
+  isRobotMode, setRobotMode, onRobotModeChange, setBridgeApiBase,
+} from '@/lib/program-robot-bridge';
+import { useRuntimeConfig } from '@/lib/config';
 
 type Props = {
   /** When true, hide the empty-state hero and show only the active program
@@ -47,12 +53,18 @@ export function ProgramView({ compact = false }: Props) {
   const [program, setProgram] = useState<Program>({ id: 'p-default', blocks: [] });
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [paused, setPaused] = useState(isProgramPaused());
+  const [robotMode, setRobotModeState] = useState(isRobotMode());
 
   // Subscribe to the program store. Snapshot is delivered immediately on
   // mount so we don't render an empty flash before first paint.
   useEffect(() => subscribeProgram((p) => setProgram(p)), []);
   // Mirror the executor's pause flag so the play/pause button reflects state.
   useEffect(() => onPauseChange(setPaused), []);
+  // Mirror robot-mode flag (and seed the bridge with the actual runtime
+  // URL — port can differ from the 8787 default on some setups).
+  useEffect(() => onRobotModeChange(setRobotModeState), []);
+  const runtimeConfig = useRuntimeConfig();
+  useEffect(() => { setBridgeApiBase(runtimeConfig.apiBase); }, [runtimeConfig.apiBase]);
 
   // Highlight the running block via the tutor.program.event bus. block.enter
   // sets the active id; block.exit clears it (so an idle program shows no
@@ -181,6 +193,24 @@ export function ProgramView({ compact = false }: Props) {
           >
             <Trash2 size={12} />
           </button>
+          {/* "Run on robot" toggle. When ON, the program executor's
+              motor writes are mirrored to the local-runtime, which
+              forwards them to the firmware over the existing WebSocket.
+              When OFF, the executor still drives the simulator chassis
+              for preview. Hidden in the compact strip header — the
+              compact mode lives next to the dedicated SimControls bar. */}
+          {!compact && (
+            <button
+              type="button"
+              className={`program-view-btn program-view-btn-robot${robotMode ? ' on' : ''}`}
+              onClick={() => setRobotMode(!robotMode)}
+              title={robotMode
+                ? 'Click to stop streaming motor commands to the physical robot'
+                : 'Click to also drive the connected ESP32-C5 robot when this program runs'}
+            >
+              <Cpu size={12} /> {robotMode ? 'Robot ON' : 'Robot OFF'}
+            </button>
+          )}
         </div>
       </div>
 

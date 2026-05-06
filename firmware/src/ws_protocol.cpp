@@ -107,6 +107,23 @@ void WsProtocol::handleInbound(const char *payload, int len, esp_websocket_clien
                 ok = robot.stop();
                 message = ok ? "stopped" : "stop failed";
 
+            } else if (std::strcmp(n, "motor.set") == 0) {
+                // Raw differential-drive setpoint streamed from the desktop
+                // program executor. Non-blocking: just updates the PWM and
+                // returns. left_mps / right_mps are signed metres/second
+                // (negative = backward).
+                cJSON *args     = cJSON_GetObjectItem(root, "args");
+                float left_mps  = 0.0f;
+                float right_mps = 0.0f;
+                if (args) {
+                    cJSON *jl = cJSON_GetObjectItem(args, "left_mps");
+                    cJSON *jr = cJSON_GetObjectItem(args, "right_mps");
+                    if (cJSON_IsNumber(jl)) left_mps  = (float)jl->valuedouble;
+                    if (cJSON_IsNumber(jr)) right_mps = (float)jr->valuedouble;
+                }
+                ok = robot.setMotorsRaw(left_mps, right_mps);
+                message = ok ? "ok" : "motor.set failed";
+
             } else if (std::strcmp(n, "move_forward") == 0) {
                 cJSON *args      = cJSON_GetObjectItem(root, "args");
                 float mm         = 0.0f;

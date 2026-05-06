@@ -83,6 +83,14 @@ public:
     bool rotate(float degrees, float speed_dps = DEFAULT_ROTATE_SPEED_DPS);
     bool goTo(float x_mm, float y_mm, float speed_mm_s = DEFAULT_TRAVEL_SPEED_MM_S);
 
+    /** Non-blocking raw differential-drive setpoint. The desktop program
+     *  executor streams these at ~30 Hz: each call just updates the PWM
+     *  duty and returns immediately. Caller owns timing — `motor.set`
+     *  with both speeds = 0 is the canonical "stop". This is the
+     *  primitive Spark / the simulator both produce, so the same AST
+     *  drives the simulated bot and the real chassis. */
+    bool setMotorsRaw(float left_mps, float right_mps);
+
     // State
     RobotTelemetry telemetry() const;
     void setStatusConnected(bool connected);

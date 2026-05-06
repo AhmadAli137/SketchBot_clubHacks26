@@ -87,6 +87,19 @@ export function syncPoseToPlacement(id: string, worldX: number, worldZ: number, 
   }
 }
 
+/** Callbacks invoked on every setMotors / hardStopBot. Used by the
+ *  hardware bridge (program-robot-bridge.ts) to mirror simulator motor
+ *  targets to the physical robot when the kid clicks "Run on robot".
+ *  Hooks are global — they receive events for ALL bots — and decide
+ *  internally whether to forward (e.g. only when a program is active
+ *  for that bot AND robot mode is enabled). */
+type MotorHook = (id: string, left: number, right: number) => void;
+const motorHooks = new Set<MotorHook>();
+export function registerMotorHook(fn: MotorHook): () => void {
+  motorHooks.add(fn);
+  return () => motorHooks.delete(fn);
+}
+
 export function setMotors(id: string, left: number, right: number): void {
   const p = livePoses.get(id);
   if (p) {
@@ -96,6 +109,7 @@ export function setMotors(id: string, left: number, right: number): void {
     p.motorTargetLeft = left;
     p.motorTargetRight = right;
   }
+  motorHooks.forEach((fn) => fn(id, left, right));
 }
 
 /** Hard-stop a single bot — zeros motor TARGETS, motor CURRENTS, and
@@ -117,6 +131,7 @@ export function hardStopBot(id: string): void {
     p.driftLocalVZ = 0;
     p.worldVY = 0;
   }
+  motorHooks.forEach((fn) => fn(id, 0, 0));
 }
 
 export function stopAllMotors(): void {

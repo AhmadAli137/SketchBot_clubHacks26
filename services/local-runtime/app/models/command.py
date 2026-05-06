@@ -27,6 +27,23 @@ class RobotCommandResponse(BaseModel):
     robot_status: str
 
 
+class MotorSetRequest(BaseModel):
+    """Raw differential-drive setpoint streamed from the desktop program
+    executor at ~30 Hz while a program is running on the real robot.
+    Each call updates the motor PWM and returns immediately; the desktop
+    owns timing (block durations, condition polling) and emits a final
+    {0, 0} setpoint at the end of every block to stop. Speeds are signed
+    metres/second per wheel — negative = backward."""
+    left_mps: float
+    right_mps: float
+
+
+class MotorSetResponse(BaseModel):
+    accepted: bool
+    sent: bool
+    robot_status: str
+
+
 class RobotHelloMessage(BaseModel):
     type: Literal['hello']
     robot_id: str
