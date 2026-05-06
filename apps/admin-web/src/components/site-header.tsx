@@ -19,13 +19,15 @@ function userDisplayName(user: User): string {
   return (user.user_metadata?.full_name as string | undefined)?.trim() || user.email || '';
 }
 
+// Three top-level destinations only — keep the header focused on what a
+// new visitor needs to do (read about the product, see what it costs,
+// install the app). Account / Dashboard live in the avatar dropdown
+// once a user is signed in. The old #spark / #apps anchors no longer
+// exist on the page either, so they're dropped here too.
 const NAV_LINKS = [
-  { href: '/', label: 'Overview' },
-  { href: '/#spark', label: 'AI Tutor' },
-  { href: '/#apps', label: 'Apps' },
-  { href: '/pricing', label: 'Pricing' },
+  { href: '/',         label: 'Overview' },
+  { href: '/pricing',  label: 'Pricing'  },
   { href: '/download', label: 'Download' },
-  { href: '/dashboard', label: 'Dashboard' },
 ];
 
 export function SiteHeader() {
