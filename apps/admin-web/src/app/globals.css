@@ -2977,8 +2977,64 @@ body::before {
 
 .hero-spark-side {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  gap: 18px;
+}
+
+.hero-product-visual {
+  position: relative;
+  width: min(100%, 420px);
+  aspect-ratio: 1.38;
+  display: grid;
+  place-items: center;
+  margin-bottom: -34px;
+  isolation: isolate;
+}
+
+.hero-product-visual::before {
+  content: '';
+  position: absolute;
+  inset: 9% 0 5%;
+  z-index: -1;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 42% 40%, rgba(93, 228, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 66% 62%, rgba(168, 85, 247, 0.22), transparent 38%),
+    linear-gradient(135deg, rgba(10, 14, 31, 0.2), rgba(10, 14, 31, 0.76));
+  border: 1px solid rgba(93, 228, 255, 0.14);
+  filter: drop-shadow(0 24px 44px rgba(0, 0, 0, 0.35));
+}
+
+.hero-product-image {
+  width: min(100%, 380px);
+  height: auto;
+  object-fit: contain;
+  transform: translateY(-4px);
+  filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.42));
+  animation: hero-product-float 5.6s ease-in-out infinite;
+}
+
+.hero-product-chip {
+  position: absolute;
+  border-radius: 999px;
+  padding: 7px 12px;
+  border: 1px solid rgba(93, 228, 255, 0.26);
+  background: rgba(5, 8, 22, 0.78);
+  color: #eef4ff;
+  font-size: 0.74rem;
+  font-weight: 800;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(12px);
+}
+
+.hero-product-chip-ai { top: 28%; left: 1%; }
+.hero-product-chip-mini { right: 2%; bottom: 18%; border-color: rgba(168, 85, 247, 0.32); }
+
+@keyframes hero-product-float {
+  0%, 100% { transform: translateY(-4px); }
+  50% { transform: translateY(-14px); }
 }
 
 @media (max-width: 1024px) {
@@ -2993,6 +3049,105 @@ body::before {
   .hero-proof { justify-content: center; }
   .hero-chips { justify-content: center; }
   .hero-spark-side { order: -1; }
+  .hero-product-visual { width: min(100%, 360px); margin-bottom: -26px; }
+  .hero-product-chip { font-size: 0.68rem; }
+}
+
+.product-story-section {
+  padding-top: 72px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0)),
+    radial-gradient(circle at 18% 32%, rgba(93, 228, 255, 0.07), transparent 36%),
+    radial-gradient(circle at 82% 58%, rgba(168, 85, 247, 0.08), transparent 32%);
+}
+
+.product-story {
+  display: grid;
+  grid-template-columns: 0.88fr 1.12fr;
+  gap: 34px;
+  align-items: center;
+}
+
+.product-story-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.product-story-visual,
+.future-vision-visual {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(110, 129, 255, 0.2);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(135deg, rgba(5, 8, 22, 0.6), rgba(12, 16, 34, 0.9)),
+    radial-gradient(circle at 50% 45%, rgba(93, 228, 255, 0.09), transparent 42%);
+  box-shadow: var(--shadow-lg), 0 0 56px rgba(93, 228, 255, 0.08);
+}
+
+.product-story-image,
+.future-vision-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.product-story-cards {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.product-story-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(110, 129, 255, 0.18);
+  background: rgba(10, 14, 31, 0.58);
+  padding: 22px;
+}
+
+.product-story-label {
+  display: inline-flex;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: rgba(93, 228, 255, 0.1);
+  color: #5de4ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.future-vision-section {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(93, 228, 255, 0.025)),
+    radial-gradient(circle at 74% 18%, rgba(93, 228, 255, 0.07), transparent 30%);
+}
+
+.future-vision {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 42px;
+  align-items: center;
+}
+
+.future-vision-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .product-story,
+  .future-vision {
+    grid-template-columns: 1fr;
+  }
+
+  .product-story-cards {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─── 3D Demo scene ──────────────────────────────────────────────────────── */

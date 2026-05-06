@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { AppPreview } from '@/components/home/app-preview';
 
@@ -16,7 +17,7 @@ export function HeroSection() {
             transition={{ duration: 0.4 }}
           >
             <span className="hero-badge-dot" />
-            AI-tutored classroom robotics
+            Voice-activated AI robotics
           </motion.div>
 
           <motion.h1
@@ -35,9 +36,9 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
           >
-            SaySpark draws on paper while a Claude-powered tutor explains the
-            engineering behind every stroke. Words, blocks, or Python — every
-            student works at their level.
+            SaySpark is a voice-activated AI robotics learning studio where
+            students describe ideas, test them in a simulator, and watch Spark
+            Mini bring them to life.
           </motion.p>
 
           <motion.div
@@ -62,6 +63,18 @@ export function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
         >
+          <div className="hero-product-visual" aria-label="Spark tutor and Spark Mini product concept">
+            <Image
+              src="/assets/brand/sayspark-robot-rover-light-transparent.png"
+              alt="Spark AI tutor running beside Spark Mini"
+              width={584}
+              height={584}
+              priority
+              className="hero-product-image"
+            />
+            <div className="hero-product-chip hero-product-chip-ai">Spark AI Tutor</div>
+            <div className="hero-product-chip hero-product-chip-mini">Spark Mini</div>
+          </div>
           <AppPreview />
         </motion.div>
       </div>

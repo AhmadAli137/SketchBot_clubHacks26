@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
@@ -114,11 +115,62 @@ const PILLARS = [
   },
 ];
 
+const PRODUCT_PAIR = [
+  {
+    label: 'Spark',
+    title: 'AI tutor interface',
+    body: 'A friendly tutor that listens, gives feedback, explains concepts aloud, and helps students refine ideas when the robot gets stuck.',
+  },
+  {
+    label: 'Spark Mini',
+    title: 'Hands-on robot',
+    body: 'A small classroom-ready robot for mazes, soccer, drawing tasks, sensors, lighting, speech, and student-built challenges.',
+  },
+];
+
 export default function HomePage() {
   return (
     <>
       <SiteHeader />
       <HeroSection />
+
+      <section className="section product-story-section" id="spark-system">
+        <div className="container product-story">
+          <Reveal>
+            <div className="product-story-copy">
+              <p className="eyebrow">The SaySpark system</p>
+              <h2 className="display-2">
+                One learning studio with <span className="grad-text">two companions.</span>
+              </h2>
+              <p className="body-lg">
+                Spark lives in the app as the voice-first AI tutor. Spark Mini is
+                the physical robot students can test, debug, and eventually take
+                into real classrooms and homes.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={0.08}>
+            <div className="product-story-visual">
+              <Image
+                src="/assets/brand/spark-ai-tutor-and-spark-mini.png"
+                alt="Spark AI tutor interface and Spark Mini robot shown side by side"
+                width={1536}
+                height={1024}
+                className="product-story-image"
+              />
+            </div>
+          </Reveal>
+          <RevealGroup stagger={0.08} className="product-story-cards">
+            {PRODUCT_PAIR.map(item => (
+              <div key={item.label} className="product-story-card">
+                <div className="product-story-label">{item.label}</div>
+                <div className="card-title">{item.title}</div>
+                <div className="card-body">{item.body}</div>
+              </div>
+            ))}
+          </RevealGroup>
+        </div>
+      </section>
 
       {/* ── Live 3D challenges ──────────────────────────────────────────────── */}
       <section className="section" id="demo">
@@ -228,6 +280,35 @@ export default function HomePage() {
       </section>
 
       {/* ── Pricing CTA ─────────────────────────────────────────────────────── */}
+      <section className="section future-vision-section">
+        <div className="container future-vision">
+          <Reveal>
+            <div className="future-vision-copy">
+              <p className="eyebrow">Where this goes next</p>
+              <h2 className="display-2">
+                Built for homes, classrooms, and robotics challenges.
+              </h2>
+              <p className="body-lg">
+                The same voice-first studio can guide a student through a maze,
+                run a robot soccer drill, or help a teacher launch a hands-on
+                STEM activity without a complex hardware setup.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={0.08}>
+            <div className="future-vision-visual">
+              <Image
+                src="/assets/brand/sayspark-thank-you-future-vision.png"
+                alt="Future vision of SaySpark robots solving mazes, playing robot soccer, and learning in homes and classrooms"
+                width={1536}
+                height={1024}
+                className="future-vision-image"
+              />
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       <section className="section-sm">
         <div className="container">
           <Reveal>
