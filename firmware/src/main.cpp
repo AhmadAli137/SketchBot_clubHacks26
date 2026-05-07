@@ -1,10 +1,15 @@
+#include "esp_log.h"
 #include "nvs_flash.h"
+
+#include "device_id.h"
 
 #ifdef SKETCHBOT_TEST_MODE
 #  include "hw_test_app.h"
 #else
 #  include "sketchbot_controller.h"
 #endif
+
+static const char *MAIN_TAG = "main";
 
 // Two app_main paths share one binary so the IDE workflow stays single-
 // project: define SKETCHBOT_TEST_MODE in app_config.h (or pass
@@ -13,6 +18,11 @@
 // get the real firmware back. NVS init is shared because the self-test
 // uses Wi-Fi which lives in NVS too.
 extern "C" void app_main(void) {
+    // Print the per-unit serial early so a fresh device's serial is
+    // visible on the monitor before any subsystem init runs — operators
+    // copy this into the admin web UI to bind the bot to their account.
+    ESP_LOGI(MAIN_TAG, "device serial: %s", deviceSerial());
+
 #ifdef SKETCHBOT_TEST_MODE
     runHardwareSelfTest();
 #else

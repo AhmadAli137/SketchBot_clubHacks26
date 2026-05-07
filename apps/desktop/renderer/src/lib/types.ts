@@ -127,6 +127,10 @@ export type WebRTCConfigResponse = {
 export type AppState = {
   robot_connected: boolean;
   robot_status: string;
+  // Per-unit serial reported by the firmware on hello (e.g. SKETCH-A1B2-C3D4).
+  // Null until a real chassis connects; used by Settings → Register Robot
+  // to pre-fill the claim form on the admin web.
+  robot_serial?: string | null;
   workflow_state: string;
   localization_confidence: number;
   camera_online: boolean;

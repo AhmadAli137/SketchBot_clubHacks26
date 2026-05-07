@@ -38,6 +38,7 @@ class RobotWebSocketService:
         state = state_manager.state
         state.robot_connected = False
         state.robot_status = 'disconnected'
+        state.robot_serial = None
         state_manager.add_event('Robot websocket disconnected')
 
     async def handle_message(self, raw: str) -> None:
@@ -50,6 +51,7 @@ class RobotWebSocketService:
             state = state_manager.state
             state.robot_connected = True
             state.robot_status = 'ready'
+            state.robot_serial = msg.robot_id
             state.operator.connection_mode = 'real'
             state_manager.add_event(f'Robot connected: {msg.robot_id} ({msg.board} {msg.firmware_version})')
             await self.send({

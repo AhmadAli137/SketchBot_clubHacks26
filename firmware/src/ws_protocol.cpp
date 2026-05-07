@@ -7,6 +7,7 @@
 #include "cJSON.h"
 
 #include "app_config.h"
+#include "device_id.h"
 #include "secrets.h"
 
 static const char *TAG = "ws_protocol";
@@ -23,7 +24,7 @@ static void send_json(esp_websocket_client_handle_t ws, cJSON *root) {
 void WsProtocol::sendHello(esp_websocket_client_handle_t ws) const {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "type", "hello");
-    cJSON_AddStringToObject(root, "robot_id", SKETCHBOT_DEVICE_ID);
+    cJSON_AddStringToObject(root, "robot_id", deviceSerial());
     cJSON_AddStringToObject(root, "firmware_version", SKETCHBOT_FW_VERSION);
     cJSON_AddStringToObject(root, "board", SKETCHBOT_BOARD_NAME);
     cJSON *caps = cJSON_AddArrayToObject(root, "capabilities");
@@ -39,7 +40,7 @@ void WsProtocol::sendHello(esp_websocket_client_handle_t ws) const {
 void WsProtocol::sendHeartbeat(esp_websocket_client_handle_t ws) const {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "type", "heartbeat");
-    cJSON_AddStringToObject(root, "robot_id", SKETCHBOT_DEVICE_ID);
+    cJSON_AddStringToObject(root, "robot_id", deviceSerial());
     cJSON_AddNumberToObject(root, "uptime_ms", (double)(esp_timer_get_time() / 1000));
     cJSON_AddNumberToObject(root, "free_heap", (double)esp_get_free_heap_size());
     send_json(ws, root);
@@ -48,7 +49,7 @@ void WsProtocol::sendHeartbeat(esp_websocket_client_handle_t ws) const {
 void WsProtocol::sendTelemetry(esp_websocket_client_handle_t ws, const RobotTelemetry &telemetry) const {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "type", "telemetry");
-    cJSON_AddStringToObject(root, "robot_id", SKETCHBOT_DEVICE_ID);
+    cJSON_AddStringToObject(root, "robot_id", deviceSerial());
     cJSON_AddNumberToObject(root, "x_mm", telemetry.x_mm);
     cJSON_AddNumberToObject(root, "y_mm", telemetry.y_mm);
     cJSON_AddNumberToObject(root, "heading_deg", telemetry.heading_deg);

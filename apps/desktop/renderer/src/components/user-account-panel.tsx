@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { LogOut, X, Trophy, Zap, Flame, BookOpen, ExternalLink, Sparkles } from 'lucide-react';
+import { LogOut, X, Trophy, Zap, Flame, BookOpen, ExternalLink, Sparkles, Cpu } from 'lucide-react';
 import type { AuthRole } from '@/components/auth-screen';
 import { getProgressSummary, getStudentProgress } from '@/lib/progress-store';
 import { StudentProfileAvatar } from '@/components/student-profile-avatar';
@@ -14,11 +14,16 @@ import {
 } from '@/lib/agentic-settings';
 
 const PRICING_URL = 'https://sayspark.ca/pricing';
+const ACCOUNT_URL = 'https://sayspark.ca/account';
 
 type Props = {
   role: AuthRole;
   name: string;
   email?: string;
+  // Serial reported by the firmware on hello (e.g. SKETCH-A1B2-C3D4).
+  // Null when no real chassis is connected; drives the Register-Robot
+  // affordance and pre-fills the admin-web claim form via deep link.
+  robotSerial?: string | null;
   onSignOut: () => void;
   onClose: () => void;
 };
@@ -30,7 +35,7 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export function UserAccountPanel({ role, name, email, onSignOut, onClose }: Props) {
+export function UserAccountPanel({ role, name, email, robotSerial, onSignOut, onClose }: Props) {
   const progress = useMemo(() => {
     if (role !== 'student' || !name) return null;
     return getProgressSummary(name);
@@ -186,6 +191,36 @@ export function UserAccountPanel({ role, name, email, onSignOut, onClose }: Prop
         )}
 
         <div className="account-panel-gap" />
+
+        {/* Robot section — visible whenever a chassis has identified itself
+            on the local-runtime WS. The Register button opens the admin
+            web's account page with ?serial= pre-filled so binding is one
+            click for the user. */}
+        {role !== 'guest' && robotSerial && (
+          <div className="account-panel-toggle-row">
+            <div className="account-panel-toggle-text">
+              <div className="account-panel-toggle-title">
+                <Cpu size={13} />
+                Connected robot
+              </div>
+              <div
+                className="account-panel-toggle-sub"
+                style={{ fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.04em' }}
+              >
+                {robotSerial}
+              </div>
+            </div>
+            <a
+              href={`${ACCOUNT_URL}?serial=${encodeURIComponent(robotSerial)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="account-upgrade-btn"
+              title="Bind this robot to your SaySpark account"
+            >
+              Register <ExternalLink size={11} />
+            </a>
+          </div>
+        )}
 
         {/* Agentic tutor parent toggle. Hidden for guest accounts since
             it's most relevant to households where a parent is making the

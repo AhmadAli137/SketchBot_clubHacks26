@@ -122,6 +122,10 @@ class OperatorSummary(BaseModel):
 class AppState(BaseModel):
     robot_connected: bool = False
     robot_status: str = 'disconnected'
+    # Per-unit serial reported by the firmware on hello (e.g. SKETCH-A1B2-C3D4).
+    # Surfaced to the desktop UI so the user can claim this bot against
+    # their account on the admin web; null until a real device connects.
+    robot_serial: str | None = None
     workflow_state: str = 'disconnected'
     localization_confidence: float = 0.0
     camera_online: bool = False

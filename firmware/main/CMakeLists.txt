@@ -6,6 +6,7 @@ idf_component_register(
         "../src/ws_protocol.cpp"
         "../src/sketchbot_controller.cpp"
         "../src/hw_test_app.cpp"
+        "../src/device_id.cpp"
     INCLUDE_DIRS
         "."
         "../include"
@@ -17,6 +18,8 @@ idf_component_register(
         esp_timer
         nvs_flash
         esp_common
-        driver
+        esp_driver_gpio
+        esp_driver_ledc
+        esp_driver_mcpwm
         led_strip
 )

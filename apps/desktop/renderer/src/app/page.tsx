@@ -1531,6 +1531,7 @@ export default function HomePage() {
             role={userRole}
             name={userName}
             email={userEmail || undefined}
+            robotSerial={state?.robot_serial ?? null}
             onSignOut={() => { setAccountPanelOpen(false); handleSignOut(); }}
             onClose={() => setAccountPanelOpen(false)}
           />

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
@@ -7,6 +8,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { DangerZone, ManageSubscriptionButton } from './account-client';
 import { EditProfileClient } from './edit-profile-client';
+import { RobotsCard } from './robots-client';
 import { UpgradeBanner } from './upgrade-banner';
 
 type Entitlements = {
@@ -245,6 +247,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                 </Link>
               )}
             </div>
+
+            {/* Robots card — bind a SaySpark robot to this account */}
+            {entitlements.can_connect_robot ? (
+              <Suspense fallback={null}>
+                <RobotsCard />
+              </Suspense>
+            ) : null}
 
             {/* Downloads card — full width */}
             <div className="card account-card" style={{ gridColumn: '1 / -1' }}>

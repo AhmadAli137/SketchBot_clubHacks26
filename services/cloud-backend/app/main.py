@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.platform import load_challenge_library, load_platform_data, load_robot_registry
 from app.core.settings import settings
-from app.routers import concepts, tutor, subscriptions, tutor_ws
+from app.routers import concepts, devices, tutor, subscriptions, tutor_ws
 from app.services.agent_session_manager import agent_session_manager
 
 app = FastAPI(title="SketchBot Cloud Backend", version="0.2.0")
@@ -52,6 +52,7 @@ app.add_middleware(
 app.include_router(concepts.router)
 app.include_router(tutor.router)
 app.include_router(subscriptions.router)
+app.include_router(devices.router)
 app.include_router(tutor_ws.router)
 
 
