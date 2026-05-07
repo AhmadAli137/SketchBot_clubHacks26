@@ -94,6 +94,10 @@ public:
     // State
     RobotTelemetry telemetry() const;
     void setStatusConnected(bool connected);
+    /** Drive the on-board status LED to an arbitrary R/G/B colour. Used
+     *  by the hardware self-test (hw_test_app.cpp) to flag phase
+     *  transitions: yellow during a test, green on pass, red on fail. */
+    void setStatusRgb(bool red, bool green, bool blue) const;
 
     // Encoder ISR callbacks (call from IRAM-safe ISRs)
     static void IRAM_ATTR leftEncoderISR(void *arg);

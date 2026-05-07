@@ -5,6 +5,7 @@ idf_component_register(
         "../src/robot_hal.cpp"
         "../src/ws_protocol.cpp"
         "../src/sketchbot_controller.cpp"
+        "../src/hw_test_app.cpp"
     INCLUDE_DIRS
         "."
         "../include"

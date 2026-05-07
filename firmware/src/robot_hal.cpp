@@ -368,6 +368,10 @@ void RobotHal::setStatusConnected(bool connected) {
     setStatusLed(false, connected, false);
 }
 
+void RobotHal::setStatusRgb(bool red, bool green, bool blue) const {
+    setStatusLed(red, green, blue);
+}
+
 void RobotHal::setStatusLed(bool red, bool green, bool blue) const {
     if (!initialized_ || statusLed_ == nullptr) return;
     const uint8_t inp[3] = {

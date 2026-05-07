@@ -11,6 +11,11 @@ class NetworkHal {
 public:
     esp_err_t init();
     esp_err_t connectWifi();
+    /** Same as connectWifi() but bails out after `timeout_ms` instead of
+     *  blocking forever. Returns ESP_ERR_TIMEOUT if the AP didn't grant
+     *  an IP in time — used by the hardware self-test so a missing /
+     *  misspelled SSID doesn't hang the rig. */
+    esp_err_t connectWifiWithTimeout(uint32_t timeout_ms);
     esp_err_t connectWebsocket();
     bool websocketConnected() const;
     esp_websocket_client_handle_t websocket() const;

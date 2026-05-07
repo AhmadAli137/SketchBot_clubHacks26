@@ -31,6 +31,10 @@ esp_err_t NetworkHal::init() {
 }
 
 esp_err_t NetworkHal::connectWifi() {
+    return connectWifiWithTimeout(UINT32_MAX);
+}
+
+esp_err_t NetworkHal::connectWifiWithTimeout(uint32_t timeout_ms) {
     wifi_config_t wifi_config = {};
     std::strncpy(reinterpret_cast<char *>(wifi_config.sta.ssid), WIFI_SSID, sizeof(wifi_config.sta.ssid));
     std::strncpy(reinterpret_cast<char *>(wifi_config.sta.password), WIFI_PASS, sizeof(wifi_config.sta.password));
@@ -39,7 +43,9 @@ esp_err_t NetworkHal::connectWifi() {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-    xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+    const TickType_t ticks = (timeout_ms == UINT32_MAX) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, ticks);
+    if (!(bits & WIFI_CONNECTED_BIT)) return ESP_ERR_TIMEOUT;
     return ESP_OK;
 }
 
