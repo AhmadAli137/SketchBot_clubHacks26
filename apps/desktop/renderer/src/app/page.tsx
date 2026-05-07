@@ -41,6 +41,10 @@ import { updateSession as updateSavedSession, createSession as createSavedSessio
 import { useSparkIdle } from '@/lib/use-spark-idle';
 import { emitSparkEvent } from '@/lib/spark-events';
 import { useCloudKeepalive } from '@/lib/use-cloud-keepalive';
+// Phase 2a: feed live robot pose / status into the narrator so Spark's
+// observation prompts include what's actually happening on the chassis.
+// ensureNarratorSubscribed() wires the program-event → spark-event relay.
+import { setRobotSnapshot, ensureNarratorSubscribed } from '@/lib/program-narrator';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 type AppView = 'plan' | 'auth' | 'difficulty-onboarding' | 'home' | 'session';
@@ -543,6 +547,10 @@ export default function HomePage() {
   useEffect(() => {
     let cancelled = false;
 
+    // Idempotent — sets up the spark-event relay for program-narrator on
+    // first mount and is a no-op on every subsequent renderer reload.
+    ensureNarratorSubscribed();
+
     void refreshState();
     void refreshTasks();
     void refreshWebRTCConfig();
@@ -563,6 +571,21 @@ export default function HomePage() {
           if (!cancelled) {
             setState(nextState);
             setBackendReachable(true);
+            // Mirror robot pose / status into the narrator's snapshot so
+            // Spark's observe-loop context_text reflects the chassis's
+            // current state — see lib/program-narrator.ts.
+            setRobotSnapshot({
+              connected: !!nextState.robot_connected,
+              status:    nextState.robot_status ?? 'unknown',
+              poseMm: {
+                x:          nextState.robot_pose?.x_mm        ?? 0,
+                z:          nextState.robot_pose?.y_mm        ?? 0,
+                headingDeg: nextState.robot_pose?.heading_deg ?? 0,
+              },
+              penDown: !!nextState.robot_pose?.pen_down,
+              moving:  /mov|driv|run/i.test(nextState.robot_status ?? ''),
+              homed:   /home|ready|idle/i.test(nextState.robot_status ?? ''),
+            });
           }
         } catch {
           // Ignore invalid snapshots.

@@ -309,6 +309,13 @@ export function useSparkTick(opts: UseSparkTickOptions) {
       'tutor.evaluation.pass', 'tutor.evaluation.fail',
       'tutor.level-up', 'tutor.layer-up', 'tutor.concept-mastered',
       'session.return',
+      // Phase 2a: robot-execution events. program-narrator re-emits these
+      // when the kid runs a program on the real ESP32-C5 chassis so Spark
+      // gets a fresh look at telemetry the moment a block transitions or
+      // the run finishes. Subject to the same 10s rate limit + in-flight
+      // guard as everything else, so back-to-back blocks don't spam.
+      'robot.program.block',
+      'robot.program.done',
     ]);
     const BUILD_TRIGGER_KINDS = new Set<string>([
       'user.place', 'user.delete', 'user.rotate', 'user.code-run',

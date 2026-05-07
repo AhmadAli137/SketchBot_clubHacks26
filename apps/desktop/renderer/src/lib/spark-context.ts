@@ -28,6 +28,7 @@ import { getProgram } from './program-store';
 import type { ProgramBlock, Length } from './program-schema';
 import { listSessions, getMostRecent } from './session-storage';
 import { getRecentSummaries, summariseInterjections, type SessionSummary, type InterjectionStats } from './spark-memory';
+import { getRobotContextSnippet } from './program-narrator';
 
 /** Hard caps so the payload stays bounded regardless of how busy the session is. */
 const MAX_OBJECTS_IN_CONTEXT = 30;
@@ -411,6 +412,17 @@ export function describeContextAsText(ctx: SparkContext): string {
     for (const b of program.blocks) {
       lines.push(`  - [${b.id}] ${describeProgramBlockShort(b)}`);
     }
+  }
+
+  // ── Real robot state (Phase 2a) ──────────────────────────────────────────
+  // Only present when robot mode is active (kid has clicked "Robot ON" in
+  // the program controls). When the bot is wired up, Spark gets a fresh
+  // pose/heading/pen/motion summary so its narration reflects what's
+  // actually happening on the chassis, not just the simulator preview.
+  const robotSnippet = getRobotContextSnippet();
+  if (robotSnippet) {
+    lines.push('');
+    lines.push(robotSnippet);
   }
 
   // ── Recent activity ──────────────────────────────────────────────────────

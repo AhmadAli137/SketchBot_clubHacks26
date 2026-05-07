@@ -44,7 +44,13 @@ export type SparkEventKind =
   | 'tutor.program.appended'
   | 'tutor.program.cleared'
   | 'tutor.program.run'
-  | 'tutor.program.event';
+  | 'tutor.program.event'
+  // Phase 2a — real-robot execution. program-narrator re-emits these
+  // when the kid runs a program against the ESP32-C5 chassis so the
+  // observe-loop fires an immediate /api/tutor/observe and Spark
+  // reacts to the live telemetry instead of the simulator preview.
+  | 'robot.program.block'
+  | 'robot.program.done';
 
 export interface SparkEventDetail {
   kind: SparkEventKind;
