@@ -7,6 +7,7 @@ idf_component_register(
         "../src/sketchbot_controller.cpp"
         "../src/hw_test_app.cpp"
         "../src/device_id.cpp"
+        "../src/device_config.cpp"
     INCLUDE_DIRS
         "."
         "../include"

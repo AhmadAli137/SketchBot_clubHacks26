@@ -7,6 +7,7 @@
 #include "cJSON.h"
 
 #include "app_config.h"
+#include "device_config.h"
 #include "device_id.h"
 #include "secrets.h"
 
@@ -31,7 +32,15 @@ void WsProtocol::sendHello(esp_websocket_client_handle_t ws) const {
     cJSON_AddItemToArray(caps, cJSON_CreateString("heartbeat"));
     cJSON_AddItemToArray(caps, cJSON_CreateString("telemetry"));
     cJSON_AddItemToArray(caps, cJSON_CreateString("command_result"));
-    if (std::strlen(AUTH_TOKEN) > 0) {
+    // When the device has been provisioned with a cloud-issued JWT
+    // (Phase 2c.1), prefer it over the compile-time AUTH_TOKEN. The
+    // cloud's /ws/robot endpoint verifies the JWT signature + JTI; the
+    // LAN local-runtime accepts either AUTH_TOKEN (current) or the JWT
+    // (since it's just a string payload either way).
+    DeviceCloudConfig nvsCfg;
+    if (deviceConfigLoad(nvsCfg) == ESP_OK && nvsCfg.provisioned) {
+        cJSON_AddStringToObject(root, "auth_token", nvsCfg.token);
+    } else if (std::strlen(AUTH_TOKEN) > 0) {
         cJSON_AddStringToObject(root, "auth_token", AUTH_TOKEN);
     }
     send_json(ws, root);
@@ -91,6 +100,39 @@ void WsProtocol::handleInbound(const char *payload, int len, esp_websocket_clien
             if (std::strcmp(n, "ping") == 0 || std::strcmp(n, "status") == 0) {
                 ok = true;
                 message = "pong";
+
+            } else if (std::strcmp(n, "set_credentials") == 0) {
+                // Provisioning command: the desktop forwards
+                // { ws_url, token } here after the user claims this bot
+                // and issues a JWT in the admin web. We persist to NVS
+                // and acknowledge — the new endpoint takes effect on the
+                // next reconnect (initiated by either the runtime
+                // dropping us or a deliberate reboot).
+                cJSON *args = cJSON_GetObjectItem(root, "args");
+                const char *ws_url = nullptr;
+                const char *token  = nullptr;
+                if (args) {
+                    cJSON *ju = cJSON_GetObjectItem(args, "ws_url");
+                    cJSON *jt = cJSON_GetObjectItem(args, "token");
+                    if (cJSON_IsString(ju)) ws_url = ju->valuestring;
+                    if (cJSON_IsString(jt)) token  = jt->valuestring;
+                }
+                if (!ws_url || !token) {
+                    ok = false;
+                    message = "set_credentials: ws_url and token required";
+                } else {
+                    esp_err_t err = deviceConfigStore(ws_url, token);
+                    ok = (err == ESP_OK);
+                    message = ok ? "credentials saved" : "credentials store failed";
+                }
+
+            } else if (std::strcmp(n, "clear_credentials") == 0) {
+                // Backout/factory-reset path. Wipes NVS so the next boot
+                // returns to the LAN/local-runtime fallback. Useful when
+                // re-pairing against a different account.
+                esp_err_t err = deviceConfigClear();
+                ok = (err == ESP_OK);
+                message = ok ? "credentials cleared" : "credentials clear failed";
 
             } else if (std::strcmp(n, "home") == 0) {
                 ok = robot.home();

@@ -9,6 +9,7 @@
 #include "esp_wifi.h"
 
 #include "app_config.h"
+#include "device_config.h"
 #include "robot_hal.h"
 #include "secrets.h"
 #include "ws_protocol.h"
@@ -50,8 +51,26 @@ esp_err_t NetworkHal::connectWifiWithTimeout(uint32_t timeout_ms) {
 }
 
 esp_err_t NetworkHal::connectWebsocket() {
+    // Prefer NVS-provisioned cloud credentials (Phase 2c.2). When the
+    // device has been bound to an account and issued a token, we connect
+    // straight to the cloud-backend's /ws/robot endpoint and skip the
+    // LAN-only local-runtime path entirely. The compile-time WS_URL is
+    // only the factory-fresh / unprovisioned fallback.
+    DeviceCloudConfig nvsCfg;
+    esp_err_t cfgErr = deviceConfigLoad(nvsCfg);
+    if (cfgErr != ESP_OK) {
+        ESP_LOGW(TAG, "deviceConfigLoad failed (%s) — using LAN fallback", esp_err_to_name(cfgErr));
+    }
+
     esp_websocket_client_config_t cfg = {};
-    cfg.uri = WS_URL;
+    if (nvsCfg.provisioned) {
+        cfg.uri = nvsCfg.ws_url;
+        ESP_LOGI(TAG, "using cloud-provisioned WS endpoint");
+    } else {
+        cfg.uri = WS_URL;
+        ESP_LOGI(TAG, "no NVS credentials — using LAN fallback %s", WS_URL);
+    }
+
     wsClient_ = esp_websocket_client_init(&cfg);
     esp_websocket_register_events(wsClient_, WEBSOCKET_EVENT_ANY, &NetworkHal::websocketEventHandler, this);
     esp_websocket_client_start(wsClient_);
