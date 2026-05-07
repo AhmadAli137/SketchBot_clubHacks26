@@ -5,6 +5,8 @@ from app.models.command import (
     MotorSetResponse,
     RobotCommandRequest,
     RobotCommandResponse,
+    RobotRawCommandRequest,
+    RobotRawCommandResponse,
 )
 from app.services.demo_service import demo_service
 from app.services.robot_service import robot_service
@@ -31,6 +33,25 @@ async def robot_command(payload: RobotCommandRequest) -> RobotCommandResponse:
     return RobotCommandResponse(
         accepted=True,
         command=payload.command,
+        robot_status=state_manager.state.robot_status,
+    )
+
+
+@router.post("/raw", response_model=RobotRawCommandResponse)
+async def robot_raw_command(payload: RobotRawCommandRequest) -> RobotRawCommandResponse:
+    """Forward any JSON command (name + args) to the firmware. Mainly used
+    by the hardware smoke test to exercise move_forward / rotate / etc.
+    with real args without growing the typed RobotCommandName enum.
+    When wait=True, blocks until the firmware sends command_result."""
+    sent = await robot_ws_service.send_command(payload.name, args=payload.args)
+    if not sent:
+        raise HTTPException(status_code=503, detail='Robot websocket not connected')
+    result: dict | None = None
+    if payload.wait:
+        result = await robot_ws_service.wait_for_command_result(timeout=payload.timeout_s)
+    return RobotRawCommandResponse(
+        sent=True,
+        result=result,
         robot_status=state_manager.state.robot_status,
     )
 

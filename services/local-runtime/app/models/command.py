@@ -44,6 +44,30 @@ class MotorSetResponse(BaseModel):
     robot_status: str
 
 
+class RobotRawCommandRequest(BaseModel):
+    """Localhost bring-up channel — ships an arbitrary JSON command to the
+    firmware. Used by the hardware smoke test (services/local-runtime/
+    scripts/hardware_smoke_test.py) to exercise every command in
+    ws_protocol.cpp's dispatch (move_forward / rotate / pen_up / etc with
+    real args) without baking each one into the typed RobotCommandName
+    enum. Optionally awaits the firmware's command_result so the script
+    can sequence blocking moves cleanly."""
+    name: str
+    args: dict[str, Any] | None = None
+    # When True, the endpoint blocks until the firmware acknowledges the
+    # command via command_result (or the timeout fires). Useful for
+    # sequencing moves; set False for fire-and-forget like motor.set
+    # streams.
+    wait: bool = False
+    timeout_s: float = 30.0
+
+
+class RobotRawCommandResponse(BaseModel):
+    sent: bool
+    result: dict[str, Any] | None = None
+    robot_status: str
+
+
 class RobotHelloMessage(BaseModel):
     type: Literal['hello']
     robot_id: str
