@@ -7,16 +7,11 @@ device with a cloud-issued JWT (Phase 2c.1), the firmware's network_hal
 prefers the cloud /ws/robot endpoint and connects here directly — no
 desktop app required.
 
-This commit establishes:
-  - the WS endpoint
-  - JWT-based auth in the hello (verify signature, JTI match against the
-    live devices row, refusing revoked tokens)
-  - a per-device session mailbox so future cloud senders can push
-    commands back to the firmware
-  - last_seen_at touched on every successful connect
-
-It deliberately does NOT yet wire up Spark narration — that comes in
-Phase 2c.3 alongside the companion-phone WS stream.
+Phase 2c.3 added the device hub: this endpoint no longer terminates
+firmware messages, it forwards them through DeviceHub so /ws/control
+controllers (desktop, mobile) see the same telemetry / heartbeats /
+command_results in real time. Cloud is purely a switchboard — no
+orchestration happens here.
 """
 
 from __future__ import annotations
@@ -25,46 +20,18 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any
 
 import jwt as _jwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core.settings import settings
-from app.services import device_tokens
+from app.services import device_hub, device_tokens
 
 logger = logging.getLogger("sketchbot.robot.ws")
 
 router = APIRouter(tags=["robot-ws"])
 
 HELLO_TIMEOUT_SEC = 5
-
-
-# ─── Per-user robot session registry ─────────────────────────────────────────
-# Keyed by device id (UUID string). One robot can be live per device. Future
-# senders (Phase 2c.3 narrator, companion WS stream) read this to find the
-# right WS to push to.
-
-class RobotSession:
-    __slots__ = ("device_id", "serial", "user_id", "websocket", "connected_at")
-
-    def __init__(self, device_id: str, serial: str, user_id: str, websocket: WebSocket):
-        self.device_id = device_id
-        self.serial = serial
-        self.user_id = user_id
-        self.websocket = websocket
-        self.connected_at = time.time()
-
-
-_sessions: dict[str, RobotSession] = {}
-
-
-def get_session(device_id: str) -> RobotSession | None:
-    return _sessions.get(device_id)
-
-
-def sessions_for_user(user_id: str) -> list[RobotSession]:
-    return [s for s in _sessions.values() if s.user_id == user_id]
 
 
 # ─── Auth + DB helpers ───────────────────────────────────────────────────────
@@ -157,7 +124,9 @@ def _touch_last_seen(device_id: str) -> None:
 @router.websocket("/ws/robot")
 async def robot_ws(websocket: WebSocket) -> None:
     await websocket.accept()
-    session: RobotSession | None = None
+    hub = None
+    device_id: str | None = None
+    serial: str = "?"
 
     try:
         # First message MUST be hello with the device JWT.
@@ -187,38 +156,39 @@ async def robot_ws(websocket: WebSocket) -> None:
             await websocket.close(code=4401)
             return
 
-        session = RobotSession(
-            device_id=device["id"],
-            serial=device["serial"],
+        device_id = device["id"]
+        serial = device["serial"]
+
+        # Hub is the rendezvous point with /ws/control subscribers. If the
+        # firmware is reconnecting (e.g. after a reset) we may displace a
+        # stale firmware WS; the hub picks up the new one.
+        hub = await device_hub.get_or_create(
+            device_id=device_id,
+            serial=serial,
             user_id=device["user_id"],
-            websocket=websocket,
         )
-        # Replace any existing session for this device — a fresh connection
-        # always wins (e.g. firmware reset) over a stale one we couldn't
-        # detect a TCP close on.
-        old = _sessions.pop(session.device_id, None)
-        if old is not None and old.websocket is not websocket:
+        old_ws = hub.firmware_ws
+        if old_ws is not None and old_ws is not websocket:
             try:
-                await old.websocket.close(code=4409)
+                await old_ws.close(code=4409)
             except Exception:  # noqa: BLE001
                 pass
-        _sessions[session.device_id] = session
-        _touch_last_seen(session.device_id)
+        await hub.attach_firmware(websocket)
+        _touch_last_seen(device_id)
 
         await websocket.send_text(json.dumps({
             "type": "hello_ack",
             "ok": True,
-            "session_id": f"cloud-robot-{session.device_id}",
+            "session_id": f"cloud-robot-{device_id}",
             "server_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }))
         logger.info(
-            "robot ws: %s connected (user=%s)",
-            session.serial, session.user_id,
+            "robot ws: %s connected (user=%s)", serial, device["user_id"],
         )
 
-        # ── Steady state: receive telemetry/heartbeat/command_result ──────
-        # Phase 2c.3 will subscribe Spark + the companion stream to this
-        # loop. For now we just log so the path is verifiable end-to-end.
+        # ── Steady state: forward firmware messages to controllers ────────
+        # Heartbeats also bump last_seen_at so the admin web's "last seen"
+        # timestamp reflects bot liveness without a separate ping cycle.
         while True:
             text = await websocket.receive_text()
             try:
@@ -227,19 +197,18 @@ async def robot_ws(websocket: WebSocket) -> None:
                 continue
             kind = msg.get("type")
             if kind == "heartbeat":
-                _touch_last_seen(session.device_id)
-            elif kind in ("telemetry", "command_result"):
-                logger.debug("robot ws %s: %s", session.serial, kind)
-            else:
-                logger.debug("robot ws %s: unknown msg %s", session.serial, kind)
+                _touch_last_seen(device_id)
+            # Forward everything (telemetry, heartbeat, command_result, …)
+            # so the controller sees the same firmware-side world the
+            # local-runtime would see.
+            await hub.from_firmware(text)
 
     except WebSocketDisconnect:
         pass
     except Exception:  # noqa: BLE001
         logger.exception("robot ws: unexpected error")
     finally:
-        if session is not None:
-            current = _sessions.get(session.device_id)
-            if current is session:
-                _sessions.pop(session.device_id, None)
-            logger.info("robot ws: %s disconnected", session.serial)
+        if hub is not None and device_id is not None:
+            await hub.detach_firmware(websocket)
+            await device_hub.maybe_drop(device_id)
+            logger.info("robot ws: %s disconnected", serial)
