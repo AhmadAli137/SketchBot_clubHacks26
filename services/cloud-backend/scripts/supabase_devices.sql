@@ -11,13 +11,29 @@
 -- bound to someone else.
 
 CREATE TABLE IF NOT EXISTS public.devices (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  serial          TEXT NOT NULL UNIQUE,
-  name            TEXT,
-  registered_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  last_seen_at    TIMESTAMPTZ
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  serial              TEXT NOT NULL UNIQUE,
+  name                TEXT,
+  registered_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at        TIMESTAMPTZ,
+
+  -- Per-device JWT tracking. The token itself is shown to the user
+  -- exactly once at issuance and never stored in plaintext anywhere
+  -- (handle-once-or-lose-it). We store only the JTI so we can revoke
+  -- a leaked token and reissue a fresh one. token_revoked_at is set
+  -- when the user clicks "rotate" — incoming WS auth checks JTI match
+  -- and rejects revoked tokens.
+  token_jti           UUID,
+  token_issued_at     TIMESTAMPTZ,
+  token_revoked_at    TIMESTAMPTZ
 );
+
+-- For pre-2c.1 deploys that already created the table, add the new
+-- columns idempotently. Safe to re-run.
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS token_jti        UUID;
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS token_issued_at  TIMESTAMPTZ;
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS token_revoked_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS devices_user_id_idx
   ON public.devices(user_id);

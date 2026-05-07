@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, Plus, Trash2, Cpu } from 'lucide-react';
+import { Loader2, Plus, Trash2, Cpu, Key, Copy, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { CLOUD_API_URL } from '@/lib/config';
 
@@ -14,6 +14,14 @@ type Device = {
   name: string | null;
   registered_at: string;
   last_seen_at: string | null;
+  has_token: boolean;
+  token_issued_at: string | null;
+};
+
+type IssuedToken = {
+  device: Device;
+  token: string;
+  expires_at: string;
 };
 
 const SERIAL_PATTERN = /^SKETCH-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}$/;
@@ -38,6 +46,14 @@ export function RobotsCard() {
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Token issuance state. Only one device's token shows at a time; once
+  // dismissed the plaintext is gone forever — caller has to rotate to
+  // see a new one.
+  const [issuingId, setIssuingId] = useState<string | null>(null);
+  const [issued, setIssued] = useState<IssuedToken | null>(null);
+  const [copyConfirmed, setCopyConfirmed] = useState(false);
+  const [issueError, setIssueError] = useState<string | null>(null);
 
   const refresh = async () => {
     setLoadError(null);
@@ -94,6 +110,42 @@ export function RobotsCard() {
     }
   };
 
+  const handleIssueToken = async (id: string) => {
+    setIssuingId(id);
+    setIssueError(null);
+    setCopyConfirmed(false);
+    try {
+      const token = await getToken();
+      if (!token) { setIssueError('Please sign in again.'); return; }
+      const res = await fetch(`${CLOUD_API_URL}/api/devices/${id}/token`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setIssueError((body as { detail?: string }).detail ?? 'Could not issue a token.');
+        return;
+      }
+      setIssued(body as IssuedToken);
+      // Refresh list to show "token issued" indicator on the row.
+      await refresh();
+    } catch {
+      setIssueError('Network error — please try again.');
+    } finally {
+      setIssuingId(null);
+    }
+  };
+
+  const handleCopyToken = async () => {
+    if (!issued) return;
+    try {
+      await navigator.clipboard.writeText(issued.token);
+      setCopyConfirmed(true);
+    } catch {
+      setIssueError('Could not copy. Select the token and copy manually.');
+    }
+  };
+
   const handleUnclaim = async (id: string) => {
     if (!confirm('Release this robot from your account? Anyone can claim it again afterwards.')) return;
     try {
@@ -118,6 +170,72 @@ export function RobotsCard() {
         Each robot has a serial number — printed on the unit and shown in the desktop app when it&apos;s connected.
         Bind the serial to your account here so it can run AI-tutored programs.
       </p>
+
+      {/* ── One-time token reveal ───────────────────────────────────── */}
+      {issued && (
+        <div
+          role="alert"
+          style={{
+            position: 'relative',
+            padding: '14px 16px',
+            marginBottom: 16,
+            borderRadius: 10,
+            border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)',
+            background: 'color-mix(in srgb, var(--amber) 8%, transparent)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => { setIssued(null); setCopyConfirmed(false); }}
+            title="Dismiss"
+            style={{
+              position: 'absolute', top: 8, right: 8,
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: 'var(--muted)', padding: 4,
+            }}
+          >
+            <X size={14} />
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: '0.9rem', fontWeight: 600 }}>
+            <Key size={14} />
+            Connection token for {issued.device.serial}
+          </div>
+          <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0 0 10px 0' }}>
+            Copy it now — once you close this banner the token can&apos;t be recovered.
+            If you lose it, click <em>Rotate token</em> to issue a new one.
+          </p>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
+            <code
+              style={{
+                flex: 1,
+                padding: '8px 10px',
+                borderRadius: 6,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                fontFamily: 'var(--font-mono, monospace)',
+                fontSize: '0.78rem',
+                wordBreak: 'break-all',
+                userSelect: 'all',
+              }}
+            >
+              {issued.token}
+            </code>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleCopyToken}
+              title="Copy to clipboard"
+            >
+              {copyConfirmed ? <Check size={13} /> : <Copy size={13} />}
+              {copyConfirmed ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <p style={{ fontSize: '0.74rem', color: 'var(--muted)', margin: '8px 0 0 0' }}>
+            Expires {new Date(issued.expires_at).toLocaleDateString()}.
+          </p>
+        </div>
+      )}
+      {issueError && <p style={{ fontSize: '0.78rem', color: '#ef4444', marginBottom: 12 }}>{issueError}</p>}
 
       {/* ── Existing list ───────────────────────────────────────────── */}
       {devices === null ? (
@@ -145,18 +263,38 @@ export function RobotsCard() {
                 <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
                   {d.name ?? <em>unnamed</em>}{' · '}
                   registered {new Date(d.registered_at).toLocaleDateString()}
+                  {d.has_token && (
+                    <>
+                      {' · '}
+                      <span style={{ color: 'var(--green)' }}>token live</span>
+                    </>
+                  )}
                 </div>
               </div>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => handleUnclaim(d.id)}
-                title="Release this robot"
-                style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
-              >
-                <Trash2 size={13} />
-                Release
-              </button>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => handleIssueToken(d.id)}
+                  disabled={issuingId === d.id}
+                  title={d.has_token ? 'Rotate the connection token (invalidates the old one)' : 'Issue a connection token for this robot'}
+                >
+                  {issuingId === d.id
+                    ? <Loader2 size={13} style={{ animation: 'spin 0.9s linear infinite' }} />
+                    : <Key size={13} />}
+                  {d.has_token ? 'Rotate token' : 'Get token'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => handleUnclaim(d.id)}
+                  title="Release this robot"
+                  style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
+                >
+                  <Trash2 size={13} />
+                  Release
+                </button>
+              </div>
             </li>
           ))}
         </ul>

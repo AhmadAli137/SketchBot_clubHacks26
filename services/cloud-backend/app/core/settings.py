@@ -52,6 +52,16 @@ class Settings:
             os.getenv("TUTOR_PERSIST_ENABLED", "").strip().lower() in ("1", "true", "yes")
         )
 
+
+
+        # Per-device JWT signing key. Generated once with
+        #   python -c "import secrets; print(secrets.token_urlsafe(48))"
+        # and stored in the cloud-backend env. Tokens are HS256 — same
+        # key signs and verifies. If unset in skip_auth/dev mode, a
+        # process-local random key is used so endpoints don't 500;
+        # restarts invalidate dev tokens, which is correct behaviour.
+        self.device_jwt_secret = os.getenv("DEVICE_JWT_SECRET", "")
+
         # Stripe — payment processing (optional; paywall stubs work without it)
         self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY", "")
         self.stripe_webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
