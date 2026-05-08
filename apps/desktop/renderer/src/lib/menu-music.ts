@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { getAudioSettings, onAudioSettingsChange } from './audio-settings';
 
 // ─── Timing ───────────────────────────────────────────────────────────────────
 const BPM       = 148;
@@ -427,6 +428,11 @@ export function useMenuMusic(paused = false) {
   const [muted, setMuted] = useState(false);
   const ctxRef = useRef<AudioContext | null>(null);
   const srcRef = useRef<AudioBufferSourceNode | null>(null);
+  // Two-stage gain so the artistic fade-in envelope (0→0.30 over 1.2s)
+  // and the user's volume slider don't fight each other. envelopeGain
+  // owns the fade and never changes after kickoff; userGain gets
+  // live-set by the audio-settings listener.
+  const userGainRef = useRef<GainNode | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -436,6 +442,7 @@ export function useMenuMusic(paused = false) {
       srcRef.current = null;
       try { ctxRef.current?.close(); } catch { /* ok */ }
       ctxRef.current = null;
+      userGainRef.current = null;
     };
 
     if (muted || paused) { stopAll(); return; }
@@ -445,10 +452,17 @@ export function useMenuMusic(paused = false) {
       ctxRef.current = ctx;
       void ctx.resume();
 
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.30, ctx.currentTime + 1.2);
-      gain.connect(ctx.destination);
+      // Source → envelopeGain → userGain → destination.
+      const envelopeGain = ctx.createGain();
+      envelopeGain.gain.setValueAtTime(0, ctx.currentTime);
+      envelopeGain.gain.linearRampToValueAtTime(0.30, ctx.currentTime + 1.2);
+
+      const userGain = ctx.createGain();
+      userGain.gain.value = getAudioSettings().musicVolume;
+      userGainRef.current = userGain;
+
+      envelopeGain.connect(userGain);
+      userGain.connect(ctx.destination);
 
       const switchTo = async (buffer: AudioBuffer) => {
         if (cancelled || ctxRef.current !== ctx) return;
@@ -458,7 +472,7 @@ export function useMenuMusic(paused = false) {
         const newSrc = ctx.createBufferSource();
         newSrc.buffer = buffer;
         newSrc.loop = true;
-        newSrc.connect(gain);
+        newSrc.connect(envelopeGain);
         newSrc.start();
         const old = srcRef.current;
         srcRef.current = newSrc;
@@ -481,6 +495,21 @@ export function useMenuMusic(paused = false) {
       stopAll();
     };
   }, [muted, paused]);
+
+  // Live-react to slider drags. Tiny ramp so dragging doesn't click.
+  useEffect(() => {
+    return onAudioSettingsChange((s) => {
+      const ug = userGainRef.current;
+      const ctx = ctxRef.current;
+      if (!ug || !ctx) return;
+      try {
+        ug.gain.cancelScheduledValues(ctx.currentTime);
+        ug.gain.setTargetAtTime(s.musicVolume, ctx.currentTime, 0.03);
+      } catch {
+        ug.gain.value = s.musicVolume;
+      }
+    });
+  }, []);
 
   return { muted, toggleMute: () => setMuted(m => !m) };
 }

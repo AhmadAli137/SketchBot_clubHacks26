@@ -32,6 +32,7 @@ import { emitSparkEvent, onSparkEvent } from '@/lib/spark-events';
 import { playSfx } from '@/lib/game-audio';
 import { useSparkTick } from '@/lib/use-spark-tick';
 import { getAgenticSettings, onAgenticSettingsChange } from '@/lib/agentic-settings';
+import { getAudioSettings, onAudioSettingsChange } from '@/lib/audio-settings';
 import { sparkBehavior } from '@/lib/spark-behavior';
 import { appendSessionSummary } from '@/lib/spark-memory';
 import { useInterjectionTracker, trackInterjectionStart } from '@/lib/use-interjection-tracker';
@@ -670,6 +671,9 @@ function useTTS({ apiBase, cloudApiBase, authToken, backendReachable }: TTSOptio
     if (!audioRef.current) {
       const audio = new Audio();
       audio.preload = 'auto';
+      // Apply the persisted Spark voice volume on creation, then keep it
+      // in sync with live drags from the account-panel slider.
+      audio.volume = getAudioSettings().tutorVolume;
       audio.addEventListener('play', () => setSpeaking(true));
       audio.addEventListener('pause', () => {
         // Only clear "speaking" when the pause wasn't caused by a queue advance.
@@ -678,6 +682,9 @@ function useTTS({ apiBase, cloudApiBase, authToken, backendReachable }: TTSOptio
       audio.addEventListener('error', () => setSpeaking(false));
       audioRef.current = audio;
     }
+    return onAudioSettingsChange((s) => {
+      if (audioRef.current) audioRef.current.volume = s.tutorVolume;
+    });
   }, []);
 
   useEffect(() => {

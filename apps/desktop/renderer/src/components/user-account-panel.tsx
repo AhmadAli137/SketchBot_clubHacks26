@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { LogOut, X, Trophy, Zap, Flame, BookOpen, ExternalLink, Sparkles, Cpu } from 'lucide-react';
+import { LogOut, X, Trophy, Zap, Flame, BookOpen, ExternalLink, Sparkles, Cpu, Music, Volume2, VolumeX } from 'lucide-react';
 import type { AuthRole } from '@/components/auth-screen';
 import { getProgressSummary, getStudentProgress } from '@/lib/progress-store';
 import { StudentProfileAvatar } from '@/components/student-profile-avatar';
@@ -12,6 +12,12 @@ import {
   setAgenticTutorEnabled,
   onAgenticSettingsChange,
 } from '@/lib/agentic-settings';
+import {
+  getAudioSettings,
+  setMusicVolume,
+  setTutorVolume,
+  onAudioSettingsChange,
+} from '@/lib/audio-settings';
 
 const PRICING_URL = 'https://sayspark.ca/pricing';
 const ACCOUNT_URL = 'https://sayspark.ca/account';
@@ -60,6 +66,12 @@ export function UserAccountPanel({ role, name, email, robotSerial, onSignOut, on
     getAgenticSettings().agenticTutorEnabled,
   );
   useEffect(() => onAgenticSettingsChange((s) => setAgenticEnabled(s.agenticTutorEnabled)), []);
+
+  // Music + Spark voice volumes. The slider drives the localStorage-
+  // backed audio-settings store; menu-music and tutor-panel TTS both
+  // subscribe to it and react in real time.
+  const [audio, setAudio] = useState(() => getAudioSettings());
+  useEffect(() => onAudioSettingsChange(setAudio), []);
 
   const xpPct = progress ? Math.round(progress.progress * 100) : 0;
   const credPct = entitlements
@@ -221,6 +233,49 @@ export function UserAccountPanel({ role, name, email, robotSerial, onSignOut, on
             </a>
           </div>
         )}
+
+        {/* Volume sliders — music + Spark's voice. Live-applied; drag to
+            preview. Values persist in localStorage so quiet households
+            don't have to re-set every session. */}
+        <div className="account-panel-volume-row">
+          <div className="account-panel-volume-head">
+            <Music size={13} />
+            <span className="account-panel-volume-label">Music</span>
+            <span className="account-panel-volume-value">{Math.round(audio.musicVolume * 100)}%</span>
+          </div>
+          <div className="account-panel-volume-track">
+            {audio.musicVolume === 0 ? <VolumeX size={12} /> : <Volume2 size={12} />}
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(audio.musicVolume * 100)}
+              onChange={(e) => setMusicVolume(Number(e.target.value) / 100)}
+              aria-label="Music volume"
+              className="account-panel-volume-slider"
+            />
+          </div>
+        </div>
+
+        <div className="account-panel-volume-row">
+          <div className="account-panel-volume-head">
+            <Sparkles size={13} />
+            <span className="account-panel-volume-label">Spark&apos;s voice</span>
+            <span className="account-panel-volume-value">{Math.round(audio.tutorVolume * 100)}%</span>
+          </div>
+          <div className="account-panel-volume-track">
+            {audio.tutorVolume === 0 ? <VolumeX size={12} /> : <Volume2 size={12} />}
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(audio.tutorVolume * 100)}
+              onChange={(e) => setTutorVolume(Number(e.target.value) / 100)}
+              aria-label="Spark's voice volume"
+              className="account-panel-volume-slider"
+            />
+          </div>
+        </div>
 
         {/* Agentic tutor parent toggle. Hidden for guest accounts since
             it's most relevant to households where a parent is making the

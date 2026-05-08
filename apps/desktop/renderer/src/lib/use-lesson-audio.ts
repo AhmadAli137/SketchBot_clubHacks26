@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LessonStep } from './lesson-types';
 import { CLOUD_API_URL, cloudHeaders } from './cloud-api';
+import { getAudioSettings, onAudioSettingsChange } from './audio-settings';
 
 type UseLessonAudioOptions = {
   apiBase: string;
@@ -39,6 +40,10 @@ export function useLessonAudio({ apiBase, authToken = null, enabled = true, voic
   useEffect(() => {
     if (!audioRef.current && typeof window !== 'undefined') {
       audioRef.current = new Audio();
+      // Same Spark-voice volume as tutor-panel — both feed off
+      // audio-settings.tutorVolume so a single slider controls all
+      // tutor speech regardless of which surface is talking.
+      audioRef.current.volume = getAudioSettings().tutorVolume;
       audioRef.current.addEventListener('play', () => setIsSpeaking(true));
       audioRef.current.addEventListener('ended', () => setIsSpeaking(false));
       audioRef.current.addEventListener('pause', () => setIsSpeaking(false));
@@ -46,6 +51,12 @@ export function useLessonAudio({ apiBase, authToken = null, enabled = true, voic
     }
     return cleanup;
   }, [cleanup]);
+
+  useEffect(() => {
+    return onAudioSettingsChange((s) => {
+      if (audioRef.current) audioRef.current.volume = s.tutorVolume;
+    });
+  }, []);
 
   const speakStep = useCallback(async (step: LessonStep | null) => {
     cleanup();
