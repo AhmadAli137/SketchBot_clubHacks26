@@ -3864,3 +3864,213 @@ body::before {
 .dl-req-icon { font-size: 1.1rem; text-align: center; }
 .dl-req-label { font-weight: 700; color: var(--text, #e2e8f0); }
 .dl-req-value { color: var(--text-muted, #94a3b8); }
+
+/* ─── Companion (mobile-first) ────────────────────────────────────────────
+   Phone-shaped layout: full-screen, tight horizontal padding, comfortable
+   touch targets. Designed to live on a kid's hand-held screen so most of
+   the chrome (header, stage) hugs the safe area rather than a desktop nav.
+*/
+.companion-shell {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, #0d0f14);
+  color: var(--fg, #e2e8f0);
+  padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom);
+}
+
+.companion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+.companion-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.companion-back:hover { color: var(--fg); }
+.companion-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--fg);
+  letter-spacing: 0.02em;
+}
+
+.companion-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 80px 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.companion-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.companion-picker-prompt {
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin: 4px 0 8px 0;
+}
+.companion-device-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.companion-device-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, transform 0.06s;
+}
+.companion-device-card:hover {
+  border-color: rgba(168, 85, 247, 0.4);
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+}
+.companion-device-card:active { transform: scale(0.985); }
+.companion-device-text {
+  flex: 1;
+  min-width: 0;
+}
+.companion-device-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.companion-device-serial {
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+.companion-device-ready {
+  color: var(--green, #22c55e);
+  font-size: 0.85rem;
+}
+.companion-device-notoken {
+  color: var(--amber, #f59e0b);
+  font-weight: 700;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--amber) 15%, transparent);
+  font-size: 0.75rem;
+}
+.companion-picker-hint {
+  font-size: 0.74rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 8px 0 0 0;
+}
+.companion-picker-hint a { color: var(--blue-2); }
+
+.companion-connected {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+.companion-status-card {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.companion-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.companion-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  width: fit-content;
+}
+.companion-status-pill.is-connecting {
+  background: color-mix(in srgb, var(--blue-2) 15%, transparent);
+  color: var(--blue-2);
+}
+.companion-status-pill.is-connected {
+  background: color-mix(in srgb, var(--green) 15%, transparent);
+  color: var(--green);
+}
+.companion-status-pill.is-error {
+  background: color-mix(in srgb, #ef4444 15%, transparent);
+  color: #ef4444;
+}
+.companion-status-pill.is-idle {
+  background: rgba(255,255,255,0.06);
+  color: var(--muted);
+}
+.companion-status-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.companion-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  border: 1px dashed var(--border);
+  background: color-mix(in srgb, var(--surface) 30%, transparent);
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--muted);
+}
+.companion-stage-placeholder p { margin: 0; }
+
+@media (min-width: 720px) {
+  /* Centred column on desktop / tablet so it doesn't sprawl across a
+     full monitor when an admin or parent opens it on their laptop. */
+  .companion-shell {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+}
