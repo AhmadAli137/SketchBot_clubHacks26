@@ -37,6 +37,7 @@ import type { CameraBuddyPage } from './src/screens/types';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { TutorPanel } from './src/screens/TutorPanel';
 import { StudentProgressBadge } from './src/screens/StudentProgressBadge';
+import { SparkCompanion } from './src/screens/SparkCompanion';
 
 const STORAGE_KEY = 'sketchbot-camera-buddy-room';
 const DEFAULT_PORT = '8787';
@@ -1031,6 +1032,13 @@ export default function App() {
     );
   };
 
+  const openSparkPage = () => {
+    // Phase 2c.4a — "Talk to your robot" voice mode. SparkCompanion
+    // owns its own internal state machine, so we just flip the page.
+    setError(null);
+    setCurrentPage('spark');
+  };
+
   const openConnectPage = () => {
     setScanFrame(null);
     setPendingRoomUrl(null);
@@ -1358,6 +1366,12 @@ export default function App() {
         <ScrollView contentContainerStyle={[styles.container, isLandscape ? styles.containerLandscape : null]}>
           {currentPage === 'splash' ? (
             <SplashScreen splashFloatAnim={splashFloatAnim} splashPulseAnim={splashPulseAnim} />
+          ) : currentPage === 'spark' ? (
+            // Voice companion mode (Phase 2c.4a). The screen is fully self-
+            // contained — its internal state machine handles setup,
+            // device picker, WS connection, and connected view. We just
+            // give it a back-handle to return to the menu.
+            <SparkCompanion onBack={() => setCurrentPage('menu')} />
           ) : currentPage === 'menu' ? (
             <>
               <View style={styles.heroCard}>
@@ -1408,6 +1422,22 @@ export default function App() {
                   <View style={styles.menuCardFooter}>
                     <View style={[styles.menuCardActionPill, styles.menuCardActionPillSoft]}>
                       <Text style={styles.menuCardActionText}>Resume</Text>
+                    </View>
+                  </View>
+                </Pressable>
+
+                {/* Phase 2c.4a — voice mode entry point. Connects through
+                    the cloud /ws/control relay rather than the LAN
+                    classroom path the other two cards use. */}
+                <Pressable style={styles.menuCard} onPress={openSparkPage}>
+                  <Text style={styles.menuEyebrow}>New</Text>
+                  <Text style={styles.menuTitle}>Talk to your robot</Text>
+                  <Text style={styles.menuCopy}>
+                    Voice-control your bot from anywhere. Sign in to your SaySpark account and pick a registered robot.
+                  </Text>
+                  <View style={styles.menuCardFooter}>
+                    <View style={[styles.menuCardActionPill, styles.menuCardActionPillSoft]}>
+                      <Text style={styles.menuCardActionText}>Open Spark</Text>
                     </View>
                   </View>
                 </Pressable>
