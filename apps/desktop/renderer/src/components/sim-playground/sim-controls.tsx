@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Play, Pause, Square, RotateCcw, SkipForward } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, SkipForward, Bot } from 'lucide-react';
 
 import { gridToWorldRendered, type SceneObject } from '@/lib/scene-builder';
 import { subscribeProgram, clearProgram } from '@/lib/program-store';
@@ -23,6 +23,7 @@ import {
   isProgramPaused, pauseProgram, resumeProgram, onPauseChange,
   setStepMode, advanceStep,
 } from '@/lib/program-executor';
+import { isRobotMode, setRobotMode, onRobotModeChange } from '@/lib/program-robot-bridge';
 import { onSparkEvent } from '@/lib/spark-events';
 import { syncPoseToPlacement, stopAllMotors } from './bot-drive';
 
@@ -31,12 +32,26 @@ type Props = {
   getActiveBotId?: () => string | null;
   /** Live scene objects — used to find the Start marker for Reset. */
   sceneObjects: SceneObject[];
+  /** Per-unit serial of the paired chassis (e.g. SKETCH-A1B2-C3D4).
+   *  Null when no real bot is on the LAN — the Run-on-Robot toggle is
+   *  visually disabled in that case with a tooltip pointing the user to
+   *  the home-screen Pair Robot flow. */
+  robotSerial?: string | null;
 };
 
-export function SimControls({ getActiveBotId, sceneObjects }: Props) {
+export function SimControls({ getActiveBotId, sceneObjects, robotSerial = null }: Props) {
   const [hasBlocks, setHasBlocks] = useState(false);
   const [paused, setPaused] = useState(isProgramPaused());
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [robotOn, setRobotOn] = useState(isRobotMode());
+
+  useEffect(() => onRobotModeChange(setRobotOn), []);
+  // If the bot drops off the LAN while Run-on-Robot is on, flip it off
+  // so a half-disconnected state can't quietly send commands into the
+  // void. Same defensive pattern ProgramView uses.
+  useEffect(() => {
+    if (!robotSerial && robotOn) setRobotMode(false);
+  }, [robotSerial, robotOn]);
   // True when the executor is paused BETWEEN blocks waiting for Step
   // to advance. Distinct from `paused` (which is mid-block freeze) —
   // the UI shows them differently because step-paused means "tap Step
@@ -183,6 +198,30 @@ export function SimControls({ getActiveBotId, sceneObjects }: Props) {
         title="Reset bot to Start"
       >
         <RotateCcw size={16} />
+      </button>
+
+      {/* Run on Robot — toggles mirroring of motor.set setpoints to the
+          paired chassis over the LAN. A short separator before this
+          button signals it's a different concern (target swap) than
+          the transport controls (play/stop/reset on the current sink). */}
+      <span className="sim-controls-sep" aria-hidden />
+      <button
+        type="button"
+        className={`sim-controls-btn sim-controls-btn-robot${robotOn ? ' is-on' : ''}`}
+        onClick={() => {
+          if (!robotSerial) return;
+          setRobotMode(!robotOn);
+        }}
+        disabled={!robotSerial}
+        title={!robotSerial
+          ? 'No robot paired. Open the home screen and tap "Pair Robot" first.'
+          : robotOn
+            ? `Mirroring motor commands to ${robotSerial}. Click to send to simulator only.`
+            : `Click to mirror this program's motor commands to ${robotSerial}.`}
+        aria-pressed={robotOn}
+        aria-label={robotOn ? 'Run on robot — on' : 'Run on robot — off'}
+      >
+        <Bot size={16} />
       </button>
     </div>
   );

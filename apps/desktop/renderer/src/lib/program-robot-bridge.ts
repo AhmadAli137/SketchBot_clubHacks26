@@ -55,7 +55,7 @@ export function setBridgeApiBase(apiBase: string): void {
 let _lastSentLeft  = NaN;
 let _lastSentRight = NaN;
 let _lastSentAt    = 0;
-const MIN_INTERVAL_MS = 33;        // ≈ 30 Hz cap
+const MIN_INTERVAL_MS = 33;        // ≈ 30 Hz cap — same-value rate limit
 
 async function postMotor(left: number, right: number): Promise<void> {
   try {
@@ -84,9 +84,19 @@ registerMotorHook((botId, left, right) => {
   const now    = performance.now();
   const tooSoon = now - _lastSentAt < MIN_INTERVAL_MS;
 
-  // Always send stops (cheap insurance the bot actually halts at block
-  // end). Otherwise dedupe + throttle.
-  if (!isStop && (same || tooSoon)) return;
+  // Send rules:
+  //   - Stops: always send (cheap insurance the bot actually halts).
+  //   - Different setpoint than last sent: ALWAYS send, even if within
+  //     33 ms of the last send. The executor only calls setMotors once
+  //     per block (at apply()) — if a Turn block arrives 1 ms after the
+  //     preceding hardStop's (0,0), throttling it would mean the first
+  //     turn command never reaches the bot and the wheels never get
+  //     told to pivot. Drive→Turn would look like drive-only on real
+  //     hardware. (See bug discussion 2026-05-11.)
+  //   - Same setpoint as last sent: throttle to 30 Hz. This protects
+  //     against any future tight-loop callers that might fire
+  //     setMotors at frame rate with an unchanging value.
+  if (!isStop && same && tooSoon) return;
 
   _lastSentLeft  = left;
   _lastSentRight = right;

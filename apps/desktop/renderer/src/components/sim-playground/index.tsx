@@ -78,6 +78,10 @@ type SimPlaygroundProps = {
   builderAvailable?: boolean;
   /** Used to scope user-template storage. */
   studentName?: string;
+  /** Per-unit firmware serial; null until the firmware has shaken
+   *  hands. Passed through to ProgramView so "Run on Robot" is only
+   *  available when a chassis is actually reachable. */
+  robotSerial?: string | null;
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -96,6 +100,7 @@ export function SimPlayground({
   onSceneObjectsChange,
   builderAvailable = false,
   studentName = '',
+  robotSerial = null,
 }: SimPlaygroundProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [showGrid, setShowGrid] = useState(true);
@@ -607,7 +612,7 @@ export function SimPlayground({
                 tutor builds steps from spoken rules. ProgramView's own
                 empty-state handles "tell Spark what to do" prompting. */}
             <div className="program-strip-floating">
-              <ProgramView compact />
+              <ProgramView compact robotSerial={robotSerial} />
             </div>
 
             {/* Transport controls — bottom-center, video-player style.
@@ -615,6 +620,7 @@ export function SimPlayground({
             <SimControls
               getActiveBotId={() => sceneObjects.find((o) => o.type === 'bot')?.id ?? null}
               sceneObjects={sceneObjects}
+              robotSerial={robotSerial}
             />
 
             {/* Builder rail overlay (sandbox only) */}

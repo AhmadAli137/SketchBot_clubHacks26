@@ -16463,6 +16463,38 @@ select.block-param-input{width:auto;padding-right:20px}
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.60), rgba(245, 158, 11, 0.45));
   border-color: rgba(245, 158, 11, 0.85);
 }
+/* Visual separator between transport controls and target swap. Just a
+   thin vertical line so the eye groups the bot-icon button apart. */
+.sim-controls-sep {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 2px;
+}
+/* Run-on-Robot toggle. Lives inside the transport pill so the kid
+   doesn't have to look elsewhere to flip targets. Cyan when off
+   (matches the pill's accent), warmer + glowing when on so the kid
+   notices the bot is about to move in real life. */
+.sim-controls-btn-robot {
+  position: relative;
+}
+.sim-controls-btn-robot.is-on {
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.45), rgba(168, 85, 247, 0.40));
+  border-color: rgba(93, 228, 255, 0.85);
+  color: #ffffff;
+  box-shadow:
+    0 0 0 1px rgba(93, 228, 255, 0.55),
+    0 0 14px rgba(93, 228, 255, 0.55);
+  animation: sim-robot-glow 2.2s ease-in-out infinite;
+}
+.sim-controls-btn-robot.is-on:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(93, 228, 255, 0.60), rgba(168, 85, 247, 0.50));
+  border-color: rgba(93, 228, 255, 1);
+}
+@keyframes sim-robot-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(93, 228, 255, 0.55), 0 0 14px rgba(93, 228, 255, 0.55); }
+  50%      { box-shadow: 0 0 0 1px rgba(93, 228, 255, 0.85), 0 0 22px rgba(93, 228, 255, 0.85); }
+}
 /* Step button glows when the executor is paused-between-blocks waiting
    for an advance — signals "tap me to run the next block". */
 .sim-controls-btn.is-step-ready {
@@ -16639,6 +16671,13 @@ select.block-param-input{width:auto;padding-right:20px}
 .program-view-btn-robot.on:hover {
   background: rgba(93, 228, 255, 0.22);
   border-color: rgba(93, 228, 255, 0.75);
+}
+.program-view-btn-robot.disabled,
+.program-view-btn-robot:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(148, 163, 184, 0.06);
+  border-color: rgba(148, 163, 184, 0.15);
 }
 
 .program-view-empty {
@@ -17210,5 +17249,261 @@ select.block-param-input{width:auto;padding-right:20px}
   color: var(--muted);
   text-decoration: line-through;
   text-decoration-color: rgba(255,255,255,0.2);
+}
+
+/* ─── Sandbox live-preview hero ─────────────────────────────────────────────
+   Replaces the older illustrated SandboxHeroScene. Two columns on desktop
+   (preview thumbnail | body), one column on narrow viewports. Small Spark
+   avatar floats in the corner so the page keeps personality without eating
+   half the screen. */
+.sandbox-live-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) 1fr;
+  gap: 24px;
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto 24px;
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(120, 140, 255, 0.18);
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(168, 85, 247, 0.08) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(7, 10, 28, 0.55) 0%, rgba(5, 8, 22, 0.4) 100%);
+  box-shadow: 0 12px 32px rgba(5, 8, 22, 0.35);
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .sandbox-live-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sandbox-live-hero-preview {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  border: 1px solid rgba(120, 140, 255, 0.2);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.5) 0%, rgba(5, 8, 22, 0.6) 100%);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  display: block;
+}
+
+.sandbox-live-hero-preview-svg {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+.sandbox-live-hero-preview-svg :is(svg) {
+  width: 100%;
+  height: 100%;
+}
+
+.sandbox-live-hero-preview-empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.sandbox-live-hero-preview-empty > span:first-child {
+  font-size: 2rem;
+}
+.sandbox-live-hero-preview-empty-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sandbox-live-hero-pulse {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(74, 222, 128);
+  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.18);
+  animation: live-hero-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes live-hero-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.18); }
+  50%      { box-shadow: 0 0 0 7px rgba(74, 222, 128, 0.05); }
+}
+
+.sandbox-live-hero-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sandbox-live-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: rgb(216, 180, 254);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sandbox-live-hero-title {
+  margin: 4px 0 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sandbox-live-hero-teaser {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sandbox-live-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.sandbox-live-hero-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(120, 140, 255, 0.08);
+  border: 1px solid rgba(120, 140, 255, 0.15);
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.sandbox-live-hero-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sandbox-live-hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.sandbox-live-hero-cta:hover { transform: translateY(-1px); }
+.sandbox-live-hero-cta:active { transform: translateY(0); }
+
+.sandbox-live-hero-cta--primary {
+  background: linear-gradient(135deg, rgb(168, 85, 247) 0%, rgb(107, 124, 255) 100%);
+  color: #fff;
+  border: 1px solid rgba(168, 85, 247, 0.6);
+  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.3);
+}
+.sandbox-live-hero-cta--primary:hover {
+  box-shadow: 0 10px 28px rgba(168, 85, 247, 0.4);
+}
+
+.sandbox-live-hero-cta--ghost {
+  background: rgba(120, 140, 255, 0.06);
+  color: var(--text);
+  border: 1px solid rgba(120, 140, 255, 0.2);
+}
+.sandbox-live-hero-cta--ghost:hover {
+  background: rgba(120, 140, 255, 0.12);
+  border-color: rgba(120, 140, 255, 0.4);
+}
+
+.sandbox-live-hero-spark {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+@media (max-width: 720px) {
+  .sandbox-live-hero-spark { display: none; }
+}
+
+.sandbox-live-hero--empty {
+  grid-template-columns: 1fr;
+  min-height: 180px;
+}
+.sandbox-live-hero-empty-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 520px;
+}
+.sandbox-live-hero-empty-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* ─── Sessions horizontal strip ───────────────────────────────────────────
+   When the live hero owns the "current" session, the gallery below
+   becomes a horizontal scroll of everything else. */
+.sessions-gallery--strip {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  grid-template-columns: none;
+  scroll-snap-type: x proximity;
+}
+.sessions-gallery--strip > * {
+  flex: 0 0 220px;
+  scroll-snap-align: start;
+}
+.sessions-gallery--strip::-webkit-scrollbar { height: 8px; }
+.sessions-gallery--strip::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 255, 0.2);
+  border-radius: 4px;
+}
+
+.session-tile--new-compact {
+  flex: 0 0 140px !important;
+  min-height: 180px;
+  padding: 16px 12px;
+}
+.session-tile--new-compact .session-tile-new-icon {
+  width: 44px;
+  height: 44px;
+  font-size: 1.4rem;
+}
+.session-tile--new-compact .session-tile-new-label {
+  font-size: 0.92rem;
 }
 
