@@ -16762,3 +16762,209 @@ select.block-param-input{width:auto;padding-right:20px}
   gap: 4px;
 }
 
+/* ─── Robot pairing card ───────────────────────────────────────────────────
+   Top-of-home moment when an unclaimed bot lands on the LAN. The icon +
+   body sit on a soft gradient panel with a small accent ring so it reads
+   as a friendly invitation rather than a system alert. */
+.pairing-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 16px;
+  align-items: start;
+  padding: 18px 22px;
+  margin: 18px 24px 0;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--cyan) 25%, transparent);
+  background:
+    radial-gradient(140% 100% at 0% 0%, color-mix(in srgb, var(--cyan) 14%, transparent), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  box-shadow:
+    0 18px 40px -28px rgba(0, 220, 255, 0.55),
+    0 2px 0 rgba(255,255,255,0.04) inset;
+  overflow: hidden;
+}
+.pairing-card-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.pairing-card-close:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg);
+}
+.pairing-card-close:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.pairing-card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--cyan) 16%, transparent);
+  color: var(--cyan);
+  border: 1px solid color-mix(in srgb, var(--cyan) 30%, transparent);
+}
+.pairing-card-body {
+  min-width: 0;
+}
+.pairing-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 4px;
+  letter-spacing: -0.005em;
+}
+.pairing-card-sub {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+.pairing-card-serial {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: var(--fg);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 2px;
+}
+.pairing-card-nickname-row {
+  margin-bottom: 12px;
+}
+.pairing-card-input {
+  width: 100%;
+  max-width: 280px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--fg);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.pairing-card-input:focus {
+  border-color: color-mix(in srgb, var(--cyan) 60%, transparent);
+}
+.pairing-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pairing-card-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, var(--cyan), color-mix(in srgb, var(--cyan) 60%, var(--purple, #a855f7)));
+  color: #06121a;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.08s, filter 0.15s, opacity 0.15s;
+}
+.pairing-card-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.pairing-card-btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.pairing-card-btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pairing-card-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.pairing-card-btn-ghost:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--fg);
+}
+.pairing-card-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Per-step progress list. Bullets fill in as each step lands. */
+.pairing-card-steps {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pairing-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.pairing-step-bullet {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.pairing-step.is-active .pairing-step-bullet {
+  background: color-mix(in srgb, var(--cyan) 18%, transparent);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.pairing-step.is-active .pairing-step-label {
+  color: var(--fg);
+}
+.pairing-step.is-done .pairing-step-bullet {
+  background: color-mix(in srgb, var(--green, #22c55e) 22%, transparent);
+  border-color: var(--green, #22c55e);
+  color: var(--green, #22c55e);
+}
+.pairing-step.is-done .pairing-step-label {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255,255,255,0.2);
+}
+
+/* Subtle success glow — fades up on success state */
+.pairing-card-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--green, #22c55e) 28%, transparent), transparent 60%);
+  border-radius: inherit;
+  mix-blend-mode: screen;
+}
+

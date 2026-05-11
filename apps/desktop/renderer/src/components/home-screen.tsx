@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText, BookOpen, HelpCircle, ArrowLeft, Cpu, Plus } from 'lucide-react';
 
+import { useCloudAuthToken } from '@/lib/cloud-api';
+import { usePairedDevices } from '@/lib/use-paired-devices';
+import { RobotPairingCard } from '@/components/robot-pairing-card';
+
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { useGuidedTour } from '@/components/guided-tour/guided-tour-context';
 
@@ -119,6 +123,41 @@ export function HomeScreen({
   // Sandbox-style rendering: guests always get it; signed-in users get it
   // when they entered through the Just Play card on the plan picker.
   const isSandboxView = role === 'guest' || forceSandboxView;
+
+  // ── Robot pairing — detect "real bot on the LAN, not yet in this user's
+  //     account" and surface the one-tap pair card. Guests can't pair
+  //     (no auth), so the hook is disabled for them.
+  const cloudAuthToken = useCloudAuthToken();
+  const { isClaimedByMe, refresh: refreshPairedDevices } = usePairedDevices({
+    authToken: cloudAuthToken,
+    enabled: role !== 'guest',
+  });
+  const [dismissedSerials, setDismissedSerials] = useState<Set<string>>(() => {
+    // Per-session dismissals — kid hits X once, card stays gone until
+    // the app restarts. Cleared per-launch on purpose so a new install
+    // never has invisible pairing prompts.
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = window.sessionStorage.getItem('sketchbot.dismissed-pairs');
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const dismissPairing = (serial: string) => {
+    setDismissedSerials((prev) => {
+      const next = new Set(prev);
+      next.add(serial);
+      try {
+        window.sessionStorage.setItem('sketchbot.dismissed-pairs', JSON.stringify([...next]));
+      } catch { /* ignore */ }
+      return next;
+    });
+  };
+  const showPairingCard =
+    role !== 'guest' &&
+    !!cloudAuthToken &&
+    !!robotSerial &&
+    !isClaimedByMe(robotSerial) &&
+    !dismissedSerials.has(robotSerial);
   const [ageGroup, setAgeGroupState] = useState<AgeGroup>('explorer');
   const [showClassroomModal, setShowClassroomModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -556,6 +595,25 @@ export function HomeScreen({
           </button>
         )}
       </div>
+
+      {/* Smoothest pairing path — new bot on the LAN that isn't yet bound
+          to this account surfaces here. AnimatePresence handles the
+          mount/unmount transition so the card slides out as soon as the
+          owned-devices refresh confirms the pair (or the user dismisses). */}
+      <AnimatePresence>
+        {showPairingCard && robotSerial && (
+          <RobotPairingCard
+            key={robotSerial}
+            serial={robotSerial}
+            localApiBase={apiBase}
+            authToken={cloudAuthToken}
+            onPaired={() => {
+              void refreshPairedDevices();
+            }}
+            onDismiss={() => dismissPairing(robotSerial)}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="onboarding-inner">
         <div className="onboarding-greeting">
