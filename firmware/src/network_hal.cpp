@@ -51,38 +51,60 @@ esp_err_t NetworkHal::connectWifiWithTimeout(uint32_t timeout_ms) {
 }
 
 esp_err_t NetworkHal::connectWebsocket() {
-    // Prefer NVS-provisioned cloud credentials (Phase 2c.2). When the
-    // device has been bound to an account and issued a token, we connect
-    // straight to the cloud-backend's /ws/robot endpoint and skip the
-    // LAN-only local-runtime path entirely. The compile-time WS_URL is
-    // only the factory-fresh / unprovisioned fallback.
+    // ── LAN client ─────────────────────────────────────────────────────────
+    // Always started, regardless of provisioning. When the desktop app is
+    // running on the same Wi-Fi this is the low-latency control path; when
+    // the desktop is off the IDF's auto-reconnect loop just keeps trying
+    // quietly. There's no downside to having it live — it's a single
+    // outbound TCP connection that idles cheaply.
+    {
+        esp_websocket_client_config_t cfg = {};
+        cfg.uri = WS_URL;
+        lanWsClient_ = esp_websocket_client_init(&cfg);
+        esp_websocket_register_events(lanWsClient_, WEBSOCKET_EVENT_ANY, &NetworkHal::lanWsEventHandler, this);
+        esp_websocket_client_start(lanWsClient_);
+        ESP_LOGI(TAG, "LAN ws starting (uri=%s)", WS_URL);
+    }
+
+    // ── Cloud client ───────────────────────────────────────────────────────
+    // Only started post-provisioning. Out of the box, the bot doesn't have
+    // a token, so we skip it entirely — adding a parallel client that's
+    // guaranteed to fail handshake every retry would just spam the logs.
     DeviceCloudConfig nvsCfg;
     esp_err_t cfgErr = deviceConfigLoad(nvsCfg);
     if (cfgErr != ESP_OK) {
-        ESP_LOGW(TAG, "deviceConfigLoad failed (%s) — using LAN fallback", esp_err_to_name(cfgErr));
+        ESP_LOGW(TAG, "deviceConfigLoad failed (%s) — cloud ws skipped", esp_err_to_name(cfgErr));
+        return ESP_OK;
     }
-
-    esp_websocket_client_config_t cfg = {};
     if (nvsCfg.provisioned) {
+        esp_websocket_client_config_t cfg = {};
         cfg.uri = nvsCfg.ws_url;
-        ESP_LOGI(TAG, "using cloud-provisioned WS endpoint");
+        cloudWsClient_ = esp_websocket_client_init(&cfg);
+        esp_websocket_register_events(cloudWsClient_, WEBSOCKET_EVENT_ANY, &NetworkHal::cloudWsEventHandler, this);
+        esp_websocket_client_start(cloudWsClient_);
+        ESP_LOGI(TAG, "Cloud ws starting (uri=%s)", nvsCfg.ws_url);
     } else {
-        cfg.uri = WS_URL;
-        ESP_LOGI(TAG, "no NVS credentials — using LAN fallback %s", WS_URL);
+        ESP_LOGI(TAG, "Cloud ws skipped — device not provisioned");
     }
-
-    wsClient_ = esp_websocket_client_init(&cfg);
-    esp_websocket_register_events(wsClient_, WEBSOCKET_EVENT_ANY, &NetworkHal::websocketEventHandler, this);
-    esp_websocket_client_start(wsClient_);
     return ESP_OK;
 }
 
+bool NetworkHal::lanConnected() const {
+    return lanWsClient_ && esp_websocket_client_is_connected(lanWsClient_);
+}
+bool NetworkHal::cloudConnected() const {
+    return cloudWsClient_ && esp_websocket_client_is_connected(cloudWsClient_);
+}
 bool NetworkHal::websocketConnected() const {
-    return wsClient_ && esp_websocket_client_is_connected(wsClient_);
+    return lanConnected() || cloudConnected();
 }
 
 esp_websocket_client_handle_t NetworkHal::websocket() const {
-    return wsClient_;
+    // Back-compat for legacy single-WS callers: prefer LAN, fall back to
+    // cloud. New code should target lanWs()/cloudWs() explicitly.
+    if (lanConnected())   return lanWsClient_;
+    if (cloudConnected()) return cloudWsClient_;
+    return lanWsClient_ ? lanWsClient_ : cloudWsClient_;
 }
 
 void NetworkHal::attachProtocol(WsProtocol *protocol, RobotHal *robot) {
@@ -90,13 +112,26 @@ void NetworkHal::attachProtocol(WsProtocol *protocol, RobotHal *robot) {
     robot_ = robot;
 }
 
-bool NetworkHal::consumeConnectedEvent() {
-    if (websocketJustConnected_) {
-        websocketJustConnected_ = false;
-        return true;
-    }
+bool NetworkHal::consumeLanConnectedEvent() {
+    if (lanJustConnected_) { lanJustConnected_ = false; return true; }
     return false;
 }
+bool NetworkHal::consumeCloudConnectedEvent() {
+    if (cloudJustConnected_) { cloudJustConnected_ = false; return true; }
+    return false;
+}
+
+void NetworkHal::broadcastText(const char *text, size_t len) const {
+    if (!text || len == 0) return;
+    if (lanConnected()) {
+        esp_websocket_client_send_text(lanWsClient_, text, len, portMAX_DELAY);
+    }
+    if (cloudConnected()) {
+        esp_websocket_client_send_text(cloudWsClient_, text, len, portMAX_DELAY);
+    }
+}
+
+// ─── Wi-Fi event handler ────────────────────────────────────────────────────
 
 void NetworkHal::wifiEventHandler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -109,29 +144,55 @@ void NetworkHal::wifiEventHandler(void *arg, esp_event_base_t event_base, int32_
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         ESP_LOGI(TAG, "Wi-Fi connected");
     }
+    (void)arg; (void)event_data;
 }
 
-void NetworkHal::websocketEventHandler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
+// ─── WebSocket event handlers — one per source so we can route ─────────────
+
+void NetworkHal::lanWsEventHandler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
     auto *self = static_cast<NetworkHal *>(handler_args);
+    onWsEvent(self, WsSource::Lan, event_id, event_data);
+    (void)base;
+}
+void NetworkHal::cloudWsEventHandler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
+    auto *self = static_cast<NetworkHal *>(handler_args);
+    onWsEvent(self, WsSource::Cloud, event_id, event_data);
+    (void)base;
+}
+
+void NetworkHal::onWsEvent(NetworkHal *self, WsSource source, int32_t event_id, void *event_data) {
+    if (!self) return;
     auto *data = static_cast<esp_websocket_event_data_t *>(event_data);
+    const char *tagSrc = (source == WsSource::Lan) ? "LAN" : "Cloud";
+
     if (event_id == WEBSOCKET_EVENT_CONNECTED) {
-        ESP_LOGI(TAG, "WebSocket connected");
-        if (self) {
-            self->websocketJustConnected_ = true;
-            if (self->robot_) {
-                self->robot_->setStatusConnected(true);
-            }
-        }
+        ESP_LOGI(TAG, "%s ws connected", tagSrc);
+        if (source == WsSource::Lan) self->lanJustConnected_ = true;
+        else                          self->cloudJustConnected_ = true;
+        if (self->robot_) self->robot_->setStatusConnected(true);
     } else if (event_id == WEBSOCKET_EVENT_DISCONNECTED) {
-        ESP_LOGW(TAG, "WebSocket disconnected");
-        if (self && self->robot_) {
+        ESP_LOGW(TAG, "%s ws disconnected", tagSrc);
+        // Only drop the status LED to "disconnected" when BOTH sides are
+        // down — otherwise the kid sees a red dot every time one of two
+        // independent connections blips.
+        if (self->robot_ && !self->websocketConnected()) {
             self->robot_->setStatusConnected(false);
         }
     } else if (event_id == WEBSOCKET_EVENT_DATA) {
-        ESP_LOGI(TAG, "WebSocket data len=%d payload=%.*s", data->data_len, data->data_len, data->data_ptr ? data->data_ptr : "");
-        if (self && self->protocol_ && self->robot_ && data && data->data_ptr && data->data_len > 0) {
-            self->protocol_->handleInbound(data->data_ptr, data->data_len, self->wsClient_, *self->robot_);
+        // Only text frames (op_code 0x01) carry our JSON protocol. Skip
+        // empty keepalives, binary pings/pongs, and continuation frames
+        // so we don't spam the log or feed garbage to the JSON parser.
+        if (!data || data->op_code != 0x01 || data->data_len <= 0 || !data->data_ptr) {
+            return;
+        }
+        ESP_LOGI(TAG, "%s ws data len=%d payload=%.*s", tagSrc, data->data_len, data->data_len, data->data_ptr);
+        if (self->protocol_ && self->robot_) {
+            // Hand the source-specific WS handle to the protocol so
+            // command_result goes back where the command came from.
+            esp_websocket_client_handle_t srcWs = (source == WsSource::Lan)
+                ? self->lanWsClient_
+                : self->cloudWsClient_;
+            self->protocol_->handleInbound(data->data_ptr, data->data_len, srcWs, *self->robot_, source);
         }
     }
-    (void)base;
 }
