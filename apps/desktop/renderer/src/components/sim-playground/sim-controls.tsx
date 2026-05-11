@@ -221,7 +221,7 @@ export function SimControls({ getActiveBotId, sceneObjects, robotSerial = null }
         aria-pressed={robotOn}
         aria-label={robotOn ? 'Run on robot — on' : 'Run on robot — off'}
       >
-        <Bot size={16} />
+        <Bot size={18} />
       </button>
     </div>
   );

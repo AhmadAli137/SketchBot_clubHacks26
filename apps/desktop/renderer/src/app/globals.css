@@ -16471,29 +16471,49 @@ select.block-param-input{width:auto;padding-right:20px}
   background: rgba(255, 255, 255, 0.12);
   margin: 0 2px;
 }
-/* Run-on-Robot toggle. Lives inside the transport pill so the kid
-   doesn't have to look elsewhere to flip targets. Cyan when off
-   (matches the pill's accent), warmer + glowing when on so the kid
-   notices the bot is about to move in real life. */
+/* Run-on-Robot toggle. Visual peer of the green Play button so the kid
+   reads the transport bar as 'two big actions, then secondaries' — Play
+   on the left (sim), Robot on the right (real bot), with the smaller
+   step/stop/reset trio between them. Always blue; saturation steps up
+   when the toggle is on so the bot moving in real life is unmissable. */
 .sim-controls-btn-robot {
+  /* Match the primary Play button's footprint exactly. */
+  width: 44px;
+  height: 44px;
   position: relative;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.40), rgba(59, 130, 246, 0.28));
+  border-color: rgba(59, 130, 246, 0.60);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.30);
+}
+.sim-controls-btn-robot:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.55), rgba(59, 130, 246, 0.40));
+  border-color: rgba(59, 130, 246, 0.80);
 }
 .sim-controls-btn-robot.is-on {
-  background: linear-gradient(135deg, rgba(93, 228, 255, 0.45), rgba(168, 85, 247, 0.40));
-  border-color: rgba(93, 228, 255, 0.85);
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.70), rgba(37, 99, 235, 0.65));
+  border-color: rgba(147, 197, 253, 1);
   color: #ffffff;
   box-shadow:
-    0 0 0 1px rgba(93, 228, 255, 0.55),
-    0 0 14px rgba(93, 228, 255, 0.55);
+    0 0 0 1px rgba(147, 197, 253, 0.70),
+    0 0 18px rgba(59, 130, 246, 0.70);
   animation: sim-robot-glow 2.2s ease-in-out infinite;
 }
 .sim-controls-btn-robot.is-on:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(93, 228, 255, 0.60), rgba(168, 85, 247, 0.50));
-  border-color: rgba(93, 228, 255, 1);
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.85), rgba(37, 99, 235, 0.80));
+  border-color: rgba(191, 219, 254, 1);
 }
 @keyframes sim-robot-glow {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(93, 228, 255, 0.55), 0 0 14px rgba(93, 228, 255, 0.55); }
-  50%      { box-shadow: 0 0 0 1px rgba(93, 228, 255, 0.85), 0 0 22px rgba(93, 228, 255, 0.85); }
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(147, 197, 253, 0.70),
+      0 0 18px rgba(59, 130, 246, 0.70);
+  }
+  50%      {
+    box-shadow:
+      0 0 0 1px rgba(191, 219, 254, 1),
+      0 0 28px rgba(96, 165, 250, 0.95);
+  }
 }
 /* Step button glows when the executor is paused-between-blocks waiting
    for an advance — signals "tap me to run the next block". */
