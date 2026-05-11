@@ -52,6 +52,7 @@ export function StudentDashboard({
   backendReachable,
   cameraReady,
   robotReady,
+  robotSerial = null,
   cameraSource,
   cameraSourceStatus,
   cameraFrameUrl,
@@ -417,10 +418,26 @@ export function StudentDashboard({
     }
   }, [cameraReady, cameraDisconnected]);
 
-  const sysStatus: 'live' | 'sim' | 'error' =
-    hasLiveCamera && robotReady ? 'live' : hasLiveCamera ? 'sim' : !backendReachable ? 'error' : 'sim';
+  // Promote the real-robot identity into the top-right pill. The
+  // sandbox doesn't depend on the camera — if a physical bot has shaken
+  // hands (robotSerial set), that's "live" regardless of camera state.
+  // Falls back to the original camera-driven logic when there's no
+  // paired bot.
+  const sysStatus: 'live' | 'sim' | 'error' = robotSerial
+    ? 'live'
+    : hasLiveCamera && robotReady
+      ? 'live'
+      : !backendReachable
+        ? 'error'
+        : 'sim';
 
-  const sysLabel = sysStatus === 'live' ? 'Live' : sysStatus === 'error' ? 'Offline' : 'Simulator';
+  const sysLabel = robotSerial
+    ? robotSerial
+    : sysStatus === 'live'
+      ? 'Live'
+      : sysStatus === 'error'
+        ? 'Offline'
+        : 'Simulator';
 
   const featuredSvgContent = useMemo(() => {
     if (interactionMode === 'blocks') return blockPreviewSvg ?? codeGeneratedSvg ?? featuredTasks[0]?.svg_content ?? null;
@@ -522,6 +539,7 @@ export function StudentDashboard({
           onSceneObjectsChange={setSceneObjects}
           builderAvailable={appMode === 'sandbox'}
           studentName={studentName}
+          robotSerial={robotSerial}
         />
       );
     }
@@ -574,7 +592,12 @@ export function StudentDashboard({
 
     return (
       <div className="workspace-programming">
-        <ProgramView />
+        {/* Forward robotSerial so the Code-tab ProgramView's "Run on Robot"
+            toggle is enabled when a real bot is paired. Without this prop
+            the button reads 'No robot' even when SKETCH-XXXX-XXXX is
+            actually connected, because ProgramView defaults robotSerial
+            to null. */}
+        <ProgramView robotSerial={robotSerial} />
         {blockRunnerNotice && (
           <div className="block-runner-notice" role="alert">
             <span>{blockRunnerNotice}</span>

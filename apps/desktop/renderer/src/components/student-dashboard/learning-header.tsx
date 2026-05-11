@@ -334,7 +334,21 @@ export function LearningHeader({
             </div>
           ))}
           <div className="learn-popover-foot">
-            {showSimulator ? 'Hardware offline — using Simulator' : 'Hardware active'}
+            {(() => {
+              // 'showSimulator' is camera-driven (no live video → show
+              // the sandbox 3D scene). Telling the user "Hardware
+              // offline" when the robot is actually connected is wrong
+              // — split the message into camera vs robot concerns so
+              // each piece of hardware is reported honestly.
+              const robotValue = topStatus.find((s) => s.label === 'Robot')?.value;
+              const cameraValue = topStatus.find((s) => s.label === 'Camera')?.value;
+              const robotOnline  = robotValue  === 'Connected';
+              const cameraOnline = cameraValue === 'Live';
+              if (robotOnline && cameraOnline) return 'Hardware active';
+              if (robotOnline && !cameraOnline) return 'Robot connected · simulator canvas (no camera)';
+              if (!robotOnline && cameraOnline) return 'Camera live · simulator canvas (no robot paired)';
+              return 'Hardware offline — using simulator';
+            })()}
           </div>
         </div>
       )}
