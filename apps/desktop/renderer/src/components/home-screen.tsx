@@ -7,6 +7,7 @@ import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquar
 import { useCloudAuthToken } from '@/lib/cloud-api';
 import { usePairedDevices } from '@/lib/use-paired-devices';
 import { RobotPairingCard } from '@/components/robot-pairing-card';
+import { PairRobotModal } from '@/components/pair-robot-modal';
 
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { useGuidedTour } from '@/components/guided-tour/guided-tour-context';
@@ -158,6 +159,13 @@ export function HomeScreen({
     !!robotSerial &&
     !isClaimedByMe(robotSerial) &&
     !dismissedSerials.has(robotSerial);
+
+  // Pair Robot button → in-desktop modal (replaces the previous browser
+  // launch). Modal handles all three states the home-card can't:
+  //   - no bot detected yet  → "Looking for your robot…"
+  //   - bot detected + owned → "Already paired" confirmation
+  //   - bot detected + unclaimed → full pair flow
+  const [pairModalOpen, setPairModalOpen] = useState(false);
   const [ageGroup, setAgeGroupState] = useState<AgeGroup>('explorer');
   const [showClassroomModal, setShowClassroomModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -487,19 +495,15 @@ export function HomeScreen({
           const sim = !real && isRobotConnected;
           const label = real ? (robotSerial as string) : sim ? 'Simulator' : 'No robot';
           const dotColor = real ? 'var(--green)' : sim ? 'var(--amber)' : 'var(--muted)';
-          const href = real
-            ? `https://sayspark.ca/account?serial=${encodeURIComponent(robotSerial as string)}`
-            : 'https://sayspark.ca/account';
           const title = real
-            ? `Real robot on the LAN — click to register or manage on sayspark.ca`
+            ? 'Real robot on the LAN — click to pair or manage'
             : sim
-              ? 'No real robot detected — using the simulator. Click to manage your robots.'
-              : 'No robot connected. Click to manage your robots.';
+              ? 'No real robot detected — using the simulator. Click to pair one.'
+              : 'No robot connected. Click to pair one.';
           return (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              onClick={() => setPairModalOpen(true)}
               title={title}
               style={{
                 display: 'inline-flex',
@@ -511,7 +515,7 @@ export function HomeScreen({
                 background: 'rgba(255,255,255,0.04)',
                 fontSize: '0.72rem',
                 color: 'var(--fg)',
-                textDecoration: 'none',
+                cursor: 'pointer',
                 fontFamily: real ? 'var(--font-mono, monospace)' : undefined,
                 letterSpacing: real ? '0.04em' : undefined,
               }}
@@ -528,7 +532,7 @@ export function HomeScreen({
                 }}
               />
               {label}
-            </a>
+            </button>
           );
         })()}
 
@@ -539,13 +543,8 @@ export function HomeScreen({
           variant="ghost"
           size="sm"
           style={{ fontSize: '0.75rem', minHeight: 32, gap: 5 } as React.CSSProperties}
-          onClick={() => {
-            const url = robotSerial
-              ? `https://sayspark.ca/account?serial=${encodeURIComponent(robotSerial)}`
-              : 'https://sayspark.ca/account';
-            window.open(url, '_blank', 'noopener');
-          }}
-          title="Register a robot or see the ones already bound to your account"
+          onClick={() => setPairModalOpen(true)}
+          title="Pair a robot to your account"
         >
           <Plus size={13} />
           Pair Robot
@@ -614,6 +613,22 @@ export function HomeScreen({
           />
         )}
       </AnimatePresence>
+
+      <PairRobotModal
+        open={pairModalOpen}
+        robotSerial={robotSerial ?? null}
+        isOwnedByMe={!!robotSerial && isClaimedByMe(robotSerial)}
+        localApiBase={apiBase}
+        authToken={cloudAuthToken}
+        onPaired={() => {
+          void refreshPairedDevices();
+          // Close after a brief celebrate beat so the kid sees the
+          // success state. PairRobotModal handles the timing of the
+          // 'success' frame itself; we just need to dismiss after.
+          setTimeout(() => setPairModalOpen(false), 1800);
+        }}
+        onClose={() => setPairModalOpen(false)}
+      />
 
       <div className="onboarding-inner">
         <div className="onboarding-greeting">
