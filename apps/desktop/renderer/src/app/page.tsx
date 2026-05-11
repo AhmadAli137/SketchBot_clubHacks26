@@ -1155,12 +1155,23 @@ export default function HomePage() {
       ? `${apiBase}/api/camera/marker-overlay?ts=${liveOverlayRefreshToken}`
       : null;
   const topStatus = useMemo(
-    () => [
-      { label: 'App', value: backendReachable ? 'Ready' : 'Starting' },
-      { label: 'Camera', value: camera.online ? 'Live' : camera.source_status },
-      { label: 'Robot', value: state.robot_connected ? 'Connected' : 'Not connected' },
-    ],
-    [backendReachable, camera.online, camera.source_status, state.robot_connected],
+    () => {
+      // Three-state robot label so the popover stops reporting "Connected"
+      // when only the mock bot is up. robot_serial is set in the local
+      // runtime exclusively on a real firmware hello (see services/local-
+      // runtime/app/services/robot_ws_service.py), so it's the ground
+      // truth for "actual hardware is on the LAN".
+      let robotValue: string;
+      if (state.robot_serial) robotValue = 'Connected';
+      else if (state.robot_connected) robotValue = 'Simulator';
+      else robotValue = 'Not connected';
+      return [
+        { label: 'App', value: backendReachable ? 'Ready' : 'Starting' },
+        { label: 'Camera', value: camera.online ? 'Live' : camera.source_status },
+        { label: 'Robot', value: robotValue },
+      ];
+    },
+    [backendReachable, camera.online, camera.source_status, state.robot_connected, state.robot_serial],
   );
 
   const companionConnectionStatus =
@@ -1371,6 +1382,7 @@ export default function HomePage() {
               role={userRole}
               userName={userName}
               isRobotConnected={state.robot_connected}
+              robotSerial={state.robot_serial ?? null}
               classroomName={classroomName || undefined}
               studentCount={studentCount}
               apiBase={apiBase}

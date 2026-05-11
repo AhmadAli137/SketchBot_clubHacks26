@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText, BookOpen, HelpCircle, ArrowLeft } from 'lucide-react';
+import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquareText, BookOpen, HelpCircle, ArrowLeft, Cpu, Plus } from 'lucide-react';
 
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { useGuidedTour } from '@/components/guided-tour/guided-tour-context';
@@ -82,6 +82,10 @@ type HomeScreenProps = {
   role: AuthRole;
   userName: string;
   isRobotConnected: boolean;
+  /** Per-unit serial reported on the firmware hello (e.g. SKETCH-A1B2-C3D4).
+   *  Null when no real chassis is on the LAN — drives the three-state
+   *  "Robot / Simulator / No robot" pill in the top-right toolbar. */
+  robotSerial?: string | null;
   classroomName?: string;
   studentCount?: number;
   apiBase?: string;
@@ -101,6 +105,7 @@ export function HomeScreen({
   role,
   userName,
   isRobotConnected,
+  robotSerial,
   classroomName,
   studentCount,
   apiBase = '',
@@ -430,6 +435,83 @@ export function HomeScreen({
           right:22, so its left edge is at right:146). We anchor at right:158
           to leave a small 12px gap before the cluster starts. */}
       <div style={{ position: 'fixed', top: 14, right: 158, display: 'flex', gap: 8, zIndex: 10, alignItems: 'center' }}>
+        {/* Three-state robot indicator. Source of truth:
+              robotSerial    → real chassis on the LAN (firmware hello received)
+              isRobotConnected → mock bot up (Simulator mode)
+              neither         → nothing connected.
+            The whole pill is clickable: when connected it deep-links to the
+            account page with serial pre-filled (so a fresh bot can be
+            claimed in one tap); otherwise it just opens /account so the
+            user can see their registered bots. */}
+        {(() => {
+          const real = !!robotSerial;
+          const sim = !real && isRobotConnected;
+          const label = real ? (robotSerial as string) : sim ? 'Simulator' : 'No robot';
+          const dotColor = real ? 'var(--green)' : sim ? 'var(--amber)' : 'var(--muted)';
+          const href = real
+            ? `https://sayspark.ca/account?serial=${encodeURIComponent(robotSerial as string)}`
+            : 'https://sayspark.ca/account';
+          const title = real
+            ? `Real robot on the LAN — click to register or manage on sayspark.ca`
+            : sim
+              ? 'No real robot detected — using the simulator. Click to manage your robots.'
+              : 'No robot connected. Click to manage your robots.';
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              title={title}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 10px',
+                borderRadius: 999,
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.04)',
+                fontSize: '0.72rem',
+                color: 'var(--fg)',
+                textDecoration: 'none',
+                fontFamily: real ? 'var(--font-mono, monospace)' : undefined,
+                letterSpacing: real ? '0.04em' : undefined,
+              }}
+            >
+              <Cpu size={12} />
+              <span
+                aria-hidden
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: dotColor,
+                  boxShadow: real ? '0 0 6px var(--green)' : 'none',
+                }}
+              />
+              {label}
+            </a>
+          );
+        })()}
+
+        {/* Pair / register a new robot. Opens the admin-web account page
+            in the system browser. If a real bot is already on the LAN
+            its serial pre-fills the form. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          style={{ fontSize: '0.75rem', minHeight: 32, gap: 5 } as React.CSSProperties}
+          onClick={() => {
+            const url = robotSerial
+              ? `https://sayspark.ca/account?serial=${encodeURIComponent(robotSerial)}`
+              : 'https://sayspark.ca/account';
+            window.open(url, '_blank', 'noopener');
+          }}
+          title="Register a robot or see the ones already bound to your account"
+        >
+          <Plus size={13} />
+          Pair Robot
+        </Button>
+
         {role === 'teacher' && (
           <>
             <Button
