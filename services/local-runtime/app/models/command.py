@@ -82,6 +82,12 @@ class RobotHeartbeatMessage(BaseModel):
     robot_id: str
     uptime_ms: int | None = None
     free_heap: int | None = None
+    # Who's currently driving (Phase 2c.5). Firmware arbitrates between
+    # the LAN runtime and the cloud relay; this field rides every
+    # heartbeat so the desktop and mobile can show 'you are driving' vs
+    # 'another session is driving' without an extra poll. Values:
+    # 'lan' | 'cloud' | 'none' (idle for ≥250 ms).
+    active_controller: str | None = None
 
 
 class RobotTelemetryMessage(BaseModel):
@@ -94,6 +100,11 @@ class RobotTelemetryMessage(BaseModel):
     moving: bool | None = None
     homed: bool | None = None
     queue_depth: int | None = None
+    # HC-SR04 round-trip distance to the nearest object ahead, in cm.
+    # Firmware sends -1 when no echo arrives (out of range or sensor
+    # missing); the websocket service translates that to None before
+    # storing in app state so consumers see a clean "no reading" signal.
+    distance_cm: float | None = None
     fault: dict[str, Any] | None = None
 
 

@@ -1383,6 +1383,7 @@ export default function HomePage() {
               userName={userName}
               isRobotConnected={state.robot_connected}
               robotSerial={state.robot_serial ?? null}
+              activeController={state.active_controller ?? null}
               classroomName={classroomName || undefined}
               studentCount={studentCount}
               apiBase={apiBase}

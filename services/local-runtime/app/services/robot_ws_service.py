@@ -39,6 +39,7 @@ class RobotWebSocketService:
         state.robot_connected = False
         state.robot_status = 'disconnected'
         state.robot_serial = None
+        state.active_controller = None
         state_manager.add_event('Robot websocket disconnected')
 
     async def handle_message(self, raw: str) -> None:
@@ -69,6 +70,22 @@ class RobotWebSocketService:
             state.robot_connected = True
             if state.robot_status == 'disconnected':
                 state.robot_status = 'ready'
+            # Surface the firmware's arbitration result to the desktop UI
+            # so the kid can see whether they're driving or another
+            # session has taken over (Phase 2c.5).
+            if msg.active_controller is not None:
+                state.active_controller = msg.active_controller
+            return
+
+        # The firmware may also broadcast controller_status events when
+        # the active controller flips (rather than waiting for the next
+        # heartbeat). Treat it as a fast-path heartbeat for that one
+        # field — same data, lower lag.
+        if message_type == 'controller_status':
+            state = state_manager.state
+            active = payload.get('active')
+            if isinstance(active, str):
+                state.active_controller = active
             return
 
         if message_type == 'telemetry':
@@ -86,6 +103,13 @@ class RobotWebSocketService:
                 state.robot.is_homed = msg.homed
             if msg.moving is not None:
                 state.robot.motion_state = 'active' if msg.moving else 'idle'
+            if msg.distance_cm is not None:
+                # Firmware uses -1 as the "no echo" sentinel; expose that
+                # as None to API consumers so a UI gauge can show "—"
+                # rather than misreading a near-zero distance.
+                state.robot.last_distance_cm = (
+                    msg.distance_cm if msg.distance_cm >= 0 else None
+                )
             if msg.fault:
                 state.robot.fault.code = msg.fault.get('code')
                 state.robot.fault.message = msg.fault.get('message')

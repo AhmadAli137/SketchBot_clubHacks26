@@ -41,6 +41,11 @@ class RobotSummary(BaseModel):
     active_command_id: str | None = None
     fault: RobotFault = Field(default_factory=RobotFault)
     pose: RobotPose = Field(default_factory=RobotPose)
+    # Latest HC-SR04 distance reading from the firmware, in cm. None when
+    # there's no echo (out of range, sensor missing, or wiring fault) so
+    # downstream consumers (UI gauges, obstacle gates) can distinguish a
+    # genuine zero/short read from "no signal."
+    last_distance_cm: float | None = None
 
 
 class WorkflowSummary(BaseModel):
@@ -126,6 +131,12 @@ class AppState(BaseModel):
     # Surfaced to the desktop UI so the user can claim this bot against
     # their account on the admin web; null until a real device connects.
     robot_serial: str | None = None
+    # Who's currently driving the bot per the firmware's arbitration
+    # (Phase 2c.5). Rides each heartbeat — 'lan' means this desktop is
+    # in control, 'cloud' means the mobile companion / another session
+    # is driving, 'none' means idle (no command in the last ~250 ms),
+    # null means the firmware hasn't reported yet.
+    active_controller: str | None = None
     workflow_state: str = 'disconnected'
     localization_confidence: float = 0.0
     camera_online: bool = False

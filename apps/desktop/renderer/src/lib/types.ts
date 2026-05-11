@@ -131,6 +131,12 @@ export type AppState = {
   // Null until a real chassis connects; used by Settings → Register Robot
   // to pre-fill the claim form on the admin web.
   robot_serial?: string | null;
+  // Who's currently driving per the firmware's arbitration (Phase 2c.5).
+  // 'lan' = this desktop has control, 'cloud' = another session (e.g.
+  // mobile companion) is driving, 'none' = idle ≥ 250 ms, undefined when
+  // we haven't heard from the firmware yet. Drives the "Driving" /
+  // "Phone is driving" badge in the home toolbar.
+  active_controller?: 'lan' | 'cloud' | 'none' | null;
   workflow_state: string;
   localization_confidence: number;
   camera_online: boolean;

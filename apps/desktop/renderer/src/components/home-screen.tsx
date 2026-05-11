@@ -91,6 +91,10 @@ type HomeScreenProps = {
    *  Null when no real chassis is on the LAN — drives the three-state
    *  "Robot / Simulator / No robot" pill in the top-right toolbar. */
   robotSerial?: string | null;
+  /** Firmware-side arbitration result. 'lan' = this desktop is driving,
+   *  'cloud' = a mobile / untethered session is, 'none' = idle. Drives
+   *  the small "Driving" / "Phone driving" chip next to the robot pill. */
+  activeController?: 'lan' | 'cloud' | 'none' | null;
   classroomName?: string;
   studentCount?: number;
   apiBase?: string;
@@ -111,6 +115,7 @@ export function HomeScreen({
   userName,
   isRobotConnected,
   robotSerial,
+  activeController,
   classroomName,
   studentCount,
   apiBase = '',
@@ -533,6 +538,58 @@ export function HomeScreen({
               />
               {label}
             </button>
+          );
+        })()}
+
+        {/* "Who's driving" chip. Only shown when a real bot is connected
+            (no point talking arbitration when there's no firmware). LAN
+            means this desktop is in control — cyan, subtle. Cloud means
+            another session has taken over — amber + pulse so the local
+            user notices someone else is steering. None (idle ≥250 ms)
+            shows a muted "idle" chip. */}
+        {robotSerial && activeController && activeController !== null && (() => {
+          const styles: Record<string, { bg: string; color: string; label: string; pulse: boolean }> = {
+            lan:   { bg: 'color-mix(in srgb, var(--green) 14%, transparent)', color: 'var(--green)', label: 'You’re driving', pulse: false },
+            cloud: { bg: 'color-mix(in srgb, var(--amber) 18%, transparent)', color: 'var(--amber)', label: 'Phone driving',       pulse: true  },
+            none:  { bg: 'rgba(255,255,255,0.05)',                            color: 'var(--muted)', label: 'Idle',                pulse: false },
+          };
+          const s = styles[activeController];
+          if (!s) return null;
+          return (
+            <div
+              title={
+                activeController === 'lan'
+                  ? 'Your desktop has control. Commands you send pre-empt the phone if both try at once.'
+                  : activeController === 'cloud'
+                    ? 'A phone (mobile companion) is currently driving the robot. Send a command from this desktop to take over.'
+                    : 'No commands in the last moment — either side can take control freely.'
+              }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '6px 9px',
+                borderRadius: 999,
+                background: s.bg,
+                color: s.color,
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                border: `1px solid ${s.color.startsWith('var') ? s.color : 'transparent'}`,
+                letterSpacing: '0.01em',
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: s.color,
+                  animation: s.pulse ? 'sb-pulse 1.4s ease-in-out infinite' : undefined,
+                }}
+              />
+              {s.label}
+            </div>
           );
         })()}
 
