@@ -124,6 +124,10 @@ export function PairRobotModal(props: Props) {
             transition={{ duration: 0.15 }}
             onClick={() => { if (!inProgress) onClose(); }}
           />
+          {/* Positioner — fixed inset:0 + flex centering so Framer's
+              inline transform (scale, y) on .pair-modal doesn't overwrite
+              the translate(-50%, -50%) that used to center it. */}
+          <div className="pair-modal-positioner">
           <motion.div
             className="pair-modal"
             initial={{ opacity: 0, scale: 0.96, y: 14 }}
@@ -168,6 +172,7 @@ export function PairRobotModal(props: Props) {
               />
             )}
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>
