@@ -11845,13 +11845,15 @@ select.block-param-input{width:auto;padding-right:20px}
    button, big icon, title, then a vertical stack of three action rows
    for pair / calibrate / drift. */
 .plan-robots-panel {
-  /* Status card + 2-col grid + surface chips need more breathing room
-     than the original stacked action list. */
-  max-width: 640px;
-  width: 100%;
+  /* Panel stays full-width inside .plan-shell. The inner
+     .plan-robots-content holds the max-width so .plan-join-panel's
+     align-items:center centers the whole stack horizontally in the
+     viewport (the parent .plan-shell doesn't center column children
+     on its own). */
 }
 .plan-robots-content {
   width: 100%;
+  max-width: 720px;
   display: flex;
   flex-direction: column;
   gap: 18px;
