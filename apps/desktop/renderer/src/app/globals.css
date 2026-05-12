@@ -17595,22 +17595,10 @@ select.block-param-input{width:auto;padding-right:20px}
   display: inline-block;
   z-index: 3;
 }
-/* Right-shoulder pivot for the arm + shovel group. Coordinates measured
-   to SparkRobot mode="2d" size="md" (100 × 100 wrapper):
-     shoulder x ≈ 76 px from the wrapper's left edge → right: 18 px
-     shoulder y ≈ 38 px from the top → top: 38 px
-   transform-origin top-center keeps the rotation anchored at the
-   shoulder no matter what angle the arm swings to. */
-.sandbox-live-hero-floor-arm {
-  position: absolute;
-  right: 18px;
-  top: 38px;
-  width: 10px;
-  height: 30px;
-  transform-origin: top center;
-  z-index: 5;
-  pointer-events: none;
-}
+/* (Earlier passes tried to draw our own forearm + grip overlay on top
+   of the 2D Spark. The bot already has illustrated arms, so layering
+   another one read as an extra floating appendage. Dropped — the
+   shovel now sits behind the bot's own arms instead.) */
 
 /* Make the card taller so the strip has room without crowding the
    body. 110 px strip + small breathing space. */

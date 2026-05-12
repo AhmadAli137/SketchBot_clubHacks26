@@ -71,88 +71,42 @@ function SandPuff(p: typeof PUFFS[number]) {
   );
 }
 
-// The blob of sand sitting on the shovel blade during the lift phase.
-// Appears at the moment the shovel scoops, fades on the dump-tip frame.
-function ShovelSandLoad() {
-  return (
-    <motion.span
-      style={{
-        position: 'absolute',
-        right: -2,
-        bottom: 26,
-        width: 7,
-        height: 4,
-        borderRadius: '50%',
-        background: 'hsl(38, 80%, 55%)',
-        pointerEvents: 'none',
-        zIndex: 5,
-        boxShadow: '0 1px 0 hsla(28, 70%, 38%, 0.5)',
-      }}
-      animate={{
-        opacity: [0, 0, 1, 1, 0, 0],
-        y:       [0, 0, 0, 0, -4, -4],
-      }}
-      transition={{
-        duration: DIG_DURATION,
-        repeat: Infinity,
-        ease: 'easeInOut',
-        times: [0, 0.30, 0.45, 0.55, 0.70, 1],
-      }}
-    />
-  );
-}
-
-// The local sand mound under the digging Spark. Compresses on the dig
-// frame (when the shovel pushes in) and rebuilds as it lifts away —
-// readable even at this scale.
+// Static sand mound under the digging Spark. Earlier we tried morphing
+// the top edge to simulate displacement on the dig frame — kid-shaped
+// hindsight: at this size the morph just reads as a cartoon line moving
+// around, not as sand giving way. The puffs + body lean carry the
+// "something is happening" cue; the mound is just a base. */
 function DigSandMound() {
   return (
-    <motion.svg
+    <svg
       style={{
         position: 'absolute',
         left: '50%',
         bottom: 0,
-        width: 140,
-        height: 26,
+        width: 160,
+        height: 30,
         transform: 'translateX(-50%)',
         zIndex: 2,
         pointerEvents: 'none',
       }}
-      viewBox="0 0 140 26"
+      viewBox="0 0 160 30"
       preserveAspectRatio="none"
       aria-hidden
     >
       <defs>
         <linearGradient id="sbhDigMound" x1="0" y1="0" x2="0" y2="1">
-          {/* Same muted amber as the floor SVG so the mound under the
-              digging bot reads as part of the same sand. */}
-          <stop offset="0%"  stopColor="#6d5527" />
-          <stop offset="50%" stopColor="#473620" />
-          <stop offset="100%" stopColor="#2a1f10" />
+          {/* Slightly warmer than the floor sand so the bot's mound
+              reads as a fresh pile sitting on top of the floor. */}
+          <stop offset="0%"  stopColor="#856a36" />
+          <stop offset="50%" stopColor="#5d4a25" />
+          <stop offset="100%" stopColor="#382b18" />
         </linearGradient>
       </defs>
-      <motion.path
-        d="M0 16 C24 4, 48 18, 70 6 C92 -2, 116 16, 140 10 L140 26 L0 26 Z"
+      <path
+        d="M0 18 C26 6, 54 20, 80 8 C106 -2, 134 18, 160 12 L160 30 L0 30 Z"
         fill="url(#sbhDigMound)"
-        animate={{
-          d: [
-            // ready — full mound
-            'M0 16 C24 4, 48 18, 70 6 C92 -2, 116 16, 140 10 L140 26 L0 26 Z',
-            // dig — center compressed, sides bulge slightly
-            'M0 16 C24 4, 48 18, 70 14 C92 -2, 116 16, 140 10 L140 26 L0 26 Z',
-            // lift — center recovers a bit
-            'M0 16 C24 4, 48 18, 70 8 C92 -2, 116 16, 140 10 L140 26 L0 26 Z',
-            'M0 16 C24 4, 48 18, 70 6 C92 -2, 116 16, 140 10 L140 26 L0 26 Z',
-          ],
-        }}
-        transition={{
-          duration: DIG_DURATION,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          times: [0, 0.45, 0.70, 1],
-        }}
       />
-    </motion.svg>
+    </svg>
   );
 }
 
@@ -223,87 +177,49 @@ function SandboxFloorStrip() {
       <div className="sandbox-live-hero-floor-dig">
         <DigSandMound />
 
-        {/* Bot wrapper — leans forward and sinks slightly during the
-            dig phase, then straightens on the lift. This is what reads
-            as "the bot is putting weight on the shovel" rather than
-            just standing there waving. */}
+        {/* Bot wrapper — bobs and leans slightly so the kid reads
+            the dig as ongoing work rather than a still illustration.
+            The shovel sits BEHIND the bot (z-index below the SparkRobot)
+            so the bot's own pre-drawn arms appear to be in front of
+            and gripping the handle. This avoids the "extra floating
+            arm" effect from trying to draw our own forearm overlay on
+            top of a fully-illustrated 2D Spark that already has arms. */}
         <motion.div
           className="sandbox-live-hero-floor-bot"
           style={{ transformOrigin: 'bottom center' }}
           animate={{
-            //  0–20%   upright (ready)
-            // 20–50%   leans forward + sinks (plunge)
-            // 50–65%   pulls back upright (lift, load on blade)
-            // 65–100%  fully back to neutral
-            rotate: [0, -2, -14, -4, 0],
-            y:      [0, 0,  6,    1, 0],
+            // Gentle dig cycle — body lean + small bob. Times match
+            // the puff bursts so the visual cue lines up.
+            rotate: [-2, -8, -2],
+            y:      [0, 3, 0],
           }}
           transition={{
             duration: DIG_DURATION,
             repeat: Infinity,
-            ease: [0.4, 0, 0.2, 1],
-            times: [0, 0.20, 0.50, 0.65, 1.0],
+            ease: [0.4, 0, 0.6, 1],
+            times: [0, 0.5, 1],
           }}
         >
-          <SparkRobot mode="2d" pose="wave" size="md" />
-
-          {/* Shovel + bot's right-arm + grip-hand. All three rotate
-              together around the right-shoulder pivot so the bot
-              visibly "holds" the shovel rather than the tool floating
-              next to it. transform-origin numbers are measured to the
-              bot's 72×72 sm-sized wrapper:
-                shoulder x ≈ 56 (right-of-centre)
-                shoulder y ≈ 28 (upper torso)
-              The grip group is anchored to that point and rotates with
-              the dig-cycle curve. */}
-          <motion.div
-            className="sandbox-live-hero-floor-arm"
-            animate={{ rotate: [-65, -65, 18, 62, -65] }}
-            transition={{
-              duration: DIG_DURATION,
-              repeat: Infinity,
-              ease: [0.4, 0, 0.2, 1],
-              times: [0, 0.20, 0.50, 0.65, 1.0],
+          {/* Shovel — static, planted in the mound, slightly tucked
+              to the bot's right. The bot's body shifts over it during
+              the lean so it visually reads as gripped. z-index 1 keeps
+              it behind the SparkRobot (which is z-index 2 by default
+              in its own stacking context). */}
+          <div
+            style={{
+              position: 'absolute',
+              right: -2,
+              bottom: -4,
+              transform: 'rotate(-25deg)',
+              transformOrigin: 'bottom center',
+              zIndex: 1,
             }}
+            aria-hidden
           >
-            {/* Forearm — a small rounded bar from the shoulder pivot
-                down to where the bot grips the shovel. Stays attached
-                because it lives inside the rotating group. */}
-            <svg
-              width="8"
-              height="22"
-              viewBox="0 0 8 22"
-              style={{ position: 'absolute', left: -2, top: 0 }}
-              aria-hidden
-            >
-              <rect x="1" y="0" width="6" height="22" rx="3" fill="#e6f0ff" stroke="#7fa4d6" strokeWidth="0.6" />
-            </svg>
+            <ShovelSvg />
+          </div>
 
-            {/* Shovel — handle now starts AT the hand position
-                (just below the forearm) so the two visually meet. */}
-            <div style={{ position: 'absolute', left: -8, top: 18 }}>
-              <ShovelSvg />
-              <ShovelSandLoad />
-            </div>
-
-            {/* Grip "hand" — small oval at the join, drawn last so it
-                sits above both the forearm and the shovel handle.
-                Reads as the bot's fingers wrapped around the wood. */}
-            <span
-              style={{
-                position: 'absolute',
-                left: -4,
-                top: 16,
-                width: 12,
-                height: 8,
-                borderRadius: 6,
-                background: '#e6f0ff',
-                border: '1px solid #7fa4d6',
-                zIndex: 6,
-              }}
-              aria-hidden
-            />
-          </motion.div>
+          <SparkRobot mode="2d" pose="wave" size="md" />
         </motion.div>
 
         {/* Puff burst at the moment the shovel tips */}
@@ -377,14 +293,18 @@ function SandboxFloorStrip() {
               is near-black, so we pull saturation way down and
               darken. Reads as "warm sand at dusk" — sits inside the
               dark theme instead of fighting it. */}
+          {/* Mid-range muted amber — earlier pass went too dark
+              (read as wet dirt). Lifted toward warm dusk sand while
+              keeping saturation low enough to sit inside the dark
+              card theme. */}
           <linearGradient id="sbhFloorSand" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"  stopColor="#5a4622" />
-            <stop offset="40%" stopColor="#3e3018" />
-            <stop offset="100%" stopColor="#241a0e" />
+            <stop offset="0%"  stopColor="#8a6a36" />
+            <stop offset="40%" stopColor="#5f4925" />
+            <stop offset="100%" stopColor="#3a2c16" />
           </linearGradient>
           <radialGradient id="sbhFloorShine" cx="50%" cy="0%" r="80%">
-            <stop offset="0%"   stopColor="#a07a3a" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#5a4622" stopOpacity="0" />
+            <stop offset="0%"   stopColor="#c89548" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#8a6a36" stopOpacity="0" />
           </radialGradient>
         </defs>
         <path
