@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Users, GraduationCap, ChevronLeft, ChevronRight, Loader2, Cpu, Zap, Trophy } from 'lucide-react';
+import {
+  Sparkles, Users, GraduationCap, ChevronLeft, ChevronRight, Loader2,
+  Cpu, Zap, Trophy, Wifi, Crosshair, Activity, FileText, Coffee, Layers,
+  CircleDashed,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { MotrixLogo } from '@/components/motrix-logo';
@@ -11,6 +15,14 @@ import { SparkStage3D } from '@/components/spark-robot/spark-scene-3d';
 import { setClassSession } from '@/lib/session-store';
 import { playSfx } from '@/lib/game-audio';
 import { getProgressSummary, getStudentProgress } from '@/lib/progress-store';
+import { useRobotCalibration } from '@/lib/use-robot-calibration';
+import {
+  SURFACES,
+  getSurfaceState,
+  setActiveSurface,
+  onSurfaceChange,
+  type SurfaceId,
+} from '@/lib/surface-profile';
 import type { AuthResult, AuthRole } from '@/components/auth-screen';
 
 type Plan = 'pick' | 'join-class' | 'robots';
@@ -449,37 +461,11 @@ export function PlanPicker({ apiBase, savedSession, robotSerial = null, robotCon
               <ChevronLeft size={16} /> Back
             </motion.button>
 
-            <div className="plan-join-head">
-              <div className="plan-join-icon"><Cpu size={28} /></div>
-              <h2 className="plan-join-title">Robots & Calibration</h2>
-              <p className="plan-join-desc">
-                {robotSerial
-                  ? <>Connected to <code style={{ fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.04em' }}>{robotSerial}</code>. Pick an action below.</>
-                  : <>No real robot detected yet. Pair one first; calibration unlocks after that.</>}
-              </p>
-            </div>
-
-            <div className="plan-robots-actions">
-              <ActionButton
-                label="Pair a robot"
-                desc="Find a bot on your Wi-Fi and bind it to your account."
-                onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-pair-robot')); }}
-              />
-              <ActionButton
-                label="Calibrate"
-                desc="4-step camera-measured calibration. Run on a fresh surface."
-                disabled={!robotSerial}
-                disabledHint="Pair a robot first."
-                onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-calibration')); }}
-              />
-              <ActionButton
-                label="Drift check"
-                desc="~30 s verification — drive 100 mm, rotate 90°. Re-calibrate if it fails."
-                disabled={!robotSerial}
-                disabledHint="Pair a robot first."
-                onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-drift-check')); }}
-              />
-            </div>
+            <RobotsPanelContent
+              apiBase={apiBase}
+              robotSerial={robotSerial}
+              robotConnected={robotConnected}
+            />
           </motion.div>
         ) : (
           <motion.div
@@ -535,27 +521,197 @@ export function PlanPicker({ apiBase, savedSession, robotSerial = null, robotCon
   );
 }
 
-/** Compact action row used inside the 'robots' sub-screen. Same chrome
- *  across pair / calibrate / drift so the trio reads as one menu. */
-function ActionButton(props: {
+// ─── Robots & Calibration sub-page ────────────────────────────────────────
+//
+// Lives inside its own component so the calibration / surface-profile
+// fetches (useRobotCalibration, getSurfaceState) only run when the kid
+// is actually on this tab — keeps the plan-picker's mount cost flat.
+
+const SURFACE_ICONS: Record<SurfaceId, React.ReactNode> = {
+  paper:  <FileText  size={14} />,
+  desk:   <Coffee    size={14} />,
+  carpet: <Layers    size={14} />,
+};
+
+function RobotsPanelContent({
+  apiBase, robotSerial, robotConnected,
+}: {
+  apiBase: string;
+  robotSerial: string | null;
+  robotConnected: boolean;
+}) {
+  const { calibration } = useRobotCalibration({ apiBase, enabled: !!robotSerial });
+  const [surface, setSurface] = useState(() => getSurfaceState());
+
+  useEffect(() => onSurfaceChange(setSurface), []);
+
+  // Derive a single status enum so the panel + dot are always in sync.
+  const status: 'live' | 'sim' | 'none' =
+    robotSerial ? 'live' : robotConnected ? 'sim' : 'none';
+
+  return (
+    <div className="plan-robots-content">
+      {/* ── Status card ─────────────────────────────────────────────── */}
+      <div className={`plan-robots-status plan-robots-status--${status}`}>
+        <div className="plan-robots-status-row">
+          <span className="plan-robots-status-dot" aria-hidden />
+          <div className="plan-robots-status-headline">
+            <h2 className="plan-robots-status-title">
+              {status === 'live'  ? 'Robot connected'
+                : status === 'sim' ? 'Simulator active'
+                : 'No robot paired'}
+            </h2>
+            <p className="plan-robots-status-sub">
+              {status === 'live'
+                ? <>SaySpark <code className="plan-robots-serial">{robotSerial}</code> is online on your Wi-Fi.</>
+                : status === 'sim'
+                  ? <>Running the on-screen simulator. Pair a real bot to unlock calibration.</>
+                  : <>Plug your bot in, then pair it. Calibration and drift check unlock after that.</>}
+            </p>
+          </div>
+        </div>
+
+        {status === 'live' && calibration && (
+          <div className="plan-robots-metrics">
+            <Metric label="Wheel"     value={`${calibration.wheel_diameter_mm.toFixed(1)} mm`} />
+            <Metric label="Base"      value={`${calibration.wheel_base_mm.toFixed(1)} mm`} />
+            <Metric label="L/R"       value={calibration.lr_balance.toFixed(3)} />
+            <Metric label="Duty min"  value={`${calibration.duty_min}`} />
+          </div>
+        )}
+        {status === 'live' && calibration && !calibration.provisioned && (
+          <p className="plan-robots-warn">
+            Using defaults — run <strong>Calibrate</strong> to dial these in for your surface.
+          </p>
+        )}
+      </div>
+
+      {/* ── Action grid ─────────────────────────────────────────────── */}
+      <div className="plan-robots-grid">
+        <ActionCard
+          accent="cyan"
+          icon={<Wifi size={18} />}
+          label="Pair a robot"
+          desc="Find a bot on your Wi-Fi and bind it to your account."
+          onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-pair-robot')); }}
+        />
+        <ActionCard
+          accent="amber"
+          icon={<Crosshair size={18} />}
+          label="Calibrate"
+          desc="4-step camera-measured calibration. Run on a fresh surface."
+          disabled={!robotSerial}
+          disabledHint="Pair a robot first."
+          onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-calibration')); }}
+        />
+        <ActionCard
+          accent="green"
+          icon={<Activity size={18} />}
+          label="Drift check"
+          desc="~30 s verification — drive 100 mm, rotate 90°. Re-calibrate if it fails."
+          disabled={!robotSerial}
+          disabledHint="Pair a robot first."
+          onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-drift-check')); }}
+        />
+        <ActionCard
+          accent="violet"
+          icon={<CircleDashed size={18} />}
+          label="Tag heights"
+          desc="Bot tag mount height + corner tag heights for parallax correction."
+          disabled={!robotSerial}
+          disabledHint="Pair a robot first."
+          onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-calibration')); }}
+        />
+      </div>
+
+      {/* ── Surface profiles ────────────────────────────────────────── */}
+      <div className="plan-robots-surfaces">
+        <div className="plan-robots-section-label">Surface profile</div>
+        <div className="plan-robots-surface-row">
+          {SURFACES.map((s) => {
+            const isActive    = surface.active === s.id;
+            const profile     = surface.profiles[s.id];
+            const calibrated  = !!profile;
+            const cantSwitch  = !robotSerial;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                className={
+                  'plan-robots-surface-chip'
+                  + (isActive ? ' is-active' : '')
+                  + (calibrated ? ' is-calibrated' : '')
+                }
+                disabled={cantSwitch}
+                title={cantSwitch
+                  ? 'Pair a real robot to switch surface profiles.'
+                  : calibrated
+                    ? `${s.description} Calibrated ${formatRelativeShort(profile.savedAt)}.`
+                    : `${s.description} Not yet calibrated.`}
+                onClick={() => {
+                  if (cantSwitch) return;
+                  playSfx('click');
+                  setActiveSurface(s.id);
+                }}
+              >
+                <span className="plan-robots-surface-icon">{SURFACE_ICONS[s.id]}</span>
+                <span className="plan-robots-surface-label">{s.label}</span>
+                <span className="plan-robots-surface-hint">
+                  {calibrated ? 'calibrated' : 'not yet'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="plan-robots-metric">
+      <div className="plan-robots-metric-label">{label}</div>
+      <div className="plan-robots-metric-value">{value}</div>
+    </div>
+  );
+}
+
+function ActionCard(props: {
+  icon: React.ReactNode;
   label: string;
   desc: string;
+  accent: 'cyan' | 'amber' | 'green' | 'violet';
   onClick: () => void;
   disabled?: boolean;
   disabledHint?: string;
 }) {
-  const { label, desc, onClick, disabled, disabledHint } = props;
+  const { icon, label, desc, accent, onClick, disabled, disabledHint } = props;
   return (
     <button
       type="button"
-      className={`plan-robots-action${disabled ? ' is-disabled' : ''}`}
+      className={`plan-robots-card plan-robots-card--${accent}${disabled ? ' is-disabled' : ''}`}
       onClick={() => { if (!disabled) onClick(); }}
       disabled={disabled}
       title={disabled ? disabledHint : undefined}
     >
-      <div className="plan-robots-action-label">{label}</div>
-      <div className="plan-robots-action-desc">{disabled && disabledHint ? disabledHint : desc}</div>
-      <ChevronRight size={16} className="plan-robots-action-arrow" />
+      <span className="plan-robots-card-icon">{icon}</span>
+      <span className="plan-robots-card-body">
+        <span className="plan-robots-card-label">{label}</span>
+        <span className="plan-robots-card-desc">
+          {disabled && disabledHint ? disabledHint : desc}
+        </span>
+      </span>
+      <ChevronRight size={16} className="plan-robots-card-arrow" />
     </button>
   );
+}
+
+function formatRelativeShort(ts: number): string {
+  const diffSec = Math.max(0, (Date.now() - ts) / 1000);
+  if (diffSec < 60)         return 'just now';
+  if (diffSec < 3600)       return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400)      return `${Math.floor(diffSec / 3600)}h ago`;
+  if (diffSec < 30 * 86400) return `${Math.floor(diffSec / 86400)}d ago`;
+  return new Date(ts).toLocaleDateString();
 }
