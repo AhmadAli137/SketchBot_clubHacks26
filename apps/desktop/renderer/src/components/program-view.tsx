@@ -47,9 +47,14 @@ type Props = {
   /** When true, hide the empty-state hero and show only the active program
    *  (e.g., embedded in a side rail). Defaults to false (full surface). */
   compact?: boolean;
+  /** Per-unit firmware serial. When null the "Run on Robot" toggle is
+   *  disabled and shows a tooltip prompting the user to pair a bot —
+   *  flipping it on with no paired chassis would silently drop every
+   *  motor command at the local-runtime. */
+  robotSerial?: string | null;
 };
 
-export function ProgramView({ compact = false }: Props) {
+export function ProgramView({ compact = false, robotSerial = null }: Props) {
   const [program, setProgram] = useState<Program>({ id: 'p-default', blocks: [] });
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [paused, setPaused] = useState(isProgramPaused());
@@ -65,6 +70,14 @@ export function ProgramView({ compact = false }: Props) {
   useEffect(() => onRobotModeChange(setRobotModeState), []);
   const runtimeConfig = useRuntimeConfig();
   useEffect(() => { setBridgeApiBase(runtimeConfig.apiBase); }, [runtimeConfig.apiBase]);
+
+  // If the robot disconnects (or we never had one) while Robot mode was
+  // on, force it back off. Otherwise the executor would keep firing
+  // setpoints into the void and the user would think their program is
+  // running on hardware when it isn't.
+  useEffect(() => {
+    if (!robotSerial && robotMode) setRobotMode(false);
+  }, [robotSerial, robotMode]);
 
   // Highlight the running block via the tutor.program.event bus. block.enter
   // sets the active id; block.exit clears it (so an idle program shows no
@@ -199,18 +212,26 @@ export function ProgramView({ compact = false }: Props) {
               When OFF, the executor still drives the simulator chassis
               for preview. Hidden in the compact strip header — the
               compact mode lives next to the dedicated SimControls bar. */}
-          {!compact && (
-            <button
-              type="button"
-              className={`program-view-btn program-view-btn-robot${robotMode ? ' on' : ''}`}
-              onClick={() => setRobotMode(!robotMode)}
-              title={robotMode
-                ? 'Click to stop streaming motor commands to the physical robot'
-                : 'Click to also drive the connected ESP32-C5 robot when this program runs'}
-            >
-              <Cpu size={12} /> {robotMode ? 'Robot ON' : 'Robot OFF'}
-            </button>
-          )}
+          <button
+            type="button"
+            className={`program-view-btn program-view-btn-robot${robotMode ? ' on' : ''}${!robotSerial ? ' disabled' : ''}`}
+            onClick={() => {
+              if (!robotSerial) return;
+              setRobotMode(!robotMode);
+            }}
+            disabled={!robotSerial}
+            title={!robotSerial
+              ? 'Pair a robot from the home screen to enable Run on Robot'
+              : robotMode
+                ? `Stop streaming motor commands to ${robotSerial}`
+                : `Mirror this program's motor commands to ${robotSerial}`}
+          >
+            <Cpu size={12} /> {!robotSerial
+              ? 'No robot'
+              : robotMode
+                ? (compact ? 'Robot ON' : `On · ${robotSerial}`)
+                : 'Run on Robot'}
+          </button>
         </div>
       </div>
 

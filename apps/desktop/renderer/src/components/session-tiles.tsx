@@ -7,6 +7,7 @@ import { X, Pencil, Check, Clock, MessageCircle, Box, Code2 } from 'lucide-react
 import type { SavedSession } from '@/lib/session-storage';
 import { deleteSession, pinSession } from '@/lib/session-storage';
 import { countLines, formatTimeSpent } from '@/lib/scene-builder';
+import { useSessionThumbnail } from '@/lib/use-session-thumbnail';
 
 function relativeTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -30,6 +31,9 @@ type TileProps = {
 export function SessionTile({ session, variant, userName, onResume, onChange }: TileProps) {
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(session.name);
+  // Resolved thumbnail URL (IndexedDB blob → object URL, falling back
+  // to the inline data URL if a legacy session is still carrying one).
+  const thumbnailUrl = useSessionThumbnail(session.id, session.thumbnailDataUrl);
 
   const objectCount = session.sceneObjects?.length ?? 0;
   const chatCount   = session.chat?.length ?? 0;
@@ -63,9 +67,19 @@ export function SessionTile({ session, variant, userName, onResume, onChange }: 
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.99 }}
     >
-      {/* Preview thumbnail */}
+      {/* Preview thumbnail — prefer a real canvas screenshot when one was
+          captured (sandbox sessions), fall back to the legacy SVG top-down
+          (older sessions / non-sandbox), then to an empty placeholder. */}
       <div className="session-tile-thumb">
-        {session.thumbnailSvg ? (
+        {thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="session-tile-thumb-image"
+            src={thumbnailUrl}
+            alt=""
+            draggable={false}
+          />
+        ) : session.thumbnailSvg ? (
           <div
             className="session-tile-thumb-svg"
             // SVG generated server-side-equivalent in scene-builder.ts — safe markup

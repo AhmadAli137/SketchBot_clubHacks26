@@ -13,6 +13,7 @@
 
 import type { AgeGroup } from './concept-types';
 import type { SceneObject } from './scene-builder';
+import type { Program } from './program-schema';
 
 export type SessionChatMessage = {
   id: string;
@@ -42,10 +43,20 @@ export type SavedSession = {
   code?: string;
   /** Optional block editor JSON. */
   blocks?: unknown;
-  /** Optional last-rendered SVG snapshot — used as a thumbnail on tiles. */
+  /** Optional last-rendered SVG snapshot — used as a thumbnail on tiles.
+   *  Superseded by `thumbnailDataUrl` (a real PNG screenshot of the 3D
+   *  sandbox) when present; kept as a fallback so older sessions saved
+   *  before the screenshot feature still render correctly. */
   thumbnailSvg?: string;
+  /** Real-canvas screenshot (data URL) of the 3D sandbox at the moment
+   *  of last save. Preferred over `thumbnailSvg` everywhere a thumbnail
+   *  is shown so the home screen reflects what the kid actually built. */
+  thumbnailDataUrl?: string;
   /** Sandbox course-builder objects placed by the user. */
   sceneObjects?: SceneObject[];
+  /** Live program (the visible "Drive 50cm at speed 60" blocks). Saved
+   *  alongside scene + chat so a kid's logic survives an app restart. */
+  program?: Program;
   /** Cumulative time spent in this session, in milliseconds. */
   totalTimeMs?: number;
 
@@ -172,10 +183,19 @@ export function touchSession(userName: string, id: string): void {
   updateSession(userName, id, {});
 }
 
-/** Delete a session permanently. */
+/** Delete a session permanently. Also evicts the IndexedDB thumbnail
+ *  blob so we don't accumulate orphans in the `thumbnails` store. The
+ *  IDB call is async fire-and-forget; deletion of the metadata in
+ *  localStorage is the user-visible part and stays synchronous. */
 export function deleteSession(userName: string, id: string): void {
   const all = readAll(userName).filter((s) => s.id !== id);
   writeAll(userName, all);
+  // Lazy import avoids a hard SSR dependency on the IDB module —
+  // session-storage is also imported from contexts where IDB doesn't
+  // exist (or hasn't been mocked).
+  void import('./thumbnail-store').then(({ deleteThumbnail }) => {
+    void deleteThumbnail(id);
+  }).catch(() => { /* IDB missing or import failed; orphan tolerated */ });
 }
 
 /** Pin a session with a name — promotes it from "Recent" to "Saved". */

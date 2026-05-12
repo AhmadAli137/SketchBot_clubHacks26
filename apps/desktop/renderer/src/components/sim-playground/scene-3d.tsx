@@ -772,7 +772,11 @@ export function Scene3D({
     <Canvas
       className={className} shadows
       camera={{ position: [5.2, 4.2, 5.2], fov: 42, near: 0.1, far: 60 }}
-      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.92, powerPreference: 'high-performance' }}
+      // preserveDrawingBuffer lets us call gl.domElement.toDataURL() at
+      // arbitrary times (from the autosave path) without the framebuffer
+      // having been cleared first. Has a small perf cost; acceptable for
+      // a sandbox view that's already at 60 fps.
+      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.92, powerPreference: 'high-performance', preserveDrawingBuffer: true }}
       style={{ width: '100%', height: '100%', background: env.background }}
       // Right-click in builder mode = rotate the ghost cursor; suppress the
       // native browser context menu so it doesn't pop up over the canvas.
@@ -780,6 +784,21 @@ export function Scene3D({
       onCreated={({ gl, scene }) => {
         gl.setClearColor(new THREE.Color(env.background), 1);
         scene.background = new THREE.Color(env.background);
+        // Hand the underlying <canvas> to the snapshot singleton so the
+        // dashboard's autosave can capture a thumbnail without needing a
+        // ref threaded through the dynamic-import boundary.
+        try {
+          const el = gl.domElement as HTMLCanvasElement | null;
+          if (el) {
+            // Lazy import keeps scene-3d's dynamic chunk free of any
+            // build-time dependency on the dashboard side of the codebase.
+            void import('@/lib/scene-snapshot').then(({ registerSceneCanvas }) => {
+              registerSceneCanvas(el);
+            });
+          }
+        } catch {
+          // Non-fatal: thumbnails just won't update for this session.
+        }
       }}
     >
       <SceneContent settledLines={settledLines} activeLine={activeLine} penPos={penPos} isAnimating={isAnimating}

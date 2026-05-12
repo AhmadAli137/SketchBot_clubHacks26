@@ -19,6 +19,9 @@ import { buildSparkContext, describeContextAsText } from '@/lib/spark-context';
 import { SparkToolDispatcher } from '@/components/spark-tool-dispatcher';
 import { ProgramView } from '@/components/program-view';
 import { getSession as getSavedSession, updateSession as updateSavedSessionRecord, SAVE_NOW_EVENT } from '@/lib/session-storage';
+import { captureSceneSnapshot } from '@/lib/scene-snapshot';
+import { setThumbnail as setSessionThumbnail } from '@/lib/thumbnail-store';
+import { getProgram, replaceProgram } from '@/lib/program-store';
 import type { StudentDashboardProps, InteractionMode } from '@/components/student-dashboard/types';
 import type { AgeGroup, ConceptLayer, InputMode } from '@/lib/concept-types';
 import {
@@ -121,22 +124,49 @@ export function StudentDashboard({
     sceneSessionLoadedRef.current = sessionId;
     const saved = getSavedSession(studentName || 'guest', sessionId);
     setSceneObjects(saved?.sceneObjects ?? []);
+    // Restore the live program (the "Drive 50cm…" blocks the kid built)
+    // so a desktop restart picks back up where they left off. If the
+    // saved session predates this field, fall through to whatever the
+    // store already has (typically empty).
+    if (saved?.program) {
+      try { replaceProgram(saved.program); } catch { /* ignore corrupt payload */ }
+    }
     const hasPriorState = !!saved && (
       (saved.sceneObjects?.length ?? 0) > 0 ||
-      (saved.chat?.length ?? 0) > 0
+      (saved.chat?.length ?? 0) > 0 ||
+      ((saved.program?.blocks?.length ?? 0) > 0)
     );
     setIsResumedSession(hasPriorState);
   }, [sessionId, studentName]);
-  // Debounced auto-save back to the SavedSession (also regenerates thumbnail).
+  // Debounced auto-save back to the SavedSession. Captures a real
+  // screenshot of the 3D sandbox (via the scene-snapshot singleton)
+  // each time so home-screen tiles reflect what the kid actually
+  // built. Falls back to the legacy SVG top-down view only if the
+  // canvas isn't currently mounted (e.g., kid is on the Code tab).
   // Listens for "save now" to flush immediately.
   useEffect(() => {
     if (!sessionId) return;
     const flush = () => {
-      const thumb = generateThumbnailSvg(sceneObjects);
+      const snapshot   = captureSceneSnapshot();
+      const fallbackSvg = snapshot ? undefined : (generateThumbnailSvg(sceneObjects) ?? undefined);
+      // Write the metadata (scene, program, fallback SVG) synchronously
+      // to localStorage. Thumbnails get a separate async write to IDB
+      // so we don't pay base64 inflation and don't bloat the per-user
+      // session list, which is read on every home-screen render.
       updateSavedSessionRecord(studentName || 'guest', sessionId, {
         sceneObjects,
-        thumbnailSvg: thumb ?? undefined,
+        program: getProgram(),
+        // Drop any legacy inline data URL — IDB is the source of truth now.
+        thumbnailDataUrl: undefined,
+        ...(fallbackSvg ? { thumbnailSvg: fallbackSvg } : {}),
       });
+      if (snapshot) {
+        // Fire-and-forget. If IDB is unavailable the inline data URL
+        // would have been the only place to put it, but we've already
+        // chosen the cleaner storage trade-off; readers fall back to
+        // the SVG when the blob can't be loaded.
+        void setSessionThumbnail(sessionId, snapshot);
+      }
     };
     // 2s debounce. Place/rotate/delete events arrive in bursts while a kid
     // is building; saving on every change pegs localStorage and triggers a
@@ -144,10 +174,28 @@ export function StudentDashboard({
     // immediately via SAVE_NOW_EVENT.
     const handle = setTimeout(flush, 2000);
     const onSaveNow = () => { clearTimeout(handle); flush(); };
+    // Flush on window-level exits too — closing the desktop app, navigating
+    // away, or the OS killing the renderer. visibilitychange catches the
+    // mac/Windows window-hide path that beforeunload sometimes misses.
+    const onBeforeUnload = () => { clearTimeout(handle); flush(); };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        clearTimeout(handle);
+        flush();
+      }
+    };
     window.addEventListener(SAVE_NOW_EVENT, onSaveNow);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       clearTimeout(handle);
+      // Final flush when this dashboard unmounts (e.g., user clicked
+      // Back to home). Ensures the latest state hits localStorage
+      // before the home screen re-reads the session list.
+      flush();
       window.removeEventListener(SAVE_NOW_EVENT, onSaveNow);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [sceneObjects, sessionId, studentName]);
   const [showSystemStatus, setShowSystemStatus] = useState(false);

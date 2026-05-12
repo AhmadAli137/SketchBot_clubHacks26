@@ -16,6 +16,11 @@ export type StudentDashboardProps = {
   canvasReady: boolean;
   drawingReady: boolean;
   robotReady: boolean;
+  /** Per-unit firmware serial from the local-runtime AppState (set when a
+   *  real ESP32 has shaken hands; null in mock/simulator-only mode).
+   *  Pipes through to SimPlayground so the sandbox can show the same
+   *  identity pill that the home screen does and offer "Run on Robot". */
+  robotSerial?: string | null;
   cameraSource: string;
   cameraFrameUrl: string | null;
   cameraStatus: string;
