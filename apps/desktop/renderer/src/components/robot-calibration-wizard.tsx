@@ -40,6 +40,7 @@ import {
   type RobotCalibrationPatch,
 } from '@/lib/use-robot-calibration';
 import type { AppState, RobotPose } from '@/lib/types';
+import { getSurfaceState, saveSurfaceProfile } from '@/lib/surface-profile';
 
 const ASSUMED_WHEEL_DIAMETER_MM = 65.0;
 const ASSUMED_WHEEL_BASE_MM     = 140.0;
@@ -274,7 +275,12 @@ export function RobotCalibrationWizard({ open, apiBase, state, onClose }: Props)
     setSubmitting(true);
     setRunError(null);
     try {
-      await save(computed);
+      const updated = await save(computed);
+      // Also persist to the active surface profile (Cal.6) so flipping
+      // surfaces later restores this calibration without re-running the
+      // wizard. The active surface is whatever the picker last set.
+      const { active } = getSurfaceState();
+      saveSurfaceProfile(active, updated);
       setDoneSaving(true);
     } catch (err) {
       setRunError(err instanceof Error ? err.message : 'save failed');

@@ -18,6 +18,8 @@ import {
   setTutorVolume,
   onAudioSettingsChange,
 } from '@/lib/audio-settings';
+import { SurfacePicker } from '@/components/surface-picker';
+import { useRuntimeConfig } from '@/lib/config';
 
 const PRICING_URL = 'https://sayspark.ca/pricing';
 const ACCOUNT_URL = 'https://sayspark.ca/account';
@@ -42,6 +44,7 @@ function initials(name: string): string {
 }
 
 export function UserAccountPanel({ role, name, email, robotSerial, onSignOut, onClose }: Props) {
+  const { apiBase } = useRuntimeConfig();
   const progress = useMemo(() => {
     if (role !== 'student' || !name) return null;
     return getProgressSummary(name);
@@ -256,6 +259,13 @@ export function UserAccountPanel({ role, name, email, robotSerial, onSignOut, on
               </button>
             </div>
           </div>
+        )}
+
+        {/* Surface profile picker (Cal.6). Only shown when a real bot
+            is on the LAN — switching surfaces in sim mode wouldn't do
+            anything (the simulator doesn't care about wheel friction). */}
+        {role !== 'guest' && robotSerial && (
+          <SurfacePicker apiBase={apiBase} robotConnected={!!robotSerial} />
         )}
 
         {/* Volume sliders — music + Spark's voice. Live-applied; drag to

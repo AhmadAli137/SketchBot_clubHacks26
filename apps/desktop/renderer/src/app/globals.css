@@ -17138,6 +17138,75 @@ select.block-param-input{width:auto;padding-right:20px}
 .cal-drift-value.is-ok   .cal-drift-delta { color: color-mix(in srgb, var(--green) 70%, var(--muted)); }
 .cal-drift-value.is-fail .cal-drift-delta { color: #fca5a5; }
 
+/* ─── Surface picker (Cal.6) ─────────────────────────────────────────
+   Three pills (paper / desk / carpet). Tap to switch — pushes the
+   stored calibration for that surface to the bot. Empty slots get a
+   small dot indicator so the kid can see "this one hasn't been
+   calibrated yet — run the wizard here". */
+.surface-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  background: rgba(168, 85, 247, 0.05);
+  margin-bottom: 12px;
+}
+.surface-picker-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.surface-picker-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.surface-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.surface-pill:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg);
+}
+.surface-pill.is-active {
+  background: color-mix(in srgb, var(--cyan) 20%, transparent);
+  border-color: color-mix(in srgb, var(--cyan) 60%, transparent);
+  color: var(--cyan);
+  font-weight: 600;
+}
+.surface-pill.is-empty {
+  /* Visually flagged as "not yet calibrated" — works alongside
+     is-active so the empty-active state still reads as active. */
+  border-style: dashed;
+}
+.surface-pill-empty-dot {
+  color: var(--amber);
+  font-size: 0.9rem;
+  line-height: 0.5;
+  margin-left: 2px;
+}
+.surface-picker-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: #fca5a5;
+}
+
 /* Subtle dot pulse used by the "Phone driving" arbitration chip so the
    local user notices when another session has taken over the bot. */
 @keyframes sb-pulse {
