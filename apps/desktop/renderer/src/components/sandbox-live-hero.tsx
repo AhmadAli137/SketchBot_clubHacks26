@@ -150,26 +150,6 @@ function DigSandMound() {
           times: [0, 0.45, 0.70, 1],
         }}
       />
-      <motion.path
-        d="M0 16 C24 4, 48 18, 70 6 C92 -2, 116 16, 140 10"
-        stroke="rgba(255,196,70,0.42)"
-        strokeWidth="1.3"
-        fill="none"
-        animate={{
-          d: [
-            'M0 16 C24 4, 48 18, 70 6 C92 -2, 116 16, 140 10',
-            'M0 16 C24 4, 48 18, 70 14 C92 -2, 116 16, 140 10',
-            'M0 16 C24 4, 48 18, 70 8 C92 -2, 116 16, 140 10',
-            'M0 16 C24 4, 48 18, 70 6 C92 -2, 116 16, 140 10',
-          ],
-        }}
-        transition={{
-          duration: DIG_DURATION,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          times: [0, 0.45, 0.70, 1],
-        }}
-      />
     </motion.svg>
   );
 }
@@ -240,35 +220,43 @@ function SandboxFloorStrip() {
       {/* ── MAIN: digging Spark — slightly right of centre ────────────── */}
       <div className="sandbox-live-hero-floor-dig">
         <DigSandMound />
-        <div className="sandbox-live-hero-floor-bot">
-          <motion.div
-            style={{ transformOrigin: 'bottom center', display: 'inline-block' }}
-            // Subtle body shift while digging — leans into the dig phase,
-            // back to neutral on lift. Times align with the shovel curve.
-            animate={{ rotate: [-3, -6, 2, -3], y: [0, 3, 0, 0] }}
-            transition={{
-              duration: DIG_DURATION,
-              repeat: Infinity,
-              ease: [0.4, 0, 0.2, 1],
-              times: [0, 0.45, 0.70, 1],
-            }}
-          >
-            <SparkRobot mode="2d" pose="wave" size="sm" />
-          </motion.div>
 
-          {/* Shovel — scoop-then-tip cycle */}
+        {/* Bot wrapper — leans forward and sinks slightly during the
+            dig phase, then straightens on the lift. This is what reads
+            as "the bot is putting weight on the shovel" rather than
+            just standing there waving. */}
+        <motion.div
+          className="sandbox-live-hero-floor-bot"
+          style={{ transformOrigin: 'bottom center' }}
+          animate={{
+            //  0–20%   upright (ready)
+            // 20–50%   leans forward + sinks (plunge)
+            // 50–65%   pulls back upright (lift, load on blade)
+            // 65–100%  fully back to neutral
+            rotate: [0, -2, -14, -4, 0],
+            y:      [0, 0,  6,    1, 0],
+          }}
+          transition={{
+            duration: DIG_DURATION,
+            repeat: Infinity,
+            ease: [0.4, 0, 0.2, 1],
+            times: [0, 0.20, 0.50, 0.65, 1.0],
+          }}
+        >
+          <SparkRobot mode="2d" pose="wave" size="sm" />
+
+          {/* Shovel + bot's right-arm + grip-hand. All three rotate
+              together around the right-shoulder pivot so the bot
+              visibly "holds" the shovel rather than the tool floating
+              next to it. transform-origin numbers are measured to the
+              bot's 72×72 sm-sized wrapper:
+                shoulder x ≈ 56 (right-of-centre)
+                shoulder y ≈ 28 (upper torso)
+              The grip group is anchored to that point and rotates with
+              the dig-cycle curve. */}
           <motion.div
-            style={{
-              position: 'absolute',
-              right: -14,
-              bottom: 12,
-              transformOrigin: '10px 4px',
-              zIndex: 4,
-            }}
-            // -55 = handle up / blade poking down at sand
-            //  18 = blade vertical (just lifted, sand on it)
-            //  55 = blade rotated forward (sand dumps off)
-            animate={{ rotate: [-55, -55, 18, 55, -55] }}
+            className="sandbox-live-hero-floor-arm"
+            animate={{ rotate: [-65, -65, 18, 62, -65] }}
             transition={{
               duration: DIG_DURATION,
               repeat: Infinity,
@@ -276,10 +264,45 @@ function SandboxFloorStrip() {
               times: [0, 0.20, 0.50, 0.65, 1.0],
             }}
           >
-            <ShovelSvg />
-            <ShovelSandLoad />
+            {/* Forearm — a small rounded bar from the shoulder pivot
+                down to where the bot grips the shovel. Stays attached
+                because it lives inside the rotating group. */}
+            <svg
+              width="8"
+              height="22"
+              viewBox="0 0 8 22"
+              style={{ position: 'absolute', left: -2, top: 0 }}
+              aria-hidden
+            >
+              <rect x="1" y="0" width="6" height="22" rx="3" fill="#e6f0ff" stroke="#7fa4d6" strokeWidth="0.6" />
+            </svg>
+
+            {/* Shovel — handle now starts AT the hand position
+                (just below the forearm) so the two visually meet. */}
+            <div style={{ position: 'absolute', left: -8, top: 18 }}>
+              <ShovelSvg />
+              <ShovelSandLoad />
+            </div>
+
+            {/* Grip "hand" — small oval at the join, drawn last so it
+                sits above both the forearm and the shovel handle.
+                Reads as the bot's fingers wrapped around the wood. */}
+            <span
+              style={{
+                position: 'absolute',
+                left: -4,
+                top: 16,
+                width: 12,
+                height: 8,
+                borderRadius: 6,
+                background: '#e6f0ff',
+                border: '1px solid #7fa4d6',
+                zIndex: 6,
+              }}
+              aria-hidden
+            />
           </motion.div>
-        </div>
+        </motion.div>
 
         {/* Puff burst at the moment the shovel tips */}
         {PUFFS.map((p, i) => (
@@ -363,12 +386,6 @@ function SandboxFloorStrip() {
         <path
           d="M0,18 C14,10 32,24 58,14 C80,5 102,20 130,10 C156,3 178,16 208,8 C234,0 258,14 286,5 C310,-2 336,12 362,4 C386,-3 410,12 438,3 C464,-4 488,10 516,2 C542,-4 566,8 594,1 C620,-4 646,10 672,2 C696,-3 712,8 720,5 L720,60 L0,60 Z"
           fill="url(#sbhFloorShine)"
-        />
-        <path
-          d="M0,18 C14,10 32,24 58,14 C80,5 102,20 130,10 C156,3 178,16 208,8 C234,0 258,14 286,5 C310,-2 336,12 362,4 C386,-3 410,12 438,3 C464,-4 488,10 516,2 C542,-4 566,8 594,1 C620,-4 646,10 672,2 C696,-3 712,8 720,5"
-          fill="none"
-          stroke="rgba(255,196,70,0.40)"
-          strokeWidth="1.6"
         />
         {/* Pebbles scattered along the sand */}
         {[60, 175, 295, 405, 520, 615].map((cx, i) => (

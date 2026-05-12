@@ -17569,9 +17569,24 @@ select.block-param-input{width:auto;padding-right:20px}
   left: 50%;
   bottom: 18px;
   transform: translateX(-50%);
-  display: inline-flex;
-  align-items: flex-end;
+  display: inline-block;
   z-index: 3;
+}
+/* Right-shoulder pivot for the arm + shovel group. Coordinates measured
+   to SparkRobot mode="2d" size="sm" (72 × 72 wrapper):
+     shoulder x ≈ 56 px from the wrapper's left edge → right: 12 px
+     shoulder y ≈ 28 px from the top → top: 28 px
+   transform-origin top-center keeps the rotation anchored at the
+   shoulder no matter what angle the arm swings to. */
+.sandbox-live-hero-floor-arm {
+  position: absolute;
+  right: 12px;
+  top: 28px;
+  width: 8px;
+  height: 22px;
+  transform-origin: top center;
+  z-index: 5;
+  pointer-events: none;
 }
 
 /* Make the card taller so the strip has room without crowding the
