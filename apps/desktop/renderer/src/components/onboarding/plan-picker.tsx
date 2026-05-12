@@ -217,15 +217,17 @@ export function PlanPicker({ apiBase, savedSession, robotSerial = null, robotCon
             >
               <SparkSceneBackground scene={scene} />
 
-              {/* Logo — large, anchored top-left */}
-              <motion.div
-                className="plan-hero-logo"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.1 }}
-              >
-                <MotrixLogo size={52} showWordmark />
-              </motion.div>
+              {/* Logo — large, anchored top-left.
+                  Rendered statically (no motion wrapper, animate=false on
+                  the logo) because on first paint this is the user's very
+                  first frame — there's nothing to fade in from, and
+                  stacking another motion component on top of the page
+                  transition + plan-split fade + plan-hero slide raced
+                  with Framer's hydration on first load, leaving the
+                  logo stuck at opacity 0 until a re-mount. */}
+              <div className="plan-hero-logo">
+                <MotrixLogo size={52} showWordmark animate={false} />
+              </div>
 
               {/* 3D canvas fills all remaining height above text section */}
               <div className="plan-spark-hero">
