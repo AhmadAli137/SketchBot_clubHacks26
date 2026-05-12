@@ -17533,12 +17533,30 @@ select.block-param-input{width:auto;padding-right:20px}
   left: 0;
   right: 0;
   bottom: 0;
-  height: 96px;
+  height: 110px;
   pointer-events: none;
   z-index: 1;
   /* Local CSS var so the buried-clip rule can re-use the original
      SandboxHeroScene's height calc. */
   --sand-h: 24px;
+}
+/* Soft fade at the top of the floor so the sand line eases into the
+   dark card instead of slamming into it. The mask runs from
+   transparent (top, 0–22% of the strip) to fully visible (lower
+   reaches), so the obstacles + dig action stay crisp while only the
+   harsh upper edge of the sand softens. */
+.sandbox-live-hero-floor::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(7, 10, 28, 0.55) 0%,
+    rgba(7, 10, 28, 0.25) 40%,
+    transparent 80%
+  );
+  z-index: 1;
 }
 .sandbox-live-hero-floor-sand {
   position: absolute;
@@ -17554,14 +17572,19 @@ select.block-param-input{width:auto;padding-right:20px}
   position: absolute;
   line-height: 0;
   z-index: 2;
+  /* Slightly desaturated and dimmed so the obstacles read as
+     supporting cast around the digging Spark, not competing for
+     attention. Pairs with the muted sand gradient. */
+  opacity: 0.85;
+  filter: saturate(0.85);
 }
 .sandbox-live-hero-floor-dig {
   position: absolute;
   left: 50%;
   bottom: 0;
   transform: translateX(-50%);
-  width: 200px;
-  height: 90px;
+  width: 240px;
+  height: 120px;
   z-index: 3;
 }
 .sandbox-live-hero-floor-bot {
@@ -17573,27 +17596,27 @@ select.block-param-input{width:auto;padding-right:20px}
   z-index: 3;
 }
 /* Right-shoulder pivot for the arm + shovel group. Coordinates measured
-   to SparkRobot mode="2d" size="sm" (72 × 72 wrapper):
-     shoulder x ≈ 56 px from the wrapper's left edge → right: 12 px
-     shoulder y ≈ 28 px from the top → top: 28 px
+   to SparkRobot mode="2d" size="md" (100 × 100 wrapper):
+     shoulder x ≈ 76 px from the wrapper's left edge → right: 18 px
+     shoulder y ≈ 38 px from the top → top: 38 px
    transform-origin top-center keeps the rotation anchored at the
    shoulder no matter what angle the arm swings to. */
 .sandbox-live-hero-floor-arm {
   position: absolute;
-  right: 12px;
-  top: 28px;
-  width: 8px;
-  height: 22px;
+  right: 18px;
+  top: 38px;
+  width: 10px;
+  height: 30px;
   transform-origin: top center;
   z-index: 5;
   pointer-events: none;
 }
 
 /* Make the card taller so the strip has room without crowding the
-   body. 96 px strip + a little breathing space. */
+   body. 110 px strip + small breathing space. */
 .sandbox-live-hero--themed {
   position: relative;
-  padding-bottom: 112px;
+  padding-bottom: 124px;
 }
 
 @media (max-width: 720px) {
@@ -17606,7 +17629,7 @@ select.block-param-input{width:auto;padding-right:20px}
     display: none;
   }
   .sandbox-live-hero--themed {
-    padding-bottom: 60px;
+    padding-bottom: 72px;
   }
 }
 

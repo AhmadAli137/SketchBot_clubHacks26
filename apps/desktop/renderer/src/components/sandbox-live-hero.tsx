@@ -124,9 +124,11 @@ function DigSandMound() {
     >
       <defs>
         <linearGradient id="sbhDigMound" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"  stopColor="#d4952a" />
-          <stop offset="50%" stopColor="#c07820" />
-          <stop offset="100%" stopColor="#8b5e1a" />
+          {/* Same muted amber as the floor SVG so the mound under the
+              digging bot reads as part of the same sand. */}
+          <stop offset="0%"  stopColor="#6d5527" />
+          <stop offset="50%" stopColor="#473620" />
+          <stop offset="100%" stopColor="#2a1f10" />
         </linearGradient>
       </defs>
       <motion.path
@@ -243,7 +245,7 @@ function SandboxFloorStrip() {
             times: [0, 0.20, 0.50, 0.65, 1.0],
           }}
         >
-          <SparkRobot mode="2d" pose="wave" size="sm" />
+          <SparkRobot mode="2d" pose="wave" size="md" />
 
           {/* Shovel + bot's right-arm + grip-hand. All three rotate
               together around the right-shoulder pivot so the bot
@@ -369,14 +371,20 @@ function SandboxFloorStrip() {
         aria-hidden
       >
         <defs>
+          {/* Muted amber to fit the dark hero card. The original
+              SandboxHeroScene used bright amber (#d4952a → #8b5e1a)
+              because it sat on a coloured sky background; this card
+              is near-black, so we pull saturation way down and
+              darken. Reads as "warm sand at dusk" — sits inside the
+              dark theme instead of fighting it. */}
           <linearGradient id="sbhFloorSand" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"  stopColor="#d4952a" />
-            <stop offset="38%" stopColor="#c07820" />
-            <stop offset="100%" stopColor="#8b5e1a" />
+            <stop offset="0%"  stopColor="#5a4622" />
+            <stop offset="40%" stopColor="#3e3018" />
+            <stop offset="100%" stopColor="#241a0e" />
           </linearGradient>
           <radialGradient id="sbhFloorShine" cx="50%" cy="0%" r="80%">
-            <stop offset="0%" stopColor="#f0c040" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#d4952a" stopOpacity="0" />
+            <stop offset="0%"   stopColor="#a07a3a" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#5a4622" stopOpacity="0" />
           </radialGradient>
         </defs>
         <path
