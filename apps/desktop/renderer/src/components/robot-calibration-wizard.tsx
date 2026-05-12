@@ -306,6 +306,7 @@ export function RobotCalibrationWizard({ open, apiBase, state, onClose }: Props)
   return (
     <AnimatePresence>
       <motion.div
+        key="cal-backdrop"
         className="cal-backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -313,6 +314,7 @@ export function RobotCalibrationWizard({ open, apiBase, state, onClose }: Props)
         transition={{ duration: 0.15 }}
       />
       <motion.div
+        key="cal-modal"
         className="cal-modal"
         role="dialog"
         aria-modal="true"
