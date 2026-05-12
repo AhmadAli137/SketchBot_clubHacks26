@@ -47,6 +47,9 @@ import { useCloudKeepalive } from '@/lib/use-cloud-keepalive';
 import { setRobotSnapshot, ensureNarratorSubscribed } from '@/lib/program-narrator';
 import { RobotCalibrationWizard } from '@/components/robot-calibration-wizard';
 import { RobotDriftCheck } from '@/components/robot-drift-check';
+import { PairRobotModal } from '@/components/pair-robot-modal';
+import { useCloudAuthToken } from '@/lib/cloud-api';
+import { usePairedDevices } from '@/lib/use-paired-devices';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 type AppView = 'plan' | 'auth' | 'difficulty-onboarding' | 'home' | 'session';
@@ -176,16 +179,30 @@ export default function HomePage() {
   // their own props plumbing.
   const [calibrationOpen, setCalibrationOpen] = useState(false);
   const [driftCheckOpen, setDriftCheckOpen] = useState(false);
+  const [pairRobotModalOpen, setPairRobotModalOpen] = useState(false);
   useEffect(() => {
     const openCal = () => setCalibrationOpen(true);
     const openDrift = () => setDriftCheckOpen(true);
+    const openPair = () => setPairRobotModalOpen(true);
     window.addEventListener('sketchbot:open-calibration', openCal);
     window.addEventListener('sketchbot:open-drift-check', openDrift);
+    window.addEventListener('sketchbot:open-pair-robot', openPair);
     return () => {
       window.removeEventListener('sketchbot:open-calibration', openCal);
       window.removeEventListener('sketchbot:open-drift-check', openDrift);
+      window.removeEventListener('sketchbot:open-pair-robot', openPair);
     };
   }, []);
+
+  // Pair-robot modal needs the user's Supabase auth token + the
+  // "is this serial already in my owned list?" predicate. Both come
+  // from the same hooks the home-screen uses; lifting them here lets
+  // the modal open from the plan-picker too.
+  const cloudAuthTokenForPair = useCloudAuthToken();
+  const { isClaimedByMe: isClaimedByMeForPair, refresh: refreshPairedForPair } = usePairedDevices({
+    authToken: cloudAuthTokenForPair,
+    enabled: userRole !== 'guest',
+  });
   // True after the user clicks Just Play — makes the home screen render its
   // sandbox-view layout (hero + sessions gallery) regardless of role.
   // Reset whenever they leave to a non-sandbox surface (auth, session view
@@ -1319,6 +1336,8 @@ export default function HomePage() {
             <PlanPicker
               apiBase={apiBase}
               savedSession={savedSession ?? undefined}
+              robotSerial={state?.robot_serial ?? null}
+              robotConnected={!!state?.robot_connected}
               onPicked={(result) => {
                 setSavedSession(null);
                 handleAuthenticated(result);
@@ -1590,6 +1609,22 @@ export default function HomePage() {
         apiBase={apiBase}
         state={state}
         onClose={() => setDriftCheckOpen(false)}
+      />
+
+      {/* Pair-robot modal — lifted from the home-screen so any UI
+          (including the plan picker before the user even reaches the
+          home screen) can open it via 'sketchbot:open-pair-robot'. */}
+      <PairRobotModal
+        open={pairRobotModalOpen}
+        robotSerial={state?.robot_serial ?? null}
+        isOwnedByMe={!!state?.robot_serial && isClaimedByMeForPair(state.robot_serial)}
+        localApiBase={apiBase}
+        authToken={cloudAuthTokenForPair}
+        onPaired={() => {
+          void refreshPairedForPair();
+          setTimeout(() => setPairRobotModalOpen(false), 1800);
+        }}
+        onClose={() => setPairRobotModalOpen(false)}
       />
 
       {/* Difficulty re-assessment modal — accessible from the level dropdown in any session */}

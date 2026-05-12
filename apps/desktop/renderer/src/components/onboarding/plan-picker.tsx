@@ -13,13 +13,21 @@ import { playSfx } from '@/lib/game-audio';
 import { getProgressSummary, getStudentProgress } from '@/lib/progress-store';
 import type { AuthResult, AuthRole } from '@/components/auth-screen';
 
-type Plan = 'pick' | 'join-class';
+type Plan = 'pick' | 'join-class' | 'robots';
 
 type SavedSession = { role: AuthRole; name: string; email?: string };
 
 type PlanPickerProps = {
   apiBase: string;
   savedSession?: SavedSession;
+  /** Per-unit serial reported by the firmware (e.g. SKETCH-A1B2-C3D4).
+   *  Null when no real chassis is on the LAN — drives the small robot
+   *  status chip and the contents of the 'robots' sub-screen. */
+  robotSerial?: string | null;
+  /** Convenience boolean from app state — the simulator's mock bot
+   *  counts as connected too, but only `robotSerial` reflects real
+   *  hardware. */
+  robotConnected?: boolean;
   onPicked: (result: AuthResult, sessionCode?: string) => void;
   /** Sandbox entry — bypasses auth flow entirely. Available to anyone
    *  (signed in or not); the parent decides whether to upgrade a guest
@@ -48,7 +56,7 @@ const TUTOR_LINES = [
   "Four robots to start, more coming. Waypoint racing, sumo, drawing, maze solving. I'll adapt the curriculum to your exact brain.",
 ];
 
-export function PlanPicker({ apiBase, savedSession, onPicked, onJustPlay, onTeacherAuth, onPersonalTutor, onClearSavedSession }: PlanPickerProps) {
+export function PlanPicker({ apiBase, savedSession, robotSerial = null, robotConnected = false, onPicked, onJustPlay, onTeacherAuth, onPersonalTutor, onClearSavedSession }: PlanPickerProps) {
   const [plan, setPlan] = useState<Plan>('pick');
   const [joinCode, setJoinCode] = useState('');
   const [studentName, setStudentName] = useState('');
@@ -95,7 +103,7 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onJustPlay, onTeac
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && plan === 'join-class') { setPlan('pick'); setError(null); }
+      if (e.key === 'Escape' && (plan === 'join-class' || plan === 'robots')) { setPlan('pick'); setError(null); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -157,6 +165,37 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onJustPlay, onTeac
       <div className="auth-bg-orb auth-bg-orb-a" aria-hidden />
       <div className="auth-bg-orb auth-bg-orb-b" aria-hidden />
       <div className="auth-bg-orb auth-bg-orb-c" aria-hidden />
+
+      {/* Robot status chip — visible in 'pick' state so the user sees
+          their bot's connection state before drilling into anything.
+          Anchored top-right, kept clear of the global toolbar by sitting
+          slightly lower-left. Tapping fires the same in-app pair modal
+          the home screen uses. */}
+      {plan === 'pick' && (
+        <button
+          type="button"
+          className={`plan-robot-chip${robotSerial ? ' is-live' : robotConnected ? ' is-sim' : ''}`}
+          onClick={() => window.dispatchEvent(new CustomEvent('sketchbot:open-pair-robot'))}
+          title={robotSerial
+            ? `Real robot on the LAN — click to manage or pair another`
+            : robotConnected
+              ? `Simulator active — click to pair a real robot`
+              : `No robot detected — click to pair one`}
+        >
+          <Cpu size={12} />
+          <span
+            className="plan-robot-chip-dot"
+            aria-hidden
+            style={{
+              background: robotSerial ? 'var(--green)' : robotConnected ? 'var(--amber)' : 'var(--muted)',
+              boxShadow: robotSerial ? '0 0 6px var(--green)' : undefined,
+            }}
+          />
+          <span className="plan-robot-chip-label">
+            {robotSerial ?? (robotConnected ? 'Simulator' : 'No robot')}
+          </span>
+        </button>
+      )}
 
       <AnimatePresence mode="wait">
         {plan === 'pick' ? (
@@ -336,6 +375,15 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onJustPlay, onTeac
                         onCLick: () => { playSfx('click'); setPlan('join-class'); setTimeout(() => codeRef.current?.focus(), 80); },
                         tourId: 'plan-card-class',
                       },
+                      {
+                        cls: 'plan-card--robots', icon: <Cpu size={20} />, title: 'Robots & Calibration',
+                        desc: robotSerial
+                          ? `Pair, calibrate, surface profiles · ${robotSerial}`
+                          : 'Pair a robot, calibrate, set surface profiles.',
+                        progressHint: undefined as string | undefined,
+                        onCLick: () => { playSfx('click'); setPlan('robots'); },
+                        tourId: 'plan-card-robots',
+                      },
                     ].map(({ cls, icon, title, desc, progressHint, onCLick, tourId }, i) => (
                       <motion.button
                         key={title}
@@ -375,6 +423,55 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onJustPlay, onTeac
                 </div>
               </div>
             </motion.div>
+          </motion.div>
+        ) : plan === 'robots' ? (
+          <motion.div
+            key="robots"
+            className="plan-join-panel plan-robots-panel"
+            initial={{ opacity: 0, scale: 0.96, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -8 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <motion.button
+              type="button" className="entry-back"
+              onClick={() => { setPlan('pick'); setError(null); }}
+              whileHover={{ x: -3 }} whileTap={{ scale: 0.95 }}
+            >
+              <ChevronLeft size={16} /> Back
+            </motion.button>
+
+            <div className="plan-join-head">
+              <div className="plan-join-icon"><Cpu size={28} /></div>
+              <h2 className="plan-join-title">Robots & Calibration</h2>
+              <p className="plan-join-desc">
+                {robotSerial
+                  ? <>Connected to <code style={{ fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.04em' }}>{robotSerial}</code>. Pick an action below.</>
+                  : <>No real robot detected yet. Pair one first; calibration unlocks after that.</>}
+              </p>
+            </div>
+
+            <div className="plan-robots-actions">
+              <ActionButton
+                label="Pair a robot"
+                desc="Find a bot on your Wi-Fi and bind it to your account."
+                onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-pair-robot')); }}
+              />
+              <ActionButton
+                label="Calibrate"
+                desc="4-step camera-measured calibration. Run on a fresh surface."
+                disabled={!robotSerial}
+                disabledHint="Pair a robot first."
+                onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-calibration')); }}
+              />
+              <ActionButton
+                label="Drift check"
+                desc="~30 s verification — drive 100 mm, rotate 90°. Re-calibrate if it fails."
+                disabled={!robotSerial}
+                disabledHint="Pair a robot first."
+                onClick={() => { playSfx('click'); window.dispatchEvent(new CustomEvent('sketchbot:open-drift-check')); }}
+              />
+            </div>
           </motion.div>
         ) : (
           <motion.div
@@ -427,5 +524,30 @@ export function PlanPicker({ apiBase, savedSession, onPicked, onJustPlay, onTeac
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/** Compact action row used inside the 'robots' sub-screen. Same chrome
+ *  across pair / calibrate / drift so the trio reads as one menu. */
+function ActionButton(props: {
+  label: string;
+  desc: string;
+  onClick: () => void;
+  disabled?: boolean;
+  disabledHint?: string;
+}) {
+  const { label, desc, onClick, disabled, disabledHint } = props;
+  return (
+    <button
+      type="button"
+      className={`plan-robots-action${disabled ? ' is-disabled' : ''}`}
+      onClick={() => { if (!disabled) onClick(); }}
+      disabled={disabled}
+      title={disabled ? disabledHint : undefined}
+    >
+      <div className="plan-robots-action-label">{label}</div>
+      <div className="plan-robots-action-desc">{disabled && disabledHint ? disabledHint : desc}</div>
+      <ChevronRight size={16} className="plan-robots-action-arrow" />
+    </button>
   );
 }
