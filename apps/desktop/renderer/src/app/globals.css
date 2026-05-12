@@ -16131,6 +16131,16 @@ select.block-param-input{width:auto;padding-right:20px}
   display: block;
 }
 
+/* Real-canvas screenshot thumbnail. Cover-fit so the 4:3 capture fills
+   whatever tile aspect ratio without letterboxing. */
+.session-tile-thumb-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  user-select: none;
+}
+
 .session-tile-thumb-empty {
   position: absolute;
   inset: 0;
@@ -17323,6 +17333,14 @@ select.block-param-input{width:auto;padding-right:20px}
   height: 100%;
 }
 
+.sandbox-live-hero-preview-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  user-select: none;
+}
+
 .sandbox-live-hero-preview-empty {
   height: 100%;
   display: grid;
@@ -17471,6 +17489,91 @@ select.block-param-input{width:auto;padding-right:20px}
 
 @media (max-width: 720px) {
   .sandbox-live-hero-spark { display: none; }
+}
+
+/* ─── Themed home-hero layer — sparkles + digging-Spark corner + sand
+   gradient. Together these bring back the SandboxHeroScene personality
+   without overpowering the live preview thumbnail.
+
+   Layering (bottom to top inside the hero card):
+     base card background (existing radial+linear gradient)
+     .sandbox-live-hero-sand-strip   (amber gradient hugging the bottom)
+     .sandbox-live-hero-sparkles      (ambient sparkles, free-floating)
+     hero body + preview thumbnail   (existing grid content)
+     .sandbox-live-hero-corner        (digging Spark + puffs)
+*/
+.sandbox-live-hero--themed { position: relative; }
+/* Ensure the hero's actual content (preview button + body) renders
+   above the themed decorative layers (sparkles, sand strip, corner
+   scene). Stacking contexts on the grid children give them a baseline
+   z-index of 2 — sparkles/strip use 1, the corner-bot uses 2 too but
+   is offset bottom-right where CTAs don't naturally extend. */
+.sandbox-live-hero--themed > .sandbox-live-hero-preview,
+.sandbox-live-hero--themed > .sandbox-live-hero-body,
+.sandbox-live-hero--themed > .sandbox-live-hero-empty-body {
+  position: relative;
+  z-index: 2;
+}
+
+.sandbox-live-hero-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sandbox-live-hero-sand-strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(212, 149, 42, 0.10) 65%,
+    rgba(192, 120, 32, 0.22) 100%
+  );
+  z-index: 1;
+}
+
+.sandbox-live-hero-corner {
+  position: absolute;
+  bottom: 4px;
+  right: 18px;
+  width: 140px;
+  height: 96px;
+  pointer-events: none;
+  /* Behind the body's CTAs so a long button row never gets covered by
+     the bot. Decorative — overlap is fine, layering matters. */
+  z-index: 1;
+}
+.sandbox-live-hero-corner-bot {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: flex-end;
+  z-index: 2;
+}
+.sandbox-live-hero-corner-mound {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 22px;
+  z-index: 1;
+  filter: drop-shadow(0 -1px 0 rgba(255, 196, 70, 0.20));
+}
+
+@media (max-width: 720px) {
+  /* On narrow viewports the live thumbnail + body already stack — the
+     corner scene would crowd them, so hide it. Sparkles + sand strip
+     stay because they're decorative and don't take space. */
+  .sandbox-live-hero-corner { display: none; }
 }
 
 .sandbox-live-hero--empty {
