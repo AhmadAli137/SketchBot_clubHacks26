@@ -10,25 +10,10 @@ import numpy as np
 
 from app.models.state import AprilTagDetection, CanvasBorder, Point2D
 from app.services.state_manager import state_manager
+from app.services.tag_heights_store import tag_heights_store
 
 DEBUG_FRAME_PATH = Path('/tmp/sketchbot-apriltag-analysis.jpg')
 DEBUG_NORMALIZED_PATH = Path('/tmp/sketchbot-apriltag-analysis-normalized.png')
-
-# Physical height of each tag above the canvas plane (z=0), in mm.
-# Corner tags lie flat on the paper; the bot's tag sits on top of the
-# chassis. Without this offset a homography would project the bot tag
-# down onto the canvas plane along a slanted ray, producing a position
-# error proportional to (h × d / H) — where d is the horizontal offset
-# from the camera nadir and H is the camera height. With the height
-# known, the back-projection intersects the correct z-plane and the
-# error vanishes.
-TAG_HEIGHTS_MM: dict[int, float] = {
-    0: 0.0,   # canvas top-left
-    1: 0.0,   # canvas top-right
-    2: 0.0,   # canvas bottom-right
-    3: 0.0,   # canvas bottom-left
-    4: 50.0,  # bot tag — tune to match the chassis mount height
-}
 
 class AprilTagService:
     def __init__(self) -> None:
@@ -186,7 +171,7 @@ class AprilTagService:
                     )
                     if pose is not None:
                         rvec, tvec, K = pose
-                        robot_height = TAG_HEIGHTS_MM.get(robot_tag.tag_id, 0.0)
+                        robot_height = tag_heights_store.get(robot_tag.tag_id, 0.0)
                         bot_px = (
                             robot_tag.center.x * w_px,
                             robot_tag.center.y * h_px,

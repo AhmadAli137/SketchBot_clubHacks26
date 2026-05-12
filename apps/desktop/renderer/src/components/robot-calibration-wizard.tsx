@@ -32,13 +32,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  X, ArrowRight, Loader2, Check, AlertTriangle, RotateCw, Camera,
+  X, ArrowRight, Loader2, Check, AlertTriangle, RotateCw, Camera, Ruler,
 } from 'lucide-react';
 
 import {
   useRobotCalibration,
   type RobotCalibrationPatch,
 } from '@/lib/use-robot-calibration';
+import { useTagHeights, type TagHeights } from '@/lib/use-tag-heights';
 import type { AppState, RobotPose } from '@/lib/types';
 import { getSurfaceState, saveSurfaceProfile } from '@/lib/surface-profile';
 
@@ -364,6 +365,8 @@ export function RobotCalibrationWizard({ open, apiBase, state, onClose }: Props)
         )}
         {calError && <div className="cal-warn"><AlertTriangle size={13} /> {calError}</div>}
 
+        <TagHeightsPanel apiBase={apiBase} open={open} />
+
         {!doneSaving && step.id === 'forward' && (
           <AutoStep
             heading="Drive forward 200 mm"
@@ -561,5 +564,130 @@ function ReviewRow({ name, from, to, unit }: {
         </span>
       </dd>
     </div>
+  );
+}
+
+// ─── Tag heights panel ─────────────────────────────────────────────────────
+// Lets the operator dial in the physical height of each tag above the
+// canvas. The corner tags (0–3) almost always stay at 0 — they lie on
+// the paper. The bot tag (4) is the one that matters: its real mount
+// height is what makes the back-projection produce correct canvas-mm
+// coordinates instead of a position offset that scales with how far
+// the bot is from the camera nadir.
+//
+// Collapsed by default; most kids never touch it. Lives inside the
+// wizard because it logically belongs with calibration setup, and
+// because dialling it in here lets the operator immediately re-run a
+// drive step and see the corrected pose.
+
+const TAG_LABELS: { id: number; label: string }[] = [
+  { id: 0, label: 'Canvas corner — top-left' },
+  { id: 1, label: 'Canvas corner — top-right' },
+  { id: 2, label: 'Canvas corner — bottom-right' },
+  { id: 3, label: 'Canvas corner — bottom-left' },
+  { id: 4, label: 'Bot tag (chassis-mounted)' },
+];
+
+function TagHeightsPanel({ apiBase, open }: { apiBase: string; open: boolean }) {
+  const { heights, error, save } = useTagHeights({ apiBase, enabled: open });
+  // Local draft separate from server state so typing doesn't fight
+  // the network round-trip. Resets to server values whenever the
+  // server state changes (after refresh or save).
+  const [draft, setDraft] = useState<Record<number, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next: Record<number, string> = {};
+    for (const { id } of TAG_LABELS) {
+      next[id] = String(heights[id] ?? 0);
+    }
+    setDraft(next);
+  }, [heights]);
+
+  const dirty = TAG_LABELS.some(({ id }) => {
+    const server = heights[id] ?? 0;
+    const local = Number(draft[id]);
+    return Number.isFinite(local) && Math.abs(local - server) > 1e-6;
+  });
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const updates: TagHeights = {};
+      for (const { id } of TAG_LABELS) {
+        const v = Number(draft[id]);
+        if (!Number.isFinite(v) || v < 0 || v > 500) {
+          throw new Error(`Tag ${id} height must be 0–500 mm`);
+        }
+        updates[id] = v;
+      }
+      await save(updates);
+      setSavedAt(Date.now());
+      window.setTimeout(() => setSavedAt(null), 2000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <details className="cal-heights">
+      <summary className="cal-heights-summary">
+        <Ruler size={13} />
+        <span>Tag heights</span>
+        <span className="cal-heights-hint">
+          Bot tag: {(heights[4] ?? 0).toFixed(0)} mm
+        </span>
+      </summary>
+      <p className="cal-heights-help">
+        Physical height of each tag above the paper. Corner tags lie
+        flat (0 mm). The bot tag sits on top of the chassis — measure
+        from the paper to the printed tag surface and enter that
+        value. Wrong heights produce a systematic position offset.
+      </p>
+      <div className="cal-heights-grid">
+        {TAG_LABELS.map(({ id, label }) => (
+          <label key={id} className="cal-heights-row">
+            <span className="cal-heights-label">
+              <span className="cal-heights-id">#{id}</span> {label}
+            </span>
+            <div className="cal-heights-input-wrap">
+              <input
+                type="number"
+                min={0}
+                max={500}
+                step={0.5}
+                value={draft[id] ?? ''}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, [id]: e.target.value }))
+                }
+                className="cal-heights-input"
+              />
+              <span className="cal-heights-unit">mm</span>
+            </div>
+          </label>
+        ))}
+      </div>
+      {error && <div className="cal-warn"><AlertTriangle size={13} /> {error}</div>}
+      {saveError && <div className="cal-warn"><AlertTriangle size={13} /> {saveError}</div>}
+      <div className="cal-heights-actions">
+        <button
+          type="button"
+          className="cal-btn-primary"
+          disabled={!dirty || saving}
+          onClick={() => void handleSave()}
+        >
+          {saving
+            ? <><Loader2 size={13} style={{ animation: 'spin 0.9s linear infinite' }} /> Saving</>
+            : savedAt
+              ? <><Check size={13} /> Saved</>
+              : <>Save tag heights</>}
+        </button>
+      </div>
+    </details>
   );
 }
