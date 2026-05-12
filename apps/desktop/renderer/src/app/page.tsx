@@ -47,6 +47,7 @@ import { useCloudKeepalive } from '@/lib/use-cloud-keepalive';
 import { setRobotSnapshot, ensureNarratorSubscribed } from '@/lib/program-narrator';
 import { RobotCalibrationWizard } from '@/components/robot-calibration-wizard';
 import { RobotDriftCheck } from '@/components/robot-drift-check';
+import { RobotCalibrationNudge } from '@/components/robot-calibration-nudge';
 import { PairRobotModal } from '@/components/pair-robot-modal';
 import { useCloudAuthToken } from '@/lib/cloud-api';
 import { usePairedDevices } from '@/lib/use-paired-devices';
@@ -1609,6 +1610,15 @@ export default function HomePage() {
         apiBase={apiBase}
         state={state}
         onClose={() => setDriftCheckOpen(false)}
+      />
+
+      {/* First-time calibration nudge — when a real bot shows up that
+          hasn't been calibrated yet, suggest the wizard. Self-dismisses
+          when the user opens the wizard by any path; session-scoped X
+          for "not now". */}
+      <RobotCalibrationNudge
+        apiBase={apiBase}
+        robotSerial={state?.robot_serial ?? null}
       />
 
       {/* Pair-robot modal — lifted from the home-screen so any UI

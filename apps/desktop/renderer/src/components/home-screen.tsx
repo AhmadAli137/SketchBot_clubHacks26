@@ -7,7 +7,9 @@ import { Settings, Flame, Trophy, Map as MapIcon, Users, RefreshCw, MessageSquar
 import { useCloudAuthToken } from '@/lib/cloud-api';
 import { usePairedDevices } from '@/lib/use-paired-devices';
 import { RobotPairingCard } from '@/components/robot-pairing-card';
-import { PairRobotModal } from '@/components/pair-robot-modal';
+// PairRobotModal lifted to page.tsx — opened here via the shared
+// 'sketchbot:open-pair-robot' event so the plan-picker and any other
+// surface can trigger the same modal without prop-plumbing.
 
 import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { useGuidedTour } from '@/components/guided-tour/guided-tour-context';
@@ -35,7 +37,7 @@ import { TeacherFeedbackModal } from '@/components/teacher-feedback-modal';
 import type { ChallengePack, ClassroomProfile } from '@/lib/platform-types';
 import { useChallenges } from '@/lib/use-challenges';
 import { RobotHub } from '@/components/robot-hub';
-import { SandboxHeroScene } from '@/components/sandbox-scene';
+import { SandboxLiveHero } from '@/components/sandbox-live-hero';
 import { getDifficultyLevel } from '@/lib/progress-store';
 
 import type { AuthRole } from './auth-screen';
@@ -165,12 +167,14 @@ export function HomeScreen({
     !isClaimedByMe(robotSerial) &&
     !dismissedSerials.has(robotSerial);
 
-  // Pair Robot button → in-desktop modal (replaces the previous browser
-  // launch). Modal handles all three states the home-card can't:
-  //   - no bot detected yet  → "Looking for your robot…"
-  //   - bot detected + owned → "Already paired" confirmation
-  //   - bot detected + unclaimed → full pair flow
-  const [pairModalOpen, setPairModalOpen] = useState(false);
+  // Pair Robot trigger — opens the page-level PairRobotModal via the
+  // shared 'sketchbot:open-pair-robot' event. The modal itself lives
+  // in page.tsx so the same instance handles every entry point
+  // (this button, the home-screen status pill, the plan-picker chip,
+  // the plan-picker 'Robots & Calibration' tab).
+  const openPairModal = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('sketchbot:open-pair-robot'));
+  }, []);
   const [ageGroup, setAgeGroupState] = useState<AgeGroup>('explorer');
   const [showClassroomModal, setShowClassroomModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -508,7 +512,7 @@ export function HomeScreen({
           return (
             <button
               type="button"
-              onClick={() => setPairModalOpen(true)}
+              onClick={openPairModal}
               title={title}
               style={{
                 display: 'inline-flex',
@@ -600,7 +604,7 @@ export function HomeScreen({
           variant="ghost"
           size="sm"
           style={{ fontSize: '0.75rem', minHeight: 32, gap: 5 } as React.CSSProperties}
-          onClick={() => setPairModalOpen(true)}
+          onClick={openPairModal}
           title="Pair a robot to your account"
         >
           <Plus size={13} />
@@ -671,21 +675,8 @@ export function HomeScreen({
         )}
       </AnimatePresence>
 
-      <PairRobotModal
-        open={pairModalOpen}
-        robotSerial={robotSerial ?? null}
-        isOwnedByMe={!!robotSerial && isClaimedByMe(robotSerial)}
-        localApiBase={apiBase}
-        authToken={cloudAuthToken}
-        onPaired={() => {
-          void refreshPairedDevices();
-          // Close after a brief celebrate beat so the kid sees the
-          // success state. PairRobotModal handles the timing of the
-          // 'success' frame itself; we just need to dismiss after.
-          setTimeout(() => setPairModalOpen(false), 1800);
-        }}
-        onClose={() => setPairModalOpen(false)}
-      />
+      {/* PairRobotModal is mounted at page.tsx now — shared instance
+          across all open triggers. */}
 
       <div className="onboarding-inner">
         <div className="onboarding-greeting">
@@ -707,7 +698,12 @@ export function HomeScreen({
 
         {isSandboxView && (
           <>
-            <SandboxHeroScene />
+            <SandboxLiveHero
+              session={sessionGroups.continueWith ?? null}
+              userName={userName || 'guest'}
+              onResume={handleResumeSession}
+              onStartNew={() => handleStart(null)}
+            />
             {/* Guest-only nudge: signed-in users already chose sandbox knowingly. */}
             {role === 'guest' && (
               <div className="guest-unlock-nudge">
@@ -1097,46 +1093,36 @@ export function HomeScreen({
           {/* Header row */}
           <div className="sessions-header">
             <div className="sessions-header-left">
-              <h2>{isSandboxView ? 'Your sessions' : 'Activities'}</h2>
+              <h2>{isSandboxView ? 'Other sessions' : 'Activities'}</h2>
               {isSandboxView && (
                 <p className="sessions-header-sub">
-                  Pick up where you left off or start a new one. Every session auto-saves chats and code.
+                  Switch to a saved one or start fresh. Every session auto-saves.
                 </p>
               )}
             </div>
           </div>
 
-          {/* Unified sessions gallery (sandbox view): [+ New] [Continue] [...Saved] [...Recent] */}
+          {/* Horizontal session strip (sandbox view). The current
+              session has been promoted into <SandboxLiveHero>, so this
+              row is only "everything else": saved + older recents +
+              a compact + New tile at the head. */}
           {isSandboxView && (
             <motion.div
-              className="sessions-gallery"
+              className="sessions-gallery sessions-gallery--strip"
               variants={cardGridContainer}
               initial="hidden"
               animate="show"
             >
               <motion.button
                 type="button"
-                className="session-tile session-tile--new"
+                className="session-tile session-tile--new session-tile--new-compact"
                 variants={cardGridItem}
                 onClick={() => handleStart(null)}
                 {...cardHoverTap}
               >
                 <div className="session-tile-new-icon">+</div>
-                <div className="session-tile-new-label">New session</div>
-                <div className="session-tile-new-sub">Blank workspace — free draw</div>
+                <div className="session-tile-new-label">New</div>
               </motion.button>
-
-              {sessionGroups.continueWith && (
-                <motion.div variants={cardGridItem}>
-                  <SessionTile
-                    session={sessionGroups.continueWith}
-                    variant="continue"
-                    userName={userName || 'guest'}
-                    onResume={handleResumeSession}
-                    onChange={() => setSessionsRev((n) => n + 1)}
-                  />
-                </motion.div>
-              )}
 
               {sessionGroups.saved.map((s: SavedSession) => (
                 <motion.div key={s.id} variants={cardGridItem}>
