@@ -1,0 +1,4 @@
+# Use the larger 1.5 MB factory partition. The default 1 MB partition
+# overflows once Wi-Fi + WebSocket + mbedtls + cJSON pull in.
+CONFIG_PARTITION_TABLE_SINGLE_APP=n
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y

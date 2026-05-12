@@ -1,6 +1,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 
+#include "app_config.h"
 #include "device_id.h"
 
 #ifdef SKETCHBOT_TEST_MODE

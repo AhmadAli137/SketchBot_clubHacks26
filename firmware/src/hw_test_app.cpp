@@ -57,18 +57,92 @@ static void testStatusLed(RobotHal &robot) {
     recordResult("status LED cycle", true, "watch the dot for R/G/B/W");
 }
 
-// Drive the SG90 up → down → up. No way to verify position from MCU
-// without a feedback servo, so the kid (or whoever's running the test)
-// has to eyeball the lever movement. We at least confirm the calls all
-// return ok.
-static void testPenServo(RobotHal &robot) {
-    ESP_LOGI(TAG, "── pen servo (watch the SG90 lever)");
-    robot.setStatusRgb(true, true, false);  // yellow during test
-    bool ok = robot.penUp();   delayMs(500);
-    ok &= robot.penDown();     delayMs(500);
-    ok &= robot.penUp();       delayMs(300);
-    robot.setStatusRgb(false, ok, !ok);
-    recordResult("pen servo up/down/up", ok, "lever should move twice");
+// Continuous bring-up mode for the pen servo on GPIO1. Swings 0° ↔ 90°
+// forever with a 700 ms dwell at each end so the operator can watch the
+// SG90 lever and verify travel, end-stops, and absence of jitter. This
+// function never returns — flash with this enabled when you're bringing
+// up the servo, then re-flash without it for full system bring-up.
+//
+// Status LED tracks the position so you can verify timing without
+// looking at the servo: blue at 0°, magenta at 90°.
+[[maybe_unused]] static void testPenServoContinuous(RobotHal &robot) {
+    ESP_LOGI(TAG, "── pen servo continuous swing (GPIO1, 0° ↔ 90°)");
+    ESP_LOGI(TAG, "   this loop never returns; reset the board to stop");
+    while (true) {
+        robot.penUp();                          // pulse 1000µs ≈ 0°
+        robot.setStatusRgb(false, false, true); // blue at 0°
+        delayMs(700);
+        robot.penDown();                        // pulse 2000µs ≈ 90°
+        robot.setStatusRgb(true, false, true);  // magenta at 90°
+        delayMs(700);
+    }
+}
+
+// Map a distance reading to a status-LED colour band so the operator
+// can see range at a glance without watching the serial monitor.
+//   red     <10 cm   (very close / obstacle)
+//   yellow  10–30 cm (close)
+//   green   30–80 cm (medium)
+//   blue    ≥80 cm   (clear)
+//   off     no echo  (out of range or sensor missing)
+static void setLedForDistance(RobotHal &robot, float distCm) {
+    if (distCm < 0.0f)        robot.setStatusRgb(false, false, false);
+    else if (distCm < 10.0f)  robot.setStatusRgb(true,  false, false);
+    else if (distCm < 30.0f)  robot.setStatusRgb(true,  true,  false);
+    else if (distCm < 80.0f)  robot.setStatusRgb(false, true,  false);
+    else                      robot.setStatusRgb(false, false, true );
+}
+
+// Continuous bring-up for the L298N + drive motors. Runs at full PWM
+// (duty 255) so the wheels actually break static friction on a battery-
+// boosted 5 V rail where the L298N eats a few volts of headroom. The
+// sequence isolates each direction pin so wiring of IN1/IN2/IN3/IN4 can
+// be verified without the symmetry of a "both fwd" step hiding a
+// swapped side. 1 s motion + 500 ms settle per step. The status LED
+// now reflects HC-SR04 distance (see setLedForDistance) so direction
+// verification uses the serial log + the wheels themselves; the LED
+// is reserved for the more-useful real-time range readout.
+//
+// Lift the bot or clear floor space — motors run flat-out. Never
+// returns; reset the board to stop. Re-comment its call site to drop
+// back to the single-pass testMotorsRaw sweep.
+static void testMotorsContinuous(RobotHal &robot) {
+    ESP_LOGI(TAG, "── motor continuous bring-up — FULL PWM (LIFT THE BOT)");
+    ESP_LOGI(TAG, "   L fwd → L rev → R fwd → R rev → both fwd → both rev");
+    ESP_LOGI(TAG, "   LED tracks HC-SR04 distance: R<10 Y<30 G<80 B≥80 off=no echo");
+    ESP_LOGI(TAG, "   this loop never returns; reset the board to stop");
+    constexpr int kFull = 255;
+    const struct { const char *label; int l; int r; } seq[] = {
+        {"L fwd  (IN1)",  +kFull,  0     },
+        {"L rev  (IN2)",  -kFull,  0     },
+        {"R fwd  (IN3)",   0,     +kFull },
+        {"R rev  (IN4)",   0,     -kFull },
+        {"both fwd",      +kFull, +kFull },
+        {"both rev",      -kFull, -kFull },
+    };
+    bool penDown = false;
+    while (true) {
+        for (const auto &s : seq) {
+            ESP_LOGI(TAG, "   %-14s  L=%+4d  R=%+4d", s.label, s.l, s.r);
+            robot.motorDrive(s.l, s.r);
+            // Toggle the pen each motor step. penUp/penDown block 250 ms
+            // each (servo settle).
+            if (penDown) robot.penUp(); else robot.penDown();
+            penDown = !penDown;
+            // Drive window: 750 ms, polled every ~100 ms so the LED
+            // tracks distance in (near) real time and the serial log
+            // records the range alongside the step label.
+            for (int i = 0; i < 7; ++i) {
+                const float distCm = robot.readDistanceCm();
+                setLedForDistance(robot, distCm);
+                if (distCm < 0.0f) ESP_LOGI(TAG, "      dist=NO ECHO");
+                else               ESP_LOGI(TAG, "      dist=%5.1f cm", distCm);
+                delayMs(100);
+            }
+            robot.motorDrive(0, 0);
+            delayMs(500);
+        }
+    }
 }
 
 // Run each wheel's two directions independently, then both together
@@ -201,10 +275,17 @@ void runHardwareSelfTest() {
     static NetworkHal net;
     net.init();   // initialises NVS + Wi-Fi + event loops, no actual connect yet
 
-    // Run subsystems in order. Each function appends to g_results so the
+    // Servo bring-up: swing 0° ↔ 90° forever. Verified — keep commented.
+    // testPenServoContinuous(robot);
+
+    // Motor bring-up: cycles L/R/both at full PWM forever. Comment out
+    // once IN1/IN2/IN3/IN4 wiring + L298N output are verified.
+    testMotorsContinuous(robot);
+
+    // Full subsystem sweep — each function appends to g_results so the
     // summary at the end captures everything regardless of partial fails.
+    // Unreachable while testPenServoContinuous is enabled above.
     testStatusLed(robot);
-    testPenServo(robot);
     testMotorsRaw(robot);
     testMotorsBlocking(robot);
     testNetwork(net);
