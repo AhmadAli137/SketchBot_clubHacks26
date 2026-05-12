@@ -17522,58 +17522,77 @@ select.block-param-input{width:auto;padding-right:20px}
   z-index: 1;
 }
 
-.sandbox-live-hero-sand-strip {
+/* ─── Full sandbox floor strip — bottom of the live-preview hero ────
+   Spans the entire card width. Layered with the sandy ground SVG as
+   the deepest layer, the obstacle/buried-Spark row above it, and the
+   digging Spark + puffs as the topmost decorative element. The hero
+   card gets extra padding-bottom so the strip doesn't overlap the
+   body's CTAs above it. */
+.sandbox-live-hero-floor {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 40px;
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(212, 149, 42, 0.10) 65%,
-    rgba(192, 120, 32, 0.22) 100%
-  );
-  z-index: 1;
-}
-
-.sandbox-live-hero-corner {
-  position: absolute;
-  bottom: 4px;
-  right: 18px;
-  width: 140px;
   height: 96px;
   pointer-events: none;
-  /* Behind the body's CTAs so a long button row never gets covered by
-     the bot. Decorative — overlap is fine, layering matters. */
   z-index: 1;
+  /* Local CSS var so the buried-clip rule can re-use the original
+     SandboxHeroScene's height calc. */
+  --sand-h: 24px;
 }
-.sandbox-live-hero-corner-bot {
-  position: absolute;
-  left: 50%;
-  bottom: 14px;
-  transform: translateX(-50%);
-  display: inline-flex;
-  align-items: flex-end;
-  z-index: 2;
-}
-.sandbox-live-hero-corner-mound {
+.sandbox-live-hero-floor-sand {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   width: 100%;
-  height: 22px;
+  height: 60px;
+  display: block;
   z-index: 1;
-  filter: drop-shadow(0 -1px 0 rgba(255, 196, 70, 0.20));
+}
+.sandbox-live-hero-floor-item {
+  position: absolute;
+  line-height: 0;
+  z-index: 2;
+}
+.sandbox-live-hero-floor-dig {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 90px;
+  z-index: 3;
+}
+.sandbox-live-hero-floor-bot {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: flex-end;
+  z-index: 3;
+}
+
+/* Make the card taller so the strip has room without crowding the
+   body. 96 px strip + a little breathing space. */
+.sandbox-live-hero--themed {
+  position: relative;
+  padding-bottom: 112px;
 }
 
 @media (max-width: 720px) {
-  /* On narrow viewports the live thumbnail + body already stack — the
-     corner scene would crowd them, so hide it. Sparkles + sand strip
-     stay because they're decorative and don't take space. */
-  .sandbox-live-hero-corner { display: none; }
+  /* On narrow viewports the body stacks vertically; the floor would
+     either crowd the CTAs or wrap awkwardly. Hide the obstacles +
+     digging bot, keep just the simple gradient sand line + sparkles
+     for theme. */
+  .sandbox-live-hero-floor-item,
+  .sandbox-live-hero-floor-dig {
+    display: none;
+  }
+  .sandbox-live-hero--themed {
+    padding-bottom: 60px;
+  }
 }
 
 .sandbox-live-hero--empty {

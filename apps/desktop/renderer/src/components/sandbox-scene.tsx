@@ -3,7 +3,7 @@
 import { motion } from 'motion/react';
 import { SparkRobot } from '@/components/spark-robot';
 
-function ShovelSvg() {
+export function ShovelSvg() {
   return (
     <svg width="20" height="50" viewBox="0 0 20 50" fill="none">
       <rect x="8" y="0" width="4" height="30" rx="2" fill="#92400e" />
@@ -62,7 +62,7 @@ const PEBBLES_CX = [80, 190, 310, 430, 540, 640];
    Inline SVGs sized for the sandpit decoration. Each one represents a real
    sandbox object so kids see the same shapes in both places. */
 
-function ConeGlyph() {
+export function ConeGlyph() {
   return (
     <svg width="26" height="32" viewBox="0 0 26 32" fill="none">
       {/* Base disc */}
@@ -75,7 +75,7 @@ function ConeGlyph() {
   );
 }
 
-function WallBlockGlyph() {
+export function WallBlockGlyph() {
   return (
     <svg width="30" height="24" viewBox="0 0 30 24" fill="none">
       {/* Block face */}
@@ -90,7 +90,7 @@ function WallBlockGlyph() {
   );
 }
 
-function RampGlyph() {
+export function RampGlyph() {
   return (
     <svg width="38" height="22" viewBox="0 0 38 22" fill="none">
       {/* Ramp body — wedge */}
@@ -103,7 +103,7 @@ function RampGlyph() {
   );
 }
 
-function WaypointOrbGlyph() {
+export function WaypointOrbGlyph() {
   return (
     <svg width="20" height="36" viewBox="0 0 20 36" fill="none">
       {/* Pole */}
@@ -118,7 +118,7 @@ function WaypointOrbGlyph() {
   );
 }
 
-function SumoPlowGlyph() {
+export function SumoPlowGlyph() {
   return (
     <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
       {/* Chassis body */}
@@ -136,7 +136,7 @@ function SumoPlowGlyph() {
   );
 }
 
-function BezierPathGlyph() {
+export function BezierPathGlyph() {
   return (
     <svg width="42" height="24" viewBox="0 0 42 24" fill="none">
       <path
