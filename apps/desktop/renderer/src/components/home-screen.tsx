@@ -15,6 +15,7 @@ import { usePrefersReducedMotion } from '@/lib/use-reduced-motion';
 import { useGuidedTour } from '@/components/guided-tour/guided-tour-context';
 
 import { ConceptMap } from '@/components/concept-map';
+import { MotrixLogo } from '@/components/motrix-logo';
 import { RobotAvatarPreset } from '@/components/robot-avatar-preset';
 import { StudentProfileAvatar } from '@/components/student-profile-avatar';
 import {
@@ -679,6 +680,12 @@ export function HomeScreen({
           across all open triggers. */}
 
       <div className="onboarding-inner">
+        {/* Brand mark + wordmark — matches the plan-picker / auth-screen
+            so the SaySpark identity is consistent across the entry
+            surfaces, not only the very first page a user sees. */}
+        <div className="onboarding-brand">
+          <MotrixLogo size={38} showWordmark animate={false} />
+        </div>
         <div className="onboarding-greeting">
           <h1>
             {role === 'teacher'

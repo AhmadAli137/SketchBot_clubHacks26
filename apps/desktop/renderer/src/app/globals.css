@@ -3361,6 +3361,12 @@ body {
   }
 }
 
+.onboarding-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
 .onboarding-greeting {
   text-align: center;
 }

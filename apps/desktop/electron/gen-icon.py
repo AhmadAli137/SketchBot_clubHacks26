@@ -29,13 +29,15 @@ def lerp_color(c1, c2, t):
     return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
 
 
-def star8_points(cx, cy, outer, inner, rot_deg=0.0):
-    """Eight-pointed star, alternating outer/inner radii. rot_deg
-    rotates the whole shape; default places a point at the top."""
+def star4_points(cx, cy, outer, inner, rot_deg=0.0):
+    """Four-pointed compass-rose star — long N/E/S/W points with
+    short concave NE/SE/SW/NW valleys. Matches the SaySpark mark in
+    apps/admin-web/src/app/icon.svg: 8 vertices total alternating
+    outer/inner (NOT 16, which would make an 8-pointed star)."""
     pts = []
     base = -90.0 + rot_deg
-    for i in range(16):
-        angle = math.radians(base + i * (360.0 / 16))
+    for i in range(8):
+        angle = math.radians(base + i * 45.0)
         r = outer if (i % 2 == 0) else inner
         pts.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
     return pts
@@ -89,21 +91,29 @@ def create_frame(size: int) -> Image.Image:
     sd = ImageDraw.Draw(spark)
 
     scale = s / 32.0          # admin SVG viewBox = 32
-    # Three stacked 8-pointed stars approximate the SVG's
+    # SVG mark uses outer=12, inner=√18≈4.24 (the (±3,±3) concave
+    # vertices). That ratio (~0.354) is what makes the rays look long
+    # and pointed; anything smaller produces a needle-thin star, anything
+    # larger fills in to a soft 4-petal flower.
+    INNER_RATIO = (18 ** 0.5) / 12.0  # ≈ 0.3536
+    # Three stacked 4-pointed stars approximate the SVG's
     # #fff4d6 → #5de4ff → #a855f7 radial: violet outer, cyan middle,
     # warm-white inner. At icon sizes this reads as the same glow.
-    sd.polygon(star8_points(cx, cy, 11.5 * scale, 3.0 * scale),
+    sd.polygon(star4_points(cx, cy, 11.5 * scale, 11.5 * scale * INNER_RATIO),
                fill=(*HALO_VIOLET, 255))
-    sd.polygon(star8_points(cx, cy,  9.0 * scale, 2.4 * scale),
+    sd.polygon(star4_points(cx, cy,  9.0 * scale,  9.0 * scale * INNER_RATIO),
                fill=(*HALO_CYAN,   255))
-    sd.polygon(star8_points(cx, cy,  6.0 * scale, 1.6 * scale),
+    sd.polygon(star4_points(cx, cy,  6.0 * scale,  6.0 * scale * INNER_RATIO),
                fill=(*SPARK_WARM,  255))
 
     # Rotated white sub-star — drawn on its OWN layer so the alpha
-    # blends with the colored spark instead of replacing it.
+    # blends with the colored spark instead of replacing it. Rotation
+    # of 45° aligns this star's points with the outer star's valleys,
+    # which is how the SVG layers them.
     sub = Image.new('RGBA', (s, s), (0, 0, 0, 0))
     ImageDraw.Draw(sub).polygon(
-        star8_points(cx, cy, 5.0 * scale, 1.4 * scale, rot_deg=45.0),
+        star4_points(cx, cy, 5.5 * scale, 5.5 * scale * INNER_RATIO,
+                     rot_deg=45.0),
         fill=(255, 255, 255, 140),
     )
     spark = Image.alpha_composite(spark, sub)
