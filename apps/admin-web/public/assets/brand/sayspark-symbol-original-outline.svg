@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="100mm"
+  height="100mm"
+  viewBox="0 0 100 100"
+  role="img"
+  aria-label="SaySpark elegant curious spark outline logo symbol"
+>
+  <title>SaySpark Curious Spark - Elegant Outline</title>
+  <desc>A refined outline version of the SaySpark spark mark with a softer compass star, calm orbit ring, and curious constellation dots.</desc>
+
+  <g
+    fill="none"
+    stroke="#000000"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <!-- Quiet orbit ring. -->
+    <circle cx="50" cy="50" r="37" stroke-width="1.55" opacity="0.78" />
+
+    <!-- Main spark, slightly curved so it feels less mechanical when etched. -->
+    <path
+      stroke-width="2.15"
+      d="
+        M50 9
+        C53.3 28.5 55.7 39 59.2 40.8
+        C63.2 42.8 76.1 46.1 91 50
+        C76.1 53.9 63.2 57.2 59.2 59.2
+        C55.7 61 53.3 71.5 50 91
+        C46.7 71.5 44.3 61 40.8 59.2
+        C36.8 57.2 23.9 53.9 9 50
+        C23.9 46.1 36.8 42.8 40.8 40.8
+        C44.3 39 46.7 28.5 50 9
+        Z
+      "
+    />
+
+    <!-- Inner spark, opened up to avoid the crowded knot near the center. -->
+    <path
+      stroke-width="1.85"
+      d="
+        M50 33
+        L54.2 45.8
+        L67 50
+        L54.2 54.2
+        L50 67
+        L45.8 54.2
+        L33 50
+        L45.8 45.8
+        Z
+      "
+    />
+
+    <!-- Clear center aperture. -->
+    <circle cx="50" cy="50" r="7.2" stroke-width="1.7" />
+
+    <!-- Curious constellation dots. -->
+    <circle cx="33.2" cy="35.1" r="2.2" stroke-width="1.45" />
+    <circle cx="66.8" cy="35.1" r="2.2" stroke-width="1.45" />
+    <circle cx="31.2" cy="70.8" r="1.85" stroke-width="1.35" />
+  </g>
+</svg>

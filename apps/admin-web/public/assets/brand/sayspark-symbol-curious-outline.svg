@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="100mm"
+  height="100mm"
+  viewBox="0 0 100 100"
+  role="img"
+  aria-label="SaySpark elegant compass spark outline"
+>
+  <title>SaySpark Compass Spark Outline</title>
+  <desc>Alias of the cleaner compass spark outline candidate.</desc>
+  <g fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="1.8" d="M50 7 L57 43 L93 50 L57 57 L50 93 L43 57 L7 50 L43 43 Z" />
+    <circle cx="50" cy="50" r="5.4" stroke-width="1.45" />
+  </g>
+</svg>

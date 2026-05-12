@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="100mm"
+  height="100mm"
+  viewBox="0 0 100 100"
+  role="img"
+  aria-label="SaySpark elegant compass spark solid"
+>
+  <title>SaySpark Compass Spark Solid</title>
+  <desc>A bold single-spark silhouette for embossing, debossing, decals, and one-color logo use.</desc>
+
+  <path
+    fill="#000000"
+    fill-rule="evenodd"
+    clip-rule="evenodd"
+    d="
+      M50 7
+      L57 43
+      L93 50
+      L57 57
+      L50 93
+      L43 57
+      L7 50
+      L43 43
+      Z
+      M50 42.7
+      A7.3 7.3 0 1 0 50 57.3
+      A7.3 7.3 0 0 0 50 42.7
+      Z
+    "
+  />
+</svg>
