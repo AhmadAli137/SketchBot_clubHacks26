@@ -53,8 +53,19 @@ export function useRobotCalibration({ apiBase, enabled = true }: Options) {
       return;
     }
     setState((s) => ({ ...s, isLoading: true, error: null }));
+    // A freshly-paired bot can return 502/503 on the very first GET
+    // (firmware still loading NVS, or the bridge socket just opened
+    // and command_result hasn't drained yet). Retry once after a
+    // short pause so the wizard doesn't surface a scary error on
+    // open. Real errors persist past the retry.
+    const attempt = async (): Promise<Response> =>
+      fetch(`${apiBase}/api/robot/calibration`, { cache: 'no-store' });
     try {
-      const res = await fetch(`${apiBase}/api/robot/calibration`, { cache: 'no-store' });
+      let res = await attempt();
+      if (!res.ok && (res.status === 502 || res.status === 503)) {
+        await new Promise((r) => setTimeout(r, 600));
+        res = await attempt();
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail ?? `HTTP ${res.status}`);

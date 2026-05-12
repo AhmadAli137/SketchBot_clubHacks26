@@ -29,8 +29,8 @@ async def robot_command(payload: RobotCommandRequest) -> RobotCommandResponse:
             robot_status=state_manager.state.robot_status,
         )
 
-    sent = await robot_ws_service.send_command(payload.command)
-    if not sent:
+    cmd_id = await robot_ws_service.send_command(payload.command)
+    if not cmd_id:
         raise HTTPException(status_code=503, detail='Robot websocket not connected')
 
     return RobotCommandResponse(
@@ -46,12 +46,12 @@ async def robot_raw_command(payload: RobotRawCommandRequest) -> RobotRawCommandR
     by the hardware smoke test to exercise move_forward / rotate / etc.
     with real args without growing the typed RobotCommandName enum.
     When wait=True, blocks until the firmware sends command_result."""
-    sent = await robot_ws_service.send_command(payload.name, args=payload.args)
-    if not sent:
+    cmd_id = await robot_ws_service.send_command(payload.name, args=payload.args)
+    if not cmd_id:
         raise HTTPException(status_code=503, detail='Robot websocket not connected')
     result: dict | None = None
     if payload.wait:
-        result = await robot_ws_service.wait_for_command_result(timeout=payload.timeout_s)
+        result = await robot_ws_service.wait_for_command_result(cmd_id, timeout=payload.timeout_s)
     return RobotRawCommandResponse(
         sent=True,
         result=result,
@@ -67,13 +67,13 @@ async def robot_motor(payload: MotorSetRequest) -> MotorSetResponse:
     waits for a sensor condition. Returns 200 even when the firmware is
     not connected so the executor can fall back to simulator mode without
     a stack of red request errors."""
-    sent = await robot_ws_service.send_command(
+    cmd_id = await robot_ws_service.send_command(
         'motor.set',
         args={'left_mps': payload.left_mps, 'right_mps': payload.right_mps},
     )
     return MotorSetResponse(
         accepted=True,
-        sent=sent,
+        sent=cmd_id is not None,
         robot_status=state_manager.state.robot_status,
     )
 
@@ -107,11 +107,12 @@ class CalibrationResponse(BaseModel):
 async def _fetch_calibration() -> CalibrationResponse:
     """Synchronous-style helper used by both GET and POST so each returns
     the resulting state. Sends get_calibration, parses the firmware's
-    JSON-in-message reply."""
-    sent = await robot_ws_service.send_command('get_calibration', args=None)
-    if not sent:
+    JSON-in-message reply. 5 s timeout: a freshly-connected bot may
+    still be loading NVS when the wizard fires its first GET on open."""
+    cmd_id = await robot_ws_service.send_command('get_calibration', args=None)
+    if not cmd_id:
         raise HTTPException(status_code=503, detail='Robot websocket not connected')
-    result = await robot_ws_service.wait_for_command_result(timeout=2.0)
+    result = await robot_ws_service.wait_for_command_result(cmd_id, timeout=5.0)
     if not result or not result.get('ok'):
         raise HTTPException(status_code=502, detail='Robot did not return calibration')
     try:
@@ -137,10 +138,10 @@ async def set_calibration(payload: CalibrationPayload) -> CalibrationResponse:
     args = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not args:
         raise HTTPException(status_code=400, detail='No fields to update')
-    sent = await robot_ws_service.send_command('set_calibration', args=args)
-    if not sent:
+    cmd_id = await robot_ws_service.send_command('set_calibration', args=args)
+    if not cmd_id:
         raise HTTPException(status_code=503, detail='Robot websocket not connected')
-    result = await robot_ws_service.wait_for_command_result(timeout=2.0)
+    result = await robot_ws_service.wait_for_command_result(cmd_id, timeout=5.0)
     if not result or not result.get('ok'):
         raise HTTPException(status_code=502, detail=(result or {}).get('message') or 'Set failed')
     # Re-fetch so the response reflects what the firmware actually
@@ -152,10 +153,10 @@ async def set_calibration(payload: CalibrationPayload) -> CalibrationResponse:
 async def clear_calibration() -> CalibrationResponse:
     """Wipe the bot's calibration back to defaults. Used by the wizard's
     'start over' button and by ops as a recovery step."""
-    sent = await robot_ws_service.send_command('clear_calibration', args=None)
-    if not sent:
+    cmd_id = await robot_ws_service.send_command('clear_calibration', args=None)
+    if not cmd_id:
         raise HTTPException(status_code=503, detail='Robot websocket not connected')
-    result = await robot_ws_service.wait_for_command_result(timeout=2.0)
+    result = await robot_ws_service.wait_for_command_result(cmd_id, timeout=5.0)
     if not result or not result.get('ok'):
         raise HTTPException(status_code=502, detail=(result or {}).get('message') or 'Clear failed')
     return await _fetch_calibration()

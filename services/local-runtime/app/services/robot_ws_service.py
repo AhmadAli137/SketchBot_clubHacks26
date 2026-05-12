@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import uuid
 from typing import Any
 
 from fastapi import WebSocket
@@ -23,9 +24,10 @@ class RobotWebSocketService:
         self.websocket: WebSocket | None = None
         self.robot_id: str | None = None
         self.last_heartbeat_at: float | None = None
-        # Agent support — command result signalling
-        self._command_result_event: asyncio.Event = asyncio.Event()
-        self._last_command_result: dict[str, Any] | None = None
+        # Per-command-id futures so concurrent commands (e.g. wizard
+        # opening + calibration hook auto-refresh) don't clobber each
+        # other's result.
+        self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -35,6 +37,16 @@ class RobotWebSocketService:
         self.websocket = None
         self.robot_id = None
         self.last_heartbeat_at = None
+        # Cancel any waiters blocked on a command — the bot just went
+        # away, so their results will never arrive.
+        for cmd_id, future in list(self._pending.items()):
+            if not future.done():
+                future.set_result({
+                    'ok': False,
+                    'command_id': cmd_id,
+                    'message': 'robot disconnected',
+                })
+        self._pending.clear()
         state = state_manager.state
         state.robot_connected = False
         state.robot_status = 'disconnected'
@@ -125,9 +137,16 @@ class RobotWebSocketService:
             state.robot.active_command_id = msg.command_id
             state.robot_status = 'ready' if msg.ok else 'fault'
             state_manager.add_event(msg.message or f'Command result: {msg.command_id} ok={msg.ok}')
-            # Signal any waiting agent
-            self._last_command_result = {'ok': msg.ok, 'command_id': msg.command_id, 'message': msg.message}
-            self._command_result_event.set()
+            # Resolve the matching pending future. Results without a
+            # registered waiter (e.g. fire-and-forget commands) are
+            # dropped silently — state events already capture them.
+            future = self._pending.get(msg.command_id)
+            if future is not None and not future.done():
+                future.set_result({
+                    'ok': msg.ok,
+                    'command_id': msg.command_id,
+                    'message': msg.message,
+                })
             return
 
         if message_type == 'fault':
@@ -144,32 +163,68 @@ class RobotWebSocketService:
             state_manager.add_event(f'Robot log [{msg.level}]: {msg.message}')
             return
 
-    async def wait_for_command_result(self, timeout: float = 30.0) -> dict[str, Any]:
-        """Block until the robot acknowledges the last command or timeout expires."""
+    async def wait_for_command_result(
+        self,
+        command_id: str,
+        timeout: float = 30.0,
+    ) -> dict[str, Any]:
+        """Block until the robot acknowledges the given command_id or
+        timeout expires. Result is keyed by id, so concurrent commands
+        don't steal each other's reply."""
+        future = self._pending.get(command_id)
+        if future is None:
+            # No registered waiter — either send_command failed to
+            # register one, or the result already arrived and was
+            # discarded. Either way there's nothing to wait on.
+            return {
+                'ok': False,
+                'command_id': command_id,
+                'message': f'no pending command {command_id}',
+            }
         try:
-            await asyncio.wait_for(self._command_result_event.wait(), timeout=timeout)
-            return self._last_command_result or {'ok': False, 'message': 'no result received'}
+            return await asyncio.wait_for(future, timeout=timeout)
         except asyncio.TimeoutError:
-            return {'ok': False, 'message': f'command timed out after {timeout}s'}
+            return {
+                'ok': False,
+                'command_id': command_id,
+                'message': f'command {command_id} timed out after {timeout}s',
+            }
+        finally:
+            self._pending.pop(command_id, None)
 
-    async def send_command(self, name: str, args: dict[str, Any] | None = None, command_id: str | None = None) -> bool:
+    async def send_command(
+        self,
+        name: str,
+        args: dict[str, Any] | None = None,
+        command_id: str | None = None,
+    ) -> str | None:
+        """Send a command and register a future for its result.
+        Returns the command_id used (pass it to wait_for_command_result)
+        or None if no robot is connected. Backwards-compatible with
+        callers that did `if not sent: ...` — None is falsy."""
         if self.websocket is None:
-            return False
-        # Reset result event before sending
-        self._command_result_event.clear()
-        self._last_command_result = None
+            return None
+        cmd_id = command_id or f'cmd-{int(time.time() * 1000)}-{uuid.uuid4().hex[:6]}'
+        # Register the future BEFORE sending so a fast firmware can't
+        # land a result before there's anything to resolve.
+        loop = asyncio.get_running_loop()
+        self._pending[cmd_id] = loop.create_future()
         payload = {
             'type': 'command',
-            'command_id': command_id or f'cmd-{int(time.time() * 1000)}',
+            'command_id': cmd_id,
             'name': name,
             'args': args or {},
         }
-        await self.send(payload)
+        try:
+            await self.send(payload)
+        except Exception:
+            self._pending.pop(cmd_id, None)
+            raise
         state = state_manager.state
-        state.robot.active_command_id = payload['command_id']
+        state.robot.active_command_id = cmd_id
         state.robot_status = f'command:{name}'
         state_manager.add_event(f'Robot command sent: {name}')
-        return True
+        return cmd_id
 
     async def send(self, payload: dict[str, Any]) -> None:
         if self.websocket is None:

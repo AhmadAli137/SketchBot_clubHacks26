@@ -179,11 +179,13 @@ async def _execute_tool(name: str, args: dict) -> dict:
 
     # Map tool name → command name (same in our protocol)
     cmd_args = {k: v for k, v in args.items() if k not in ("speed_mm_s", "speed_dps") or True}
-    sent = await robot_ws_service.send_command(name, cmd_args)
-    if not sent:
+    cmd_id = await robot_ws_service.send_command(name, cmd_args)
+    if not cmd_id:
         return {"ok": False, "message": "WebSocket not connected"}
 
-    result = await robot_ws_service.wait_for_command_result(timeout=args.get("timeout_s", 30))
+    result = await robot_ws_service.wait_for_command_result(
+        cmd_id, timeout=args.get("timeout_s", 30),
+    )
     return result
 
 
