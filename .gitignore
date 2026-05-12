@@ -49,6 +49,8 @@ firmware/sdkconfig
 firmware/sdkconfig.old
 firmware/dependencies.lock
 firmware/include/secrets.h
+firmware/monitor.err
+firmware/monitor.out
 
 # Python backend data/runtime
 backend/.venv/
