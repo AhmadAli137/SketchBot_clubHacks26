@@ -106,7 +106,7 @@ static void setLedForDistance(RobotHal &robot, float distCm) {
 // Lift the bot or clear floor space — motors run flat-out. Never
 // returns; reset the board to stop. Re-comment its call site to drop
 // back to the single-pass testMotorsRaw sweep.
-static void testMotorsContinuous(RobotHal &robot) {
+[[maybe_unused]] static void testMotorsContinuous(RobotHal &robot) {
     ESP_LOGI(TAG, "── motor continuous bring-up — FULL PWM (LIFT THE BOT)");
     ESP_LOGI(TAG, "   L fwd → L rev → R fwd → R rev → both fwd → both rev");
     ESP_LOGI(TAG, "   LED tracks HC-SR04 distance: R<10 Y<30 G<80 B≥80 off=no echo");
@@ -278,13 +278,13 @@ void runHardwareSelfTest() {
     // Servo bring-up: swing 0° ↔ 90° forever. Verified — keep commented.
     // testPenServoContinuous(robot);
 
-    // Motor bring-up: cycles L/R/both at full PWM forever. Comment out
-    // once IN1/IN2/IN3/IN4 wiring + L298N output are verified.
-    testMotorsContinuous(robot);
+    // Motor bring-up: cycles L/R/both at full PWM forever. Wiring is
+    // verified — keep commented. Uncomment when a new chassis
+    // revision needs the same IN1/IN2/IN3/IN4 sanity pass.
+    // testMotorsContinuous(robot);
 
     // Full subsystem sweep — each function appends to g_results so the
     // summary at the end captures everything regardless of partial fails.
-    // Unreachable while testPenServoContinuous is enabled above.
     testStatusLed(robot);
     testMotorsRaw(robot);
     testMotorsBlocking(robot);
