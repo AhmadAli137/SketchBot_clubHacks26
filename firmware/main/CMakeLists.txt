@@ -8,6 +8,7 @@ idf_component_register(
         "../src/hw_test_app.cpp"
         "../src/device_id.cpp"
         "../src/device_config.cpp"
+        "../src/calibration.cpp"
     INCLUDE_DIRS
         "."
         "../include"

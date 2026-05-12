@@ -1,5 +1,6 @@
 #include "ws_protocol.h"
 
+#include <cstdio>
 #include <cstring>
 
 #include "esp_log.h"
@@ -78,7 +79,7 @@ static void broadcast_json(const NetworkHal &net, cJSON *root) {
     cJSON_Delete(root);
 }
 
-static void broadcastControllerStatus(const NetworkHal &net) {
+[[maybe_unused]] static void broadcastControllerStatus(const NetworkHal &net) {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "type", "controller_status");
     cJSON_AddStringToObject(root, "active", ctrlName(g_activeController));
@@ -282,6 +283,52 @@ void WsProtocol::handleInbound(const char *payload, int len,
             esp_err_t err = deviceConfigClear();
             ok = (err == ESP_OK);
             message = ok ? "credentials cleared" : "credentials clear failed";
+
+        } else if (std::strcmp(n, "set_calibration") == 0) {
+            // Wizard pushes measured values here after running its
+            // drive/rotate steps. We accept partial updates — any
+            // field omitted keeps its current value, so a re-cal that
+            // only re-measures L/R balance doesn't blow away the
+            // wheel-diameter constant from a previous full run.
+            cJSON *args = cJSON_GetObjectItem(root, "args");
+            DeviceCalibration cur = robot.calibration();
+            if (args) {
+                cJSON *jw = cJSON_GetObjectItem(args, "wheel_diameter_mm");
+                cJSON *jb = cJSON_GetObjectItem(args, "wheel_base_mm");
+                cJSON *jl = cJSON_GetObjectItem(args, "lr_balance");
+                cJSON *jd = cJSON_GetObjectItem(args, "duty_min");
+                if (cJSON_IsNumber(jw)) cur.wheel_diameter_mm = (float)jw->valuedouble;
+                if (cJSON_IsNumber(jb)) cur.wheel_base_mm     = (float)jb->valuedouble;
+                if (cJSON_IsNumber(jl)) cur.lr_balance        = (float)jl->valuedouble;
+                if (cJSON_IsNumber(jd)) cur.duty_min          = jd->valueint;
+            }
+            cur.provisioned = true;
+            ok = robot.setCalibration(cur);
+            message = ok ? "calibration saved" : "calibration store failed";
+
+        } else if (std::strcmp(n, "get_calibration") == 0) {
+            // Returned in the command_result message field as a JSON
+            // string. Keeps the wire shape uniform — every command_result
+            // is just {ok, message} — at the cost of clients having to
+            // JSON.parse(message) once. Cheap.
+            const DeviceCalibration &c = robot.calibration();
+            char buf[160];
+            std::snprintf(buf, sizeof(buf),
+                "{\"provisioned\":%s,\"wheel_diameter_mm\":%.3f,"
+                "\"wheel_base_mm\":%.3f,\"lr_balance\":%.4f,\"duty_min\":%d}",
+                c.provisioned ? "true" : "false",
+                c.wheel_diameter_mm, c.wheel_base_mm, c.lr_balance, c.duty_min);
+            // Reply directly without using the normal ok/message path so
+            // we can put the JSON payload in the message slot.
+            sendCommandResult(ws,
+                cJSON_IsString(commandId) ? commandId->valuestring : "unknown",
+                true, buf);
+            cJSON_Delete(root);
+            return;
+
+        } else if (std::strcmp(n, "clear_calibration") == 0) {
+            ok = robot.clearCalibration();
+            message = ok ? "calibration cleared" : "calibration clear failed";
 
         } else if (std::strcmp(n, "stop") == 0) {
             ok = robot.stop();

@@ -5,6 +5,7 @@
 
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_rom_sys.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -18,11 +19,11 @@ static const char *TAG = "robot_hal";
 
 void IRAM_ATTR RobotHal::leftEncoderISR(void *arg) {
     auto *self = static_cast<RobotHal *>(arg);
-    self->encLeft_++;
+    self->encLeft_ = self->encLeft_ + 1;
 }
 void IRAM_ATTR RobotHal::rightEncoderISR(void *arg) {
     auto *self = static_cast<RobotHal *>(arg);
-    self->encRight_++;
+    self->encRight_ = self->encRight_ + 1;
 }
 
 // ─── init ──────────────────────────────────────────────────────────────────────
@@ -45,7 +46,10 @@ void RobotHal::init() {
     io.pin_bit_mask = (1ULL << MOTOR_L_IN1_GPIO) | (1ULL << MOTOR_L_IN2_GPIO)
                     | (1ULL << MOTOR_R_IN1_GPIO) | (1ULL << MOTOR_R_IN2_GPIO);
     gpio_config(&io);
-    motorStop();
+    gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN1_GPIO), 0);
+    gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN2_GPIO), 0);
+    gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN1_GPIO), 0);
+    gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN2_GPIO), 0);
 
     // ── Motor PWM (LEDC) ─────────────────────────────────────────────────────
     ledc_timer_config_t ledc_timer = {};
@@ -58,7 +62,6 @@ void RobotHal::init() {
 
     ledc_channel_config_t lch = {};
     lch.speed_mode = LEDC_LOW_SPEED_MODE;
-    lch.intr_type  = LEDC_INTR_DISABLE;
     lch.timer_sel  = MOTOR_LEDC_TIMER;
     lch.duty       = 0;
     lch.hpoint     = 0;
@@ -105,6 +108,18 @@ void RobotHal::init() {
 
     setPenPulse(PEN_UP_US);
 
+    // ── HC-SR04 ultrasonic ───────────────────────────────────────────────────
+    gpio_config_t trig_io = {};
+    trig_io.mode         = GPIO_MODE_OUTPUT;
+    trig_io.pin_bit_mask = 1ULL << HCSR04_TRIG_GPIO;
+    gpio_config(&trig_io);
+    gpio_set_level(static_cast<gpio_num_t>(HCSR04_TRIG_GPIO), 0);
+
+    gpio_config_t echo_io = {};
+    echo_io.mode         = GPIO_MODE_INPUT;
+    echo_io.pin_bit_mask = 1ULL << HCSR04_ECHO_GPIO;
+    gpio_config(&echo_io);
+
     // ── Encoder interrupts ───────────────────────────────────────────────────
 #ifdef SKETCHBOT_USE_ENCODERS
     gpio_config_t enc_io = {};
@@ -119,8 +134,31 @@ void RobotHal::init() {
     gpio_isr_handler_add(static_cast<gpio_num_t>(ENC_R_A_GPIO), rightEncoderISR, this);
 #endif
 
+    // Load persisted per-device calibration. On a freshly-flashed bot
+    // the NVS entry is absent and cal_ stays at its defaults (matching
+    // the legacy compile-time constants), so motion is unchanged until
+    // the desktop wizard pushes real values via set_calibration.
+    calibrationLoad(cal_);
+    ESP_LOGI(TAG, "calibration loaded — wheel=%.2fmm base=%.2fmm lr=%.3f dmin=%d (%s)",
+             cal_.wheel_diameter_mm, cal_.wheel_base_mm, cal_.lr_balance, cal_.duty_min,
+             cal_.provisioned ? "from wizard" : "defaults");
+
     initialized_ = true;
     ESP_LOGI(TAG, "RobotHal initialised");
+}
+
+// ─── Calibration accessors ─────────────────────────────────────────────────────
+
+bool RobotHal::setCalibration(const DeviceCalibration& cfg) {
+    cal_ = cfg;
+    esp_err_t err = calibrationStore(cal_);
+    return err == ESP_OK;
+}
+
+bool RobotHal::clearCalibration() {
+    esp_err_t err = calibrationClear();
+    cal_ = DeviceCalibration{};
+    return err == ESP_OK;
 }
 
 // ─── Internal motor helpers ────────────────────────────────────────────────────
@@ -137,33 +175,64 @@ void RobotHal::motorStop() {
     isMoving_ = false;
 }
 
-// leftDuty / rightDuty: –255..255 (negative = backward)
+// leftDuty / rightDuty: –255..255 (negative = backward, 0 = coast).
+// A zero duty pulls both IN pins LOW for that side so the H-bridge
+// truly idles (coast mode) even if the L298N's ENA/ENB jumpers are
+// still installed — common bench mistake that otherwise keeps a side
+// spinning forward whenever IN1=1.
 void RobotHal::motorDrive(int leftDuty, int rightDuty) {
+    // ─── Calibration corrections ───────────────────────────────────────
+    // Applied here so EVERY path that ends in motorDrive — moveForward,
+    // rotate, setMotorsRaw, the self-test, future tools — gets the
+    // same per-device tuning automatically.
+    //
+    // 1) L/R balance: slow whichever motor is naturally faster so
+    //    equal commanded duty produces equal ground speed. Never
+    //    boosts above the input (avoids saturation surprises).
+    if (cal_.lr_balance > 1.0f) {
+        leftDuty = (int)(leftDuty / cal_.lr_balance);
+    } else if (cal_.lr_balance < 1.0f) {
+        rightDuty = (int)(rightDuty * cal_.lr_balance);
+    }
+
+    // 2) Dead-band floor: tiny duties (after balance) can't break
+    //    static friction — they just buzz the motor pointlessly and
+    //    eat current. Snap below-threshold to zero. Direction is
+    //    preserved by checking magnitude.
+    if (leftDuty  != 0 && std::abs(leftDuty)  < cal_.duty_min) leftDuty  = 0;
+    if (rightDuty != 0 && std::abs(rightDuty) < cal_.duty_min) rightDuty = 0;
+
     // Left
-    if (leftDuty >= 0) {
+    if (leftDuty > 0) {
         gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN1_GPIO), 1);
         gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN2_GPIO), 0);
-    } else {
+    } else if (leftDuty < 0) {
         gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN1_GPIO), 0);
         gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN2_GPIO), 1);
         leftDuty = -leftDuty;
+    } else {
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN1_GPIO), 0);
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_L_IN2_GPIO), 0);
     }
     ledc_set_duty(LEDC_LOW_SPEED_MODE, MOTOR_L_LEDC_CH, std::min(leftDuty, 255));
     ledc_update_duty(LEDC_LOW_SPEED_MODE, MOTOR_L_LEDC_CH);
 
     // Right
-    if (rightDuty >= 0) {
+    if (rightDuty > 0) {
         gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN1_GPIO), 1);
         gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN2_GPIO), 0);
-    } else {
+    } else if (rightDuty < 0) {
         gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN1_GPIO), 0);
         gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN2_GPIO), 1);
         rightDuty = -rightDuty;
+    } else {
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN1_GPIO), 0);
+        gpio_set_level(static_cast<gpio_num_t>(MOTOR_R_IN2_GPIO), 0);
     }
     ledc_set_duty(LEDC_LOW_SPEED_MODE, MOTOR_R_LEDC_CH, std::min(rightDuty, 255));
     ledc_update_duty(LEDC_LOW_SPEED_MODE, MOTOR_R_LEDC_CH);
 
-    isMoving_ = true;
+    isMoving_ = (leftDuty != 0) || (rightDuty != 0);
 }
 
 void RobotHal::setPenPulse(uint32_t pulse_us) {
@@ -230,6 +299,40 @@ bool RobotHal::setMotorsRaw(float left_mps, float right_mps) {
     return true;
 }
 
+// ─── HC-SR04 ultrasonic ───────────────────────────────────────────────────────
+// Send a 10 µs trigger pulse, then time the ECHO pin's high duration.
+// Distance = (echo_us * speed_of_sound_cm/us) / 2.  Speed of sound at
+// 20 °C ≈ 0.0343 cm/µs, so distance_cm ≈ echo_us / 58.3.  Returns -1.0f
+// if no echo arrives within HCSR04_TIMEOUT_US (out of range, missing
+// sensor, or ECHO wiring fault).
+
+float RobotHal::readDistanceCm() {
+    const auto trig = static_cast<gpio_num_t>(HCSR04_TRIG_GPIO);
+    const auto echo = static_cast<gpio_num_t>(HCSR04_ECHO_GPIO);
+
+    // 10 µs trigger pulse — datasheet minimum is 10 µs.
+    gpio_set_level(trig, 0);
+    esp_rom_delay_us(2);
+    gpio_set_level(trig, 1);
+    esp_rom_delay_us(10);
+    gpio_set_level(trig, 0);
+
+    // Wait for ECHO to rise (sensor sends out its 8-cycle 40 kHz burst
+    // first; ECHO goes high once the burst is complete).
+    const int64_t waitStart = esp_timer_get_time();
+    while (gpio_get_level(echo) == 0) {
+        if (esp_timer_get_time() - waitStart > HCSR04_TIMEOUT_US) return -1.0f;
+    }
+
+    // Time ECHO high — proportional to round-trip distance.
+    const int64_t echoStart = esp_timer_get_time();
+    while (gpio_get_level(echo) == 1) {
+        if (esp_timer_get_time() - echoStart > HCSR04_TIMEOUT_US) return -1.0f;
+    }
+    const int64_t echoUs = esp_timer_get_time() - echoStart;
+    return echoUs / 58.3f;
+}
+
 // ─── Home ─────────────────────────────────────────────────────────────────────
 // Stub: drive backward at low speed for 2 s to reach a physical stop, then zero pose.
 // Replace with AprilTag-based homing once the camera pipeline is integrated.
@@ -270,8 +373,14 @@ bool RobotHal::moveForward(float mm, float speed_mm_s) {
         vTaskDelay(1);
     }
 #else
-    // Timed fallback
-    uint32_t ms = (uint32_t)(std::abs(mm) / speed_mm_s * 1000.0f);
+    // Timed fallback. SPEED_TO_DUTY was empirically tuned for the
+    // ASSUMED wheel diameter (65 mm). If the calibrated wheel diameter
+    // differs, the same duty produces a proportionally different
+    // mm/s — so drive for less/more time to land at the commanded
+    // distance. dia_scale > 1 means smaller wheels → need more time
+    // for the same mm.
+    const float dia_scale = 65.0f / cal_.wheel_diameter_mm;
+    uint32_t ms = (uint32_t)(std::abs(mm) / speed_mm_s * 1000.0f * dia_scale);
     motorDrive(lDuty, rDuty);
     vTaskDelay(pdMS_TO_TICKS(ms));
 #endif
@@ -297,9 +406,13 @@ bool RobotHal::rotate(float degrees, float speed_dps) {
     if (!initialized_) return false;
     speed_dps = std::max(10.0f, std::min(speed_dps, 360.0f));
 
-    // Arc length each wheel travels for this rotation
-    float arcMm     = std::abs(degrees) / 360.0f * (float)M_PI * WHEEL_BASE_MM;
-    float speed_mm_s = (WHEEL_BASE_MM / 2.0f) * speed_dps * (float)M_PI / 180.0f;
+    // Arc length each wheel travels for this rotation. Uses the
+    // *calibrated* wheel base (via cal_.wheel_base_mm), so a robot
+    // whose actual track differs from the assumed 140 mm rotates
+    // exactly the commanded angle. Same for the speed-to-time math.
+    const float base = cal_.wheel_base_mm;
+    float arcMm     = std::abs(degrees) / 360.0f * (float)M_PI * base;
+    float speed_mm_s = (base / 2.0f) * speed_dps * (float)M_PI / 180.0f;
     int duty = (int)SPEED_TO_DUTY(speed_mm_s);
 
     // CW (positive): left fwd, right bwd
@@ -318,7 +431,11 @@ bool RobotHal::rotate(float degrees, float speed_dps) {
         vTaskDelay(1);
     }
 #else
-    uint32_t ms = (uint32_t)(arcMm / speed_mm_s * 1000.0f);
+    // Wheel-diameter calibration matters for rotate too — the wheels
+    // are rolling along their own arc, so the same duty under
+    // smaller-than-assumed wheels takes longer to cover arcMm.
+    const float dia_scale_rot = 65.0f / cal_.wheel_diameter_mm;
+    uint32_t ms = (uint32_t)(arcMm / speed_mm_s * 1000.0f * dia_scale_rot);
     motorDrive(lDuty, rDuty);
     vTaskDelay(pdMS_TO_TICKS(ms));
 #endif
