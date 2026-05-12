@@ -1,138 +1,156 @@
 """
-Generates apps/desktop/electron/icon.ico — Spark's face logo.
-Run via build-prod.sh before electron-builder.
+Generates apps/desktop/electron/icon.ico — the SaySpark spark mark.
+
+Mirrors apps/admin-web/src/app/icon.svg (the favicon used in the admin
+site's browser tab) so the desktop app, installer, and admin web tab
+all wear the same brand glyph. Run via build-prod.sh before
+electron-builder; also writes a copy to renderer/src/app/favicon.ico
+so the in-app window/tab icon matches in dev too.
+
 Requires Pillow (already in the local-runtime venv).
 """
 import math
 from pathlib import Path
+
 from PIL import Image, ImageDraw, ImageFilter
 
-OUT = Path(__file__).parent / 'icon.ico'
+ICO_OUT     = Path(__file__).parent / 'icon.ico'
+FAVICON_OUT = Path(__file__).parents[1] / 'renderer' / 'src' / 'app' / 'favicon.ico'
 
-
-def lerp(a, b, t):
-    return int(a + (b - a) * t)
+# Brand palette (matches apps/admin-web/src/app/icon.svg gradients).
+BG_OUTER    = (10,  13,  24)   # #0a0d18
+BG_INNER    = (26,  32,  64)   # #1a2040
+HALO_CYAN   = (93,  228, 255)  # #5de4ff
+HALO_VIOLET = (168, 85,  247)  # #a855f7
+SPARK_WARM  = (255, 244, 214)  # #fff4d6 — innermost glow tint
 
 
 def lerp_color(c1, c2, t):
-    return tuple(lerp(a, b, t) for a, b in zip(c1, c2))
+    return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
+
+
+def star8_points(cx, cy, outer, inner, rot_deg=0.0):
+    """Eight-pointed star, alternating outer/inner radii. rot_deg
+    rotates the whole shape; default places a point at the top."""
+    pts = []
+    base = -90.0 + rot_deg
+    for i in range(16):
+        angle = math.radians(base + i * (360.0 / 16))
+        r = outer if (i % 2 == 0) else inner
+        pts.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+    return pts
 
 
 def create_frame(size: int) -> Image.Image:
     s = size
     img = Image.new('RGBA', (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
+    cx = cy = s / 2.0
 
-    # ── Rounded square background ───────────────────────────────────────────
-    radius = int(s * 0.22)
-    d.rounded_rectangle([0, 0, s - 1, s - 1], radius=radius,
-                        fill=(5, 10, 28, 255))
+    # ── Rounded-square backdrop ────────────────────────────────────────────
+    # Flat near-black so the cyan/violet spark has something to glow on.
+    # Pillow's ImageDraw doesn't alpha-blend over RGBA — semi-transparent
+    # overlays would punch holes through the backdrop — so we keep this
+    # opaque and rely on the halo layer (composited below) for the inner
+    # brightening.
+    corner_r = int(s * 0.22)
+    d.rounded_rectangle([0, 0, s - 1, s - 1], radius=corner_r,
+                        fill=(*BG_INNER, 255))
 
-    # ── Head — light blue ellipse with radial gradient ──────────────────────
-    cx, cy = s / 2, s * 0.46
-    hw = s * 0.36   # half-width
-    hh = s * 0.40   # half-height (slightly taller than wide)
-    # Fake radial gradient: draw concentric ellipses outer→inner
-    steps = int(min(hw, hh))
-    for i in range(steps, 0, -1):
-        t = i / steps
-        # outer (#b0c8f0) → inner (#ffffff)
-        r = lerp(176, 255, 1 - t)
-        g = lerp(200, 255, 1 - t)
-        b = lerp(240, 255, 1 - t)
-        rx = hw * (i / steps)
-        ry = hh * (i / steps)
-        d.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=(r, g, b, 255))
-    # thin border
-    d.ellipse([cx - hw, cy - hh, cx + hw, cy + hh],
-              outline=(144, 184, 232, 200), width=max(1, round(s * 0.015)))
+    # ── Halo behind the spark ──────────────────────────────────────────────
+    # Soft cyan core fading through violet to transparent. Drawn as
+    # stacked rings on a separate layer that we then alpha-composite, so
+    # the falloff is smooth without banding.
+    halo = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    halo_d = ImageDraw.Draw(halo)
+    halo_r = s * 0.46
+    rings = max(20, int(halo_r))
+    for i in range(rings, 0, -1):
+        t = i / rings   # 1 at edge, 0 at center
+        # Color: violet at edges (t≈1) → cyan at center (t≈0)
+        col = lerp_color(HALO_VIOLET, HALO_CYAN, 1 - t)
+        # Quadratic falloff — softer than linear, no harsh outer ring
+        alpha = int(80 * (1 - t) ** 2)
+        if alpha <= 0:
+            continue
+        rr = halo_r * (i / rings)
+        halo_d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr],
+                       fill=(*col, alpha))
+    # Single light blur smooths the residual banding from the ring stack.
+    halo = halo.filter(ImageFilter.GaussianBlur(radius=max(1, s / 96)))
+    img = Image.alpha_composite(img, halo)
+    d = ImageDraw.Draw(img)  # rebind draw to composited image
 
-    # ── Ear pads (small rects on each side) ────────────────────────────────
-    ep_w  = max(2, round(s * 0.045))
-    ep_h  = max(3, round(s * 0.13))
-    ep_y  = cy - ep_h / 2
-    ep_rx = max(1, round(ep_w * 0.5))
-    # left
-    d.rounded_rectangle([cx - hw - ep_w * 0.6, ep_y,
-                          cx - hw + ep_w * 0.4, ep_y + ep_h],
-                         radius=ep_rx, fill=(220, 234, 255, 255),
-                         outline=(144, 184, 232, 160))
-    # right
-    d.rounded_rectangle([cx + hw - ep_w * 0.4, ep_y,
-                          cx + hw + ep_w * 0.6, ep_y + ep_h],
-                         radius=ep_rx, fill=(220, 234, 255, 255),
-                         outline=(144, 184, 232, 160))
+    # ── Spark layer — built on its own RGBA canvas so semi-transparent ────
+    # overlays (the white sub-star, sparkle highlights) blend with the
+    # color stack beneath them via alpha_composite rather than punching
+    # holes by overwriting alpha values.
+    spark = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(spark)
 
-    # ── Visor / face plate (dark band) ─────────────────────────────────────
-    vx = cx - hw * 0.78
-    vy = cy - hh * 0.12
-    vw = hw * 1.56
-    vh = hh * 0.50
-    vr = max(2, round(s * 0.052))
-    d.rounded_rectangle([vx, vy, vx + vw, vy + vh],
-                         radius=vr, fill=(8, 18, 38, 255))
-    # subtle sheen inside visor top
-    sheen_y1 = max(vy + 2, vy + vh * 0.28)
-    d.rounded_rectangle([vx + 1, vy + 1, vx + vw - 1, sheen_y1],
-                         radius=vr, fill=(255, 255, 255, 12))
+    scale = s / 32.0          # admin SVG viewBox = 32
+    # Three stacked 8-pointed stars approximate the SVG's
+    # #fff4d6 → #5de4ff → #a855f7 radial: violet outer, cyan middle,
+    # warm-white inner. At icon sizes this reads as the same glow.
+    sd.polygon(star8_points(cx, cy, 11.5 * scale, 3.0 * scale),
+               fill=(*HALO_VIOLET, 255))
+    sd.polygon(star8_points(cx, cy,  9.0 * scale, 2.4 * scale),
+               fill=(*HALO_CYAN,   255))
+    sd.polygon(star8_points(cx, cy,  6.0 * scale, 1.6 * scale),
+               fill=(*SPARK_WARM,  255))
 
-    # ── Eyes — glowing cyan circles ────────────────────────────────────────
-    er = max(2, round(s * 0.08))
-    eye_y = vy + vh * 0.52
-    for ex in (cx - hw * 0.36, cx + hw * 0.36):
-        # outer glow halo
-        halo = max(3, er + round(s * 0.04))
-        d.ellipse([ex - halo, eye_y - halo, ex + halo, eye_y + halo],
-                  fill=(93, 228, 255, 55))
-        # eye fill
-        d.ellipse([ex - er, eye_y - er, ex + er, eye_y + er],
-                  fill=(93, 228, 255, 255))
-        # iris (slightly darker center)
-        ir = max(1, round(er * 0.55))
-        d.ellipse([ex - ir, eye_y - ir, ex + ir, eye_y + ir],
-                  fill=(20, 80, 180, 255))
-        # specular highlight
-        hw2 = max(1, round(er * 0.32))
-        ox, oy = ex - er * 0.32, eye_y - er * 0.35
-        d.ellipse([ox - hw2, oy - hw2, ox + hw2, oy + hw2],
-                  fill=(255, 255, 255, 220))
+    # Rotated white sub-star — drawn on its OWN layer so the alpha
+    # blends with the colored spark instead of replacing it.
+    sub = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    ImageDraw.Draw(sub).polygon(
+        star8_points(cx, cy, 5.0 * scale, 1.4 * scale, rot_deg=45.0),
+        fill=(255, 255, 255, 140),
+    )
+    spark = Image.alpha_composite(spark, sub)
+    sd = ImageDraw.Draw(spark)
 
-    # ── Smile (subtle arc on chin area) ────────────────────────────────────
-    sm_cx = cx
-    sm_cy = cy + hh * 0.52
-    sm_w  = hw * 0.45
-    sm_h  = hh * 0.14
-    sm_lw = max(1, round(s * 0.025))
-    smile_box = [sm_cx - sm_w, sm_cy - sm_h,
-                 sm_cx + sm_w, sm_cy + sm_h]
-    d.arc(smile_box, start=14, end=166,
-          fill=(8, 18, 38, 160), width=sm_lw)
+    # Bright white centre disc — fully opaque, can be drawn directly.
+    cr = max(1.0, 2.0 * scale)
+    sd.ellipse([cx - cr, cy - cr, cx + cr, cy + cr],
+               fill=(255, 255, 255, 255))
 
-    # ── Antenna nub on top ─────────────────────────────────────────────────
-    ant_x  = cx
-    ant_y0 = cy - hh
-    ant_y1 = ant_y0 - s * 0.09
-    ant_w  = max(1, round(s * 0.025))
-    d.line([ant_x, ant_y0, ant_x, ant_y1],
-           fill=(144, 184, 232, 200), width=ant_w)
-    # tip ball
-    tb = max(2, round(s * 0.055))
-    d.ellipse([ant_x - tb, ant_y1 - tb, ant_x + tb, ant_y1 + tb],
-              fill=(93, 228, 255, 255))
-    d.ellipse([ant_x - tb + 1, ant_y1 - tb + 1,
-               ant_x - tb + round(tb * 0.55), ant_y1 - tb + round(tb * 0.55)],
-              fill=(255, 255, 255, 180))
+    img = Image.alpha_composite(img, spark)
+
+    # ── Sparkle highlights (skip the smallest sizes, would just be noise) ─
+    # Composited on yet another layer so the alpha blends correctly with
+    # the violet halo bleed at the edges of the icon.
+    if s >= 48:
+        sparkles = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+        spd = ImageDraw.Draw(sparkles)
+        for (sx_off, sy_off, sr_f, alpha) in [
+            ( 6.0, -5.0, 0.75, 220),
+            (-6.5,  5.5, 0.65, 180),
+            (-5.0, -4.5, 0.45, 150),
+        ]:
+            sx = cx + sx_off * scale
+            sy = cy + sy_off * scale
+            sr = max(1.0, sr_f * scale)
+            spd.ellipse([sx - sr, sy - sr, sx + sr, sy + sr],
+                        fill=(255, 255, 255, alpha))
+        img = Image.alpha_composite(img, sparkles)
 
     return img
 
 
 def main():
-    sizes = [16, 24, 32, 48, 64, 128, 256]
+    sizes  = [16, 24, 32, 48, 64, 128, 256]
     frames = {s: create_frame(s) for s in sizes}
+
+    # icon.ico — multi-resolution; Windows/Electron pick the best fit.
     big = frames[256]
-    big.save(OUT, format='ICO', sizes=[(s, s) for s in sizes])
-    kb = OUT.stat().st_size / 1024
-    print(f'Spark icon written -> {OUT}  ({kb:.1f} KB)')
+    big.save(ICO_OUT, format='ICO', sizes=[(s, s) for s in sizes])
+    print(f'Spark icon written -> {ICO_OUT}  ({ICO_OUT.stat().st_size / 1024:.1f} KB)')
+
+    # favicon.ico — Next.js convention; same multi-res payload so the
+    # dev-mode window icon and any browser-tab fallback match.
+    FAVICON_OUT.parent.mkdir(parents=True, exist_ok=True)
+    big.save(FAVICON_OUT, format='ICO', sizes=[(s, s) for s in sizes])
+    print(f'Favicon written  -> {FAVICON_OUT}  ({FAVICON_OUT.stat().st_size / 1024:.1f} KB)')
 
 
 if __name__ == '__main__':
