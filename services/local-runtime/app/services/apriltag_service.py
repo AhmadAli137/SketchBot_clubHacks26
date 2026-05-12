@@ -14,6 +14,22 @@ from app.services.state_manager import state_manager
 DEBUG_FRAME_PATH = Path('/tmp/sketchbot-apriltag-analysis.jpg')
 DEBUG_NORMALIZED_PATH = Path('/tmp/sketchbot-apriltag-analysis-normalized.png')
 
+# Physical height of each tag above the canvas plane (z=0), in mm.
+# Corner tags lie flat on the paper; the bot's tag sits on top of the
+# chassis. Without this offset a homography would project the bot tag
+# down onto the canvas plane along a slanted ray, producing a position
+# error proportional to (h × d / H) — where d is the horizontal offset
+# from the camera nadir and H is the camera height. With the height
+# known, the back-projection intersects the correct z-plane and the
+# error vanishes.
+TAG_HEIGHTS_MM: dict[int, float] = {
+    0: 0.0,   # canvas top-left
+    1: 0.0,   # canvas top-right
+    2: 0.0,   # canvas bottom-right
+    3: 0.0,   # canvas bottom-left
+    4: 50.0,  # bot tag — tune to match the chassis mount height
+}
+
 class AprilTagService:
     def __init__(self) -> None:
         parameters = cv2.aruco.DetectorParameters()
@@ -142,55 +158,155 @@ class AprilTagService:
             self._last_robot_heading_deg = smoothed_heading
 
             # ── Camera-derived bot position (x_mm, y_mm) ──────────────
-            # Build a perspective transform from the four canvas corner
-            # tags (pixel) to the canvas's known mm dimensions, then
-            # apply it to the bot tag's centre pixel. Result: live
-            # ground-truth x_mm / y_mm that the calibration wizard
-            # (Cal.4) reads to measure actual travel without a ruler.
+            # Recover the camera's 6-DoF pose from the four canvas
+            # corner tags (solvePnP on their known 3D positions at
+            # z=0), then back-project the bot tag's centre pixel along
+            # the camera ray and intersect it with the plane z = bot
+            # tag's mount height. This is what cancels the parallax a
+            # plain homography produces when the bot tag isn't on the
+            # paper plane.
             #
             # Tag id convention:
-            #   0 = top-left      → ( 0, 0 )
-            #   1 = top-right     → ( W, 0 )
-            #   2 = bottom-right  → ( W, H )
-            #   3 = bottom-left   → ( 0, H )
+            #   0 = top-left      → ( 0, 0, 0 )
+            #   1 = top-right     → ( W, 0, 0 )
+            #   2 = bottom-right  → ( W, H, 0 )
+            #   3 = bottom-left   → ( 0, H, 0 )
             #
             # Falls through silently when fewer than 4 canvas tags are
             # visible — heading still updates so the wizard's rotate
             # step is still calibratable even on partial detections.
             if len(canvas_tags) == 4:
                 try:
-                    tag_by_id = {d.tag_id: d for d in canvas_tags}
-                    src_pts = np.array([
-                        [tag_by_id[0].center.x, tag_by_id[0].center.y],
-                        [tag_by_id[1].center.x, tag_by_id[1].center.y],
-                        [tag_by_id[2].center.x, tag_by_id[2].center.y],
-                        [tag_by_id[3].center.x, tag_by_id[3].center.y],
-                    ], dtype=np.float32)
+                    w_px = int(frame.shape[1])
+                    h_px = int(frame.shape[0])
                     w_mm = float(state.canvas.width_mm or 297.0)
                     h_mm = float(state.canvas.height_mm or 210.0)
-                    dst_pts = np.array([
-                        [0.0,   0.0],
-                        [w_mm,  0.0],
-                        [w_mm,  h_mm],
-                        [0.0,   h_mm],
-                    ], dtype=np.float32)
-                    H = cv2.getPerspectiveTransform(src_pts, dst_pts)
-                    bot_px = np.array([[[robot_tag.center.x, robot_tag.center.y]]], dtype=np.float32)
-                    bot_mm = cv2.perspectiveTransform(bot_px, H)
-                    raw_x = float(bot_mm[0, 0, 0])
-                    raw_y = float(bot_mm[0, 0, 1])
-                    # Same exponential smoothing as heading so motion
-                    # commands followed by a pose read see a settled
-                    # value rather than the latest noisy detection.
-                    state.robot_pose.x_mm = state.robot_pose.x_mm * 0.5 + raw_x * 0.5
-                    state.robot_pose.y_mm = state.robot_pose.y_mm * 0.5 + raw_y * 0.5
+                    pose = self._estimate_camera_pose(
+                        canvas_tags, w_px, h_px, w_mm, h_mm,
+                    )
+                    if pose is not None:
+                        rvec, tvec, K = pose
+                        robot_height = TAG_HEIGHTS_MM.get(robot_tag.tag_id, 0.0)
+                        bot_px = (
+                            robot_tag.center.x * w_px,
+                            robot_tag.center.y * h_px,
+                        )
+                        xy = self._back_project_to_plane(
+                            bot_px, K, rvec, tvec, robot_height,
+                        )
+                        if xy is not None:
+                            raw_x, raw_y = xy
+                            # Same exponential smoothing as heading so
+                            # motion commands followed by a pose read
+                            # see a settled value rather than the
+                            # latest noisy detection.
+                            state.robot_pose.x_mm = state.robot_pose.x_mm * 0.5 + raw_x * 0.5
+                            state.robot_pose.y_mm = state.robot_pose.y_mm * 0.5 + raw_y * 0.5
                 except (cv2.error, KeyError, ValueError):
-                    # Degenerate tag layout (collinear, mirrored). Skip
-                    # this frame; next one will likely succeed.
+                    # Degenerate tag layout (collinear, mirrored) or
+                    # PnP failed to converge. Skip this frame; next
+                    # one will likely succeed.
                     pass
 
         state_manager._normalize_state()
         state_manager._refresh_operator_summary()
+
+    def _approx_intrinsics(self, width: int, height: int) -> np.ndarray:
+        """Pinhole approximation: focal length ≈ image width (≈60° FoV)
+        and principal point at image centre. Good enough for the
+        ray-plane back-projection used here when the camera is roughly
+        overhead; swap in a checkerboard-calibrated matrix later if
+        per-pixel accuracy matters."""
+        f = float(width)
+        cx = width / 2.0
+        cy = height / 2.0
+        return np.array(
+            [
+                [f,   0.0, cx],
+                [0.0, f,   cy],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=np.float64,
+        )
+
+    def _estimate_camera_pose(
+        self,
+        canvas_tags: list[AprilTagDetection],
+        width: int,
+        height: int,
+        canvas_w_mm: float,
+        canvas_h_mm: float,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+        """solvePnP on the four canvas corner tag centres → (rvec,
+        tvec, K). rvec/tvec describe the world→camera rigid transform
+        in canvas-mm coordinates. IPPE is the right solver here
+        because the four points are coplanar."""
+        tag_by_id = {d.tag_id: d for d in canvas_tags}
+        if set(tag_by_id) != {0, 1, 2, 3}:
+            return None
+        image_points = np.array(
+            [
+                [tag_by_id[0].center.x * width, tag_by_id[0].center.y * height],
+                [tag_by_id[1].center.x * width, tag_by_id[1].center.y * height],
+                [tag_by_id[2].center.x * width, tag_by_id[2].center.y * height],
+                [tag_by_id[3].center.x * width, tag_by_id[3].center.y * height],
+            ],
+            dtype=np.float64,
+        )
+        object_points = np.array(
+            [
+                [0.0,         0.0,         0.0],
+                [canvas_w_mm, 0.0,         0.0],
+                [canvas_w_mm, canvas_h_mm, 0.0],
+                [0.0,         canvas_h_mm, 0.0],
+            ],
+            dtype=np.float64,
+        )
+        K = self._approx_intrinsics(width, height)
+        ok, rvec, tvec = cv2.solvePnP(
+            object_points,
+            image_points,
+            K,
+            np.zeros((4, 1), dtype=np.float64),
+            flags=cv2.SOLVEPNP_IPPE,
+        )
+        if not ok:
+            return None
+        return rvec, tvec, K
+
+    def _back_project_to_plane(
+        self,
+        pixel_xy: tuple[float, float],
+        K: np.ndarray,
+        rvec: np.ndarray,
+        tvec: np.ndarray,
+        plane_z_mm: float,
+    ) -> tuple[float, float] | None:
+        """Project a pixel into a 3D camera ray, transform to world
+        frame, and intersect with the horizontal plane z = plane_z_mm.
+
+        Ray in camera frame:   d_cam = K⁻¹ · [u, v, 1]ᵀ
+        Camera centre in world: C = -Rᵀ · t
+        Ray in world frame:    d_world = Rᵀ · d_cam
+        Intersection:          C.z + s · d_world.z = plane_z_mm
+                               → (x, y) = (C.xy + s · d_world.xy)
+        """
+        R, _ = cv2.Rodrigues(rvec)
+        Rt = R.T
+        cam_center = -Rt @ tvec.flatten()
+        pixel_h = np.array([pixel_xy[0], pixel_xy[1], 1.0], dtype=np.float64)
+        ray_cam = np.linalg.inv(K) @ pixel_h
+        ray_world = Rt @ ray_cam
+        if abs(ray_world[2]) < 1e-9:
+            return None
+        s = (plane_z_mm - cam_center[2]) / ray_world[2]
+        if s <= 0:
+            # Plane is behind the camera or parallel — geometry isn't
+            # physically meaningful, bail.
+            return None
+        x = cam_center[0] + s * ray_world[0]
+        y = cam_center[1] + s * ray_world[1]
+        return float(x), float(y)
 
     def _clear_detection_state(self) -> None:
         state = state_manager.state
