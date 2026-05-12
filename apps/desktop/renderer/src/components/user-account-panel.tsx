@@ -222,15 +222,28 @@ export function UserAccountPanel({ role, name, email, robotSerial, onSignOut, on
                 {robotSerial}
               </div>
             </div>
-            <a
-              href={`${ACCOUNT_URL}?serial=${encodeURIComponent(robotSerial)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="account-upgrade-btn"
-              title="Bind this robot to your SaySpark account"
-            >
-              Register <ExternalLink size={11} />
-            </a>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+              <a
+                href={`${ACCOUNT_URL}?serial=${encodeURIComponent(robotSerial)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="account-upgrade-btn"
+                title="Bind this robot to your SaySpark account"
+              >
+                Register <ExternalLink size={11} />
+              </a>
+              <button
+                type="button"
+                className="account-upgrade-btn"
+                title="Open the calibration wizard"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('sketchbot:open-calibration'));
+                  onClose();
+                }}
+              >
+                Calibrate
+              </button>
+            </div>
           </div>
         )}
 

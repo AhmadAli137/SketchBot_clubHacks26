@@ -141,6 +141,54 @@ class AprilTagService:
             state.robot_pose.heading_deg = smoothed_heading
             self._last_robot_heading_deg = smoothed_heading
 
+            # ── Camera-derived bot position (x_mm, y_mm) ──────────────
+            # Build a perspective transform from the four canvas corner
+            # tags (pixel) to the canvas's known mm dimensions, then
+            # apply it to the bot tag's centre pixel. Result: live
+            # ground-truth x_mm / y_mm that the calibration wizard
+            # (Cal.4) reads to measure actual travel without a ruler.
+            #
+            # Tag id convention:
+            #   0 = top-left      → ( 0, 0 )
+            #   1 = top-right     → ( W, 0 )
+            #   2 = bottom-right  → ( W, H )
+            #   3 = bottom-left   → ( 0, H )
+            #
+            # Falls through silently when fewer than 4 canvas tags are
+            # visible — heading still updates so the wizard's rotate
+            # step is still calibratable even on partial detections.
+            if len(canvas_tags) == 4:
+                try:
+                    tag_by_id = {d.tag_id: d for d in canvas_tags}
+                    src_pts = np.array([
+                        [tag_by_id[0].center.x, tag_by_id[0].center.y],
+                        [tag_by_id[1].center.x, tag_by_id[1].center.y],
+                        [tag_by_id[2].center.x, tag_by_id[2].center.y],
+                        [tag_by_id[3].center.x, tag_by_id[3].center.y],
+                    ], dtype=np.float32)
+                    w_mm = float(state.canvas.width_mm or 297.0)
+                    h_mm = float(state.canvas.height_mm or 210.0)
+                    dst_pts = np.array([
+                        [0.0,   0.0],
+                        [w_mm,  0.0],
+                        [w_mm,  h_mm],
+                        [0.0,   h_mm],
+                    ], dtype=np.float32)
+                    H = cv2.getPerspectiveTransform(src_pts, dst_pts)
+                    bot_px = np.array([[[robot_tag.center.x, robot_tag.center.y]]], dtype=np.float32)
+                    bot_mm = cv2.perspectiveTransform(bot_px, H)
+                    raw_x = float(bot_mm[0, 0, 0])
+                    raw_y = float(bot_mm[0, 0, 1])
+                    # Same exponential smoothing as heading so motion
+                    # commands followed by a pose read see a settled
+                    # value rather than the latest noisy detection.
+                    state.robot_pose.x_mm = state.robot_pose.x_mm * 0.5 + raw_x * 0.5
+                    state.robot_pose.y_mm = state.robot_pose.y_mm * 0.5 + raw_y * 0.5
+                except (cv2.error, KeyError, ValueError):
+                    # Degenerate tag layout (collinear, mirrored). Skip
+                    # this frame; next one will likely succeed.
+                    pass
+
         state_manager._normalize_state()
         state_manager._refresh_operator_summary()
 

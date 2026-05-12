@@ -45,6 +45,7 @@ import { useCloudKeepalive } from '@/lib/use-cloud-keepalive';
 // observation prompts include what's actually happening on the chassis.
 // ensureNarratorSubscribed() wires the program-event → spark-event relay.
 import { setRobotSnapshot, ensureNarratorSubscribed } from '@/lib/program-narrator';
+import { RobotCalibrationWizard } from '@/components/robot-calibration-wizard';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 type AppView = 'plan' | 'auth' | 'difficulty-onboarding' | 'home' | 'session';
@@ -166,6 +167,18 @@ export default function HomePage() {
   const [lessonPlanActive, setLessonPlanActive] = useState(false);
   const [activeChallengeId, setActiveChallengeId] = useState<string | null>(null);
   const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+  // Robot calibration wizard (Cal.4). Lives at the top level so it can
+  // read `state.robot_pose` (which is camera-derived via the apriltag
+  // homography in apriltag_service.py). Triggered from anywhere via the
+  // 'sketchbot:open-calibration' custom event, so individual buttons
+  // (account panel, paired-robot card, future drift-check) don't need
+  // their own props plumbing.
+  const [calibrationOpen, setCalibrationOpen] = useState(false);
+  useEffect(() => {
+    const handler = () => setCalibrationOpen(true);
+    window.addEventListener('sketchbot:open-calibration', handler);
+    return () => window.removeEventListener('sketchbot:open-calibration', handler);
+  }, []);
   // True after the user clicks Just Play — makes the home screen render its
   // sandbox-view layout (hero + sessions gallery) regardless of role.
   // Reset whenever they leave to a non-sandbox surface (auth, session view
@@ -1461,6 +1474,7 @@ export default function HomePage() {
       canvasReady={canvas.detected}
       drawingReady={taskReady}
       robotReady={state.robot_connected}
+      robotSerial={state.robot_serial ?? null}
       activeJobName={activeJob.name}
       prompt={prompt}
       composing={composing}
@@ -1550,6 +1564,15 @@ export default function HomePage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Robot calibration wizard (Cal.4). Reads state.robot_pose for
+          camera-derived ground truth on each motion step. */}
+      <RobotCalibrationWizard
+        open={calibrationOpen}
+        apiBase={apiBase}
+        state={state}
+        onClose={() => setCalibrationOpen(false)}
+      />
 
       {/* Difficulty re-assessment modal — accessible from the level dropdown in any session */}
       <AnimatePresence>
