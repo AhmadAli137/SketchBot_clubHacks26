@@ -4,7 +4,7 @@ import json
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -353,4 +353,106 @@ async def _tts_openai(req: TutorSpeakRequest, voice: str) -> StreamingResponse:
         stream_audio(),
         media_type="audio/mpeg",
         headers={"X-TTS-Provider": "openai", "X-TTS-Voice": voice},
+    )
+
+
+# ─── Speech-to-text (Whisper) ──────────────────────────────────────────────
+# Used by the phone companion's push-to-talk button. The companion records
+# a short clip locally, POSTs it here, the cloud forwards to OpenAI's
+# Whisper API and returns the transcript as JSON. Auth-gated like the
+# rest of the tutor surface and metered the same way (one credit per
+# call — same as a tutor message) so a kid can't burn an account dry by
+# holding the mic button.
+
+class TutorTranscribeResponse(BaseModel):
+    text:     str
+    language: str | None = None
+    duration: float | None = None  # seconds, when Whisper reports it
+
+
+@router.post("/transcribe", response_model=TutorTranscribeResponse)
+async def transcribe(
+    user: AuthUser,
+    audio: UploadFile = File(...),
+    language: str | None = Form(default=None),
+):
+    """Transcribe a short audio clip to text using Whisper.
+
+    The companion sends multipart/form-data with one `audio` field
+    containing m4a / mp4 / wav / mp3 / ogg / webm. `language` is an
+    optional ISO-639-1 hint (e.g. 'en') that helps Whisper when the
+    clip is noisy or very short. The endpoint returns text only — no
+    side effects, no streaming.
+
+    Credit usage: 1 per request (charged after a successful transcribe
+    so a 4xx network failure doesn't dock the user).
+    """
+    if not settings.openai_api_key:
+        raise HTTPException(status_code=503, detail="Transcription not configured on the server.")
+
+    has_credits, _remaining = check_credits(user["id"])
+    if not has_credits:
+        raise HTTPException(
+            status_code=402,
+            detail="Out of AI credits this month — upgrade your plan to keep using voice.",
+        )
+
+    # Stream the upload into memory. Whisper accepts up to 25 MB; we
+    # cap at 8 MB to keep cold-start latency reasonable on Render free
+    # tier — a typical push-to-talk clip is well under 1 MB.
+    MAX_BYTES = 8 * 1024 * 1024
+    raw = await audio.read()
+    if len(raw) == 0:
+        raise HTTPException(status_code=400, detail="Empty audio payload.")
+    if len(raw) > MAX_BYTES:
+        raise HTTPException(status_code=413, detail=f"Audio too large (max {MAX_BYTES // 1024 // 1024} MB).")
+
+    filename = audio.filename or "speech.m4a"
+    content_type = audio.content_type or "audio/m4a"
+
+    import httpx
+    url = "https://api.openai.com/v1/audio/transcriptions"
+    headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
+    # multipart/form-data — httpx handles the boundary, we supply the
+    # raw bytes + content type. response_format=verbose_json gives us
+    # the language + duration fields that go in TutorTranscribeResponse.
+    files = {
+        "file":            (filename, raw, content_type),
+        "model":           (None, "whisper-1"),
+        "response_format": (None, "verbose_json"),
+    }
+    if language:
+        files["language"] = (None, language)
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=10.0)) as client:
+        try:
+            res = await client.post(url, headers=headers, files=files)
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail=f"Whisper request failed: {exc}")
+
+    if res.status_code >= 400:
+        body = res.text[:500]
+        raise HTTPException(status_code=502, detail=f"Whisper error: {body}")
+
+    try:
+        data = res.json()
+    except ValueError:
+        raise HTTPException(status_code=502, detail="Whisper returned non-JSON response.")
+
+    text = (data.get("text") or "").strip()
+    if not text:
+        # Best-effort: still 200 so the client can show "I didn't catch
+        # that" rather than a generic failure. Doesn't charge a credit
+        # — feels rude to bill for no-output. Caller checks for empty
+        # `text` and prompts the user to try again.
+        return TutorTranscribeResponse(text="", language=data.get("language"), duration=data.get("duration"))
+
+    # Successful round-trip → charge a credit. Failure-paths above all
+    # raise before getting here, so we never charge for an error.
+    deduct_credits(user["id"], 1)
+
+    return TutorTranscribeResponse(
+        text=text,
+        language=data.get("language"),
+        duration=data.get("duration"),
     )
