@@ -11,6 +11,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {
+  useAudioPlayer,
+  useAudioRecorder,
+  useAudioRecorderState,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
 
 import { colors, radius, space, type as fontType } from '../theme';
 
@@ -250,10 +258,12 @@ export function SparkCompanion({ onBack }: Props) {
           </View>
         )}
 
-        {mode === 'connected' && selected && (
+        {mode === 'connected' && selected && config && (
           <ConnectedView
             device={selected}
             robotOnline={robotOnline}
+            cloudUrl={config.cloudUrl}
+            accessToken={config.accessToken}
             onDisconnect={() => {
               try { wsRef.current?.close(1000, 'user-disconnect'); } catch { /* ignore */ }
               setSelected(null);
@@ -384,9 +394,11 @@ function DevicePicker(props: {
 function ConnectedView(props: {
   device: Device;
   robotOnline: boolean;
+  cloudUrl: string;
+  accessToken: string;
   onDisconnect: () => void;
 }) {
-  const { device, robotOnline, onDisconnect } = props;
+  const { device, robotOnline, cloudUrl, accessToken, onDisconnect } = props;
 
   return (
     <View style={{ gap: space[3] }}>
@@ -413,13 +425,7 @@ function ConnectedView(props: {
         )}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.title}>🎙️ Voice coming soon</Text>
-        <Text style={styles.body}>
-          Push-to-talk, Spark&apos;s avatar, and the live canvas of your robot will land here
-          once the relay is verified end-to-end with real hardware.
-        </Text>
-      </View>
+      <VoiceChat cloudUrl={cloudUrl} accessToken={accessToken} />
 
       <Pressable onPress={onDisconnect} style={styles.tertiaryBtn}>
         <Text style={styles.tertiaryBtnText}>Disconnect</Text>
@@ -427,6 +433,362 @@ function ConnectedView(props: {
     </View>
   );
 }
+
+// ─── Voice chat (Phase 2c.4b) ────────────────────────────────────────────────
+// Push-to-talk → POST /api/tutor/transcribe (Whisper) → POST
+// /api/tutor/message (SSE — accumulated, not streamed) → POST
+// /api/tutor/speak (MP3 file) → play via expo-audio. Records to an
+// m4a clip via expo-audio's useAudioRecorder; the file URI is uploaded
+// as multipart/form-data.
+
+type ChatTurn =
+  | { kind: 'kid';   text: string }
+  | { kind: 'spark'; text: string };
+
+type Phase = 'idle' | 'recording' | 'transcribing' | 'thinking' | 'speaking' | 'error';
+
+function VoiceChat({ cloudUrl, accessToken }: { cloudUrl: string; accessToken: string }) {
+  // Permission gate: requested once on first hold. We don't auto-prompt
+  // on mount — kids who never tap the button don't get a system dialog
+  // they don't understand.
+  const [permission, setPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+
+  // expo-audio recorder + reactive state.
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder, 200);
+
+  // expo-audio player — fed via setSource(uri) when each TTS clip
+  // arrives. We don't reuse the URL between turns so the player is
+  // reset on each speak.
+  const [ttsUri, setTtsUri] = useState<string | null>(null);
+  const ttsPlayer = useAudioPlayer(ttsUri ?? null);
+  useEffect(() => {
+    if (!ttsUri) return;
+    ttsPlayer.play();
+    // No need to subscribe to onEnd — the player handles its own cleanup
+    // and our `phase` returns to 'idle' below as soon as we know the
+    // file has been queued. The kid sees the talking state for the
+    // visible portion of playback either way.
+  }, [ttsUri, ttsPlayer]);
+
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
+
+  // Auto-scroll the transcript when a new turn lands.
+  useEffect(() => {
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  }, [turns.length]);
+
+  const startRecording = useCallback(async () => {
+    setError(null);
+    if (permission !== 'granted') {
+      const res = await requestRecordingPermissionsAsync();
+      if (!res.granted) {
+        setPermission('denied');
+        setError("Spark needs microphone permission to hear you.");
+        return;
+      }
+      setPermission('granted');
+    }
+    try {
+      // iOS specifically: switch the audio session into a recording
+      // category before .record() or the mic stays silent. No-op on
+      // Android.
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setPhase('recording');
+    } catch (err) {
+      setPhase('error');
+      setError(err instanceof Error ? err.message : 'Could not start recording.');
+    }
+  }, [permission, recorder]);
+
+  const stopRecordingAndRun = useCallback(async () => {
+    if (phase !== 'recording') return;
+    setPhase('transcribing');
+    try {
+      await recorder.stop();
+      const uri = recorder.uri;
+      if (!uri) throw new Error('No recording captured.');
+
+      // ── Transcribe ────────────────────────────────────────────────
+      const form = new FormData();
+      // RN's FormData accepts the file-uri shape — type assertion
+      // because the W3C typings don't model it.
+      form.append('audio', {
+        uri,
+        name: 'speech.m4a',
+        type: 'audio/m4a',
+      } as unknown as Blob);
+      form.append('language', 'en');
+
+      const transcribeRes = await fetch(`${cloudUrl}/api/tutor/transcribe`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: form,
+      });
+      if (!transcribeRes.ok) {
+        const body = await transcribeRes.json().catch(() => ({}));
+        throw new Error(body?.detail ?? `transcribe HTTP ${transcribeRes.status}`);
+      }
+      const { text: kidText } = (await transcribeRes.json()) as { text: string };
+      if (!kidText.trim()) {
+        setPhase('idle');
+        setError("Didn't catch that — try again.");
+        return;
+      }
+      setTurns((t) => [...t, { kind: 'kid', text: kidText }]);
+
+      // ── Tutor reply (SSE — accumulate; we don't render token-by-
+      //    token on mobile, just take the final text). ─────────────
+      setPhase('thinking');
+      const messageRes = await fetch(`${cloudUrl}/api/tutor/message`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          student_name:    'Companion',
+          age_group:       'builder',
+          actor_role:      'student',
+          trigger:         'voice',
+          concept_id:      'free-draw',
+          layer:           'intuitive',
+          student_message: kidText,
+        }),
+      });
+      if (!messageRes.ok) {
+        const body = await messageRes.text().catch(() => '');
+        throw new Error(`tutor HTTP ${messageRes.status}: ${body.slice(0, 120)}`);
+      }
+      const sseRaw = await messageRes.text();
+      const sparkText = parseSseTextChunks(sseRaw);
+      if (!sparkText.trim()) {
+        setPhase('idle');
+        setError('Spark had nothing to say. Try a different question.');
+        return;
+      }
+      setTurns((t) => [...t, { kind: 'spark', text: sparkText }]);
+
+      // ── TTS — fetch the MP3, save to a temp file, play it ────────
+      setPhase('speaking');
+      const speakRes = await fetch(`${cloudUrl}/api/tutor/speak`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: sparkText, voice: 'alloy', speed: 1.0 }),
+      });
+      if (!speakRes.ok) {
+        // Speech failed but text is on screen — show error, don't
+        // block. Kid can still read the answer.
+        setPhase('idle');
+        setError('Voice playback failed (text shown above).');
+        return;
+      }
+      // expo-audio's player needs a URI — for the MP3 stream from the
+      // cloud, the cleanest cross-platform path is a blob URL via
+      // FileSystem, but to keep this commit minimal we pass the cloud
+      // URL directly. expo-audio handles streaming HTTPS sources.
+      const speakUrl = `${cloudUrl}/api/tutor/speak`;
+      // Player can't carry headers; instead we use a one-shot fetch
+      // → blob → data URI approach. Encode the MP3 bytes as base64.
+      const buf = await speakRes.arrayBuffer();
+      const dataUri = `data:audio/mpeg;base64,${arrayBufferToBase64(buf)}`;
+      setTtsUri(dataUri);
+      // Don't block on actual playback — return to idle so the mic is
+      // available again. expo-audio handles the player lifecycle.
+      void speakUrl;  // suppress unused warning (kept as a doc)
+      setPhase('idle');
+    } catch (err) {
+      setPhase('error');
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+    }
+  }, [phase, recorder, cloudUrl, accessToken]);
+
+  const onPressIn  = () => { void startRecording(); };
+  const onPressOut = () => { void stopRecordingAndRun(); };
+
+  const buttonLabel =
+    phase === 'recording'     ? `🎙 Recording${recorderState?.durationMillis ? ` · ${(recorderState.durationMillis / 1000).toFixed(1)}s` : ''}` :
+    phase === 'transcribing'  ? '💭 Transcribing…' :
+    phase === 'thinking'      ? '🧠 Spark is thinking…' :
+    phase === 'speaking'      ? '🔊 Speaking…' :
+    'Hold to speak';
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.title}>Talk to Spark</Text>
+      <Text style={styles.body}>
+        Hold the button below and say something — try &ldquo;tell me about wheels&rdquo;
+        or &ldquo;draw a square&rdquo;. Release when you&apos;re done.
+      </Text>
+
+      <ScrollView
+        ref={scrollRef}
+        style={voiceStyles.transcript}
+        contentContainerStyle={voiceStyles.transcriptContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {turns.length === 0 ? (
+          <Text style={voiceStyles.transcriptEmpty}>
+            Your conversation will appear here.
+          </Text>
+        ) : (
+          turns.map((t, i) => (
+            <View
+              key={i}
+              style={[
+                voiceStyles.turn,
+                t.kind === 'kid' ? voiceStyles.turnKid : voiceStyles.turnSpark,
+              ]}
+            >
+              <Text style={voiceStyles.turnLabel}>
+                {t.kind === 'kid' ? 'You' : 'Spark'}
+              </Text>
+              <Text style={voiceStyles.turnText}>{t.text}</Text>
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      <Pressable
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={phase === 'transcribing' || phase === 'thinking' || phase === 'speaking'}
+        style={({ pressed }) => [
+          voiceStyles.micButton,
+          (pressed || phase === 'recording') && voiceStyles.micButtonActive,
+          (phase === 'transcribing' || phase === 'thinking' || phase === 'speaking') && voiceStyles.micButtonBusy,
+        ]}
+      >
+        {(phase === 'transcribing' || phase === 'thinking' || phase === 'speaking') ? (
+          <ActivityIndicator color={colors.cyan} />
+        ) : null}
+        <Text style={voiceStyles.micButtonText}>{buttonLabel}</Text>
+      </Pressable>
+
+      {error && (
+        <Text style={[styles.body, { color: colors.danger, marginTop: space[2] }]}>
+          {error}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+// SSE response from /api/tutor/message is a sequence of
+//   data: {"text": "...partial..."}\n\n
+// lines. We accumulate the `text` fields (the cloud emits incremental
+// chunks but each chunk's `text` is the FULL accumulated reply so
+// far, so we just take the last one).
+function parseSseTextChunks(raw: string): string {
+  let final = '';
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line.startsWith('data:')) continue;
+    const payload = line.slice(5).trim();
+    if (!payload || payload === '[DONE]') continue;
+    try {
+      const obj = JSON.parse(payload) as { text?: string };
+      if (typeof obj.text === 'string') final = obj.text;
+    } catch {
+      // Some events aren't JSON (e.g. plain status) — ignore.
+    }
+  }
+  return final;
+}
+
+// React Native's atob/btoa polyfill works on small payloads, but for
+// audio blobs (~50–200 KB) the cleanest approach is to base64-encode
+// the ArrayBuffer manually. This is ~equal-perf to btoa-on-binary-
+// string on RN's JS engine.
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  // 0x8000-byte chunks avoid stack-overflow on big buffers.
+  for (let i = 0; i < bytes.byteLength; i += 0x8000) {
+    const slice = bytes.subarray(i, Math.min(i + 0x8000, bytes.byteLength));
+    bin += String.fromCharCode.apply(null, Array.from(slice));
+  }
+  // eslint-disable-next-line no-undef
+  return globalThis.btoa(bin);
+}
+
+const voiceStyles = StyleSheet.create({
+  transcript: {
+    maxHeight: 220,
+    marginVertical: space[3],
+    borderRadius: radius.sm,
+    backgroundColor: colors.panel2,
+    borderColor: colors.border,
+    borderWidth: 1,
+  },
+  transcriptContent: {
+    padding: space[3],
+    gap: space[2],
+  },
+  transcriptEmpty: {
+    color: colors.muted,
+    ...fontType.body,
+    textAlign: 'center',
+    paddingVertical: space[5],
+  },
+  turn: {
+    padding: space[3],
+    borderRadius: radius.sm,
+  },
+  turnKid: {
+    backgroundColor: 'rgba(125, 224, 255, 0.10)',
+    alignSelf: 'flex-end',
+    maxWidth: '90%',
+  },
+  turnSpark: {
+    backgroundColor: 'rgba(168, 85, 247, 0.10)',
+    alignSelf: 'flex-start',
+    maxWidth: '90%',
+  },
+  turnLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+    fontWeight: '700',
+  },
+  turnText: {
+    color: colors.text,
+    ...fontType.body,
+  },
+  micButton: {
+    flexDirection: 'row',
+    gap: space[2],
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: space[4],
+    paddingHorizontal: space[5],
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(125, 224, 255, 0.08)',
+    borderColor: colors.border,
+    borderWidth: 1,
+  },
+  micButtonActive: {
+    backgroundColor: 'rgba(255, 79, 140, 0.20)',
+    borderColor: colors.pink,
+  },
+  micButtonBusy: {
+    opacity: 0.55,
+  },
+  micButtonText: {
+    color: colors.text,
+    ...fontType.subtitle,
+    fontSize: 15,
+  },
+});
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
