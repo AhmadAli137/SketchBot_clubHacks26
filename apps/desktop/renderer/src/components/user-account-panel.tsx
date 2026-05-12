@@ -243,6 +243,17 @@ export function UserAccountPanel({ role, name, email, robotSerial, onSignOut, on
               >
                 Calibrate
               </button>
+              <button
+                type="button"
+                className="account-upgrade-btn"
+                title="Quick check that calibration is still accurate (~30s)"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('sketchbot:open-drift-check'));
+                  onClose();
+                }}
+              >
+                Drift check
+              </button>
             </div>
           </div>
         )}

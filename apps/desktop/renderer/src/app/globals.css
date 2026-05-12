@@ -17099,6 +17099,45 @@ select.block-param-input{width:auto;padding-right:20px}
 .cal-success p { color: var(--muted); }
 .cal-success button { margin-top: 12px; }
 
+/* Drift-check table — two compact rows of label / measurement that
+   fill in as the steps complete. Pass / fail colouring on the value. */
+.cal-drift-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0;
+}
+.cal-drift-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.88rem;
+}
+.cal-drift-label { color: var(--muted); }
+.cal-drift-pending {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.cal-drift-value {
+  color: var(--fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.cal-drift-value.is-ok   { color: var(--green); }
+.cal-drift-value.is-fail { color: #fca5a5; }
+.cal-drift-delta {
+  margin-left: 6px;
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.cal-drift-value.is-ok   .cal-drift-delta { color: color-mix(in srgb, var(--green) 70%, var(--muted)); }
+.cal-drift-value.is-fail .cal-drift-delta { color: #fca5a5; }
+
 /* Subtle dot pulse used by the "Phone driving" arbitration chip so the
    local user notices when another session has taken over the bot. */
 @keyframes sb-pulse {

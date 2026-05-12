@@ -46,6 +46,7 @@ import { useCloudKeepalive } from '@/lib/use-cloud-keepalive';
 // ensureNarratorSubscribed() wires the program-event → spark-event relay.
 import { setRobotSnapshot, ensureNarratorSubscribed } from '@/lib/program-narrator';
 import { RobotCalibrationWizard } from '@/components/robot-calibration-wizard';
+import { RobotDriftCheck } from '@/components/robot-drift-check';
 
 type CameraSource = 'companion-camera' | 'browser-camera' | 'phone-webrtc' | 'external-camera' | 'kit-webrtc' | 'demo';
 type AppView = 'plan' | 'auth' | 'difficulty-onboarding' | 'home' | 'session';
@@ -174,10 +175,16 @@ export default function HomePage() {
   // (account panel, paired-robot card, future drift-check) don't need
   // their own props plumbing.
   const [calibrationOpen, setCalibrationOpen] = useState(false);
+  const [driftCheckOpen, setDriftCheckOpen] = useState(false);
   useEffect(() => {
-    const handler = () => setCalibrationOpen(true);
-    window.addEventListener('sketchbot:open-calibration', handler);
-    return () => window.removeEventListener('sketchbot:open-calibration', handler);
+    const openCal = () => setCalibrationOpen(true);
+    const openDrift = () => setDriftCheckOpen(true);
+    window.addEventListener('sketchbot:open-calibration', openCal);
+    window.addEventListener('sketchbot:open-drift-check', openDrift);
+    return () => {
+      window.removeEventListener('sketchbot:open-calibration', openCal);
+      window.removeEventListener('sketchbot:open-drift-check', openDrift);
+    };
   }, []);
   // True after the user clicks Just Play — makes the home screen render its
   // sandbox-view layout (hero + sessions gallery) regardless of role.
@@ -1572,6 +1579,17 @@ export default function HomePage() {
         apiBase={apiBase}
         state={state}
         onClose={() => setCalibrationOpen(false)}
+      />
+
+      {/* Quick drift check (Cal.5) — two-step "are you still
+          calibrated?" verification. Same event-bus pattern as the
+          wizard above; if it finds drift it offers a one-click jump
+          into the full wizard. */}
+      <RobotDriftCheck
+        open={driftCheckOpen}
+        apiBase={apiBase}
+        state={state}
+        onClose={() => setDriftCheckOpen(false)}
       />
 
       {/* Difficulty re-assessment modal — accessible from the level dropdown in any session */}
