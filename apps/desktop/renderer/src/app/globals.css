@@ -11801,10 +11801,15 @@ select.block-param-input{width:auto;padding-right:20px}
    toolbar. Clicking opens the in-app pair modal via the
    'sketchbot:open-pair-robot' custom event. */
 .plan-robot-chip {
-  position: absolute;
-  top: 64px;
-  right: 22px;
-  z-index: 5;
+  /* Sit in the same row as the global top-right controls (sound + theme
+     + profile, anchored at top:8 right:22, ~124px wide → left edge
+     ~right:146), with a 12 px gap before the cluster starts. Matches
+     the home-screen pill's slot so the two surfaces don't fight for
+     the corner. */
+  position: fixed;
+  top: 14px;
+  right: 158px;
+  z-index: 181;
   display: inline-flex;
   align-items: center;
   gap: 6px;

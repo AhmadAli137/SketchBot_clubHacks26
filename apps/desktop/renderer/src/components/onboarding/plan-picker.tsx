@@ -224,8 +224,14 @@ export function PlanPicker({ apiBase, savedSession, robotSerial = null, robotCon
                   stacking another motion component on top of the page
                   transition + plan-split fade + plan-hero slide raced
                   with Framer's hydration on first load, leaving the
-                  logo stuck at opacity 0 until a re-mount. */}
-              <div className="plan-hero-logo">
+                  logo stuck at opacity 0 until a re-mount. The inline
+                  opacity/visibility belt-and-suspenders force visibility
+                  even if a previous build's Framer style somehow leaks
+                  through HMR onto this element. */}
+              <div
+                className="plan-hero-logo"
+                style={{ opacity: 1, visibility: 'visible' }}
+              >
                 <MotrixLogo size={52} showWordmark animate={false} />
               </div>
 
